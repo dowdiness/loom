@@ -71,7 +71,6 @@ pub using @core {
   type TextRange,
   type TextReplacement,
   type TextDelta,
-  type TokenEvidence,
   type TokenBuffer,
   type TokenInfo,
   trait Renderable,

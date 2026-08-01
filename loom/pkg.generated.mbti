@@ -203,8 +203,6 @@ pub using @core {type TextReplacement}
 
 pub using @core {type TokenBuffer}
 
-pub using @core {type TokenEvidence}
-
 pub using @core {type TokenInfo}
 
 pub using @seam {trait AstView}

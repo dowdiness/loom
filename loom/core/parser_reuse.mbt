@@ -285,27 +285,8 @@ fn[T, K : @seam.ToRawKind] collect_reused_error_spans(
 }
 
 ///|
-/// Return the first token that starts at or after byte_offset, or overlaps it
-/// (end > byte_offset). Overlap handling covers zero-width tokens and error
-/// spans that fall mid-token. Scans forward from from_pos.
-fn[T, K] ParserContext::token_info_at_or_after(
-  self : ParserContext[T, K],
-  from_pos : Int,
-  byte_offset : Int,
-) -> TokenInfo[T] {
-  for pos in from_pos..<self.token_count {
-    let start = (self.get_start)(pos)
-    let end = (self.get_end)(pos)
-    if start >= byte_offset || end > byte_offset {
-      return { token: (self.get_token)(pos), len: end - start }
-    }
-  }
-  { token: self.spec.eof_token, len: 0 }
-}
-
-///|
 /// Add a diagnostic unless an equivalent parser error already exists.
-/// Equivalence uses the stable logical key and refreshes volatile evidence.
+/// Equivalence uses the stable logical key and retains the latest diagnostic.
 /// Returns true if newly added, false if an existing diagnostic was updated.
 fn[T, K] ParserContext::push_diagnostic_unique(
   self : ParserContext[T, K],
@@ -379,19 +360,17 @@ fn[T, K] ParserContext::replay_reused_diagnostics(
 ///|
 /// If previous diagnostics are unavailable, synthesize diagnostics from
 /// pre-collected error spans in the reused subtree.
-fn[T : @seam.ToRawKind, K] ParserContext::synthesize_reused_diagnostics(
+fn[T, K] ParserContext::synthesize_reused_diagnostics(
   self : ParserContext[T, K],
   spans : Array[ReusedErrorSpan],
 ) -> Unit {
   for span in spans {
-    let info = self.token_info_at_or_after(self.position, span.start)
     let _ = self.push_diagnostic_unique(
       make_parser_diagnostic(
         self.source_id,
         "reused syntax error",
         span.start,
         span.end,
-        info.token,
       ),
     )
   }
@@ -401,8 +380,7 @@ fn[T : @seam.ToRawKind, K] ParserContext::synthesize_reused_diagnostics(
 /// Emit a reused node, replay its diagnostics, and advance both positions
 /// past it. Order matters:
 ///   1. reuse event        — rebuild reused tokens against the current source
-///   2. replay/synthesize  — restore diagnostics while self.position still
-///                           points at node start (token_info_at_or_after needs it)
+///   2. replay/synthesize  — restore diagnostics for the reused node
 ///   3. advance_past_reused — advance self.position through the new token stream
 ///   4. cursor.advance_past — advance cursor.current_offset through the old tree
 ///

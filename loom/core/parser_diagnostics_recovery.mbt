@@ -1,35 +1,23 @@
 // Generic parser infrastructure — parser diagnostics and recovery placeholders
 
 ///|
-/// Build a parser diagnostic for a known token span. The token payload is
-/// erased immediately so consumers never need to re-tokenize for evidence.
-fn[T : @seam.ToRawKind] make_parser_diagnostic(
+/// Build a parser diagnostic for a known source range.
+fn make_parser_diagnostic(
   source_id : SourceId,
   msg : String,
   start : Int,
   end : Int,
-  token : T,
   code? : DiagnosticCode? = None,
 ) -> Diagnostic {
-  let (labels, token, notes) : (
-    Array[DiagnosticLabel],
-    TokenEvidence?,
-    Array[String],
-  ) = try TextRange::from_offsets(start, end) catch {
+  let (labels, notes) : (Array[DiagnosticLabel], Array[String]) = try
+    TextRange::from_offsets(start, end)
+  catch {
     error =>
-      (
-        [],
-        None,
-        ["invalid diagnostic range preserved as " + @debug.to_string(error)],
-      )
+      ([], ["invalid diagnostic range preserved as " + @debug.to_string(error)])
   } noraise {
     range => {
       let span = SourceSpan(source_id, range)
-      (
-        [DiagnosticLabel(LabelStyle::Primary, span, None)],
-        Some(TokenEvidence(token.to_raw(), span)),
-        [],
-      )
+      ([DiagnosticLabel(LabelStyle::Primary, span, None)], [])
     }
   }
   Diagnostic(
@@ -39,14 +27,12 @@ fn[T : @seam.ToRawKind] make_parser_diagnostic(
     message=msg,
     labels~,
     notes~,
-    token~,
   )
 }
 
 ///|
 /// Report an already-structured diagnostic through parser diagnostic
-/// collection. Equivalent parser diagnostics refresh token evidence instead of
-/// creating duplicates.
+/// collection. Equivalent parser diagnostics do not create duplicates.
 pub fn[T, K] ParserContext::report(
   self : ParserContext[T, K],
   diagnostic : Diagnostic,
@@ -84,8 +70,8 @@ pub fn[T, K] ParserContext::report_error(
 
 ///|
 /// Report a parser error at the current non-trivia token, or at EOF when no
-/// token remains. The token type is erased through `ToRawKind`.
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_at_current(
+/// token remains.
+pub fn[T : @seam.IsTrivia, K] ParserContext::report_at_current(
   self : ParserContext[T, K],
   message~ : String,
   code? : DiagnosticCode? = None,
@@ -95,14 +81,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_at_current
     .map_or_else(
       () => {
         let eof = self.source.length()
-        make_parser_diagnostic(
-          self.source_id,
-          message,
-          eof,
-          eof,
-          self.spec.eof_token,
-          code~,
-        )
+        make_parser_diagnostic(self.source_id, message, eof, eof, code~)
       },
       pos => {
         make_parser_diagnostic(
@@ -110,7 +89,6 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_at_current
           message,
           (self.get_start)(pos),
           (self.get_end)(pos),
-          (self.get_token)(pos),
           code~,
         )
       },
@@ -120,7 +98,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_at_current
 
 ///|
 /// Report a simple "expected ..." parser diagnostic at the current token.
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_expected(
+pub fn[T : @seam.IsTrivia, K] ParserContext::report_expected(
   self : ParserContext[T, K],
   expected~ : String,
   code? : DiagnosticCode? = None,
@@ -129,7 +107,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_expected(
 }
 
 ///|
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::error(
+pub fn[T : @seam.IsTrivia, K] ParserContext::error(
   self : ParserContext[T, K],
   msg : String,
 ) -> Unit {

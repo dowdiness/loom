@@ -166,15 +166,9 @@ test "reparse_block offsets new structured diagnostics and drops stale block dia
   )
   let old_syntax = @seam.SyntaxNode::from_cst(old_tree)
   let old_diagnostics = DiagnosticSet::empty()
-  old_diagnostics.push(
-    test_parser_diagnostic("before old block", 0, 1, TestTok::Num(0)),
-  )
-  old_diagnostics.push(
-    test_parser_diagnostic("inside old block", 2, 3, TestTok::Num(1)),
-  )
-  old_diagnostics.push(
-    test_parser_diagnostic("after old block", 7, 7, TestTok::TokEof),
-  )
+  old_diagnostics.push(test_parser_diagnostic("before old block", 0, 1))
+  old_diagnostics.push(test_parser_diagnostic("inside old block", 2, 3))
+  old_diagnostics.push(test_parser_diagnostic("after old block", 7, 7))
   let block_spec : BlockReparseSpec[TestTok, TestKind] = {
     is_reparseable: kind => kind == test_kind_raw(KExpr),
     get_reparser: fn(node, _, _) {
@@ -216,16 +210,11 @@ test "reparse_block offsets new structured diagnostics and drops stale block dia
   let after = find_diagnostic_by_message(diagnostics, "after old block")
   inspect(diagnostic_start(after), content="8")
   inspect(diagnostic_end(after), content="8")
-  inspect(diagnostic_token_start(after), content="8")
-  inspect(diagnostic_token_end(after), content="8")
 
   let expected = find_diagnostic_by_message(diagnostics, "expected Plus")
   inspect(diagnostic_code_value(expected), content="parse.expected.plus")
   inspect(diagnostic_start(expected), content="7")
   inspect(diagnostic_end(expected), content="8")
-  inspect(diagnostic_token_raw(expected), content="0")
-  inspect(diagnostic_token_start(expected), content="7")
-  inspect(diagnostic_token_end(expected), content="8")
 }
 
 ///|

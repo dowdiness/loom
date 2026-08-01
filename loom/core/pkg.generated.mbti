@@ -96,7 +96,7 @@ type CursorFrame
 pub struct Diagnostic {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn Diagnostic::Diagnostic(source~ : DiagnosticSource, severity~ : DiagnosticSeverity, message~ : String, code? : DiagnosticCode?, labels? : Array[DiagnosticLabel], notes? : Array[String], fixes? : Array[DiagnosticFix], token? : TokenEvidence?) -> Self
+pub fn Diagnostic::Diagnostic(source~ : DiagnosticSource, severity~ : DiagnosticSeverity, message~ : String, code? : DiagnosticCode?, labels? : Array[DiagnosticLabel], notes? : Array[String], fixes? : Array[DiagnosticFix]) -> Self
 pub fn Diagnostic::code(Self) -> DiagnosticCode?
 pub fn Diagnostic::fixes(Self) -> Array[DiagnosticFix]
 pub fn Diagnostic::format(Self) -> String
@@ -111,7 +111,6 @@ pub fn Diagnostic::offset_by(Self, SourceId, Int, TextOffset) -> Self raise Diag
 pub fn Diagnostic::render_plain(Self, SourceProvider) -> String raise DiagnosticRenderError
 pub fn Diagnostic::severity(Self) -> DiagnosticSeverity
 pub fn Diagnostic::source(Self) -> DiagnosticSource
-pub fn Diagnostic::token(Self) -> TokenEvidence?
 
 pub struct DiagnosticCode {
   // private fields
@@ -352,7 +351,7 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::emit_incomplete_placeholder(Self[T
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_token(Self[T, K], K) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_token_with_goal(Self[T, K], Int, K) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_zero_width(Self[T, K], K) -> Unit
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::error(Self[T, K], String) -> Unit
+pub fn[T : @seam.IsTrivia, K] ParserContext::error(Self[T, K], String) -> Unit
 pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::expect(Self[T, K], T, K) -> Bool
 pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::expect_adjacent(Self[T, K], T, K) -> Bool
 pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::expect_after_skip(Self[T, K], (T) -> Bool, K, T, K) -> Bool
@@ -373,9 +372,9 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(Self[T, K]) -> TokenInfo[
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_nth(Self[T, K], Int) -> T
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_while_skip(Self[T, K], (T) -> Bool) -> T
 pub fn[T, K] ParserContext::report(Self[T, K], Diagnostic) -> Unit
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_at_current(Self[T, K], message~ : String, code? : DiagnosticCode?) -> Unit
+pub fn[T : @seam.IsTrivia, K] ParserContext::report_at_current(Self[T, K], message~ : String, code? : DiagnosticCode?) -> Unit
 pub fn[T, K] ParserContext::report_error(Self[T, K], message~ : String, code? : DiagnosticCode?, range? : TextRange?) -> Unit
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_expected(Self[T, K], expected~ : String, code? : DiagnosticCode?) -> Unit
+pub fn[T : @seam.IsTrivia, K] ParserContext::report_expected(Self[T, K], expected~ : String, code? : DiagnosticCode?) -> Unit
 pub fn[T, K] ParserContext::restore(Self[T, K], Checkpoint[T, K]) -> Unit
 pub fn[T : Eq + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::separated_list(Self[T, K], K, T, () -> Bool, element_start? : () -> Bool, wrap_element? : Bool) -> Int
 pub fn[T, K] ParserContext::set_goal_source(Self[T, K], (Int, Int) -> (T, Int), subsumption_check? : (Int, Int) -> Bool) -> Unit
@@ -529,13 +528,6 @@ pub fn[T] TokenBuffer::set_goal_step(Self[T], (String, Int, Int) -> LexStep[T]) 
 pub fn[T] TokenBuffer::token_count(Self[T]) -> Int
 pub fn[T] TokenBuffer::tokenize_at_offset(Self[T], Int, Int) -> LexStep[T]
 pub fn[T : Eq] TokenBuffer::update(Self[T], Edit, String) -> Unit raise LexError
-
-pub struct TokenEvidence {
-  // private fields
-} derive(Eq, @debug.Debug)
-pub fn TokenEvidence::TokenEvidence(@seam.RawKind, SourceSpan) -> Self
-pub fn TokenEvidence::kind(Self) -> @seam.RawKind
-pub fn TokenEvidence::span(Self) -> SourceSpan
 
 pub struct TokenInfo[T] {
   token : T

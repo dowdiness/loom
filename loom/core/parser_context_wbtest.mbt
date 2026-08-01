@@ -37,17 +37,14 @@ fn test_parser_diagnostic(
   message : String,
   start : Int,
   end : Int,
-  token : TestTok,
 ) -> Diagnostic {
-  let range = test_range_or_abort(start, end)
-  let span = SourceSpan(SourceId("parser-context-source"), range)
-  Diagnostic(
-    source=DiagnosticSource::parser(),
-    severity=Error,
-    message~,
-    labels=[DiagnosticLabel(LabelStyle::Primary, span, None)],
-    token=Some(TokenEvidence(@seam.ToRawKind::to_raw(token), span)),
+  let span = SourceSpan(
+    SourceId("parser-context-source"),
+    test_range_or_abort(start, end),
   )
+  Diagnostic(source=DiagnosticSource::parser(), severity=Error, message~, labels=[
+    DiagnosticLabel(LabelStyle::Primary, span, None),
+  ])
 }
 
 ///|
@@ -69,33 +66,6 @@ fn diagnostic_end(diagnostic : Diagnostic) -> Int {
   match primary {
     [label] => label.span().range().end().value()
     _ => abort("expected exactly one diagnostic primary range")
-  }
-}
-
-///|
-fn diagnostic_token_raw(diagnostic : Diagnostic) -> Int {
-  match diagnostic.token() {
-    Some(evidence) => {
-      let @seam.RawKind(kind) = evidence.kind()
-      kind
-    }
-    None => abort("expected diagnostic token evidence")
-  }
-}
-
-///|
-fn diagnostic_token_start(diagnostic : Diagnostic) -> Int {
-  match diagnostic.token() {
-    Some(evidence) => evidence.span().range().start().value()
-    None => abort("expected diagnostic token evidence")
-  }
-}
-
-///|
-fn diagnostic_token_end(diagnostic : Diagnostic) -> Int {
-  match diagnostic.token() {
-    Some(evidence) => evidence.span().range().end().value()
-    None => abort("expected diagnostic token evidence")
   }
 }
 
@@ -329,11 +299,10 @@ test "ParserContext::report records explicit structured diagnostic" {
   inspect(diagnostic_code_value(diagnostic), content="parse.manual")
   inspect(diagnostic_start(diagnostic), content="0")
   inspect(diagnostic_end(diagnostic), content="1")
-  inspect(diagnostic.token() is None, content="true")
 }
 
 ///|
-test "ParserContext::report_at_current attaches current token evidence" {
+test "ParserContext::report_at_current attaches the current token range" {
   let src = "  +"
   let toks = test_tokenize(src)
   let ctx = ParserContext::new(
@@ -352,13 +321,10 @@ test "ParserContext::report_at_current attaches current token evidence" {
   inspect(diagnostic_code_value(diagnostic), content="parse.current")
   inspect(diagnostic_start(diagnostic), content="2")
   inspect(diagnostic_end(diagnostic), content="3")
-  inspect(diagnostic_token_raw(diagnostic), content="1")
-  inspect(diagnostic_token_start(diagnostic), content="2")
-  inspect(diagnostic_token_end(diagnostic), content="3")
 }
 
 ///|
-test "ParserContext::report_at_current attaches EOF token evidence" {
+test "ParserContext::report_at_current attaches the EOF range" {
   let src = "1"
   let toks = test_tokenize(src)
   let ctx = ParserContext::new(
@@ -377,13 +343,10 @@ test "ParserContext::report_at_current attaches EOF token evidence" {
   inspect(diagnostic_code_value(diagnostic), content="parse.eof")
   inspect(diagnostic_start(diagnostic), content="1")
   inspect(diagnostic_end(diagnostic), content="1")
-  inspect(diagnostic_token_raw(diagnostic), content="7")
-  inspect(diagnostic_token_start(diagnostic), content="1")
-  inspect(diagnostic_token_end(diagnostic), content="1")
 }
 
 ///|
-test "ParserContext::report_expected uses current token evidence" {
+test "ParserContext::report_expected uses the current token range" {
   let src = "+"
   let toks = test_tokenize(src)
   let ctx = ParserContext::new(
@@ -402,7 +365,6 @@ test "ParserContext::report_expected uses current token evidence" {
   inspect(diagnostic_code_value(diagnostic), content="parse.expected.number")
   inspect(diagnostic_start(diagnostic), content="0")
   inspect(diagnostic_end(diagnostic), content="1")
-  inspect(diagnostic_token_raw(diagnostic), content="1")
 }
 
 ///|
