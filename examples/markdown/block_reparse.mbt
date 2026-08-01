@@ -11,10 +11,12 @@ fn is_markdown_reparseable_block(kind : @seam.RawKind) -> Bool {
 ///|
 /// Strict-interior edits keep the first character fixed, but marker-prefixed
 /// paragraphs can still become headings, lists, or code fences by editing after
-/// that first character. Decline them without adding BlockReparseContext.
+/// that first character. Whitespace-prefixed container children can likewise
+/// cross an indented-code column after a space or tab edit. Decline both without
+/// adding BlockReparseContext so the owning container can reclassify the block.
 fn paragraph_start_allows_reparse(text : String) -> Bool {
   match text {
-    ['#' | '-' | '*' | '+' | '`' | '>', ..] => false
+    [' ' | '\t' | '#' | '-' | '*' | '+' | '`' | '>', ..] => false
     _ => true
   }
 }
