@@ -57,7 +57,7 @@ Valid CommonMark block and inline HTML are semantic `HtmlBlock` and
 `InlineHtml` nodes. They are distinct from malformed recovery `Raw` nodes.
 MarkdownIR records syntax meaning and origins, not trust or sanitization.
 
-HTML-like adapters take an explicit `RawHtmlPolicy`:
+HTML rendering adapters take an explicit `RawHtmlPolicy`:
 
 - `Escape` is the safe default for product-facing HTML;
 - `Omit` intentionally removes valid raw HTML;
@@ -65,8 +65,13 @@ HTML-like adapters take an explicit `RawHtmlPolicy`:
 - `Passthrough` emits raw HTML and is selected explicitly by the CommonMark
   conformance harness.
 
-No sanitizer is introduced by this effort. Adapter-specific mdast behavior uses
-the same policy vocabulary and must not silently choose passthrough.
+No sanitizer is introduced by this effort. mdast export is a semantic
+interchange adapter, not an HTML rendering adapter: valid `HtmlBlock` and
+`InlineHtml` always export as mdast `html` nodes, independent of
+`RawHtmlPolicy`. A downstream mdast-to-HTML renderer must make its own explicit
+raw-HTML policy choice. Malformed `Raw` and `Recovered` nodes continue to follow
+the separate recovery adapter contract and never masquerade as valid mdast
+`html`.
 
 ### Inline semantic distinctions remain typed
 

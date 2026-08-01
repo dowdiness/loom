@@ -20,8 +20,9 @@ and independently verifiable.
   boundaries.
 - Do not count `Unsupported`, malformed `Raw`, `Recovered`, diagnostics, skips,
   or xfails as conformance.
-- Use explicit raw HTML policy; product default is `Escape`, conformance selects
-  `Passthrough`.
+- Use explicit raw HTML policy at HTML rendering seams; product default is
+  `Escape`, conformance selects `Passthrough`, and mdast export preserves valid
+  raw HTML as semantic `html` nodes.
 - Add or widen reuse only after semantic parity; fallback is always valid.
 
 ## Ordered delivery graph
@@ -97,7 +98,9 @@ section totals, and main commit in #721.
 ```text
 #807 completion-grade audit taxonomy
   ├─ #808 private block-container core
-  │    ├─ #392 #394 #478 #479 #481 block feature slices
+  │    ├─ #392 #478 #479 #481 block feature slices
+  │    ├─ #474 parser/lowering indentation consistency
+  │    │    └─ #394 list child-flow/indentation/tab semantics
   │    ├─ #480 HTML blocks (also waits for #809)
   │    └─ #811 definition recognition/collection
   │          └─ #812 link/image/reference resolution
@@ -140,7 +143,8 @@ For every feature PR:
 4. Compare diagnostic identity, source IDs, labels, and ranges.
 5. Compare MarkdownIR semantic fields and origins.
 6. Compare HTML under the explicitly selected raw-HTML policy.
-7. Assert fallback for boundary-changing edits; assert reuse only for selected
+7. Compare mdast semantic export; valid block/inline HTML remains `html`.
+8. Assert fallback for boundary-changing edits; assert reuse only for selected
    safe fast paths.
 
 Feature-specific edit families:
@@ -162,6 +166,10 @@ Feature-specific edit families:
   move to the inline-HTML owner.
 - #430 is closed as stale because the current audit passes all thematic-break and
   setext-heading examples.
+- #460 is closed as superseded because #808 owns consolidation of duplicated
+  container dispatch and indentation decisions.
+- #474 follows #808 as the parser/lowering indentation-consistency gate; #394
+  follows #474 before widening list child-flow and tab semantics.
 - #721 replaces its obsolete 50%/abort language with the 652/652 exit contract.
 - #723 and the M5/M6/M7 descriptions carry this order as the canonical tracker.
 

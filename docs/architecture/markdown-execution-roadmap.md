@@ -42,20 +42,20 @@ editor projection before this chain establishes the adapter boundary.
    [#808](https://github.com/dowdiness/loom/issues/808).
    [#327](https://github.com/dowdiness/loom/issues/327) tracks this foundation;
    it is not itself one broad implementation PR.
-2. Once #327 provides that shared model, work on list children and indentation
-   ([#394](https://github.com/dowdiness/loom/issues/394)), blockquote
-   continuation ([#478](https://github.com/dowdiness/loom/issues/478)),
+2. Once #808 provides that shared model,
+   [#474](https://github.com/dowdiness/loom/issues/474) pins parser/lowering
+   indentation consistency. List children, indentation, and tabs
+   ([#394](https://github.com/dowdiness/loom/issues/394)) follow #474. Work on
+   blockquote continuation ([#478](https://github.com/dowdiness/loom/issues/478)),
    indented code ([#392](https://github.com/dowdiness/loom/issues/392)), fenced
    code ([#479](https://github.com/dowdiness/loom/issues/479)), and block
-   reference definitions ([#482](https://github.com/dowdiness/loom/issues/482))
+   reference definitions ([#811](https://github.com/dowdiness/loom/issues/811))
    may proceed as independent slices.
-3. Complete the residual block work—marker-indentation consolidation
-   ([#460](https://github.com/dowdiness/loom/issues/460)),
-   parser/lowering indentation consistency
-   ([#474](https://github.com/dowdiness/loom/issues/474)), HTML blocks
-   ([#480](https://github.com/dowdiness/loom/issues/480)), and atomic examples
+3. Complete the residual block work—HTML blocks
+   ([#480](https://github.com/dowdiness/loom/issues/480)) and atomic examples
    ([#481](https://github.com/dowdiness/loom/issues/481))—after the shared
-   block model is stable.
+   block model is stable. The narrower marker-indent cleanup #460 is superseded
+   by #808 rather than layered beside the container core.
 
 ## M6 — CommonMark inline model
 

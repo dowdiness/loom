@@ -195,6 +195,9 @@ fixtures.
   Malformed recovery `Raw` remains a separate opaque node. HTML adapters require
   an explicit raw-HTML policy: product-facing output defaults to `Escape`, while
   the CommonMark conformance harness explicitly selects `Passthrough`.
+  mdast export does not apply that rendering policy: valid block/inline HTML
+  always remains a semantic mdast `html` node, and downstream HTML rendering
+  selects its own policy.
 - Soft breaks, hard breaks, URI/email autolinks, links, and images remain typed
   semantic distinctions. Hard breaks retain a typed trailing-space or backslash
   surface; reference links/images retain inline/full/collapsed/shortcut form.
