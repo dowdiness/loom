@@ -126,6 +126,57 @@ test "incremental links and images: resolution, form, definition, and image edit
 }
 
 ///|
+test "incremental link URI serialization edits match fresh CommonMark projections" {
+  let backslash_prefix = "[link](foo"
+  assert_link_reference_incremental_parity(
+    "introduce-backslash-destination",
+    backslash_prefix + "bar)\n",
+    @core.Edit::insert(backslash_prefix.length(), 1),
+    backslash_prefix + "\\bar)\n",
+    "<p><a href=\"foo%5Cbar\">link</a></p>\n",
+  )
+  let entity_prefix = "[link](foo%20b"
+  assert_link_reference_incremental_parity(
+    "remove-entity-decoded-non-ascii",
+    entity_prefix + "&auml;)\n",
+    @core.Edit::delete(
+      entity_prefix.length(),
+      entity_prefix.length() + "&auml;".length(),
+    ),
+    entity_prefix + ")\n",
+    "<p><a href=\"foo%20b\">link</a></p>\n",
+  )
+  let unicode_prefix = "[link](/"
+  assert_link_reference_incremental_parity(
+    "introduce-raw-unicode-destination",
+    unicode_prefix + "foo)\n",
+    @core.Edit::replace(
+      unicode_prefix.length(),
+      unicode_prefix.length() + "foo".length(),
+      unicode_prefix.length() + "φου".length(),
+    ),
+    unicode_prefix + "φου)\n",
+    "<p><a href=\"/%CF%86%CE%BF%CF%85\">link</a></p>\n",
+  )
+  let title_boundary_source = "[link](/url \"title\")\n"
+  let title_boundary = "[link](/url".length()
+  assert_link_reference_incremental_parity(
+    "replace-title-boundary-space-with-nbsp",
+    title_boundary_source,
+    @core.Edit::replace(title_boundary, title_boundary + 1, title_boundary + 1),
+    "[link](/url \"title\")\n",
+    "<p><a href=\"/url%C2%A0%22title%22\">link</a></p>\n",
+  )
+  assert_link_reference_incremental_parity(
+    "remove-title-boundary-space",
+    title_boundary_source,
+    @core.Edit::delete(title_boundary, title_boundary + 1),
+    "[link](/url\"title\")\n",
+    "<p><a href=\"/url%22title%22\">link</a></p>\n",
+  )
+}
+
+///|
 test "link and image mdast adapters render only typed MarkdownIR data" {
   let source = "[foo][ref] ![bar][ref]\n\n[ref]: /url \"title\"\n"
   let source_id = @core.SourceId("markdown-link-image-mdast")

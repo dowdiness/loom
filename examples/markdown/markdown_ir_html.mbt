@@ -14,6 +14,104 @@ fn html_escape_text(value : String) -> String {
 }
 
 ///|
+fn markdown_ir_html_href_hex_digit(value : Int) -> Char {
+  if value < 10 {
+    (value + 48).unsafe_to_char()
+  } else {
+    (value - 10 + 65).unsafe_to_char()
+  }
+}
+
+///|
+fn markdown_ir_html_write_percent_encoded_byte(
+  buf : StringBuilder,
+  value : Int,
+) -> Unit {
+  buf.write_char('%')
+  buf.write_char(markdown_ir_html_href_hex_digit(value >> 4))
+  buf.write_char(markdown_ir_html_href_hex_digit(value & 0x0F))
+}
+
+///|
+fn markdown_ir_html_escape_href(value : String) -> String {
+  let buf = StringBuilder::StringBuilder()
+  for ch in value {
+    let codepoint = ch.to_int()
+    match ch {
+      '&' => buf.write_string("&amp;")
+      '\'' => buf.write_string("&#x27;")
+      'A'..='Z'
+      | 'a'..='z'
+      | '0'..='9'
+      | '-'
+      | '.'
+      | '_'
+      | '~'
+      | ':'
+      | '/'
+      | '?'
+      | '#'
+      | '@'
+      | '!'
+      | '$'
+      | '*'
+      | '+'
+      | ','
+      | ';'
+      | '='
+      | '('
+      | ')'
+      | '%' => buf.write_char(ch)
+      _ if codepoint <= 0x7F =>
+        markdown_ir_html_write_percent_encoded_byte(buf, codepoint)
+      _ if codepoint <= 0x7FF => {
+        markdown_ir_html_write_percent_encoded_byte(
+          buf,
+          0xC0 | (codepoint >> 6),
+        )
+        markdown_ir_html_write_percent_encoded_byte(
+          buf,
+          0x80 | (codepoint & 0x3F),
+        )
+      }
+      _ if codepoint <= 0xFFFF => {
+        markdown_ir_html_write_percent_encoded_byte(
+          buf,
+          0xE0 | (codepoint >> 12),
+        )
+        markdown_ir_html_write_percent_encoded_byte(
+          buf,
+          0x80 | ((codepoint >> 6) & 0x3F),
+        )
+        markdown_ir_html_write_percent_encoded_byte(
+          buf,
+          0x80 | (codepoint & 0x3F),
+        )
+      }
+      _ => {
+        markdown_ir_html_write_percent_encoded_byte(
+          buf,
+          0xF0 | (codepoint >> 18),
+        )
+        markdown_ir_html_write_percent_encoded_byte(
+          buf,
+          0x80 | ((codepoint >> 12) & 0x3F),
+        )
+        markdown_ir_html_write_percent_encoded_byte(
+          buf,
+          0x80 | ((codepoint >> 6) & 0x3F),
+        )
+        markdown_ir_html_write_percent_encoded_byte(
+          buf,
+          0x80 | (codepoint & 0x3F),
+        )
+      }
+    }
+  }
+  buf.to_string()
+}
+
+///|
 pub(all) enum RawHtmlPolicy {
   Escape
   Omit
@@ -305,7 +403,7 @@ fn markdown_ir_to_commonmark_html_with_list_context(
           raw_html_policy~,
         ),
         "<a href=\"" +
-        html_escape_text(destination) +
+        markdown_ir_html_escape_href(destination) +
         "\"" +
         title_attribute +
         ">",
@@ -319,7 +417,7 @@ fn markdown_ir_to_commonmark_html_with_list_context(
       }
       Ok(
         "<img src=\"" +
-        html_escape_text(destination) +
+        markdown_ir_html_escape_href(destination) +
         "\" alt=\"" +
         html_escape_text(markdown_ir_plain_text(children)) +
         "\"" +

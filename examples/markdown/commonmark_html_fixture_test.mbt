@@ -292,7 +292,7 @@ test "experimental MarkdownIR: CommonMark HTML renderer escapes text code and li
       #|<p>&lt;&gt;&amp;&quot;</p>
       #|<pre><code>&lt;&gt;&amp;&quot;
       #|</code></pre>
-      #|<p><a href="https://example.com/?a=1&amp;b=&quot;q&quot;">&lt;&gt;&amp;&quot;</a></p>
+      #|<p><a href="https://example.com/?a=1&amp;b=%22q%22">&lt;&gt;&amp;&quot;</a></p>
       #|
     ),
   )
