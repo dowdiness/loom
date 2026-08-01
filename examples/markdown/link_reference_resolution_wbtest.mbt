@@ -77,6 +77,19 @@ fn link_reference_has_link(node : MarkdownIR) -> Bool {
 }
 
 ///|
+fn link_reference_has_image(node : MarkdownIR) -> Bool {
+  if node.node is Image(_, _, _, _) {
+    return true
+  }
+  for child in node.children() {
+    if link_reference_has_image(child) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn assert_link_reference_has_no_opaque(node : MarkdownIR) -> Unit raise {
   assert_false(node.is_recovered())
   for child in node.children() {
@@ -148,6 +161,198 @@ test "image resolution remains distinct and retains link reference surface" {
     }
     _ => abort("expected a distinct typed MarkdownIR Image")
   }
+}
+
+///|
+fn assert_image_completion_grade(node : MarkdownIR) -> Unit raise {
+  assert_false(node.is_raw())
+  assert_false(node.is_recovered())
+  assert_false(node.is_unsupported())
+  for child in node.children() {
+    assert_image_completion_grade(child)
+  }
+}
+
+///|
+fn image_completion_ir(source : String) -> MarkdownIR raise {
+  let source_id = @core.SourceId("markdown-image-completion")
+  let (cst, diagnostics) = parse_cst(source_id, source) catch {
+    _ => abort("Markdown image completion parse failed")
+  }
+  assert_eq(diagnostics.length(), 0)
+  experimental_markdown_ir_from_syntax_with_diagnostics(
+    source_id,
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+}
+
+///|
+fn assert_inline_image_surface(
+  image : MarkdownIR,
+  expected_origin : MarkdownIROrigin,
+  expected_label_origin : MarkdownIROrigin,
+  expected_destination_origin : MarkdownIROrigin,
+  expected_destination : String,
+) -> Array[MarkdownIR] raise {
+  match image.node {
+    Image(children, destination, title, surface) => {
+      assert_eq(image.origin, expected_origin)
+      assert_eq(destination, expected_destination)
+      assert_eq(title, None)
+      assert_eq(surface.form, InlineLinkForm)
+      assert_eq(surface.label_origin, Some(expected_label_origin))
+      assert_eq(surface.reference_label_origin, None)
+      assert_eq(surface.destination_origin, Some(expected_destination_origin))
+      assert_eq(surface.title_origin, None)
+      children
+    }
+    _ => abort("expected a typed MarkdownIR Image")
+  }
+}
+
+///|
+test "CommonMark images 574 and 575 retain typed nested label semantics" {
+  let cases : Array[
+    (
+      Int,
+      String,
+      MarkdownIROrigin,
+      MarkdownIROrigin,
+      MarkdownIROrigin,
+      MarkdownIROrigin,
+      MarkdownIROrigin,
+      MarkdownIROrigin,
+      Bool,
+    ),
+  ] = [
+    (
+      574,
+      "![foo ![bar](/url)](/url2)\n",
+      MarkdownIROrigin(start=0, end=26),
+      MarkdownIROrigin(start=2, end=18),
+      MarkdownIROrigin(start=20, end=25),
+      MarkdownIROrigin(start=6, end=18),
+      MarkdownIROrigin(start=8, end=11),
+      MarkdownIROrigin(start=13, end=17),
+      true,
+    ),
+    (
+      575,
+      "![foo [bar](/url)](/url2)\n",
+      MarkdownIROrigin(start=0, end=25),
+      MarkdownIROrigin(start=2, end=17),
+      MarkdownIROrigin(start=19, end=24),
+      MarkdownIROrigin(start=6, end=17),
+      MarkdownIROrigin(start=7, end=10),
+      MarkdownIROrigin(start=12, end=16),
+      false,
+    ),
+  ]
+  for image_case in cases {
+    let (
+      example,
+      source,
+      outer_origin,
+      outer_label_origin,
+      outer_destination_origin,
+      nested_origin,
+      nested_label_origin,
+      nested_destination_origin,
+      nested_is_image,
+    ) = image_case
+    let ir = image_completion_ir(source)
+    assert_image_completion_grade(ir)
+    let outer = only_inline_node(ir)
+    let children = assert_inline_image_surface(
+      outer, outer_origin, outer_label_origin, outer_destination_origin, "/url2",
+    )
+    match children {
+      [first, nested] =>
+        match first.node {
+          Text("foo ") => {
+            assert_eq(markdown_ir_plain_text(children), "foo bar")
+            if nested_is_image {
+              ignore(
+                assert_inline_image_surface(
+                  nested, nested_origin, nested_label_origin, nested_destination_origin,
+                  "/url",
+                ),
+              )
+            } else {
+              match nested.node {
+                Link(nested_children, destination, title, surface) => {
+                  assert_eq(nested.origin, nested_origin)
+                  assert_eq(markdown_ir_plain_text(nested_children), "bar")
+                  assert_eq(destination, "/url")
+                  assert_eq(title, None)
+                  assert_eq(surface.form, InlineLinkForm)
+                  assert_eq(surface.label_origin, Some(nested_label_origin))
+                  assert_eq(surface.reference_label_origin, None)
+                  assert_eq(
+                    surface.destination_origin,
+                    Some(nested_destination_origin),
+                  )
+                  assert_eq(surface.title_origin, None)
+                }
+                _ => abort("expected a nested typed MarkdownIR Link")
+              }
+            }
+          }
+          _ => abort("expected text before the nested image/link")
+        }
+      _ => abort("expected text followed by one nested image/link")
+    }
+    let expected_html = "<p><img src=\"/url2\" alt=\"foo bar\" /></p>\n"
+    match
+      experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+        ir,
+        Passthrough,
+      ) {
+      Ok(html) => assert_eq(html, expected_html)
+      Err(_) =>
+        fail("raw policy rejected CommonMark image " + example.to_string())
+    }
+    let expected_mdast =
+      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"image","url":"/url2","alt":"foo bar"}]}]}
+    inspect(
+      experimental_markdown_ir_to_mdast_json(ir).stringify(),
+      content=expected_mdast,
+    )
+  }
+}
+
+///|
+test "CommonMark image 590 keeps the nested reference label literal" {
+  let source = "![[foo]]\n\n[[foo]]: /url \"title\"\n"
+  let ir = image_completion_ir(source)
+  assert_image_completion_grade(ir)
+  assert_false(link_reference_has_link(ir))
+  assert_false(link_reference_has_image(ir))
+  match ir.node {
+    Document([first, second]) =>
+      match (first.node, second.node) {
+        (Paragraph(first_children, _), Paragraph(second_children, _)) => {
+          assert_eq(markdown_ir_plain_text(first_children), "![[foo]]")
+          assert_eq(
+            markdown_ir_plain_text(second_children),
+            "[[foo]]: /url \"title\"",
+          )
+        }
+        _ => abort("expected two literal paragraphs")
+      }
+    _ => abort("expected two paragraphs for CommonMark image 590")
+  }
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content="<p>![[foo]]</p>\n<p>[[foo]]: /url &quot;title&quot;</p>\n",
+  )
+  let expected_mdast =
+    #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"text","value":"![[foo]]"}]},{"type":"paragraph","children":[{"type":"text","value":"[[foo]]: /url \"title\""}]}]}
+  inspect(
+    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    content=expected_mdast,
+  )
 }
 
 ///|

@@ -52,6 +52,40 @@ fn assert_link_reference_incremental_parity(
 }
 
 ///|
+fn assert_image_incremental_completion_grade(node : MarkdownIR) -> Unit raise {
+  assert_false(node.is_raw())
+  assert_false(node.is_recovered())
+  assert_false(node.is_unsupported())
+  for child in node.children() {
+    assert_image_incremental_completion_grade(child)
+  }
+}
+
+///|
+fn assert_image_incremental_completion_parity(
+  label : String,
+  source : String,
+  edit : @core.Edit,
+  updated : String,
+  expected_html : String,
+) -> Unit raise {
+  assert_link_reference_incremental_parity(
+    label, source, edit, updated, expected_html,
+  )
+  let source_id = @core.SourceId("markdown-image-incremental-" + label)
+  let (cst, diagnostics) = parse_cst(source_id, updated) catch {
+    _ => abort("Markdown image incremental completion parse failed")
+  }
+  assert_eq(diagnostics.length(), 0)
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    source_id,
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  assert_image_incremental_completion_grade(ir)
+}
+
+///|
 test "incremental links and images: resolution, form, definition, and image edits match fresh" {
   let definition_prefix = "[foo][bar]\n\n[bar]"
   assert_link_reference_incremental_parity(
@@ -122,6 +156,34 @@ test "incremental links and images: resolution, form, definition, and image edit
     @core.Edit::insert(0, 1),
     "!" + reference_source,
     "<p><img src=\"/url\" alt=\"foo\" title=\"title\" /></p>\n",
+  )
+}
+
+///|
+test "incremental nested images and nested reference boundaries match fresh" {
+  let nested_image_source = "![foo ![bar](/url)](/url2)\n"
+  assert_image_incremental_completion_parity(
+    "nested-image-to-link",
+    nested_image_source,
+    @core.Edit::delete(6, 7),
+    "![foo [bar](/url)](/url2)\n",
+    "<p><img src=\"/url2\" alt=\"foo bar\" /></p>\n",
+  )
+  let nested_link_source = "![foo [bar](/url)](/url2)\n"
+  assert_image_incremental_completion_parity(
+    "nested-link-to-image",
+    nested_link_source,
+    @core.Edit::insert("![foo ".length(), 1),
+    nested_image_source,
+    "<p><img src=\"/url2\" alt=\"foo bar\" /></p>\n",
+  )
+  let incomplete_nested_label = "![[foo]\n\n[[foo]]: /url \"title\"\n"
+  assert_image_incremental_completion_parity(
+    "complete-literal-nested-reference-boundary",
+    incomplete_nested_label,
+    @core.Edit::insert("![[foo]".length(), 1),
+    "![[foo]]\n\n[[foo]]: /url \"title\"\n",
+    "<p>![[foo]]</p>\n<p>[[foo]]: /url &quot;title&quot;</p>\n",
   )
 }
 
