@@ -54,6 +54,10 @@ pub fn[T, M] tokenize_with_modes(
 pub struct ModeRelexFactory[T] {
   tokenize : (SourceId, String) -> LexResult[T]
   new_session : (SourceId) -> ModeRelexState[T]
+  priv initialize_session : ((SourceId, String) -> (
+    ModeRelexState[T],
+    LexResult[T],
+  ))?
 }
 
 ///|
@@ -63,6 +67,21 @@ pub struct ModeRelexState[T] {
   relex_from : (String, Int, Int, Int, Array[Int], Int, Int) -> ModeRelexResult[
     T,
   ]
+}
+
+///|
+/// Create and initialize one session when the factory owns canonical full
+/// tokenization. Legacy factories return `None` so callers preserve their
+/// separate grammar-lexer path and any diagnostics it adds.
+pub fn[T] ModeRelexFactory::new_session_with_initial(
+  self : ModeRelexFactory[T],
+  source_id : SourceId,
+  source : String,
+) -> (ModeRelexState[T], LexResult[T])? {
+  match self.initialize_session {
+    Some(initialize) => Some(initialize(source_id, source))
+    None => None
+  }
 }
 
 ///|
@@ -369,17 +388,24 @@ fn[T, M : Eq] new_mode_relex_session(
 }
 
 ///|
-/// Erase the mode type M into an immutable factory.
+/// Erase the mode type M into an immutable factory using a fresh lexer shell
+/// for each detached tokenization and parser session.
 ///
-/// Each `new_session` call owns a distinct mode snapshot. Grammar may safely
-/// share this factory across parser instances and detached lexing operations.
-pub fn[T, M : Eq] erase_mode_lexer(
-  lexer : ModeLexer[T, M],
+/// Use this overload when `ModeLexer::lex_step` closes over mutable derived
+/// state such as a source-local index. The builder is called once by each
+/// `tokenize` operation and once by each `new_session` call. Grammar may safely
+/// share the returned factory without sharing those lexer-owned resources.
+/// When installed on a Grammar, its full lexer must be semantically identical
+/// to this factory's `tokenize`; parser initialization uses the session result
+/// directly so it does not build the same derived state twice.
+pub fn[T, M : Eq] erase_mode_lexer_factory(
+  new_lexer : () -> ModeLexer[T, M],
   eof_token : T,
   error_token~ : T,
   error_token_from_message? : ((String) -> T)? = None,
 ) -> ModeRelexFactory[T] {
   let tokenize = fn(source_id : SourceId, source : String) {
+    let lexer = new_lexer()
     tokenize_mode_lexer_recovering(
       source_id,
       lexer,
@@ -390,9 +416,41 @@ pub fn[T, M : Eq] erase_mode_lexer(
     )
   }
   let new_session = fn(source_id : SourceId) {
+    let lexer = new_lexer()
     new_mode_relex_session(
       source_id, lexer, eof_token, error_token, error_token_from_message,
     )
   }
-  { tokenize, new_session }
+  let initialize_session = fn(source_id : SourceId, source : String) {
+    let state = new_session(source_id)
+    let initial = (state.tokenize)(source)
+    (state, initial)
+  }
+  { tokenize, new_session, initialize_session: Some(initialize_session) }
+}
+
+///|
+/// Erase the mode type M into an immutable factory.
+///
+/// Each `new_session` call owns a distinct mode snapshot. Grammar may safely
+/// share this factory when the supplied lexer is itself immutable. Use
+/// `erase_mode_lexer_factory` when the lexer closes over mutable resources that
+/// must be owned by one detached tokenization or parser session.
+pub fn[T, M : Eq] erase_mode_lexer(
+  lexer : ModeLexer[T, M],
+  eof_token : T,
+  error_token~ : T,
+  error_token_from_message? : ((String) -> T)? = None,
+) -> ModeRelexFactory[T] {
+  let factory = erase_mode_lexer_factory(
+    () => lexer,
+    eof_token,
+    error_token~,
+    error_token_from_message~,
+  )
+  {
+    tokenize: factory.tokenize,
+    new_session: factory.new_session,
+    initialize_session: None,
+  }
 }

@@ -1,6 +1,6 @@
 ///|
-let mode_factory : @core.ModeRelexFactory[Token] = @core.erase_mode_lexer(
-  markdown_mode_lexer,
+let mode_factory : @core.ModeRelexFactory[Token] = @core.erase_mode_lexer_factory(
+  new_indexed_markdown_mode_lexer,
   EOF,
   error_token=Error("lex error"),
   error_token_from_message=Some(msg => Error(msg)),

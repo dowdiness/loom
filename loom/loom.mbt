@@ -78,6 +78,7 @@ pub using @core {
   trait TreeNode,
   build_starts,
   erase_mode_lexer,
+  erase_mode_lexer_factory,
   parse_tokens_indexed,
   text_to_delta,
   to_edits,

@@ -602,6 +602,41 @@ test "new_syntax_parser: accepts syntax facade from non-Eq AST grammar without f
 }
 
 ///|
+test "new_syntax_parser: session-owned mode factory tokenizes initial source once" {
+  let lexer_shells : Ref[Int] = Ref(0)
+  let mode_factory = @core.erase_mode_lexer_factory(
+    () => {
+      lexer_shells.val = lexer_shells.val + 1
+      @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal }
+    },
+    Eof,
+    error_token=Err,
+  )
+  let detached_lex_calls : Ref[Int] = Ref(0)
+  let lex = (source_id : @core.SourceId, source : String) => {
+    detached_lex_calls.val = detached_lex_calls.val + 1
+    (mode_factory.tokenize)(source_id, source)
+  }
+  let spec = @core.LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    Eof,
+    parse_root=froot,
+    reuse_size_threshold=0,
+  )
+  let grammar = SyntaxGrammar::new(spec~, lex~, mode_relex=Some(mode_factory))
+  let parser = new_syntax_parser(
+    @core.SourceId("factory-session-owned-mode-source"),
+    "aaa",
+    grammar,
+  )
+  ignore(parser.syntax_tree().read_or_abort())
+  assert_eq(lexer_shells.val, 1)
+  assert_eq(detached_lex_calls.val, 0)
+}
+
+///|
 test "create_buffer: strict-wrapper total lex keeps diagnostic" {
   let source_id = @core.SourceId("factory-strict-buffer-source")
   let buffer = create_buffer(source_id, "a!a", flex, Eof)

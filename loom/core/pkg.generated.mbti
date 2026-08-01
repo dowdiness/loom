@@ -16,6 +16,8 @@ pub fn[T : Canonical + @pretty.Pretty] default_placeholder_via_canonical(T) -> S
 
 pub fn[T, M : Eq] erase_mode_lexer(ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> ModeRelexFactory[T]
 
+pub fn[T, M : Eq] erase_mode_lexer_factory(() -> ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> ModeRelexFactory[T]
+
 pub fn find_reparseable_ancestor(@seam.SyntaxNode, Edit, (@seam.RawKind) -> Bool) -> (@seam.SyntaxNode, Array[Int])?
 
 pub fn next_char_offset(String, Int) -> Int
@@ -301,7 +303,9 @@ pub(all) struct ModeLexer[T, M] {
 pub struct ModeRelexFactory[T] {
   tokenize : (SourceId, String) -> LexResult[T]
   new_session : (SourceId) -> ModeRelexState[T]
+  // private fields
 }
+pub fn[T] ModeRelexFactory::new_session_with_initial(Self[T], SourceId, String) -> (ModeRelexState[T], LexResult[T])?
 
 pub struct ModeRelexResult[T] {
   tokens : Array[TokenInfo[T]]

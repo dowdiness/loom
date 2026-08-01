@@ -12,6 +12,94 @@ priv struct InlineAngleMatch {
 }
 
 ///|
+/// Nearest delimiter endpoints after one `<` candidate. The index is built by
+/// one reverse pass over the source so failed long-form HTML candidates do not
+/// rescan the remaining document at every later `<`.
+priv struct InlineAngleDelimiterSnapshot {
+  comment_end : Int?
+  cdata_end : Int?
+  processing_instruction_end : Int?
+  greater_than_end : Int?
+}
+
+///|
+priv struct InlineAngleDelimiterIndex {
+  angle_delimiters : Map[Int, InlineAngleDelimiterSnapshot]
+  single_quote_closers : Map[Int, Int]
+  double_quote_closers : Map[Int, Int]
+}
+
+///|
+fn ascii_delimiter_matches_at(
+  input : String,
+  start : Int,
+  delimiter : String,
+) -> Bool {
+  guard start >= 0 && start + delimiter.length() <= input.length() else {
+    return false
+  }
+  for offset = 0; offset < delimiter.length(); offset = offset + 1 {
+    if input.code_unit_at(start + offset) != delimiter.code_unit_at(offset) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn build_inline_angle_delimiter_index(
+  input : String,
+) -> InlineAngleDelimiterIndex {
+  let angle_delimiters : Map[Int, InlineAngleDelimiterSnapshot] = Map([])
+  let single_quote_closers : Map[Int, Int] = Map([])
+  let double_quote_closers : Map[Int, Int] = Map([])
+  let mut next_comment_end : Int? = None
+  let mut next_cdata_end : Int? = None
+  let mut next_processing_instruction_end : Int? = None
+  let mut next_greater_than_end : Int? = None
+  let mut next_single_quote : Int? = None
+  let mut next_double_quote : Int? = None
+  for cursor = input.length() - 1; cursor >= 0; cursor = cursor - 1 {
+    if ascii_delimiter_matches_at(input, cursor, "-->") {
+      next_comment_end = Some(cursor + 3)
+    }
+    if ascii_delimiter_matches_at(input, cursor, "]]>") {
+      next_cdata_end = Some(cursor + 3)
+    }
+    if ascii_delimiter_matches_at(input, cursor, "?>") {
+      next_processing_instruction_end = Some(cursor + 2)
+    }
+    let code_unit = input.code_unit_at(cursor).to_int()
+    if code_unit == 0x3E {
+      next_greater_than_end = Some(cursor + 1)
+    }
+    if code_unit == 0x27 {
+      match next_single_quote {
+        Some(closer) => single_quote_closers[cursor] = closer
+        None => ()
+      }
+      next_single_quote = Some(cursor)
+    }
+    if code_unit == 0x22 {
+      match next_double_quote {
+        Some(closer) => double_quote_closers[cursor] = closer
+        None => ()
+      }
+      next_double_quote = Some(cursor)
+    }
+    if code_unit == 0x3C {
+      angle_delimiters[cursor] = {
+        comment_end: next_comment_end,
+        cdata_end: next_cdata_end,
+        processing_instruction_end: next_processing_instruction_end,
+        greater_than_end: next_greater_than_end,
+      }
+    }
+  }
+  { angle_delimiters, single_quote_closers, double_quote_closers }
+}
+
+///|
 fn is_ascii_letter_code_unit(code_unit : Int) -> Bool {
   (code_unit >= 0x41 && code_unit <= 0x5A) ||
   (code_unit >= 0x61 && code_unit <= 0x7A)
@@ -186,19 +274,35 @@ fn consume_html_tag_name(input : String, start : Int) -> Int? {
 }
 
 ///|
-fn consume_html_attribute_value(input : String, start : Int) -> Int? {
+fn consume_html_attribute_value(
+  input : String,
+  start : Int,
+  delimiter_index : InlineAngleDelimiterIndex?,
+) -> Int? {
   guard start < input.length() else { return None }
   let quote = input.code_unit_at(start).to_int()
   if quote == 0x22 || quote == 0x27 {
-    let mut cursor = start + 1
-    while cursor < input.length() &&
-          input.code_unit_at(cursor).to_int() != quote {
-      cursor = cursor + 1
-    }
-    if cursor < input.length() {
-      Some(cursor + 1)
-    } else {
-      None
+    match delimiter_index {
+      Some(index) => {
+        let closer = if quote == 0x22 {
+          index.double_quote_closers.get(start)
+        } else {
+          index.single_quote_closers.get(start)
+        }
+        closer.map(cursor => cursor + 1)
+      }
+      None => {
+        let mut cursor = start + 1
+        while cursor < input.length() &&
+              input.code_unit_at(cursor).to_int() != quote {
+          cursor = cursor + 1
+        }
+        if cursor < input.length() {
+          Some(cursor + 1)
+        } else {
+          None
+        }
+      }
     }
   } else {
     let mut cursor = start
@@ -224,7 +328,11 @@ fn consume_html_attribute_value(input : String, start : Int) -> Int? {
 }
 
 ///|
-fn classify_inline_open_tag_at(input : String, start : Int) -> Int? {
+fn classify_inline_open_tag_at(
+  input : String,
+  start : Int,
+  delimiter_index : InlineAngleDelimiterIndex?,
+) -> Int? {
   guard consume_html_tag_name(input, start + 1) is Some(initial_end) else {
     return None
   }
@@ -255,7 +363,7 @@ fn classify_inline_open_tag_at(input : String, start : Int) -> Int? {
     if after_name_space < input.length() &&
       input.code_unit_at(after_name_space).to_int() == 0x3D {
       let value_start = skip_html_whitespace(input, after_name_space + 1)
-      match consume_html_attribute_value(input, value_start) {
+      match consume_html_attribute_value(input, value_start, delimiter_index) {
         Some(value_end) => cursor = value_end
         None => return None
       }
@@ -288,19 +396,41 @@ fn find_ascii_delimiter(
   input : String,
   start : Int,
   delimiter : String,
+  candidate_start : Int,
+  delimiter_index : InlineAngleDelimiterIndex?,
 ) -> Int? {
-  let mut cursor = start
-  while cursor + delimiter.length() <= input.length() {
-    if input[cursor:cursor + delimiter.length()].to_owned() == delimiter {
-      return Some(cursor + delimiter.length())
+  match delimiter_index {
+    Some(index) =>
+      match index.angle_delimiters.get(candidate_start) {
+        Some(snapshot) =>
+          match delimiter {
+            "-->" => snapshot.comment_end
+            "]]>" => snapshot.cdata_end
+            "?>" => snapshot.processing_instruction_end
+            ">" => snapshot.greater_than_end
+            _ => None
+          }
+        None => None
+      }
+    None => {
+      let mut cursor = start
+      while cursor + delimiter.length() <= input.length() {
+        if ascii_delimiter_matches_at(input, cursor, delimiter) {
+          return Some(cursor + delimiter.length())
+        }
+        cursor = cursor + 1
+      }
+      None
     }
-    cursor = cursor + 1
   }
-  None
 }
 
 ///|
-fn classify_inline_comment_at(input : String, start : Int) -> Int? {
+fn classify_inline_comment_at(
+  input : String,
+  start : Int,
+  delimiter_index : InlineAngleDelimiterIndex?,
+) -> Int? {
   guard start + 4 <= input.length() &&
     input[start:start + 4].to_owned() == "<!--" else {
     return None
@@ -320,7 +450,8 @@ fn classify_inline_comment_at(input : String, start : Int) -> Int? {
     input.code_unit_at(content_start + 1).to_int() == 0x3E) else {
     return None
   }
-  match find_ascii_delimiter(input, content_start, "-->") {
+  match
+    find_ascii_delimiter(input, content_start, "-->", start, delimiter_index) {
     Some(end) if end - 3 == content_start ||
       input.code_unit_at(end - 4).to_int() != 0x2D => Some(end)
     _ => None
@@ -328,7 +459,11 @@ fn classify_inline_comment_at(input : String, start : Int) -> Int? {
 }
 
 ///|
-fn classify_inline_declaration_at(input : String, start : Int) -> Int? {
+fn classify_inline_declaration_at(
+  input : String,
+  start : Int,
+  delimiter_index : InlineAngleDelimiterIndex?,
+) -> Int? {
   guard start + 4 < input.length() &&
     input.code_unit_at(start + 1).to_int() == 0x21 else {
     return None
@@ -348,31 +483,35 @@ fn classify_inline_declaration_at(input : String, start : Int) -> Int? {
     is_html_whitespace_code_unit(input.code_unit_at(cursor).to_int()) else {
     return None
   }
-  find_ascii_delimiter(input, cursor + 1, ">")
+  find_ascii_delimiter(input, cursor + 1, ">", start, delimiter_index)
 }
 
 ///|
-fn classify_inline_html_at(input : String, start : Int) -> InlineAngleMatch? {
+fn classify_inline_html_at(
+  input : String,
+  start : Int,
+  delimiter_index : InlineAngleDelimiterIndex?,
+) -> InlineAngleMatch? {
   guard start < input.length() && input.code_unit_at(start).to_int() == 0x3C else {
     return None
   }
   let end = if start + 9 <= input.length() &&
     input[start:start + 9].to_owned() == "<![CDATA[" {
-    find_ascii_delimiter(input, start + 9, "]]>")
+    find_ascii_delimiter(input, start + 9, "]]>", start, delimiter_index)
   } else if start + 4 <= input.length() &&
     input[start:start + 4].to_owned() == "<!--" {
-    classify_inline_comment_at(input, start)
+    classify_inline_comment_at(input, start, delimiter_index)
   } else if start + 2 <= input.length() &&
     input[start:start + 2].to_owned() == "<?" {
-    find_ascii_delimiter(input, start + 2, "?>")
+    find_ascii_delimiter(input, start + 2, "?>", start, delimiter_index)
   } else if start + 2 <= input.length() &&
     input[start:start + 2].to_owned() == "</" {
     classify_inline_close_tag_at(input, start)
   } else if start + 2 <= input.length() &&
     input[start:start + 2].to_owned() == "<!" {
-    classify_inline_declaration_at(input, start)
+    classify_inline_declaration_at(input, start, delimiter_index)
   } else {
-    classify_inline_open_tag_at(input, start)
+    classify_inline_open_tag_at(input, start, delimiter_index)
   }
   end.map(end => ({ kind: InlineHtmlAngle, end } : InlineAngleMatch))
 }
@@ -410,15 +549,24 @@ fn classify_uri_autolink_at(input : String, start : Int) -> InlineAngleMatch? {
 }
 
 ///|
-fn classify_inline_angle_at(input : String, start : Int) -> InlineAngleMatch? {
+fn classify_inline_angle_at_with_index(
+  input : String,
+  start : Int,
+  delimiter_index : InlineAngleDelimiterIndex?,
+) -> InlineAngleMatch? {
   match classify_uri_autolink_at(input, start) {
     Some(candidate) => Some(candidate)
     None =>
       match classify_email_autolink_at(input, start) {
         Some(candidate) => Some(candidate)
-        None => classify_inline_html_at(input, start)
+        None => classify_inline_html_at(input, start, delimiter_index)
       }
   }
+}
+
+///|
+fn classify_inline_angle_at(input : String, start : Int) -> InlineAngleMatch? {
+  classify_inline_angle_at_with_index(input, start, None)
 }
 
 ///|

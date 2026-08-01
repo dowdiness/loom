@@ -61,6 +61,27 @@ test "incremental inline angle candidates match fresh parsing at every boundary"
       "<p><a href=\"http://foo.bar.baz\">http://foo.bar.baz</a></p>\n",
     ),
     (
+      "URI construction before CRLF",
+      "<http://foo.bar.baz\r\n",
+      @core.Edit::insert("<http://foo.bar.baz".length(), 1),
+      "<http://foo.bar.baz>\r\n",
+      "<p><a href=\"http://foo.bar.baz\">http://foo.bar.baz</a></p>\n",
+    ),
+    (
+      "URI construction before CR",
+      "<http://foo.bar.baz\r",
+      @core.Edit::insert("<http://foo.bar.baz".length(), 1),
+      "<http://foo.bar.baz>\r",
+      "<p><a href=\"http://foo.bar.baz\">http://foo.bar.baz</a></p>\n",
+    ),
+    (
+      "URI construction at EOF",
+      "<http://foo.bar.baz",
+      @core.Edit::insert("<http://foo.bar.baz".length(), 1),
+      "<http://foo.bar.baz>",
+      "<p><a href=\"http://foo.bar.baz\">http://foo.bar.baz</a></p>\n",
+    ),
+    (
       "email destruction",
       "<foo@bar.example.com>\n",
       @core.Edit::delete("<foo".length(), 1),
@@ -100,4 +121,58 @@ test "incremental inline angle candidates match fresh parsing at every boundary"
       expected_html,
     )
   }
+}
+
+///|
+test "inline angle index invalidation is isolated across parser sessions" {
+  let source_id_a = @core.SourceId("markdown-inline-angle-session-a")
+  let source_a = "x <!--open\n"
+  let updated_a = "x <!--open-->\n"
+  let parser_a = @loom.new_parser(source_id_a, source_a, markdown_grammar)
+  let source_id_b = @core.SourceId("markdown-inline-angle-session-b")
+  let source_b = "x <?pi?>\n"
+  let updated_b = "x <?pi\n"
+  let parser_b = @loom.new_parser(source_id_b, source_b, markdown_grammar)
+  parser_a.apply_edit(
+    @core.Edit::insert("x <!--open".length(), "-->".length()),
+    updated_a,
+  )
+  parser_b.apply_edit(
+    @core.Edit::delete("x <?pi".length(), "?>".length()),
+    updated_b,
+  )
+  let fresh_a = @loom.new_parser(source_id_a, updated_a, markdown_grammar)
+  let fresh_b = @loom.new_parser(source_id_b, updated_b, markdown_grammar)
+  assert_eq(
+    parser_a.syntax_tree().read_or_abort(),
+    fresh_a.syntax_tree().read_or_abort(),
+  )
+  assert_eq(
+    parser_b.syntax_tree().read_or_abort(),
+    fresh_b.syntax_tree().read_or_abort(),
+  )
+  assert_eq(
+    experimental_markdown_ir_from_syntax_with_diagnostics(
+      source_id_a,
+      parser_a.syntax_tree().read_or_abort(),
+      parser_a.diagnostics().read_or_abort(),
+    ),
+    experimental_markdown_ir_from_syntax_with_diagnostics(
+      source_id_a,
+      fresh_a.syntax_tree().read_or_abort(),
+      fresh_a.diagnostics().read_or_abort(),
+    ),
+  )
+  assert_eq(
+    experimental_markdown_ir_from_syntax_with_diagnostics(
+      source_id_b,
+      parser_b.syntax_tree().read_or_abort(),
+      parser_b.diagnostics().read_or_abort(),
+    ),
+    experimental_markdown_ir_from_syntax_with_diagnostics(
+      source_id_b,
+      fresh_b.syntax_tree().read_or_abort(),
+      fresh_b.diagnostics().read_or_abort(),
+    ),
+  )
 }

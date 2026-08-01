@@ -185,3 +185,53 @@ test "inline HTML obeys render policy while mdast preserves valid HTML" {
     ),
   )
 }
+
+///|
+test "inline angle semantics cover LF CRLF CR and EOF terminators" {
+  let cases : Array[(String, String)] = [
+    ("LF", "\n"),
+    ("CRLF", "\r\n"),
+    ("CR", "\r"),
+    ("EOF", ""),
+  ]
+  for angle_case in cases {
+    let (label, terminator) = angle_case
+    let source = "x <http://foo.bar.baz> <i>y</i>" + terminator
+    assert_inline_angle_html(
+      source, "<p>x <a href=\"http://foo.bar.baz\">http://foo.bar.baz</a> <i>y</i></p>\n",
+    ) catch {
+      _ => fail("inline angle terminator case failed: " + label)
+    }
+  }
+}
+
+///|
+test "inline angle MarkdownIR uses legacy editor types without changing links" {
+  let ordinary_link_source = "x [foo](bar)\n"
+  assert_eq(
+    experimental_markdown_ir_to_block(
+      inline_angle_ir_from_source(ordinary_link_source),
+    ),
+    parse(
+      @core.SourceId("inline-angle-existing-link-projection"),
+      ordinary_link_source,
+    ),
+  )
+  let source = "x <http://foo.bar.baz> <i>y</i>\n"
+  let via_ir = experimental_markdown_ir_to_block(
+    inline_angle_ir_from_source(source),
+  )
+  assert_eq(
+    via_ir,
+    Block::Document([
+      Block::Paragraph([
+        Inline::Text("x "),
+        Inline::Link([Inline::Text("http://foo.bar.baz")], "http://foo.bar.baz"),
+        Inline::Text(" "),
+        Inline::Text("<i>"),
+        Inline::Text("y"),
+        Inline::Text("</i>"),
+      ]),
+    ]),
+  )
+}
