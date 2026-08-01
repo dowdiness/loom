@@ -631,6 +631,58 @@ test "new_syntax_parser: session-owned mode factory tokenizes initial source onc
 }
 
 ///|
+test "new_syntax_parser: block reparse preserves the token-buffer mode session" {
+  let lexer_shells : Ref[Int] = Ref(0)
+  let mode_factory = @core.erase_mode_lexer_factory(
+    () => {
+      lexer_shells.val = lexer_shells.val + 1
+      @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal }
+    },
+    Eof,
+    error_token=Err,
+  )
+  let spec = @core.LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    Eof,
+    parse_root=froot,
+    reuse_size_threshold=0,
+  )
+  let root_kind = fkind_raw(KRoot)
+  let grammar = SyntaxGrammar::new(
+    spec~,
+    lex=mode_factory.tokenize,
+    mode_relex=Some(mode_factory),
+    block_reparse_spec=Some({
+      is_reparseable: kind => kind == root_kind,
+      get_reparser: (node, _, _) => {
+        if node.kind() == root_kind {
+          Some(froot)
+        } else {
+          None
+        }
+      },
+      is_balanced: _tokens => true,
+    }),
+  )
+  let parser = new_syntax_parser(
+    @core.SourceId("factory-block-mode-session-source"),
+    "aaa",
+    grammar,
+  )
+  ignore(parser.syntax_tree().read_or_abort())
+  // One session owns the persistent token buffer after the initial parse.
+  assert_eq(lexer_shells.val, 1)
+  parser.apply_edit(@core.Edit::insert(1, 1), "aaaa")
+  ignore(parser.syntax_tree().read_or_abort())
+  // Block reparsing needs one detached lexer. Synchronizing the accepted edit
+  // must update the existing TokenBuffer instead of creating a third lexer
+  // session for a replacement buffer.
+  assert_eq(lexer_shells.val, 2)
+}
+
+///|
 test "create_buffer: strict-wrapper total lex keeps diagnostic" {
   let source_id = @core.SourceId("factory-strict-buffer-source")
   let buffer = create_buffer(source_id, "a!a", flex, Eof)
