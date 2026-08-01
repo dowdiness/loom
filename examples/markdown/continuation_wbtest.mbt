@@ -63,7 +63,7 @@ test "continuation decisions: root variants" {
   let no_prefix = continuation_context_at_newline(source_id, "para\nbar\n")
   assert_decision_public_state_pure(no_prefix, () => {
     match decide_root_paragraph_continuation(no_prefix) {
-      Continue(RootContinuationKind::NoPrefix) => ()
+      Continue(ContinueNoPrefix) => ()
       _ => abort("expected root NoPrefix")
     }
   })
@@ -73,7 +73,7 @@ test "continuation decisions: root variants" {
   let thematic = continuation_context_at_newline(source_id, "para\n    ---\n")
   assert_decision_public_state_pure(thematic, () => {
     match decide_root_paragraph_continuation(thematic) {
-      Continue(ThematicBreakPrefix) => ()
+      Continue(ContinueThematicBreakPrefix) => ()
       _ => abort("expected root ThematicBreakPrefix")
     }
   })
@@ -82,7 +82,7 @@ test "continuation decisions: root variants" {
   let list_marker = continuation_context_at_newline(source_id, "para\n-\n")
   assert_decision_public_state_pure(list_marker, () => {
     match decide_root_paragraph_continuation(list_marker) {
-      Continue(ListMarkerPrefix) => ()
+      Continue(ContinueListMarkerPrefix) => ()
       _ => abort("expected root ListMarkerPrefix")
     }
   })
@@ -91,7 +91,7 @@ test "continuation decisions: root variants" {
   let ordered = continuation_context_at_newline(source_id, "para\n2. x\n")
   assert_decision_public_state_pure(ordered, () => {
     match decide_root_paragraph_continuation(ordered) {
-      Continue(ListMarkerPrefix) => ()
+      Continue(ContinueListMarkerPrefix) => ()
       _ => abort("expected root ListMarkerPrefix for non-1 ordered marker")
     }
   })
@@ -139,7 +139,7 @@ test "continuation decisions: setext variants" {
   let no_prefix = continuation_context_at_newline(source_id, "para\nbar\n")
   assert_decision_public_state_pure(no_prefix, () => {
     match decide_setext_continuation(no_prefix) {
-      Continue(SetextContinuationKind::NoPrefix) => ()
+      Continue(ContinueNoPrefix) => ()
       _ => abort("expected setext NoPrefix")
     }
   })
@@ -148,7 +148,7 @@ test "continuation decisions: setext variants" {
   let ordered = continuation_context_at_newline(source_id, "para\n2. x\n")
   assert_decision_public_state_pure(ordered, () => {
     match decide_setext_continuation(ordered) {
-      Continue(OrderedMarkerAsText) => ()
+      Continue(ContinueOrderedMarkerAsText) => ()
       _ => abort("expected setext OrderedMarkerAsText")
     }
   })
@@ -198,7 +198,7 @@ test "continuation decisions: block-quote variants" {
   )
   assert_decision_public_state_pure(marker_no_prefix, () => {
     match decide_block_quote_paragraph_continuation(marker_no_prefix) {
-      Continue(MarkerAndPrefix(ContinuationPrefixKind::NoPrefix)) => ()
+      Continue(ContinueQuoteMarker(ContinuationPrefixKind::NoPrefix)) => ()
       _ => abort("expected MarkerAndPrefix(NoPrefix)")
     }
   })
@@ -209,7 +209,7 @@ test "continuation decisions: block-quote variants" {
   )
   assert_decision_public_state_pure(marker_thematic, () => {
     match decide_block_quote_paragraph_continuation(marker_thematic) {
-      Continue(MarkerAndPrefix(ThematicBreakPrefix)) => ()
+      Continue(ContinueQuoteMarker(ThematicBreakPrefix)) => ()
       _ => abort("expected MarkerAndPrefix(ThematicBreakPrefix)")
     }
   })
@@ -218,7 +218,7 @@ test "continuation decisions: block-quote variants" {
   let marker_list = continuation_context_at_newline(source_id, "para\n>2. x\n")
   assert_decision_public_state_pure(marker_list, () => {
     match decide_block_quote_paragraph_continuation(marker_list) {
-      Continue(MarkerAndPrefix(ListMarkerPrefix)) => ()
+      Continue(ContinueQuoteMarker(ListMarkerPrefix)) => ()
       _ => abort("expected MarkerAndPrefix(ListMarkerPrefix)")
     }
   })
@@ -226,7 +226,7 @@ test "continuation decisions: block-quote variants" {
   let prefix_only = continuation_context_at_newline(source_id, "para\nbar\n")
   assert_decision_public_state_pure(prefix_only, () => {
     match decide_block_quote_paragraph_continuation(prefix_only) {
-      Continue(PrefixOnly(ContinuationPrefixKind::NoPrefix)) => ()
+      Continue(ContinueQuoteLazy(ContinuationPrefixKind::NoPrefix)) => ()
       _ => abort("expected PrefixOnly(NoPrefix)")
     }
   })
@@ -236,7 +236,7 @@ test "continuation decisions: block-quote variants" {
   )
   assert_decision_public_state_pure(prefix_thematic, () => {
     match decide_block_quote_paragraph_continuation(prefix_thematic) {
-      Continue(PrefixOnly(ThematicBreakPrefix)) => ()
+      Continue(ContinueQuoteLazy(ThematicBreakPrefix)) => ()
       _ => abort("expected PrefixOnly(ThematicBreakPrefix)")
     }
   })
@@ -244,7 +244,7 @@ test "continuation decisions: block-quote variants" {
   let prefix_list = continuation_context_at_newline(source_id, "para\n2. x\n")
   assert_decision_public_state_pure(prefix_list, () => {
     match decide_block_quote_paragraph_continuation(prefix_list) {
-      Continue(PrefixOnly(ListMarkerPrefix)) => ()
+      Continue(ContinueQuoteLazy(ListMarkerPrefix)) => ()
       _ => abort("expected PrefixOnly(ListMarkerPrefix)")
     }
   })
@@ -278,11 +278,7 @@ test "continuation decisions: block-quote setext variants" {
   let marker = continuation_context_at_newline(source_id, "para\n> bar\n")
   assert_decision_public_state_pure(marker, () => {
     match decide_block_quote_heading_continuation(marker) {
-      Continue(
-        BlockQuoteHeadingContinuationKind::MarkerAndPrefix(
-          ContinuationPrefixKind::NoPrefix
-        )
-      ) => ()
+      Continue(ContinueQuoteMarker(ContinuationPrefixKind::NoPrefix)) => ()
       _ => abort("expected block-quote setext MarkerAndPrefix(NoPrefix)")
     }
   })
@@ -290,9 +286,7 @@ test "continuation decisions: block-quote setext variants" {
   let ordered = continuation_context_at_newline(source_id, "para\n>2. x\n")
   assert_decision_public_state_pure(ordered, () => {
     match decide_block_quote_heading_continuation(ordered) {
-      Continue(
-        BlockQuoteHeadingContinuationKind::MarkerAndPrefix(ListMarkerPrefix)
-      ) => ()
+      Continue(ContinueQuoteMarker(ListMarkerPrefix)) => ()
       _ =>
         abort("expected block-quote setext MarkerAndPrefix(ListMarkerPrefix)")
     }
@@ -343,7 +337,7 @@ test "continuation decisions: list-item variants" {
         allow_ordered_marker=true,
         has_paragraph_content=true,
       ) {
-      Continue(ListItemContinuationKind::NoPrefix) => ()
+      Continue(ContinueNoPrefix) => ()
       _ => abort("expected list-item NoPrefix")
     }
   })
@@ -359,7 +353,7 @@ test "continuation decisions: list-item variants" {
         allow_ordered_marker=true,
         has_paragraph_content=true,
       ) {
-      Continue(ListItemContinuationKind::IndentationPrefix) => ()
+      Continue(ContinueIndentationPrefix) => ()
       _ => abort("expected list-item IndentationPrefix")
     }
   })
@@ -373,7 +367,7 @@ test "continuation decisions: list-item variants" {
         allow_ordered_marker=true,
         has_paragraph_content=true,
       ) {
-      Continue(ListItemContinuationKind::OrderedMarkerAsText) => ()
+      Continue(ContinueOrderedMarkerAsText) => ()
       _ => abort("expected list-item OrderedMarkerAsText")
     }
   })
@@ -424,7 +418,7 @@ test "continuation decisions: list-item setext variants" {
         2,
         allow_ordered_marker=true,
       ) {
-      Continue(ListItemSetextContinuationKind::NoPrefix) => ()
+      Continue(ContinueNoPrefix) => ()
       _ => abort("expected list-item setext NoPrefix")
     }
   })
@@ -439,7 +433,7 @@ test "continuation decisions: list-item setext variants" {
         2,
         allow_ordered_marker=true,
       ) {
-      Continue(ListItemSetextContinuationKind::IndentationPrefix) => ()
+      Continue(ContinueIndentationPrefix) => ()
       _ => abort("expected list-item setext IndentationPrefix")
     }
   })
@@ -452,7 +446,7 @@ test "continuation decisions: list-item setext variants" {
         2,
         allow_ordered_marker=true,
       ) {
-      Continue(ListItemSetextContinuationKind::OrderedMarkerAsText) => ()
+      Continue(ContinueOrderedMarkerAsText) => ()
       _ => abort("expected list-item setext OrderedMarkerAsText")
     }
   })
@@ -497,16 +491,15 @@ test "continuation driver: analysis and actual passes consume same action" {
   let ctx = continuation_context(source_id, "para\nchild\n")
   let consume_calls = [0]
   let no_prefix_calls = [0]
-  let handler : ContinuationHandler[RootContinuationKind] = {
+  let handler : ContinuationHandler[BlockContinuationAction] = {
     decide: () => decide_root_paragraph_continuation(ctx),
     consume: action => {
       consume_calls[0] = consume_calls[0] + 1
       match action {
-        RootContinuationKind::NoPrefix =>
-          no_prefix_calls[0] = no_prefix_calls[0] + 1
+        ContinueNoPrefix => no_prefix_calls[0] = no_prefix_calls[0] + 1
         _ => abort("expected NoPrefix in both parser passes")
       }
-      consume_root_continuation(ctx, action)
+      consume_block_continuation(ctx, action)
     },
   }
   parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
