@@ -78,7 +78,8 @@ priv enum MarkdownIRCanonicalSemantic {
   SemanticBold(Array[MarkdownIRCanonicalSemantic])
   SemanticItalic(Array[MarkdownIRCanonicalSemantic])
   SemanticInlineCode(String)
-  SemanticLink(Array[MarkdownIRCanonicalSemantic], String)
+  SemanticLink(Array[MarkdownIRCanonicalSemantic], String, String?)
+  SemanticImage(Array[MarkdownIRCanonicalSemantic], String, String?)
   SemanticAutolink(AutolinkKind, String, String)
   SemanticInlineHtml(String)
   SemanticSoftBreak
@@ -183,9 +184,14 @@ fn markdown_ir_canonical_semantic(
         None => None
       }
     InlineCode(value, _) => Some(SemanticInlineCode(value))
-    Link(children, destination, _, _) =>
+    Link(children, destination, title, _) =>
       match markdown_ir_canonical_semantic_children(children) {
-        Some(children) => Some(SemanticLink(children, destination))
+        Some(children) => Some(SemanticLink(children, destination, title))
+        None => None
+      }
+    Image(children, destination, title, _) =>
+      match markdown_ir_canonical_semantic_children(children) {
+        Some(children) => Some(SemanticImage(children, destination, title))
         None => None
       }
     Autolink(kind, display, destination, _, _) =>
@@ -221,7 +227,8 @@ fn markdown_ir_first_canonical_opaque(
     | OrderedListItem(children, _, _, _)
     | Bold(children, _)
     | Italic(children, _)
-    | Link(children, _, _, _) =>
+    | Link(children, _, _, _)
+    | Image(children, _, _, _) =>
       for child in children {
         match markdown_ir_first_canonical_opaque(child) {
           Some(found) => return Some(found)
@@ -497,6 +504,10 @@ fn markdown_ir_collect_inline_choice_radices(
       for child in children {
         markdown_ir_collect_inline_choice_radices(child, radices)
       }
+    Image(children, _, _, _) =>
+      for child in children {
+        markdown_ir_collect_inline_choice_radices(child, radices)
+      }
     InlineCode(_, _)
     | Autolink(_, _, _, _, _)
     | InlineHtml(_, _)
@@ -550,6 +561,7 @@ fn markdown_ir_collect_block_choice_containers(
     | Italic(_, _)
     | InlineCode(_, _)
     | Link(_, _, _, _)
+    | Image(_, _, _, _)
     | Autolink(_, _, _, _, _)
     | InlineHtml(_, _)
     | SoftBreak(_)
@@ -907,7 +919,7 @@ fn markdown_ir_canonical_candidate_format_with_list_marker(
       buf.to_string()
     }
     InlineCode(value, _) => inline_code_markdown(value)
-    Link(children, destination, _, _) => {
+    Link(children, destination, title, _) => {
       let buf = StringBuilder::StringBuilder()
       buf.write_char('[')
       buf.write_string(
@@ -915,6 +927,19 @@ fn markdown_ir_canonical_candidate_format_with_list_marker(
       )
       buf.write_string("](")
       buf.write_string(destination)
+      buf.write_string(markdown_link_title_suffix(title))
+      buf.write_char(')')
+      buf.to_string()
+    }
+    Image(children, destination, title, _) => {
+      let buf = StringBuilder::StringBuilder()
+      buf.write_string("![")
+      buf.write_string(
+        markdown_ir_canonical_candidate_inline_text(children, reader),
+      )
+      buf.write_string("](")
+      buf.write_string(destination)
+      buf.write_string(markdown_link_title_suffix(title))
       buf.write_char(')')
       buf.to_string()
     }

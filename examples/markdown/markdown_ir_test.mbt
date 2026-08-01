@@ -2323,7 +2323,7 @@ fn assert_checked_canonical_round_trip(source : String) -> String raise {
 test "experimental MarkdownIR: checked canonical formatter covers delimiter interactions" {
   let sources = [
     "x*_a_*\n", "_a_*b*\n", "***a*** and __b *c*__\n", "*foo**bar*\n", "\\*odd\\* and \\\\*even*\n",
-    "[\\*literal\\*](u) and `*code*`\n", "。_a_→*b*😈\n",
+    "[\\*literal\\*](u) and `*code*`\n", "。_a_→*b*😈\n", "[a](u \"x\\\"y\")\n",
   ]
   for source in sources {
     ignore(assert_checked_canonical_round_trip(source))

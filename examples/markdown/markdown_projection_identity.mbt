@@ -9,6 +9,10 @@ priv enum MarkdownSemanticKey {
   InlineCode
   LinkLabel
   LinkDestination(String)
+  LinkTitle(String)
+  ImageLabel
+  ImageDestination(String)
+  ImageTitle(String)
 } derive(Eq, Debug)
 
 ///|
@@ -440,6 +444,19 @@ fn MarkdownSemanticKey::projection_key(self : MarkdownSemanticKey) -> String {
       append_key_component(buf, "LinkDestination")
       append_key_component(buf, destination)
     }
+    LinkTitle(title) => {
+      append_key_component(buf, "LinkTitle")
+      append_key_component(buf, title)
+    }
+    ImageLabel => append_key_component(buf, "ImageLabel")
+    ImageDestination(destination) => {
+      append_key_component(buf, "ImageDestination")
+      append_key_component(buf, destination)
+    }
+    ImageTitle(title) => {
+      append_key_component(buf, "ImageTitle")
+      append_key_component(buf, title)
+    }
   }
   buf.to_string()
 }
@@ -481,9 +498,16 @@ fn normalized_link_label_node_fingerprint(ir : MarkdownIR) -> String {
     }
     SoftBreak(_) => append_key_component(buf, "SoftBreak")
     HardBreak(_, _) => append_key_component(buf, "HardBreak")
-    Link(children, destination, _, _) => {
+    Link(children, destination, title, _) => {
       append_key_component(buf, "Link")
       append_key_component(buf, destination)
+      append_key_component(buf, title.unwrap_or(""))
+      append_key_component(buf, normalized_link_label_fingerprint(children))
+    }
+    Image(children, destination, title, _) => {
+      append_key_component(buf, "Image")
+      append_key_component(buf, destination)
+      append_key_component(buf, title.unwrap_or(""))
       append_key_component(buf, normalized_link_label_fingerprint(children))
     }
     Autolink(kind, display, destination, _, _) => {
@@ -607,6 +631,17 @@ fn markdown_identity_child_context(current : Int?, parent : Int?) -> Int? {
 }
 
 ///|
+fn markdown_identity_owned_origin(
+  owner : MarkdownIROrigin,
+  candidate : MarkdownIROrigin?,
+) -> MarkdownIROrigin? {
+  match candidate {
+    Some(origin) if owner.contains(origin) => Some(origin)
+    _ => None
+  }
+}
+
+///|
 fn collect_markdown_ir_identity_candidates(
   ir : MarkdownIR,
   candidates : Array[MarkdownIdentityCandidate],
@@ -709,10 +744,10 @@ fn collect_markdown_ir_identity_candidates(
           parent,
         ),
       )
-    Link(children, destination, label_origin, destination_origin) => {
+    Link(children, destination, title, surface) => {
       let label = append_markdown_identity_candidate(
         candidates,
-        label_origin,
+        surface.label_origin,
         LinkLabel,
         normalized_link_label_fingerprint(children),
         parent,
@@ -721,13 +756,59 @@ fn collect_markdown_ir_identity_candidates(
       ignore(
         append_markdown_identity_candidate(
           candidates,
-          destination_origin,
+          markdown_identity_owned_origin(ir.origin, surface.destination_origin),
           LinkDestination(destination),
           destination,
           link_context,
         ),
       )
+      match title {
+        Some(title) =>
+          ignore(
+            append_markdown_identity_candidate(
+              candidates,
+              markdown_identity_owned_origin(ir.origin, surface.title_origin),
+              LinkTitle(title),
+              title,
+              link_context,
+            ),
+          )
+        None => ()
+      }
       collect_markdown_ir_identity_children(children, candidates, link_context)
+    }
+    Image(children, destination, title, surface) => {
+      let label = append_markdown_identity_candidate(
+        candidates,
+        surface.label_origin,
+        ImageLabel,
+        normalized_link_label_fingerprint(children),
+        parent,
+      )
+      let image_context = markdown_identity_child_context(label, parent)
+      ignore(
+        append_markdown_identity_candidate(
+          candidates,
+          markdown_identity_owned_origin(ir.origin, surface.destination_origin),
+          ImageDestination(destination),
+          destination,
+          image_context,
+        ),
+      )
+      match title {
+        Some(title) =>
+          ignore(
+            append_markdown_identity_candidate(
+              candidates,
+              markdown_identity_owned_origin(ir.origin, surface.title_origin),
+              ImageTitle(title),
+              title,
+              image_context,
+            ),
+          )
+        None => ()
+      }
+      collect_markdown_ir_identity_children(children, candidates, image_context)
     }
     Autolink(_, display, destination, display_origin, destination_origin) => {
       let display_context = append_markdown_identity_candidate(

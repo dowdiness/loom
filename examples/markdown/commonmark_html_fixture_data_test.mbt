@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=357, xfail=5, skip=0.
+// Baseline: pass=366, xfail=5, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (357, 5, 0)
+  (366, 5, 0)
 }
 
 ///|
@@ -393,6 +393,78 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "code-spans-335-multiline-normalization",
       source: "``\nfoo\nbar  \nbaz\n``\n",
       expected_html: "<p><code>foo bar   baz</code></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 482,
+      section: "Links",
+      name: "links-482-inline-title",
+      source: "[link](/uri \"title\")\n",
+      expected_html: "<p><a href=\"/uri\" title=\"title\">link</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 488,
+      section: "Links",
+      name: "links-488-invalid-space-in-destination-is-literal",
+      source: "[link](/my uri)\n",
+      expected_html: "<p>[link](/my uri)</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 527,
+      section: "Links",
+      name: "links-527-full-reference",
+      source: "[foo][bar]\n\n[bar]: /url \"title\"\n",
+      expected_html: "<p><a href=\"/url\" title=\"title\">foo</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 553,
+      section: "Links",
+      name: "links-553-collapsed-reference",
+      source: "[foo][]\n\n[foo]: /url \"title\"\n",
+      expected_html: "<p><a href=\"/url\" title=\"title\">foo</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 544,
+      section: "Links",
+      name: "links-544-first-definition-wins",
+      source: "[foo]: /url1\n\n[foo]: /url2\n\n[bar][foo]\n",
+      expected_html: "<p><a href=\"/url1\">bar</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 545,
+      section: "Links",
+      name: "links-545-unresolved-reference-is-literal",
+      source: "[bar][foo\\!]\n\n[foo!]: /url\n",
+      expected_html: "<p>[bar][foo!]</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 546,
+      section: "Links",
+      name: "links-546-invalid-nested-reference-is-literal",
+      source: "[foo][ref[]\n\n[ref[]: /uri\n",
+      expected_html: "<p>[foo][ref[]</p>\n<p>[ref[]: /uri</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 557,
+      section: "Links",
+      name: "links-557-shortcut-reference",
+      source: "[foo]\n\n[foo]: /url \"title\"\n",
+      expected_html: "<p><a href=\"/url\" title=\"title\">foo</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 572,
+      section: "Images",
+      name: "images-572-inline-title",
+      source: "![foo](/url \"title\")\n",
+      expected_html: "<p><img src=\"/url\" alt=\"foo\" title=\"title\" /></p>\n",
       status: CommonMarkHtmlPass,
     },
     {

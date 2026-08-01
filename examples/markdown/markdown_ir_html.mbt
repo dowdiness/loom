@@ -294,15 +294,39 @@ fn markdown_ir_to_commonmark_html_with_list_context(
         "</em>",
       )
     InlineCode(value, _) => Ok("<code>" + html_escape_text(value) + "</code>")
-    Link(children, destination, _, _) =>
+    Link(children, destination, title, _) => {
+      let title_attribute = match title {
+        Some(title) => " title=\"" + html_escape_text(title) + "\""
+        None => ""
+      }
       wrap_commonmark_html(
         markdown_ir_inline_children_to_commonmark_html(
           children,
           raw_html_policy~,
         ),
-        "<a href=\"" + html_escape_text(destination) + "\">",
+        "<a href=\"" +
+        html_escape_text(destination) +
+        "\"" +
+        title_attribute +
+        ">",
         "</a>",
       )
+    }
+    Image(children, destination, title, _) => {
+      let title_attribute = match title {
+        Some(title) => " title=\"" + html_escape_text(title) + "\""
+        None => ""
+      }
+      Ok(
+        "<img src=\"" +
+        html_escape_text(destination) +
+        "\" alt=\"" +
+        html_escape_text(markdown_ir_plain_text(children)) +
+        "\"" +
+        title_attribute +
+        " />",
+      )
+    }
     Autolink(_, display, destination, _, _) =>
       Ok(
         "<a href=\"" +
