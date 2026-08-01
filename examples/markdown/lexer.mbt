@@ -234,47 +234,6 @@ fn extract_html_tag_name(line : StringView, pos : Int) -> (String, Int)? {
 }
 
 ///|
-fn valid_html_tag_quote_follow(line : StringView, pos : Int) -> Bool {
-  if pos >= line.length() {
-    true
-  } else {
-    match line.get_char(pos) {
-      Some(' ') | Some('\t') | Some('/') | Some('>') => true
-      _ => false
-    }
-  }
-}
-
-///|
-fn first_html_tag_end(line : StringView) -> Int? {
-  let mut quote : Char? = None
-  for i, ch in line {
-    match quote {
-      Some(q) if ch == q => {
-        guard valid_html_tag_quote_follow(line, i + 1) else { return None }
-        quote = None
-      }
-      Some(_) => ()
-      None =>
-        match ch {
-          '\"' | '\'' => quote = Some(ch)
-          '>' => return Some(i)
-          _ => ()
-        }
-    }
-  }
-  None
-}
-
-///|
-fn line_has_only_tag(line : StringView) -> Bool {
-  match first_html_tag_end(line) {
-    Some(end) => line[end + 1:].trim().is_empty()
-    None => false
-  }
-}
-
-///|
 fn html_tag_name_follow_is_valid(line : StringView, tag_end : Int) -> Bool {
   if tag_end >= line.length() {
     true
@@ -287,16 +246,12 @@ fn html_tag_name_follow_is_valid(line : StringView, tag_end : Int) -> Bool {
 }
 
 ///|
-fn closing_line_has_only_tag(line : StringView, tag_end : Int) -> Bool {
-  let mut pos = tag_end
-  while pos < line.length() {
-    match line.get_char(pos) {
-      Some(' ') | Some('\t') => pos = pos + 1
-      Some('>') => return line[pos + 1:].trim().is_empty()
-      _ => return false
-    }
+fn line_is_complete_type7_html_tag(line : StringView) -> Bool {
+  let owned = line.to_owned()
+  match classify_inline_html_at(owned, 0, None) {
+    Some({ kind: InlineHtmlAngle, end }) => owned[end:].trim().is_empty()
+    _ => false
   }
-  false
 }
 
 ///|
@@ -325,11 +280,8 @@ fn classify_html_block_opening(line : StringView) -> HtmlBlockType? {
     Some((tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
       is_type6_tag_name(tag) => Some(Raw)
     Some((_tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
-      name_start == 2 &&
-      closing_line_has_only_tag(trimmed, tag_end) => Some(Raw)
-    Some((_tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
-      name_start == 1 &&
-      line_has_only_tag(trimmed) => Some(Raw)
+      (name_start == 1 || name_start == 2) &&
+      line_is_complete_type7_html_tag(trimmed) => Some(Raw)
     _ => None
   }
 }
@@ -382,6 +334,7 @@ fn lex_heading_marker(
   input : String,
   token_pos : Int,
   marker_pos : Int,
+  delimiter_index : InlineAngleDelimiterIndex?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   match @payload_lexer.step_lex(input, marker_pos) {
     @core.LexStep::Produced(info, next_offset=next) =>
@@ -397,7 +350,7 @@ fn lex_heading_marker(
             ),
             Inline,
           )
-        _ => lex_inline(input, token_pos)
+        _ => lex_inline(input, token_pos, delimiter_index)
       }
     _ => {
       let n = count_hashes(input, marker_pos)
@@ -414,10 +367,10 @@ fn lex_heading_marker(
               ),
               Inline,
             )
-          _ => lex_inline(input, token_pos)
+          _ => lex_inline(input, token_pos, delimiter_index)
         }
       } else {
-        lex_inline(input, token_pos)
+        lex_inline(input, token_pos, delimiter_index)
       }
     }
   }
@@ -428,6 +381,7 @@ fn lex_heading_marker(
 fn lex_line_start(
   input : String,
   pos : Int,
+  delimiter_index : InlineAngleDelimiterIndex?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, LineStart)
@@ -474,7 +428,7 @@ fn lex_line_start(
         )
       }
     }
-    ['#', ..] => lex_heading_marker(input, pos, pos)
+    ['#', ..] => lex_heading_marker(input, pos, pos, delimiter_index)
     ['>', ' ' | '\t', .. rest] =>
       produced_until(BlockQuoteMarker, pos, rest, BlockQuoteLineStart)
     ['>', ..] =>
@@ -488,7 +442,7 @@ fn lex_line_start(
       match char_at(input, pos + 1) {
         Some('\n') | Some('\r') | None =>
           produce_token_from(ListMarker, pos, 1, Inline)
-        _ => lex_inline(input, pos)
+        _ => lex_inline(input, pos, delimiter_index)
       }
     [ch, ..] if is_decimal_digit(ch) =>
       match ordered_list_marker_at(input, pos) {
@@ -518,9 +472,9 @@ fn lex_line_start(
                     digits + 1,
                     Inline,
                   )
-                None => lex_inline(input, pos)
+                None => lex_inline(input, pos, delimiter_index)
               }
-            _ => lex_inline(input, pos)
+            _ => lex_inline(input, pos, delimiter_index)
           }
         }
       }
@@ -529,14 +483,14 @@ fn lex_line_start(
       match classify_html_block_opening(line) {
         Some(block_type) =>
           produce_html_block_open(input, pos, line_end, block_type)
-        None => lex_inline(input, pos)
+        None => lex_inline(input, pos, delimiter_index)
       }
     }
-    ['`', ..] => lex_code_fence(input, pos, '`')
-    ['~', ..] => lex_code_fence(input, pos, '~')
+    ['`', ..] => lex_code_fence(input, pos, '`', delimiter_index)
+    ['~', ..] => lex_code_fence(input, pos, '~', delimiter_index)
     _ =>
       // No block marker recognized — switch to inline for paragraph content
-      lex_inline(input, pos)
+      lex_inline(input, pos, delimiter_index)
   }
 }
 
@@ -545,6 +499,7 @@ fn lex_code_fence(
   input : String,
   pos : Int,
   fence_character : Char,
+  delimiter_index : InlineAngleDelimiterIndex?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if fence_character == '`' {
     match @payload_lexer.step_lex(input, pos) {
@@ -558,14 +513,14 @@ fn lex_code_fence(
               ),
               CodeBlock(length, fence_character),
             )
-          _ => lex_inline(input, pos)
+          _ => lex_inline(input, pos, delimiter_index)
         }
-      _ => lex_inline(input, pos)
+      _ => lex_inline(input, pos, delimiter_index)
     }
   } else {
     let n = count_fence_characters(input, pos, fence_character)
     if n < 3 {
-      return lex_inline(input, pos)
+      return lex_inline(input, pos, delimiter_index)
     }
     let mut info_end = pos + n
     while info_end < input.length() {
@@ -589,10 +544,11 @@ fn lex_code_fence(
 fn lex_block_quote_line_start(
   input : String,
   pos : Int,
+  delimiter_index : InlineAngleDelimiterIndex?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   match input.view(start_offset=pos) {
-    ['`', ..] => lex_inline(input, pos)
-    _ => lex_line_start(input, pos)
+    ['`', ..] => lex_inline(input, pos, delimiter_index)
+    _ => lex_line_start(input, pos, delimiter_index)
   }
 }
 
@@ -600,7 +556,7 @@ fn lex_block_quote_line_start(
 /// Special characters that terminate a Text run in Inline mode.
 fn is_inline_special(ch : Char) -> Bool {
   match ch {
-    '*' | '_' | '`' | '[' | ']' | '(' | ')' | '\r' | '\n' => true
+    '*' | '_' | '`' | '[' | ']' | '(' | ')' | '<' | '\r' | '\n' => true
     _ => false
   }
 }
@@ -610,6 +566,7 @@ fn is_inline_special(ch : Char) -> Bool {
 fn lex_inline(
   input : String,
   pos : Int,
+  delimiter_index : InlineAngleDelimiterIndex?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, Inline)
@@ -633,6 +590,24 @@ fn lex_inline(
     [']', .. rest] => produced_until(RightBracket, pos, rest, Inline)
     ['(', .. rest] => produced_until(LeftParen, pos, rest, Inline)
     [')', .. rest] => produced_until(RightParen, pos, rest, Inline)
+    ['<', ..] =>
+      match classify_inline_angle_at_with_index(input, pos, delimiter_index) {
+        Some(candidate) => {
+          let text = input[pos:candidate.end].to_owned()
+          (
+            Produced(
+              @core.TokenInfo::new(Text(text), candidate.end - pos),
+              next_offset=candidate.end,
+            ),
+            Inline,
+          )
+        }
+        None =>
+          (
+            Produced(@core.TokenInfo::new(Text("<"), 1), next_offset=pos + 1),
+            Inline,
+          )
+      }
     _ => {
       // Text run: consume until next special char or newline
       let mut end = @core.next_char_offset(input, pos)
@@ -817,6 +792,7 @@ fn lex_html_block_raw_newline_mode(
 fn lex_html_block_raw(
   input : String,
   pos : Int,
+  delimiter_index : InlineAngleDelimiterIndex?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, HtmlBlockRaw)
@@ -837,7 +813,8 @@ fn lex_html_block_raw(
         rest,
         lex_html_block_raw_newline_mode(input, rest.start_offset()),
       )
-    _ if line_is_blank(input, pos, line_end) => lex_line_start(input, pos)
+    _ if line_is_blank(input, pos, line_end) =>
+      lex_line_start(input, pos, delimiter_index)
     _ => emit_html_text_line(input, pos, HtmlBlockRaw)
   }
 }
@@ -874,25 +851,69 @@ fn lex_html_block_until(
 }
 
 ///|
+/// Mode-aware lex step with an optional source-local angle-delimiter index.
+fn markdown_lex_step_with_angle_index(
+  input : String,
+  pos : Int,
+  mode : MarkdownLexMode,
+  delimiter_index : InlineAngleDelimiterIndex?,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  if pos >= input.length() {
+    return (Done, mode)
+  }
+  match mode {
+    LineStart => lex_line_start(input, pos, delimiter_index)
+    BlockQuoteLineStart =>
+      lex_block_quote_line_start(input, pos, delimiter_index)
+    Inline => lex_inline(input, pos, delimiter_index)
+    CodeBlock(n, fence_character) =>
+      lex_code_block(input, pos, n, fence_character)
+    HtmlBlockRaw => lex_html_block_raw(input, pos, delimiter_index)
+    HtmlBlockUntil(delimiter) => lex_html_block_until(input, pos, delimiter)
+    HtmlBlockEndLine => lex_html_block_end_line(input, pos)
+  }
+}
+
+///|
 /// Mode-aware lex step. Dispatches to mode-specific lexer.
 pub fn markdown_lex_step(
   input : String,
   pos : Int,
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
-  if pos >= input.length() {
-    return (Done, mode)
+  markdown_lex_step_with_angle_index(input, pos, mode, None)
+}
+
+///|
+/// Build one lexer shell with a source-local immutable delimiter index. The
+/// grammar's mode-relex factory creates one shell per parser session, while
+/// detached tokenization creates a short-lived shell per operation. Source
+/// replacement invalidates the cache before lexing the new text. The
+/// deterministic classifier and index remain in the functional core while
+/// these Refs only own their lifecycle.
+fn new_indexed_markdown_mode_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] {
+  let source_ref : Ref[String?] = Ref(None)
+  let delimiter_index_ref : Ref[InlineAngleDelimiterIndex?] = Ref(None)
+  let lex_step = fn(input : String, pos : Int, mode : MarkdownLexMode) {
+    let same_source = match source_ref.val {
+      Some(source) => physical_equal(source, input)
+      None => false
+    }
+    if !same_source {
+      source_ref.val = Some(input)
+      delimiter_index_ref.val = None
+    }
+    if delimiter_index_ref.val is None && char_at(input, pos) == Some('<') {
+      delimiter_index_ref.val = Some(build_inline_angle_delimiter_index(input))
+    }
+    markdown_lex_step_with_angle_index(
+      input,
+      pos,
+      mode,
+      delimiter_index_ref.val,
+    )
   }
-  match mode {
-    LineStart => lex_line_start(input, pos)
-    BlockQuoteLineStart => lex_block_quote_line_start(input, pos)
-    Inline => lex_inline(input, pos)
-    CodeBlock(n, fence_character) =>
-      lex_code_block(input, pos, n, fence_character)
-    HtmlBlockRaw => lex_html_block_raw(input, pos)
-    HtmlBlockUntil(delimiter) => lex_html_block_until(input, pos, delimiter)
-    HtmlBlockEndLine => lex_html_block_end_line(input, pos)
-  }
+  { lex_step, initial_mode: LineStart }
 }
 
 ///|
@@ -908,7 +929,7 @@ pub fn tokenize(
   input : String,
 ) -> Array[@core.TokenInfo[Token]] raise @core.LexError {
   let (tokens, _modes) = @core.tokenize_with_modes(
-    markdown_mode_lexer,
+    new_indexed_markdown_mode_lexer(),
     input,
     EOF,
   )

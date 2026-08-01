@@ -249,13 +249,13 @@ and give its reason; it never replaces or duplicates the official expected
 HTML. `tools/update_commonmark_emphasis_fixtures.mjs` combines those two pinned
 inputs into `commonmark_emphasis_html_fixture_data_test.mbt`.
 
-The emphasis baseline is 127 pass, 5 xfail, and 0 skip. The optional MoonBit
-audit uses a separate diagnostic taxonomy and currently reports those five
-cases (475–477 and 480–481) as `html-mismatch`, not `malformed-raw`. Pass fixtures
-must continue matching the official HTML, while an xfail that starts matching
-must be promoted to pass. Fixture metadata records the CommonMark section,
-example number, source, expected HTML, and `CommonMarkHtmlPass` /
-`CommonMarkHtmlXfail(reason)` / `CommonMarkHtmlSkip(reason)` status.
+The emphasis baseline is 132 pass, 0 xfail, and 0 skip. Inline HTML and URI
+autolinks keep delimiter-looking text opaque, so examples 475–477 and 480–481
+now match the official HTML. Pass fixtures must continue matching that oracle,
+while any future xfail that starts matching must be promoted to pass. Fixture
+metadata records the CommonMark section, example number, source, expected HTML,
+and `CommonMarkHtmlPass` / `CommonMarkHtmlXfail(reason)` /
+`CommonMarkHtmlSkip(reason)` status.
 
 To regenerate the emphasis fixtures from `examples/markdown`:
 

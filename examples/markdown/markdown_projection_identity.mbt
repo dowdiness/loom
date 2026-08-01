@@ -486,6 +486,22 @@ fn normalized_link_label_node_fingerprint(ir : MarkdownIR) -> String {
       append_key_component(buf, destination)
       append_key_component(buf, normalized_link_label_fingerprint(children))
     }
+    Autolink(kind, display, destination, _, _) => {
+      append_key_component(buf, "Autolink")
+      append_key_component(
+        buf,
+        match kind {
+          UriAutolinkKind => "uri"
+          EmailAutolinkKind => "email"
+        },
+      )
+      append_key_component(buf, display)
+      append_key_component(buf, destination)
+    }
+    InlineHtml(value, _) => {
+      append_key_component(buf, "InlineHtml")
+      append_key_component(buf, value)
+    }
     Unsupported(message) => {
       append_key_component(buf, "Unsupported")
       append_key_component(buf, message)
@@ -670,6 +686,7 @@ fn collect_markdown_ir_identity_candidates(
         ),
       )
     HtmlBlock(_, _)
+    | InlineHtml(_, _)
     | ThematicBreak
     | SoftBreak(_)
     | HardBreak(_, _)
@@ -711,6 +728,24 @@ fn collect_markdown_ir_identity_candidates(
         ),
       )
       collect_markdown_ir_identity_children(children, candidates, link_context)
+    }
+    Autolink(_, display, destination, display_origin, destination_origin) => {
+      let display_context = append_markdown_identity_candidate(
+        candidates,
+        display_origin,
+        LinkLabel,
+        display,
+        parent,
+      )
+      ignore(
+        append_markdown_identity_candidate(
+          candidates,
+          destination_origin,
+          LinkDestination(destination),
+          destination,
+          markdown_identity_child_context(display_context, parent),
+        ),
+      )
     }
   }
 }

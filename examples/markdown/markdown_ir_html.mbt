@@ -303,6 +303,16 @@ fn markdown_ir_to_commonmark_html_with_list_context(
         "<a href=\"" + html_escape_text(destination) + "\">",
         "</a>",
       )
+    Autolink(_, display, destination, _, _) =>
+      Ok(
+        "<a href=\"" +
+        html_escape_text(destination) +
+        "\">" +
+        html_escape_text(display) +
+        "</a>",
+      )
+    InlineHtml(value, _) =>
+      render_valid_raw_html(value, ir.origin, RawHtmlInline, raw_html_policy)
     Unsupported(message) =>
       Ok("<!-- unsupported MarkdownIR: " + html_escape_text(message) + " -->")
     Recovered(message, _) if message == RECOVERED_PARSE_ERROR =>

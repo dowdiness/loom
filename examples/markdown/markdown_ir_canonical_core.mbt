@@ -79,6 +79,8 @@ priv enum MarkdownIRCanonicalSemantic {
   SemanticItalic(Array[MarkdownIRCanonicalSemantic])
   SemanticInlineCode(String)
   SemanticLink(Array[MarkdownIRCanonicalSemantic], String)
+  SemanticAutolink(AutolinkKind, String, String)
+  SemanticInlineHtml(String)
   SemanticSoftBreak
   SemanticHardBreak
 } derive(Eq, Debug)
@@ -186,6 +188,9 @@ fn markdown_ir_canonical_semantic(
         Some(children) => Some(SemanticLink(children, destination))
         None => None
       }
+    Autolink(kind, display, destination, _, _) =>
+      Some(SemanticAutolink(kind, display, destination))
+    InlineHtml(value, _) => Some(SemanticInlineHtml(value))
     SoftBreak(_) => Some(SemanticSoftBreak)
     HardBreak(_, _) => Some(SemanticHardBreak)
     Unsupported(_) | Raw(_, _) | Recovered(_, _) => None
@@ -228,6 +233,8 @@ fn markdown_ir_first_canonical_opaque(
     | ThematicBreak
     | Text(_)
     | InlineCode(_, _)
+    | Autolink(_, _, _, _, _)
+    | InlineHtml(_, _)
     | SoftBreak(_)
     | HardBreak(_, _)
     | Unsupported(_)
@@ -490,7 +497,11 @@ fn markdown_ir_collect_inline_choice_radices(
       for child in children {
         markdown_ir_collect_inline_choice_radices(child, radices)
       }
-    InlineCode(_, _) | SoftBreak(_) | HardBreak(_, _) => ()
+    InlineCode(_, _)
+    | Autolink(_, _, _, _, _)
+    | InlineHtml(_, _)
+    | SoftBreak(_)
+    | HardBreak(_, _) => ()
     Document(_)
     | Heading(_, _, _)
     | Paragraph(_, _)
@@ -539,6 +550,8 @@ fn markdown_ir_collect_block_choice_containers(
     | Italic(_, _)
     | InlineCode(_, _)
     | Link(_, _, _, _)
+    | Autolink(_, _, _, _, _)
+    | InlineHtml(_, _)
     | SoftBreak(_)
     | HardBreak(_, _) => {
       let radices : Array[Int] = []
@@ -905,6 +918,8 @@ fn markdown_ir_canonical_candidate_format_with_list_marker(
       buf.write_char(')')
       buf.to_string()
     }
+    Autolink(_, display, _, _, _) => "<" + display + ">"
+    InlineHtml(value, _) => value
     Unsupported(message) => {
       let buf = StringBuilder::StringBuilder()
       buf.write_string("<!-- unsupported MarkdownIR: ")

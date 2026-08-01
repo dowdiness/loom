@@ -140,6 +140,32 @@ test "erase_mode_lexer tokenize matches tokenize_with_modes" {
 }
 
 ///|
+test "erase_mode_lexer_factory owns one lexer shell per operation" {
+  let construction_count : Ref[Int] = Ref(0)
+  let new_lexer = fn() {
+    construction_count.val = construction_count.val + 1
+    (
+      { lex_step: mock_lex_step, initial_mode: Normal } :
+      ModeLexer[MockToken, MockMode])
+  }
+  let factory = erase_mode_lexer_factory(
+    new_lexer,
+    MockToken::EOF,
+    error_token=Error("error"),
+  )
+  assert_eq(construction_count.val, 0)
+  ignore((factory.tokenize)(SourceId("detached-a"), "alpha"))
+  ignore((factory.tokenize)(SourceId("detached-b"), "beta"))
+  assert_eq(construction_count.val, 2)
+  let session_a = (factory.new_session)(SourceId("session-a"))
+  let session_b = (factory.new_session)(SourceId("session-b"))
+  assert_eq(construction_count.val, 4)
+  ignore((session_a.tokenize)("alpha"))
+  ignore((session_b.tokenize)("beta"))
+  assert_eq(construction_count.val, 4)
+}
+
+///|
 fn mock_recovering_lex_step(
   input : String,
   pos : Int,

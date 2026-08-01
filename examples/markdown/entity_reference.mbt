@@ -260,6 +260,8 @@ fn decode_markdown_ir_text_entities(
     }
     CodeBlock(_, _, _)
     | HtmlBlock(_, _)
+    | Autolink(_, _, _, _, _)
+    | InlineHtml(_, _)
     | ThematicBreak
     | InlineCode(_, _)
     | SoftBreak(_)

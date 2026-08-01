@@ -7,6 +7,9 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
     InlineCode(value, _) => Inline::InlineCode(value)
     Link(children, destination, _, _) =>
       Inline::Link(ir_children_to_inlines(children), destination)
+    Autolink(_, display, destination, _, _) =>
+      Inline::Link([Inline::Text(display)], destination)
+    InlineHtml(value, _) => Inline::Text(value)
     SoftBreak(_) | HardBreak(_, _) => Inline::Text("\n")
     Unsupported(message) => Inline::Error(message)
     Raw(value, _) => Inline::Text(value)
@@ -125,6 +128,10 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
     InlineCode(_, _) =>
       Block::Error("expected block MarkdownIR, got inline code")
     Link(_, _, _, _) => Block::Error("expected block MarkdownIR, got link")
+    Autolink(_, _, _, _, _) =>
+      Block::Error("expected block MarkdownIR, got autolink")
+    InlineHtml(_, _) =>
+      Block::Error("expected block MarkdownIR, got inline HTML")
     SoftBreak(_) => Block::Error("expected block MarkdownIR, got soft break")
     HardBreak(_, _) => Block::Error("expected block MarkdownIR, got hard break")
     Unsupported(message) => Block::Error(message)
@@ -389,6 +396,19 @@ fn markdown_ir_to_mdast_json(
         "url": destination,
         "children": mdast_children_json(children, context),
       }
+    Autolink(_, display, destination, display_origin, _) =>
+      {
+        "type": "link",
+        "url": destination,
+        "children": [
+          mdast_json_with_position(
+            { "type": "text", "value": display },
+            display_origin.unwrap_or(ir.origin()),
+            context,
+          ),
+        ],
+      }
+    InlineHtml(value, _) => { "type": "html", "value": value }
     Unsupported(message) => { "type": "mdastUnsupported", "value": message }
     Raw(value, diagnostics) =>
       {

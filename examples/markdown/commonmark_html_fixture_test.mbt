@@ -181,10 +181,10 @@ test "experimental MarkdownIR: CommonMark emphasis fixture corpus is complete" {
     (pass, xfail, skip)
   }
   let expected = commonmark_emphasis_html_fixture_expected_status_counts()
-  guard expected == (127, 5, 0) else {
+  guard expected == (132, 0, 0) else {
     fail(
       "expected the generated CommonMark emphasis baseline to stay " +
-      "(127, 5, 0), got " +
+      "(132, 0, 0), got " +
       @debug.to_string(expected),
     )
   }

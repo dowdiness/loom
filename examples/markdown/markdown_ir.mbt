@@ -46,6 +46,12 @@ priv enum HardBreakSurface {
 } derive(Eq, Debug)
 
 ///|
+priv enum AutolinkKind {
+  UriAutolinkKind
+  EmailAutolinkKind
+} derive(Eq, Debug)
+
+///|
 fn hard_break_surface_text(surface : HardBreakSurface) -> String {
   match surface {
     TrailingSpaces(count) => " ".repeat(count) + "\n"
@@ -76,6 +82,8 @@ priv enum MarkdownIRNode {
   Italic(Array[MarkdownIR], MarkdownIROrigin?)
   InlineCode(String, MarkdownIROrigin?)
   Link(Array[MarkdownIR], String, MarkdownIROrigin?, MarkdownIROrigin?)
+  Autolink(AutolinkKind, String, String, MarkdownIROrigin?, MarkdownIROrigin?)
+  InlineHtml(String, MarkdownIROrigin?)
   SoftBreak(MarkdownIROrigin?)
   HardBreak(HardBreakSurface, MarkdownIROrigin?)
   Unsupported(String)
@@ -245,6 +253,32 @@ fn MarkdownIR::link(
 }
 
 ///|
+fn MarkdownIR::autolink(
+  kind : AutolinkKind,
+  display : String,
+  destination : String,
+  origin : MarkdownIROrigin,
+  display_origin : MarkdownIROrigin?,
+  destination_origin : MarkdownIROrigin?,
+) -> MarkdownIR {
+  {
+    node: Autolink(
+      kind, display, destination, display_origin, destination_origin,
+    ),
+    origin,
+  }
+}
+
+///|
+fn MarkdownIR::inline_html(
+  value : String,
+  origin : MarkdownIROrigin,
+  content_origin : MarkdownIROrigin?,
+) -> MarkdownIR {
+  { node: InlineHtml(value, content_origin), origin }
+}
+
+///|
 fn MarkdownIR::soft_break(origin : MarkdownIROrigin) -> MarkdownIR {
   { node: SoftBreak(Some(origin)), origin }
 }
@@ -333,6 +367,8 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     Italic(_, _) => "Italic"
     InlineCode(_, _) => "InlineCode"
     Link(_, _, _, _) => "Link"
+    Autolink(_, _, _, _, _) => "Autolink"
+    InlineHtml(_, _) => "InlineHtml"
     SoftBreak(_) => "SoftBreak"
     HardBreak(_, _) => "HardBreak"
     Unsupported(_) => "Unsupported"
@@ -360,6 +396,8 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
     | ThematicBreak
     | Text(_)
     | InlineCode(_, _)
+    | Autolink(_, _, _, _, _)
+    | InlineHtml(_, _)
     | SoftBreak(_)
     | HardBreak(_, _)
     | Unsupported(_)
@@ -379,7 +417,10 @@ pub fn MarkdownIR::heading_depth(self : MarkdownIR) -> Int? {
 ///|
 pub fn MarkdownIR::text_value(self : MarkdownIR) -> String? {
   match self.node {
-    Text(value) | Raw(value, _) => Some(value)
+    Text(value)
+    | Autolink(_, value, _, _, _)
+    | InlineHtml(value, _)
+    | Raw(value, _) => Some(value)
     _ => None
   }
 }
@@ -396,6 +437,7 @@ pub fn MarkdownIR::content_origin(self : MarkdownIR) -> MarkdownIROrigin? {
     | Bold(_, origin)
     | Italic(_, origin)
     | InlineCode(_, origin)
+    | InlineHtml(_, origin)
     | SoftBreak(origin)
     | HardBreak(_, origin) => origin
     _ => None
@@ -424,7 +466,7 @@ pub fn MarkdownIR::list_marker(self : MarkdownIR) -> UnorderedListMarker? {
 ///|
 pub fn MarkdownIR::label_origin(self : MarkdownIR) -> MarkdownIROrigin? {
   match self.node {
-    Link(_, _, origin, _) => origin
+    Link(_, _, origin, _) | Autolink(_, _, _, origin, _) => origin
     _ => None
   }
 }
@@ -432,7 +474,7 @@ pub fn MarkdownIR::label_origin(self : MarkdownIR) -> MarkdownIROrigin? {
 ///|
 pub fn MarkdownIR::destination_origin(self : MarkdownIR) -> MarkdownIROrigin? {
   match self.node {
-    Link(_, _, _, origin) => origin
+    Link(_, _, _, origin) | Autolink(_, _, _, _, origin) => origin
     _ => None
   }
 }

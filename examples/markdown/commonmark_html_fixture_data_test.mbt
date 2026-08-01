@@ -3,11 +3,257 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=318, xfail=11, skip=0.
+// Baseline: pass=354, xfail=5, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (318, 11, 0)
+  (354, 5, 0)
+}
+
+///|
+fn commonmark_inline_angle_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
+  [
+    {
+      example: 594,
+      section: "Autolinks",
+      name: "autolinks-594",
+      source: "<http://foo.bar.baz>\n",
+      expected_html: "<p><a href=\"http://foo.bar.baz\">http://foo.bar.baz</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 595,
+      section: "Autolinks",
+      name: "autolinks-595",
+      source: "<https://foo.bar.baz/test?q=hello&id=22&boolean>\n",
+      expected_html: "<p><a href=\"https://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean\">https://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 596,
+      section: "Autolinks",
+      name: "autolinks-596",
+      source: "<irc://foo.bar:2233/baz>\n",
+      expected_html: "<p><a href=\"irc://foo.bar:2233/baz\">irc://foo.bar:2233/baz</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 597,
+      section: "Autolinks",
+      name: "autolinks-597",
+      source: "<MAILTO:FOO@BAR.BAZ>\n",
+      expected_html: "<p><a href=\"MAILTO:FOO@BAR.BAZ\">MAILTO:FOO@BAR.BAZ</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 598,
+      section: "Autolinks",
+      name: "autolinks-598",
+      source: "<a+b+c:d>\n",
+      expected_html: "<p><a href=\"a+b+c:d\">a+b+c:d</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 599,
+      section: "Autolinks",
+      name: "autolinks-599",
+      source: "<made-up-scheme://foo,bar>\n",
+      expected_html: "<p><a href=\"made-up-scheme://foo,bar\">made-up-scheme://foo,bar</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 600,
+      section: "Autolinks",
+      name: "autolinks-600",
+      source: "<https://../>\n",
+      expected_html: "<p><a href=\"https://../\">https://../</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 601,
+      section: "Autolinks",
+      name: "autolinks-601",
+      source: "<localhost:5001/foo>\n",
+      expected_html: "<p><a href=\"localhost:5001/foo\">localhost:5001/foo</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 603,
+      section: "Autolinks",
+      name: "autolinks-603",
+      source: "<https://example.com/\\[\\>\n",
+      expected_html: "<p><a href=\"https://example.com/%5C%5B%5C\">https://example.com/\\[\\</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 604,
+      section: "Autolinks",
+      name: "autolinks-604",
+      source: "<foo@bar.example.com>\n",
+      expected_html: "<p><a href=\"mailto:foo@bar.example.com\">foo@bar.example.com</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 605,
+      section: "Autolinks",
+      name: "autolinks-605",
+      source: "<foo+special@Bar.baz-bar0.com>\n",
+      expected_html: "<p><a href=\"mailto:foo+special@Bar.baz-bar0.com\">foo+special@Bar.baz-bar0.com</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 606,
+      section: "Autolinks",
+      name: "autolinks-606",
+      source: "<foo\\+@bar.example.com>\n",
+      expected_html: "<p>&lt;foo+@bar.example.com&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 613,
+      section: "Raw HTML",
+      name: "raw-html-613",
+      source: "<a><bab><c2c>\n",
+      expected_html: "<p><a><bab><c2c></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 614,
+      section: "Raw HTML",
+      name: "raw-html-614",
+      source: "<a/><b2/>\n",
+      expected_html: "<p><a/><b2/></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 615,
+      section: "Raw HTML",
+      name: "raw-html-615",
+      source: "<a  /><b2\ndata=\"foo\" >\n",
+      expected_html: "<p><a  /><b2\ndata=\"foo\" ></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 616,
+      section: "Raw HTML",
+      name: "raw-html-616",
+      source: "<a foo=\"bar\" bam = 'baz <em>\"</em>'\n_boolean zoop:33=zoop:33 />\n",
+      expected_html: "<p><a foo=\"bar\" bam = 'baz <em>\"</em>'\n_boolean zoop:33=zoop:33 /></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 617,
+      section: "Raw HTML",
+      name: "raw-html-617",
+      source: "Foo <responsive-image src=\"foo.jpg\" />\n",
+      expected_html: "<p>Foo <responsive-image src=\"foo.jpg\" /></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 619,
+      section: "Raw HTML",
+      name: "raw-html-619",
+      source: "<a h*#ref=\"hi\">\n",
+      expected_html: "<p>&lt;a h*#ref=&quot;hi&quot;&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 621,
+      section: "Raw HTML",
+      name: "raw-html-621",
+      source: "< a><\nfoo><bar/ >\n<foo bar=baz\nbim!bop />\n",
+      expected_html: "<p>&lt; a&gt;&lt;\nfoo&gt;&lt;bar/ &gt;\n&lt;foo bar=baz\nbim!bop /&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 623,
+      section: "Raw HTML",
+      name: "raw-html-623",
+      source: "</a></foo >\n",
+      expected_html: "<p></a></foo ></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 625,
+      section: "Raw HTML",
+      name: "raw-html-625",
+      source: "foo <!-- this is a --\ncomment - with hyphens -->\n",
+      expected_html: "<p>foo <!-- this is a --\ncomment - with hyphens --></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 626,
+      section: "Raw HTML",
+      name: "raw-html-626",
+      source: "foo <!--> foo -->\n\nfoo <!---> foo -->\n",
+      expected_html: "<p>foo <!--> foo --&gt;</p>\n<p>foo <!---> foo --&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 627,
+      section: "Raw HTML",
+      name: "raw-html-627",
+      source: "foo <?php echo $a; ?>\n",
+      expected_html: "<p>foo <?php echo $a; ?></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 628,
+      section: "Raw HTML",
+      name: "raw-html-628",
+      source: "foo <!ELEMENT br EMPTY>\n",
+      expected_html: "<p>foo <!ELEMENT br EMPTY></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 629,
+      section: "Raw HTML",
+      name: "raw-html-629",
+      source: "foo <![CDATA[>&<]]>\n",
+      expected_html: "<p>foo <![CDATA[>&<]]></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 630,
+      section: "Raw HTML",
+      name: "raw-html-630",
+      source: "foo <a href=\"&ouml;\">\n",
+      expected_html: "<p>foo <a href=\"&ouml;\"></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 631,
+      section: "Raw HTML",
+      name: "raw-html-631",
+      source: "foo <a href=\"\\*\">\n",
+      expected_html: "<p>foo <a href=\"\\*\"></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 632,
+      section: "Raw HTML",
+      name: "raw-html-632",
+      source: "<a href=\"\\\"\">\n",
+      expected_html: "<p>&lt;a href=&quot;&quot;&quot;&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 642,
+      section: "Hard line breaks",
+      name: "hard-line-breaks-642-inline-html",
+      source: "<a href=\"foo  \nbar\">\n",
+      expected_html: "<p><a href=\"foo  \nbar\"></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 643,
+      section: "Hard line breaks",
+      name: "hard-line-breaks-643-inline-html",
+      source: "<a href=\"foo\\\nbar\">\n",
+      expected_html: "<p><a href=\"foo\\\nbar\"></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+  ]
 }
 
 ///|
@@ -570,9 +816,7 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "html-blocks-168",
       source: "<del>*foo*</del>\n",
       expected_html: "<p><del><em>foo</em></del></p>\n",
-      status: CommonMarkHtmlXfail(
-        "Inline raw HTML is not implemented in this block fixture slice.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 169,
@@ -1612,5 +1856,6 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
     },
   ]
   fixtures.append(commonmark_emphasis_html_fixture_cases())
+  fixtures.append(commonmark_inline_angle_html_fixture_cases())
   fixtures
 }

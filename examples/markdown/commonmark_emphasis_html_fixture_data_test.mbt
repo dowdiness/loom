@@ -2,11 +2,11 @@
 // Do not edit by hand. Markdown and expected HTML come only from the checked-in
 // CommonMark 0.31.2 spec JSON; status exceptions come from the adjacent manifest.
 // Spec SHA-256: d431b29d97b6f73e69d547109cf5081578fac931e72afe95639ebe766c1b2a20.
-// Baseline: pass=127, xfail=5, skip=0.
+// Baseline: pass=132, xfail=0, skip=0.
 
 ///|
 fn commonmark_emphasis_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (127, 5, 0)
+  (132, 0, 0)
 }
 
 ///|
@@ -1018,9 +1018,7 @@ fn commonmark_emphasis_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "emphasis-and-strong-emphasis-475",
       source: "*<img src=\"foo\" title=\"*\"/>\n",
       expected_html: "<p>*<img src=\"foo\" title=\"*\"/></p>\n",
-      status: CommonMarkHtmlXfail(
-        "Inline raw HTML is not yet supported by the Markdown inline renderer.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 476,
@@ -1028,9 +1026,7 @@ fn commonmark_emphasis_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "emphasis-and-strong-emphasis-476",
       source: "**<a href=\"**\">\n",
       expected_html: "<p>**<a href=\"**\"></p>\n",
-      status: CommonMarkHtmlXfail(
-        "Inline raw HTML is not yet supported by the Markdown inline renderer.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 477,
@@ -1038,9 +1034,7 @@ fn commonmark_emphasis_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "emphasis-and-strong-emphasis-477",
       source: "__<a href=\"__\">\n",
       expected_html: "<p>__<a href=\"__\"></p>\n",
-      status: CommonMarkHtmlXfail(
-        "Inline raw HTML is not yet supported by the Markdown inline renderer.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 478,
@@ -1064,9 +1058,7 @@ fn commonmark_emphasis_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "emphasis-and-strong-emphasis-480",
       source: "**a<https://foo.bar/?q=**>\n",
       expected_html: "<p>**a<a href=\"https://foo.bar/?q=**\">https://foo.bar/?q=**</a></p>\n",
-      status: CommonMarkHtmlXfail(
-        "URI autolinks are not yet supported by the Markdown inline renderer.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 481,
@@ -1074,9 +1066,7 @@ fn commonmark_emphasis_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "emphasis-and-strong-emphasis-481",
       source: "__a<https://foo.bar/?q=__>\n",
       expected_html: "<p>__a<a href=\"https://foo.bar/?q=__\">https://foo.bar/?q=__</a></p>\n",
-      status: CommonMarkHtmlXfail(
-        "URI autolinks are not yet supported by the Markdown inline renderer.",
-      ),
+      status: CommonMarkHtmlPass,
     },
   ]
 }

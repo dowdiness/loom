@@ -23,6 +23,8 @@ pub fn build_tree_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.Interne
 
 pub fn[T, M : Eq] erase_mode_lexer(@core.ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> @core.ModeRelexFactory[T]
 
+pub fn[T, M : Eq] erase_mode_lexer_factory(() -> @core.ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> @core.ModeRelexFactory[T]
+
 pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(@core.SourceId, String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
 
 pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(@core.SourceId, String, Grammar[T, K, Ast], runtime? : @cells.Runtime) -> @pipeline.Parser[Ast]
