@@ -78,6 +78,7 @@ Understanding how the layers fit together. Principles only — no specific types
 - [decisions/2026-07-17-payload-capture.md](decisions/2026-07-17-payload-capture.md) — **Accepted** private regex capture payload annotations and Markdown helper integration (#688)
 - [superpowers/archive/completed-phases/2026-07-17-payload-capture.md](archive/completed-phases/2026-07-17-payload-capture.md) — completed implementation plan for #loom.payload capture extraction (#688)
 - [architecture/markdown-execution-roadmap.md](architecture/markdown-execution-roadmap.md) — dependency order for MarkdownIR editor compatibility, CommonMark block/inline work, incremental conformance hardening, and the independent loomgen lane
+- [plans/2026-08-01-commonmark-completion-handoff.md](plans/2026-08-01-commonmark-completion-handoff.md) — active, reversible delivery graph from the 437/652 audit baseline to clean CommonMark 0.31.2 completion
 
 - [grammar_ir_contract.md](grammar_ir_contract.md) — strict LL(1) alternation contract for the `#loom.rule` / `--grammar-ir` subset: disjoint FIRST sets enforced at generation time, `@fragment` escape hatch for non-LL(1) patterns, decision rationale (issue #540)
 - [superpowers/specs/2026-07-25-grammar-progress-recovery-contract.md](superpowers/specs/2026-07-25-grammar-progress-recovery-contract.md) — draft contract for compile-time progress analysis, runtime cycle guards, and malformed-input recovery semantics
@@ -85,6 +86,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-08-01-commonmark-completion-contract.md](decisions/2026-08-01-commonmark-completion-contract.md) — **Accepted** 652/652 clean-pipeline contract, explicit raw HTML policy, private block-container core, two-pass reference resolution, and incremental matrix (#800, #801, #803)
 - [decisions/2026-07-30-error-node-ebnf-syntax.md](decisions/2026-07-30-error-node-ebnf-syntax.md) — **Accepted** `@error_node(Kind, Token)` EBNF syntax for error recovery (#605, PR #663)
 - [decisions/2026-07-29-markdown-delimiter-run-ownership.md](decisions/2026-07-29-markdown-delimiter-run-ownership.md) — **Accepted** parser-owned CommonMark delimiter resolution with semantic-only MarkdownIR origins and a caller-topology-driven re-audit of #772 (#332, #396, #483)
 - [decisions/2026-07-26-agent-readiness-certification.md](decisions/2026-07-26-agent-readiness-certification.md) — **Accepted** fail-closed, revocable implementation certification and paginated audit policy

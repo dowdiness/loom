@@ -1,7 +1,7 @@
 # Markdown Execution Roadmap
 
 **Status:** Active dependency map.
-**Related:** [MarkdownIR architecture and target contract](markdown-ir.md), [#327](https://github.com/dowdiness/loom/issues/327), [#329](https://github.com/dowdiness/loom/issues/329), [#330](https://github.com/dowdiness/loom/issues/330), [#721](https://github.com/dowdiness/loom/issues/721), [#723](https://github.com/dowdiness/loom/issues/723)
+**Related:** [MarkdownIR architecture and target contract](markdown-ir.md), [CommonMark completion handoff](../plans/2026-08-01-commonmark-completion-handoff.md), [#327](https://github.com/dowdiness/loom/issues/327), [#329](https://github.com/dowdiness/loom/issues/329), [#330](https://github.com/dowdiness/loom/issues/330), [#721](https://github.com/dowdiness/loom/issues/721), [#723](https://github.com/dowdiness/loom/issues/723)
 
 ---
 
@@ -36,23 +36,26 @@ editor projection before this chain establishes the adapter boundary.
 
 ## M5 — CommonMark block model
 
-1. [#327](https://github.com/dowdiness/loom/issues/327) establishes the
-   container/block parser and MarkdownIR flow-content foundation.
-2. Once #327 provides that shared model, work on list children and indentation
-   ([#394](https://github.com/dowdiness/loom/issues/394)), blockquote
-   continuation ([#478](https://github.com/dowdiness/loom/issues/478)),
+1. First make the audit taxonomy completion-grade in
+   [#807](https://github.com/dowdiness/loom/issues/807), then establish the
+   private Markdown-local block-container decision core in
+   [#808](https://github.com/dowdiness/loom/issues/808).
+   [#327](https://github.com/dowdiness/loom/issues/327) tracks this foundation;
+   it is not itself one broad implementation PR.
+2. Once #808 provides that shared model,
+   [#474](https://github.com/dowdiness/loom/issues/474) pins parser/lowering
+   indentation consistency. List children, indentation, and tabs
+   ([#394](https://github.com/dowdiness/loom/issues/394)) follow #474. Work on
+   blockquote continuation ([#478](https://github.com/dowdiness/loom/issues/478)),
    indented code ([#392](https://github.com/dowdiness/loom/issues/392)), fenced
    code ([#479](https://github.com/dowdiness/loom/issues/479)), and block
-   reference definitions ([#482](https://github.com/dowdiness/loom/issues/482))
+   reference definitions ([#811](https://github.com/dowdiness/loom/issues/811))
    may proceed as independent slices.
-3. Complete the residual block work—setext/thematic-break interaction
-   ([#430](https://github.com/dowdiness/loom/issues/430)), marker-indentation
-   consolidation ([#460](https://github.com/dowdiness/loom/issues/460)),
-   parser/lowering indentation consistency
-   ([#474](https://github.com/dowdiness/loom/issues/474)), HTML blocks
-   ([#480](https://github.com/dowdiness/loom/issues/480)), and atomic examples
+3. Complete the residual block work—HTML blocks
+   ([#480](https://github.com/dowdiness/loom/issues/480)) and atomic examples
    ([#481](https://github.com/dowdiness/loom/issues/481))—after the shared
-   block model is stable.
+   block model is stable. The narrower marker-indent cleanup #460 is superseded
+   by #808 rather than layered beside the container core.
 
 ## M6 — CommonMark inline model
 
@@ -65,16 +68,19 @@ independent inline semantics:
 - [#395](https://github.com/dowdiness/loom/issues/395) implements entities.
 - [#720](https://github.com/dowdiness/loom/issues/720) implements ordinary-text
   backslash escapes.
-- [#485](https://github.com/dowdiness/loom/issues/485) establishes line-break
-  semantics and [#467](https://github.com/dowdiness/loom/issues/467) adds the
-  corresponding fixtures.
-- [#487](https://github.com/dowdiness/loom/issues/487) implements autolinks and
-  inline raw HTML.
+- Explicit MarkdownIR nodes distinguish soft breaks, hard-break surface forms,
+  autolinks, and inline raw HTML. [#467](https://github.com/dowdiness/loom/issues/467)
+  retains the line-break fixture ownership.
 
 Reference definitions remain a block-owned prerequisite. Therefore
-[#486](https://github.com/dowdiness/loom/issues/486) follows M5 #482, and
-[#397](https://github.com/dowdiness/loom/issues/397) follows both #482 and
-#486 for document-level reference/link resolution.
+[#811](https://github.com/dowdiness/loom/issues/811) owns block recognition and
+collection, [#812](https://github.com/dowdiness/loom/issues/812) consumes the
+definition table for links/images/references, and
+[#397](https://github.com/dowdiness/loom/issues/397) retains category-level
+conformance tracking. [#809](https://github.com/dowdiness/loom/issues/809)
+owns explicit raw HTML adapter policy and
+[#810](https://github.com/dowdiness/loom/issues/810) owns autolink/inline-HTML
+semantics.
 
 ## M7 — Incremental hardening
 
@@ -83,11 +89,11 @@ incremental parity policy applies within every M5 and M6 slice; it is not a
 final-only test pass.
 
 [#721](https://github.com/dowdiness/loom/issues/721) remains narrowly scoped as
-the M7 conformance exit audit. It runs after #327, #329, and #330 and records:
+the M7 conformance exit audit. It runs after the M5/M6 feature graph and records:
 
-- the full CommonMark audit and 326/652 comparison;
-- ownership for every residual failure; and
-- representative direct and incremental parity evidence.
+- exact 652/652 CommonMark 0.31.2 HTML equality in explicit passthrough mode;
+- clean diagnostics and zero `Unsupported`, malformed `Raw`, or `Recovered`;
+- representative direct and incremental parity evidence for every feature family.
 
 Do not add feature-delivery scope to #721. The dedicated tracking issue
 [#723](https://github.com/dowdiness/loom/issues/723) is linked from the M2, M5,
