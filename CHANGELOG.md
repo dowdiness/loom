@@ -86,14 +86,15 @@ Notable user-facing changes to Loom and its sibling modules.
   indexing, deterministic plain rendering, and atomic single-source fixes. The
   open `SourceResolver` and `ToDiagnostic` traits support external source stores
   and application-defined errors without a Loom dependency. Loom's `LexError`
-  is the first production `ToDiagnostic` implementation.
+  is the first production `ToDiagnostic` implementation. Plain source rendering
+  now uses `dowdiness/moji` display cells for Unicode marker alignment and
+  deterministic four-column tab expansion.
 
 - **`dowdiness/moji`:** added grapheme-aware terminal display measurement.
   `display_width` and `display_units` combine moji's UTF-16 grapheme boundaries
   with UAX #11 widths, explicit East Asian Ambiguous policy, absolute tab-stop
   expansion, zero-width units, and non-additive ligature grouping. Width-table
   Unicode versioning is exposed independently from segmentation data.
-
 
 - **`dowdiness/loomgen` — M16 EBNF subset: `~` (Emit), `!` (EmitOr), `@until` (ErrorUntil):**
   Postfix `Token~` lowers to `Expr::Emit(token, kind)` — silently skip if absent.

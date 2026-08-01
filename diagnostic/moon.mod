@@ -2,6 +2,10 @@ name = "dowdiness/diagnostic"
 
 version = "0.1.0"
 
+import {
+  "dowdiness/moji@0.1.0",
+}
+
 readme = "README.mbt.md"
 
 repository = "https://github.com/dowdiness/loom"

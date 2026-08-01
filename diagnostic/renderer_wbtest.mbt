@@ -392,8 +392,105 @@ test "plain diagnostic renderer preserves UTF-16 point and Unicode semantics" {
       #|    |  ^^
       #|secondary 1:4-1:6: combining
       #|  1 | a😈é
-      #|    |    --
+      #|    |    -
     ),
+  )
+}
+
+///|
+test "plain diagnostic renderer aligns markers by display cells" {
+  let source_id = SourceId("width")
+  let source = "界\tx"
+  let resolver = test_source_resolver(requested => {
+    if requested == source_id {
+      Some(SourceSnapshot("width.mbt", source, LineIndex::new(source)))
+    } else {
+      None
+    }
+  })
+  let diagnostic = Diagnostic(
+    origin=DiagnosticOrigin("renderer"),
+    severity=Hint,
+    message="display cells",
+    labels=[
+      renderer_test_label(Primary, source_id, 0, 1, "wide"),
+      renderer_test_label(Secondary, source_id, 2, 3, "after tab"),
+    ],
+  )
+  inspect(
+    diagnostic.render_plain(resolver),
+    content=(
+      #|hint: display cells
+      #|--> width.mbt
+      #|primary 1:1-1:2: wide
+      #|  1 | 界    x
+      #|    | ^^
+      #|secondary 1:3-1:4: after tab
+      #|  1 | 界    x
+      #|    |       -
+    ),
+  )
+}
+
+///|
+test "plain diagnostic renderer keeps a marker for a zero-width span" {
+  let source_id = SourceId("zero-width")
+  let source = "a\u{200B}b"
+  let resolver = test_source_resolver(requested => {
+    if requested == source_id {
+      Some(SourceSnapshot("zero.mbt", source, LineIndex::new(source)))
+    } else {
+      None
+    }
+  })
+  let diagnostic = Diagnostic(
+    origin=DiagnosticOrigin("renderer"),
+    severity=Warning,
+    message="zero width",
+    labels=[renderer_test_label(Primary, source_id, 1, 2, "invisible")],
+  )
+  inspect(
+    diagnostic.render_plain(resolver),
+    content="warning: zero width\n--> zero.mbt\nprimary 1:2-1:3: invisible\n  1 | a\u{200B}b\n    |  ^",
+  )
+}
+
+///|
+test "plain diagnostic renderer expands interior spans to display units" {
+  let sequence_id = SourceId("sequence")
+  let combining_id = SourceId("combining-interior")
+  let sequence = "\u{16D69}\u{16D68}\u{16D67}"
+  let combining = "e\u{301}"
+  let resolver = test_source_resolver(requested => {
+    if requested == sequence_id {
+      Some(SourceSnapshot("sequence.mbt", sequence, LineIndex::new(sequence)))
+    } else if requested == combining_id {
+      Some(
+        SourceSnapshot("combining.mbt", combining, LineIndex::new(combining)),
+      )
+    } else {
+      None
+    }
+  })
+  let sequence_diagnostic = Diagnostic(
+    origin=DiagnosticOrigin("renderer"),
+    severity=Error,
+    message="non-additive sequence",
+    labels=[renderer_test_label(Primary, sequence_id, 4, 6, "last grapheme")],
+  )
+  inspect(
+    sequence_diagnostic.render_plain(resolver),
+    content="error: non-additive sequence\n--> sequence.mbt\nprimary 1:5-1:7: last grapheme\n  1 | \u{16D69}\u{16D68}\u{16D67}\n    | ^^",
+  )
+  let combining_diagnostic = Diagnostic(
+    origin=DiagnosticOrigin("renderer"),
+    severity=Warning,
+    message="combining interior",
+    labels=[renderer_test_label(Secondary, combining_id, 1, 2, "mark")],
+  )
+  inspect(
+    combining_diagnostic.render_plain(resolver),
+    content="warning: combining interior\n--> combining.mbt\nsecondary 1:2-1:3: mark\n  1 | e\u{301}\n    | -",
   )
 }
 

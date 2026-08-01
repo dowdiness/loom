@@ -5,8 +5,9 @@ for MoonBit tools. It keeps UTF-16 source coordinates, labels, notes, fixes,
 and rendering as data, so terminal, editor, and future machine-readable views
 can share one canonical `Diagnostic` value.
 
-The production package depends only on MoonBit core packages. It does not
-depend on Loom, a syntax tree, a lexer, or a filesystem.
+The production package depends on `dowdiness/moji` for Unicode display-cell
+measurement. It does not depend on Loom, a syntax tree, a lexer, a terminal,
+or a filesystem.
 
 ## Install
 
@@ -31,6 +32,10 @@ import {
 Canonical positions are half-open UTF-16 code-unit ranges. A resolver returns
 one coherent `SourceSnapshot` containing its display name, text, and matching
 `LineIndex`. The source may be a file, virtual document, or in-memory buffer.
+Plain rendering converts those offsets to display cells for marker alignment.
+East Asian Ambiguous characters use narrow width, and tabs are deterministically
+expanded to four-column stops in the rendered source line. A non-empty
+zero-width span still receives a one-cell marker so the label remains visible.
 
 ```mbt check
 ///|

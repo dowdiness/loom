@@ -189,6 +189,73 @@ fn source_line_content_end(source : SourceSnapshot, line : Int) -> Int {
 }
 
 ///|
+/// Measure a complete source line with the renderer's deterministic tab policy.
+fn diagnostic_display_units(
+  text : String,
+  start_column : Int,
+) -> Array[@moji.DisplayUnit] {
+  try @moji.display_units(text, start_column~, tab_width=4) catch {
+    _ => abort("diagnostic display-width context must be valid")
+  } noraise {
+    units => units
+  }
+}
+
+///|
+/// Write source text while expanding tabs with the same cell model used for
+/// marker placement. Other graphemes retain their original source spelling.
+fn write_diagnostic_source_text(
+  builder : StringBuilder,
+  text : String,
+  units : Array[@moji.DisplayUnit],
+) -> Unit {
+  units.each(unit => {
+    let view = text.view(
+      start_offset=unit.utf16_start(),
+      end_offset=unit.utf16_end(),
+    )
+    if view.equal_to_string("\t") {
+      builder.write_string(" ".repeat(unit.cell_end() - unit.cell_start()))
+    } else {
+      builder.write_stringview(view)
+    }
+  })
+}
+
+///|
+/// Project a half-open UTF-16 range through complete-line display units.
+/// Boundaries inside a combined unit expand to that unit's cell boundaries.
+fn diagnostic_marker_cells(
+  units : Array[@moji.DisplayUnit],
+  utf16_start : Int,
+  utf16_end : Int,
+  line_utf16_end : Int,
+  line_cell_start : Int,
+) -> (Int, Int) {
+  let line_cell_end = match units.last() {
+    Some(unit) => unit.cell_end()
+    None => line_cell_start
+  }
+  let cell_start = match
+    units.search_by(unit => utf16_start < unit.utf16_end()) {
+    Some(index) => units[index].cell_start()
+    None => line_cell_end + utf16_start - line_utf16_end
+  }
+  let cell_end = match units.search_by(unit => utf16_end <= unit.utf16_end()) {
+    Some(index) => {
+      let unit = units[index]
+      if utf16_end <= unit.utf16_start() {
+        unit.cell_start()
+      } else {
+        unit.cell_end()
+      }
+    }
+    None => line_cell_end + utf16_end - line_utf16_end
+  }
+  (cell_start - line_cell_start, cell_end - line_cell_start)
+}
+
+///|
 fn render_diagnostic_source_line(
   builder : StringBuilder,
   validated : ValidatedDiagnosticLabel,
@@ -200,6 +267,7 @@ fn render_diagnostic_source_line(
   let start = line_range.start
   let end = line_range.end
   let display_line = (line + 1).to_string()
+  let source_column_start = 5 + display_line.length()
   let line_start = match
     source.line_index.checked_offset(source.text, { line, column: 0 }) {
     Some(offset) => offset
@@ -216,19 +284,33 @@ fn render_diagnostic_source_line(
   } else {
     line_end - line_start
   }
+  let line_text = line_view.to_owned()
+  let display_units = diagnostic_display_units(line_text, source_column_start)
+  let (marker_cell_start, marker_cell_end) = diagnostic_marker_cells(
+    display_units,
+    marker_start,
+    marker_end,
+    line_text.length(),
+    source_column_start,
+  )
   builder.write_string("\n  ")
   builder.write_string(display_line)
   builder.write_string(" |")
   if line_end > line_start {
     builder.write_char(' ')
   }
-  builder.write_stringview(line_view)
+  write_diagnostic_source_text(builder, line_text, display_units)
   builder.write_char('\n')
   builder.write_string(" ".repeat(3 + display_line.length()))
   builder.write_string("| ")
-  builder.write_string(" ".repeat(marker_start))
+  builder.write_string(" ".repeat(marker_cell_start))
   let width = if marker_end > marker_start {
-    marker_end - marker_start
+    let measured_width = marker_cell_end - marker_cell_start
+    if measured_width > 0 {
+      measured_width
+    } else {
+      1
+    }
   } else {
     1
   }

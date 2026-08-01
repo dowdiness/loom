@@ -88,4 +88,9 @@ filesystem, locale, environment-variable, or renderer access.
 - ANSI, color, themes, TTY or `NO_COLOR` detection
 - hard-line splitting, bidi, shaping, pixels, or soft wrapping
 - source sanitization or control-character rendering policy
-- changes to `dowdiness/diagnostic`
+
+## Follow-up integration
+
+`dowdiness/diagnostic` plain rendering consumes this API for Unicode marker
+alignment. It expands tabs to deterministic four-column stops while retaining
+UTF-16 coordinates in diagnostic headers and structured values.
