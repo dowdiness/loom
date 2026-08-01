@@ -42,7 +42,7 @@ punctuation until the closing quote, and the closing quote returns to normal.
 Every `Produced` step must advance; EOF returns `Done` without inventing a
 quote or changing parser state.
 
-Wire the state machine through the existing mode-lexer boundary:
+Wire an immutable state machine through the existing mode-lexer boundary:
 
 ```mbt nocheck
 let mode_lexer : @core.ModeLexer[Token, LexMode] = {
@@ -59,16 +59,61 @@ let grammar = @loom.Grammar::new(
 )
 ```
 
-`erase_mode_lexer` provides detached tokenization and a factory. Each
-`TokenBuffer` owns its `ModeRelexState` session; edits re-lex from the damage
-frontier until both source position and lexical mode converge, then reuse the
-unchanged suffix. There is no parser-local mode setter: use this
-`ModeLexer`/`ModeRelexFactory` boundary for persistent lexical modes. For the
-rationale, see the [accepted lex-mode lifecycle decision](../decisions/2026-07-26-parser-context-lex-mode-lifecycle.md).
+Use `erase_mode_lexer` when the `ModeLexer` value and its `lex_step` closure are
+immutable. It provides detached tokenization and creates a distinct
+`ModeRelexState` snapshot for each `TokenBuffer`.
+
+If `lex_step` closes over mutable derived resources, such as a source-local
+delimiter index, construct a fresh lexer shell instead:
+
+```mbt nocheck
+fn new_mode_lexer() -> @core.ModeLexer[Token, LexMode] {
+  let source_cache : Ref[String?] = Ref(None)
+  let derived_index : Ref[DerivedIndex?] = Ref(None)
+  {
+    initial_mode: Normal,
+    lex_step: (source, position, mode) => {
+      // Invalidate and rebuild derived state for this shell's current source.
+      lex_step_with_index(source, position, mode, source_cache, derived_index)
+    },
+  }
+}
+
+let mode_relex = @core.erase_mode_lexer_factory(
+  new_mode_lexer,
+  Eof,
+  error_token=Error,
+)
+let lex = mode_relex.tokenize
+let grammar = @loom.Grammar::new(
+  spec~, lex~, fold_node~, mode_relex=Some(mode_relex),
+)
+```
+
+`erase_mode_lexer_factory` calls the builder once for each detached
+tokenization and once for each parser session. Loom initializes the session and
+its first `LexResult` together, so a source-local index is neither shared across
+parsers nor rebuilt by a second initial tokenization.
+
+The grammar's `lex` function must be semantically identical to the factory's
+`tokenize`. Assigning `mode_relex.tokenize` directly makes that relationship
+explicit.
+
+If the grammar lexer adds independent diagnostics or transforms tokens, keep
+the legacy `erase_mode_lexer` path unless that behavior is moved into the
+factory-owned lexer.
+
+In both forms, edits re-lex from the damage frontier until both source position
+and lexical mode converge, then reuse the unchanged suffix.
+
+There is no parser-local mode setter. Use the `ModeLexer`/`ModeRelexFactory`
+boundary for persistent lexical modes. The rationale is recorded in the
+[accepted lex-mode lifecycle decision](../decisions/2026-07-26-parser-context-lex-mode-lifecycle.md).
 
 The checked mixed-context recipe is in the [mode lexer fixture](../../loom/core/mode_lexer_wbtest.mbt)
 and its [incremental re-lex test](../../loom/core/mode_relex_wbtest.mbt).
 Related in-repository recipes cover [Markdown code fences](../../examples/markdown/lexer.mbt),
+[Markdown's session-owned inline-angle index](../../examples/markdown/grammar.mbt),
 [HTML raw text](../../examples/html/lexer.mbt), and [JSX opaque braces](../../examples/jsx/lexer.mbt).
 
 ## Recovery And Progress
