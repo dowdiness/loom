@@ -78,6 +78,18 @@ fn assert_reference_definition_incremental_parity(
             incremental_definition.definition_origin,
             fresh_definition.definition_origin,
           )
+          assert_eq(
+            incremental_definition.label_value_origin,
+            fresh_definition.label_value_origin,
+          )
+          assert_eq(
+            incremental_definition.destination_value_origin,
+            fresh_definition.destination_value_origin,
+          )
+          assert_eq(
+            incremental_definition.title_value_origin,
+            fresh_definition.title_value_origin,
+          )
           inspect(incremental_definition.destination_value, content=destination)
         }
         _ =>
@@ -176,5 +188,77 @@ test "incremental reference definitions: construction, destruction, duplicate, a
     Some("foo"),
     Some("/url"),
     "<ul>\n<li></li>\n</ul>\n",
+  )
+}
+
+///|
+test "incremental reference definitions: official angle, title, and indentation boundaries match fresh" {
+  let angle_prefix = "[foo]: <bar>"
+  assert_reference_definition_incremental_parity(
+    "commonmark-201-angle-boundary",
+    angle_prefix + "\n",
+    @core.Edit::insert(angle_prefix.length(), 5),
+    angle_prefix + "(baz)\n",
+    None,
+    None,
+    "<p>[foo]: &lt;bar&gt;(baz)</p>\n",
+  )
+  let escaped_angle_prefix = "[foo]: <bar\\>ba"
+  assert_reference_definition_incremental_parity(
+    "escaped-angle-destination",
+    escaped_angle_prefix + "x>\n\n[foo]\n",
+    @core.Edit::replace(
+      escaped_angle_prefix.length(),
+      escaped_angle_prefix.length() + 1,
+      1,
+    ),
+    escaped_angle_prefix + "z>\n\n[foo]\n",
+    Some("foo"),
+    Some("bar>baz"),
+    "<p><a href=\"bar%3Ebaz\">foo</a></p>\n",
+  )
+  let escaped_punctuation_prefix = "[foo]: <bar\\*ba"
+  assert_reference_definition_incremental_parity(
+    "escaped-punctuation-destination",
+    escaped_punctuation_prefix + "x>\n\n[foo]\n",
+    @core.Edit::replace(
+      escaped_punctuation_prefix.length(),
+      escaped_punctuation_prefix.length() + 1,
+      1,
+    ),
+    escaped_punctuation_prefix + "z>\n\n[foo]\n",
+    Some("foo"),
+    Some("bar*baz"),
+    "<p><a href=\"bar*baz\">foo</a></p>\n",
+  )
+  let continuation_prefix = "[foo]: <bar>"
+  assert_reference_definition_incremental_parity(
+    "commonmark-201-paragraph-continuation-boundary",
+    continuation_prefix + "\ncontinued\n",
+    @core.Edit::insert(continuation_prefix.length(), 5),
+    continuation_prefix + "(baz)\ncontinued\n",
+    None,
+    None,
+    "<p>[foo]: &lt;bar&gt;(baz)\ncontinued</p>\n",
+  )
+  let title_prefix = "[foo]: /url"
+  assert_reference_definition_incremental_parity(
+    "multiline-title-boundary",
+    title_prefix + " \"title\"\n",
+    @core.Edit::replace(title_prefix.length(), title_prefix.length() + 1, 1),
+    title_prefix + "\n \"title\"\n",
+    Some("foo"),
+    Some("/url"),
+    "",
+  )
+  let indentation_prefix = "   [foo]: /url \"title\"\n"
+  assert_reference_definition_incremental_parity(
+    "commonmark-211-indentation-boundary",
+    indentation_prefix,
+    @core.Edit::insert(3, 1),
+    " " + indentation_prefix,
+    None,
+    None,
+    "<pre><code>[foo]: /url &quot;title&quot;\n</code></pre>\n",
   )
 }

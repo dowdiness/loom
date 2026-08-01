@@ -114,16 +114,22 @@ fn strip_indented_code_line(
 }
 
 ///|
-fn trim_code_boundary_newlines(value : String) -> String {
+fn trim_code_boundary_newlines(value : String, fenced~ : Bool) -> String {
   let without_leading = if value.has_prefix("\n") {
     value[1:].to_owned()
   } else {
     value
   }
-  if without_leading.has_suffix("\n") {
-    without_leading[:without_leading.length() - 1].to_owned()
+  if fenced {
+    if without_leading.has_suffix("\n") {
+      without_leading[:without_leading.length() - 1].to_owned()
+    } else {
+      without_leading
+    }
   } else {
-    without_leading
+    // Blank lines after an indented-code line terminate the block but are not
+    // part of its value; fenced blocks preserve their final content newline.
+    without_leading.trim_end(chars="\n".view()).to_owned()
   }
 }
 
@@ -176,5 +182,8 @@ fn code_block_value(node : @seam.SyntaxNode) -> String {
     }
   }
   flush_indented_line()
-  trim_code_boundary_newlines(buf.to_string())
+  trim_code_boundary_newlines(
+    buf.to_string(),
+    fenced=node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_),
+  )
 }
