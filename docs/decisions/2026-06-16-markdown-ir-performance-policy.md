@@ -91,6 +91,24 @@ benchmark result shows that a fresh, non-memoized MarkdownIR lowering is not a
 performance regression and therefore does not justify the complexity of a
 position-aware memo layer at M1.
 
+### 2026-08-02 reassessment
+
+Issue [#838](https://github.com/dowdiness/loom/issues/838) repeated the lowering
+measurements after MarkdownIR coverage expanded. The historical claim that the
+MarkdownIR route is faster is now **stale**: on the same local release run,
+`SyntaxNode -> MarkdownIR -> Block` took 189.66 µs versus 88.34 µs for direct
+`SyntaxNode -> Block` on the realistic JavaScript corpus, and 9.72 ms versus
+8.78 ms on its 50x form. The corresponding wasm-gc results were 135.86 µs
+versus 63.82 µs and 6.18 ms versus 5.47 ms. Stage-isolation measurements also
+put direct MarkdownIR construction above a cold AST fold.
+
+The decision remains current: MarkdownIR is lazy, optional, and cannot use the
+position-independent `CstFold` cache while it carries absolute origins. The new
+evidence strengthens the case against eager construction in parser snapshots;
+it does not by itself justify a new position-aware memo. Full commands and the
+performance envelope are recorded in
+[`docs/performance/benchmark_history.md`](../performance/benchmark_history.md).
+
 ### Checked canonical formatter policy
 
 Issue #777 adds a separate cost boundary for checked canonical formatting. Its
