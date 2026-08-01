@@ -479,7 +479,8 @@ fn normalized_link_label_node_fingerprint(ir : MarkdownIR) -> String {
       append_key_component(buf, "InlineCode")
       append_key_component(buf, value)
     }
-    HardBreak(_) => append_key_component(buf, "HardBreak")
+    SoftBreak(_) => append_key_component(buf, "SoftBreak")
+    HardBreak(_, _) => append_key_component(buf, "HardBreak")
     Link(children, destination, _, _) => {
       append_key_component(buf, "Link")
       append_key_component(buf, destination)
@@ -670,7 +671,8 @@ fn collect_markdown_ir_identity_candidates(
       )
     HtmlBlock(_, _)
     | ThematicBreak
-    | HardBreak(_)
+    | SoftBreak(_)
+    | HardBreak(_, _)
     | Raw(_, _)
     | Recovered(_, _)
     | Unsupported(_) => ()

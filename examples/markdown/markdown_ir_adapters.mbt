@@ -7,7 +7,7 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
     InlineCode(value, _) => Inline::InlineCode(value)
     Link(children, destination, _, _) =>
       Inline::Link(ir_children_to_inlines(children), destination)
-    HardBreak(_) => Inline::Text("\n")
+    SoftBreak(_) | HardBreak(_, _) => Inline::Text("\n")
     Unsupported(message) => Inline::Error(message)
     Raw(value, _) => Inline::Text(value)
     Recovered(message, _) => Inline::Error(message)
@@ -59,8 +59,8 @@ fn ir_children_to_editor_inlines(
   .iter()
   .filter_map(child => {
     match child.node {
-      Text("\n") => newline_text.map(text => Inline::Text(text))
-      HardBreak(_) => Some(Inline::Text("\n"))
+      SoftBreak(_) => newline_text.map(text => Inline::Text(text))
+      HardBreak(_, _) => Some(Inline::Text("\n"))
       _ => Some(experimental_markdown_ir_to_editor_inline(child))
     }
   })
@@ -125,7 +125,8 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
     InlineCode(_, _) =>
       Block::Error("expected block MarkdownIR, got inline code")
     Link(_, _, _, _) => Block::Error("expected block MarkdownIR, got link")
-    HardBreak(_) => Block::Error("expected block MarkdownIR, got hard break")
+    SoftBreak(_) => Block::Error("expected block MarkdownIR, got soft break")
+    HardBreak(_, _) => Block::Error("expected block MarkdownIR, got hard break")
     Unsupported(message) => Block::Error(message)
     Raw(value, _) =>
       Block::Error("expected block MarkdownIR, got raw: " + value)
@@ -295,7 +296,8 @@ fn mdast_children_json(
       for child in children {
         match child.node {
           Text(value) => pending_text.write_string(value)
-          HardBreak(_) => {
+          SoftBreak(_) => pending_text.write_char('\n')
+          HardBreak(_, _) => {
             flush_text()
             json_children.push(markdown_ir_to_mdast_json(child, None))
           }
@@ -374,7 +376,8 @@ fn markdown_ir_to_mdast_json(
     HtmlBlock(value, _) => { "type": "html", "value": value }
     ThematicBreak => { "type": "thematicBreak" }
     Text(value) => { "type": "text", "value": value }
-    HardBreak(_) => { "type": "break" }
+    SoftBreak(_) => { "type": "text", "value": "\n" }
+    HardBreak(_, _) => { "type": "break" }
     Bold(children, _) =>
       { "type": "strong", "children": mdast_children_json(children, context) }
     Italic(children, _) =>

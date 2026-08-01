@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=315, xfail=11, skip=0.
+// Baseline: pass=318, xfail=11, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (315, 11, 0)
+  (318, 11, 0)
 }
 
 ///|
@@ -1240,6 +1240,30 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "soft-break-collapses-whitespace",
       source: "foo \n baz\n",
       expected_html: "<p>foo\nbaz</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 634,
+      section: "Hard line breaks",
+      name: "hard-line-breaks-backslash",
+      source: "foo\\\nbaz\n",
+      expected_html: "<p>foo<br />\nbaz</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 637,
+      section: "Hard line breaks",
+      name: "hard-line-breaks-backslash-indented-continuation",
+      source: "foo\\\n     bar\n",
+      expected_html: "<p>foo<br />\nbar</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 639,
+      section: "Hard line breaks",
+      name: "hard-line-breaks-backslash-inside-emphasis",
+      source: "*foo\\\nbar*\n",
+      expected_html: "<p><em>foo<br />\nbar</em></p>\n",
       status: CommonMarkHtmlPass,
     },
     {

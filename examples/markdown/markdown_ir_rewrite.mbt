@@ -329,7 +329,8 @@ fn local_transform_render(
       }
     ThematicBreak => source_slice(source, ir.origin())
     HtmlBlock(_, _) => source_slice(source, ir.origin())
-    Text(_) | Raw(_, _) | HardBreak(_) => source_slice(source, ir.origin())
+    Text(_) | Raw(_, _) | SoftBreak(_) | HardBreak(_, _) =>
+      source_slice(source, ir.origin())
     Bold(children, content_origin) => {
       let rendered = if content_origin == Some(target_origin) {
         replacement_text

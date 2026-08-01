@@ -262,7 +262,8 @@ fn decode_markdown_ir_text_entities(
     | HtmlBlock(_, _)
     | ThematicBreak
     | InlineCode(_, _)
-    | HardBreak(_)
+    | SoftBreak(_)
+    | HardBreak(_, _)
     | Unsupported(_)
     | Raw(_, _)
     | Recovered(_, _) => ir

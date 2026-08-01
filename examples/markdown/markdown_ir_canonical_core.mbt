@@ -79,6 +79,7 @@ priv enum MarkdownIRCanonicalSemantic {
   SemanticItalic(Array[MarkdownIRCanonicalSemantic])
   SemanticInlineCode(String)
   SemanticLink(Array[MarkdownIRCanonicalSemantic], String)
+  SemanticSoftBreak
   SemanticHardBreak
 } derive(Eq, Debug)
 
@@ -185,7 +186,8 @@ fn markdown_ir_canonical_semantic(
         Some(children) => Some(SemanticLink(children, destination))
         None => None
       }
-    HardBreak(_) => Some(SemanticHardBreak)
+    SoftBreak(_) => Some(SemanticSoftBreak)
+    HardBreak(_, _) => Some(SemanticHardBreak)
     Unsupported(_) | Raw(_, _) | Recovered(_, _) => None
   }
 }
@@ -226,7 +228,8 @@ fn markdown_ir_first_canonical_opaque(
     | ThematicBreak
     | Text(_)
     | InlineCode(_, _)
-    | HardBreak(_)
+    | SoftBreak(_)
+    | HardBreak(_, _)
     | Unsupported(_)
     | Raw(_, _)
     | Recovered(_, _) => ()
@@ -487,7 +490,7 @@ fn markdown_ir_collect_inline_choice_radices(
       for child in children {
         markdown_ir_collect_inline_choice_radices(child, radices)
       }
-    InlineCode(_, _) | HardBreak(_) => ()
+    InlineCode(_, _) | SoftBreak(_) | HardBreak(_, _) => ()
     Document(_)
     | Heading(_, _, _)
     | Paragraph(_, _)
@@ -536,7 +539,8 @@ fn markdown_ir_collect_block_choice_containers(
     | Italic(_, _)
     | InlineCode(_, _)
     | Link(_, _, _, _)
-    | HardBreak(_) => {
+    | SoftBreak(_)
+    | HardBreak(_, _) => {
       let radices : Array[Int] = []
       markdown_ir_collect_inline_choice_radices(ir, radices)
       containers.push(radices)
@@ -867,7 +871,8 @@ fn markdown_ir_canonical_candidate_format_with_list_marker(
     HtmlBlock(value, _) => value
     ThematicBreak => "---"
     Text(value) => reader.choose(markdown_ir_canonical_text_choices(value))
-    HardBreak(_) => "  \n"
+    SoftBreak(_) => "\n"
+    HardBreak(surface, _) => hard_break_surface_text(surface)
     Bold(children, _) => {
       let delimiter = reader.choose(markdown_ir_canonical_bold_choices())
       let buf = StringBuilder::StringBuilder()
