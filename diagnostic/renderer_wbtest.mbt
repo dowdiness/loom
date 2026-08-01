@@ -23,6 +23,27 @@ fn renderer_test_label(
 }
 
 ///|
+struct RendererTestDisplay {
+  padding : Int
+}
+
+///|
+impl TextDisplay for RendererTestDisplay with fn render_line(_, text, _) {
+  "[" + text + "]"
+}
+
+///|
+impl TextDisplay for RendererTestDisplay with fn marker_cells(
+  self,
+  _,
+  _,
+  utf16_start,
+  utf16_end,
+) {
+  (utf16_start + self.padding, utf16_end + self.padding)
+}
+
+///|
 test "plain diagnostic renderer renders a locationless diagnostic without source lookup" {
   let mut resolve_calls = 0
   let provider = test_source_resolver(_ => {
@@ -84,6 +105,37 @@ test "plain diagnostic renderer renders a source-backed primary label" {
       #|primary 1:9-1:12: expected expression
       #|  1 | let x = foo
       #|    |         ^^^
+    ),
+  )
+}
+
+///|
+test "plain diagnostic renderer accepts an explicit text display capability" {
+  let source_id = SourceId("display")
+  let source = "abc"
+  let resolver = test_source_resolver(requested => {
+    if requested == source_id {
+      Some(SourceSnapshot("display.mbt", source, LineIndex::new(source)))
+    } else {
+      None
+    }
+  })
+  let diagnostic = Diagnostic(
+    origin=DiagnosticOrigin("renderer"),
+    severity=Error,
+    message="custom display",
+    labels=[renderer_test_label(Primary, source_id, 1, 2, "middle")],
+  )
+  inspect(
+    diagnostic.render_plain_with_display(resolver, RendererTestDisplay::{
+      padding: 1,
+    }),
+    content=(
+      #|error: custom display
+      #|--> display.mbt
+      #|primary 1:2-1:3: middle
+      #|  1 | [abc]
+      #|    |   ^
     ),
   )
 }

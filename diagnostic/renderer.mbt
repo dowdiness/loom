@@ -22,6 +22,36 @@ pub(open) trait SourceResolver {
 }
 
 ///|
+/// Capability that renders one raw source line and projects its UTF-16 ranges
+/// to relative display ranges. Both methods receive the absolute column where
+/// the rendered line starts and must use the same display model. Marker ranges
+/// must be non-negative and ordered; offsets beyond the line text represent
+/// stripped line terminators.
+pub(open) trait TextDisplay {
+  fn render_line(Self, String, Int) -> String
+  fn marker_cells(Self, String, Int, Int, Int) -> (Int, Int)
+}
+
+///|
+priv struct CodeUnitTextDisplay {}
+
+///|
+impl TextDisplay for CodeUnitTextDisplay with fn render_line(_, text, _) {
+  text
+}
+
+///|
+impl TextDisplay for CodeUnitTextDisplay with fn marker_cells(
+  _,
+  _,
+  _,
+  utf16_start,
+  utf16_end,
+) {
+  (utf16_start, utf16_end)
+}
+
+///|
 /// Expected failures at the source-backed rendering boundary.
 pub suberror DiagnosticRenderError {
   MissingSource(SourceId)
@@ -189,10 +219,11 @@ fn source_line_content_end(source : SourceSnapshot, line : Int) -> Int {
 }
 
 ///|
-fn render_diagnostic_source_line(
+fn[D : TextDisplay] render_diagnostic_source_line(
   builder : StringBuilder,
   validated : ValidatedDiagnosticLabel,
   line : Int,
+  display : D,
 ) -> Unit raise DiagnosticRenderError {
   let label = validated.label
   let source = validated.source
@@ -200,6 +231,8 @@ fn render_diagnostic_source_line(
   let start = line_range.start
   let end = line_range.end
   let display_line = (line + 1).to_string()
+  let gutter_width = 3 + display_line.length()
+  let source_column_start = gutter_width + 2
   let line_start = match
     source.line_index.checked_offset(source.text, { line, column: 0 }) {
     Some(offset) => offset
@@ -216,19 +249,29 @@ fn render_diagnostic_source_line(
   } else {
     line_end - line_start
   }
+  let line_text = line_view.to_owned()
+  let rendered_line = display.render_line(line_text, source_column_start)
+  let (marker_cell_start, marker_cell_end) = display.marker_cells(
+    line_text, source_column_start, marker_start, marker_end,
+  )
   builder.write_string("\n  ")
   builder.write_string(display_line)
   builder.write_string(" |")
   if line_end > line_start {
     builder.write_char(' ')
   }
-  builder.write_stringview(line_view)
+  builder.write_string(rendered_line)
   builder.write_char('\n')
-  builder.write_string(" ".repeat(3 + display_line.length()))
+  builder.write_string(" ".repeat(gutter_width))
   builder.write_string("| ")
-  builder.write_string(" ".repeat(marker_start))
+  builder.write_string(" ".repeat(marker_cell_start))
   let width = if marker_end > marker_start {
-    marker_end - marker_start
+    let measured_width = marker_cell_end - marker_cell_start
+    if measured_width > 0 {
+      measured_width
+    } else {
+      1
+    }
   } else {
     1
   }
@@ -236,9 +279,10 @@ fn render_diagnostic_source_line(
 }
 
 ///|
-fn render_diagnostic_label(
+fn[D : TextDisplay] render_diagnostic_label(
   builder : StringBuilder,
   validated : ValidatedDiagnosticLabel,
+  display : D,
 ) -> Unit raise DiagnosticRenderError {
   let label = validated.label
   let line_range = validated.line_range
@@ -267,27 +311,29 @@ fn render_diagnostic_label(
     end.line
   }
   Array::makei(last_line - start.line + 1, index => start.line + index).each(line => {
-    render_diagnostic_source_line(builder, validated, line)
+    render_diagnostic_source_line(builder, validated, line, display)
   })
 }
 
 ///|
-fn render_diagnostic_source_group(
+fn[D : TextDisplay] render_diagnostic_source_group(
   builder : StringBuilder,
   group : ValidatedDiagnosticSourceGroup,
+  display : D,
 ) -> Unit raise DiagnosticRenderError {
   builder.write_string("\n--> ")
   builder.write_string(group.source.name)
   group.labels.each(label => {
     builder.write_char('\n')
-    render_diagnostic_label(builder, label)
+    render_diagnostic_label(builder, label, display)
   })
 }
 
 ///|
-fn[R : SourceResolver] Diagnostic::render_plain_with_context(
+fn[R : SourceResolver, D : TextDisplay] Diagnostic::render_plain_with_context(
   self : Diagnostic,
   context : DiagnosticRenderContext[R],
+  display : D,
 ) -> String raise DiagnosticRenderError {
   let groups = validate_diagnostic_groups(context, self.labels())
   let builder = StringBuilder()
@@ -302,7 +348,7 @@ fn[R : SourceResolver] Diagnostic::render_plain_with_context(
   }
   builder.write_string(": ")
   builder.write_string(self.message())
-  groups.each(group => render_diagnostic_source_group(builder, group))
+  groups.each(group => render_diagnostic_source_group(builder, group, display))
   self
   .notes()
   .each(note => {
@@ -317,7 +363,19 @@ pub fn[R : SourceResolver] Diagnostic::render_plain(
   self : Diagnostic,
   resolver : R,
 ) -> String raise DiagnosticRenderError {
-  self.render_plain_with_context(DiagnosticRenderContext(resolver))
+  self.render_plain_with_context(DiagnosticRenderContext(resolver), CodeUnitTextDisplay::{
+
+  })
+}
+
+///|
+/// Render with an explicit source display capability.
+pub fn[R : SourceResolver, D : TextDisplay] Diagnostic::render_plain_with_display(
+  self : Diagnostic,
+  resolver : R,
+  display : D,
+) -> String raise DiagnosticRenderError {
+  self.render_plain_with_context(DiagnosticRenderContext(resolver), display)
 }
 
 ///|
@@ -328,6 +386,21 @@ pub fn[R : SourceResolver] render_diagnostics_plain(
 ) -> String raise DiagnosticRenderError {
   let context = DiagnosticRenderContext(resolver)
   diagnostics
-  .map(diagnostic => diagnostic.render_plain_with_context(context))
+  .map(diagnostic => {
+    diagnostic.render_plain_with_context(context, CodeUnitTextDisplay::{  })
+  })
+  .join("\n\n")
+}
+
+///|
+/// Render an ordered diagnostic view with an explicit source display capability.
+pub fn[R : SourceResolver, D : TextDisplay] render_diagnostics_plain_with_display(
+  diagnostics : ArrayView[Diagnostic],
+  resolver : R,
+  display : D,
+) -> String raise DiagnosticRenderError {
+  let context = DiagnosticRenderContext(resolver)
+  diagnostics
+  .map(diagnostic => diagnostic.render_plain_with_context(context, display))
   .join("\n\n")
 }

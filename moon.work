@@ -1,5 +1,6 @@
 members = [
   "./diagnostic",
+  "./diagnostic-moji",
   "./loom",
   "./seam",
   "./pretty",

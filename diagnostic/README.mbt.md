@@ -5,8 +5,11 @@ for MoonBit tools. It keeps UTF-16 source coordinates, labels, notes, fixes,
 and rendering as data, so terminal, editor, and future machine-readable views
 can share one canonical `Diagnostic` value.
 
-The production package depends only on MoonBit core packages. It does not
-depend on Loom, a syntax tree, a lexer, or a filesystem.
+The production package depends only on MoonBit core. It does not depend on
+Loom, a syntax tree, a lexer, a terminal, or a filesystem. Its default plain
+renderer preserves UTF-16 code-unit columns for compatibility. Applications
+that need grapheme-aware terminal alignment can use the sibling
+`dowdiness/diagnostic_moji` adapter.
 
 ## Install
 
@@ -31,6 +34,10 @@ import {
 Canonical positions are half-open UTF-16 code-unit ranges. A resolver returns
 one coherent `SourceSnapshot` containing its display name, text, and matching
 `LineIndex`. The source may be a file, virtual document, or in-memory buffer.
+The default plain renderer preserves those offsets as code-unit columns. The
+open `TextDisplay` capability lets a presentation adapter render each source
+line and map its UTF-16 ranges to display-cell ranges without introducing a
+production dependency here.
 
 ```mbt check
 ///|
@@ -149,6 +156,11 @@ test "convert an external error" {
 
 - `DiagnosticOrigin` identifies the producer; `SourceId` identifies source text.
 - `SourceResolver` owns lookup and lifecycle; rendering only consumes snapshots.
+- `TextDisplay` is the display-policy seam. Its line renderer and marker mapping
+  must use the same model; `render_plain` supplies the core-only code-unit model.
+- `dowdiness/diagnostic_moji` supplies opt-in grapheme-aware terminal alignment,
+  narrow East Asian Ambiguous width, four-column tabs, and visible markers for
+  non-empty zero-width spans.
 - `DiagnosticFix` is atomic and single-source. It rejects empty, overlapping,
   duplicate-position, wrong-source, out-of-bounds, and invalid UTF-16 edits.
 - Public arrays are defensive copies.

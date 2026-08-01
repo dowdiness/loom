@@ -25,6 +25,13 @@ depends only on MoonBit core packages. It owns diagnostic values, validated
 offsets and ranges, source identities and snapshots, line indexing, fixes,
 plain rendering, and the open `SourceResolver` and `ToDiagnostic` traits.
 
+The core-only renderer also exposes an open `TextDisplay` capability. Its two
+operations render a source line and project a half-open UTF-16 range into the
+same relative display-coordinate model. The built-in `render_plain` path uses
+code-unit columns for compatibility. Unicode terminal policy lives in the
+separate `dowdiness/diagnostic_moji` adapter, which may depend on both
+`dowdiness/diagnostic` and `dowdiness/moji` without reversing the boundary.
+
 Use unambiguous domain names:
 
 - `DiagnosticOrigin` identifies the subsystem that produced a diagnostic.
@@ -50,8 +57,9 @@ package visibility.
 The boundary follows actual ownership. Diagnostic values and rendering do not
 need parsing, while collection mutation and edit-lifecycle decisions encode
 Loom-specific policy. A concrete value keeps renderers and integrations simple;
-two small capability traits let unknown applications provide source storage and
-domain-error conversion without inheriting parser abstractions.
+small capability traits let unknown applications provide source storage,
+display policy, and domain-error conversion without inheriting parser
+abstractions.
 
 Separating producer identity from source identity removes the ambiguity in the
 former `DiagnosticSource` name. Snapshot resolution supports files, virtual
@@ -63,6 +71,11 @@ library.
 Users may depend on `dowdiness/diagnostic` without depending on Loom. Existing
 Loom users retain the portable types through Loom's public facade, subject to
 MoonBit's defining-package visibility rule.
+
+Unicode display-cell alignment is opt-in through
+`dowdiness/diagnostic_moji`; keeping it outside the base module preserves the
+core-only production dependency guarantee. Custom display adapters must keep
+line rendering and marker projection consistent.
 
 The renames from `DiagnosticSource`, `DiagnosticSourceFile`, and `SourceProvider`
 to `DiagnosticOrigin`, `SourceSnapshot`, and `SourceResolver` are intentional

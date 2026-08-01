@@ -420,6 +420,8 @@ jobs:
         include:
           - name: diagnostic
             path: diagnostic
+          - name: diagnostic-moji
+            path: diagnostic-moji
           - name: diagnostic-consumer-fixture
             path: fixtures/diagnostic_consumer
           - name: loom
@@ -530,6 +532,9 @@ jobs:
           - name: diagnostic
             path: diagnostic
             module: dowdiness/diagnostic
+          - name: diagnostic-moji
+            path: diagnostic-moji
+            module: dowdiness/diagnostic_moji
           - name: diagnostic-consumer-fixture
             path: fixtures/diagnostic_consumer
             module: dowdiness/diagnostic-consumer-fixture

@@ -29,6 +29,7 @@ Going deeper:
 Framework-level:
 
 - [../diagnostic/README.mbt.md](../diagnostic/README.mbt.md) — parser-independent structured diagnostics, source resolution, rendering, and fixes
+- [../diagnostic-moji/README.mbt.md](../diagnostic-moji/README.mbt.md) — opt-in grapheme-aware display-cell rendering for structured diagnostics
 - [api/choosing-a-parser.md](api/choosing-a-parser.md) — when to reach for `ImperativeParser` directly instead of the unified `Parser[Ast]`
 - [api/api-contract.md](api/api-contract.md) — `Parser[Ast]` API contract and stability guarantees
 - [api/imperative-api-contract.md](api/imperative-api-contract.md) — `ImperativeParser` API contract
@@ -229,6 +230,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
+- _Shipped: [moji display width](archive/completed-phases/2026-08-01-moji-display-width.md) — grapheme-aware UTF-16-to-display-cell mapping with absolute tab stops and explicit ambiguous-width policy._
 - _Shipped: #529 fail-closed pattern allowlist tokenizer. See [archived plan](archive/completed-phases/2026-07-17-pattern-allowlist-tokenizer.md) and [ADR](decisions/2026-07-17-pattern-allowlist-tokenizer.md)._
 - [parse_patternリファクタリング計画](archive/completed-phases/2026-07-17-parse-pattern-refactoring.md) — #529後のprivate pattern parser責務分割を完了。受理範囲・診断優先順位・生成出力を維持。
  - [Quantifier統一計画](archive/completed-phases/2026-07-17-quantifier-unification.md) — typed quantified-pattern AST and verified counted bounds.

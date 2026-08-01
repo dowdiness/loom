@@ -1,11 +1,14 @@
 # moji
 
-UAX #29 grapheme-cluster and word-boundary segmentation for [MoonBit](https://www.moonbitlang.com/), targeting **Unicode 15.1**.
+Unicode text boundaries and terminal display-cell measurement for
+[MoonBit](https://www.moonbitlang.com/).
 
-`moji` provides the minimum API surface canopy's editor needs to make
-UTF-16 text positions grapheme-aware. Positions are UTF-16 code units
-throughout — matching MoonBit `String[Int]` indexing and CodeMirror 6's
-wire convention.
+`moji` provides UAX #29 grapheme-cluster and word-boundary segmentation,
+targeting **Unicode 15.1**, together with grapheme-aware display-cell mapping.
+Positions are UTF-16 code units throughout — matching MoonBit `String[Int]`
+indexing and CodeMirror 6's wire convention. Display width reuses
+`moonbit-community/unicodewidth` and exposes its Unicode data version
+separately.
 
 [#250]: https://github.com/dowdiness/canopy/issues/250
 [#251]: https://github.com/dowdiness/canopy/pull/251
@@ -19,6 +22,8 @@ Implemented in canopy [#251] from the original [#250] request; spec at
 - **1187/1187** Unicode 15.1 `GraphemeBreakTest.txt` cases pass
 - **1826/1826** Unicode 15.1 `WordBreakTest.txt` cases pass
 - **41** inline §4.1 / §4.2 spec fixtures
+- display-cell coverage for ASCII, CJK, combining sequences, emoji, flags,
+  zero-width graphemes, tabs, Ambiguous-width policy, and non-additive runs
 
 ## Public API
 
@@ -35,6 +40,30 @@ pub fn prev_word_boundary(text : String, pos : Int) -> Int
 pub fn next_word_boundary(text : String, pos : Int) -> Int
 pub fn word_boundaries(text : String) -> Array[Int]
 
+// Terminal display-cell measurement
+pub(all) enum AmbiguousWidth { Narrow; Wide }
+pub(all) suberror DisplayWidthError {
+  InvalidStartColumn(Int)
+  InvalidTabWidth(Int)
+}
+pub fn display_width(
+  text : String,
+  start_column? : Int = 0,
+  tab_width? : Int = 4,
+  ambiguous_width? : AmbiguousWidth = Narrow,
+) -> Int raise DisplayWidthError
+pub fn display_units(
+  text : String,
+  start_column? : Int = 0,
+  tab_width? : Int = 4,
+  ambiguous_width? : AmbiguousWidth = Narrow,
+) -> Array[DisplayUnit] raise DisplayWidthError
+pub fn DisplayUnit::utf16_start(self : DisplayUnit) -> Int
+pub fn DisplayUnit::utf16_end(self : DisplayUnit) -> Int
+pub fn DisplayUnit::cell_start(self : DisplayUnit) -> Int
+pub fn DisplayUnit::cell_end(self : DisplayUnit) -> Int
+pub let display_width_unicode_version : (Int, Int, Int)
+
 // Property lookups (also public; useful for debugging segmentation)
 pub fn gcb_of(cp : Int) -> GCB
 pub fn wb_of(cp : Int) -> WB
@@ -45,6 +74,27 @@ pub fn incb_of(cp : Int) -> InCB
 // Named codepoint constants — see § "Named codepoint constants" below
 pub const ZERO_WIDTH_SPACE : String  // U+200B
 ```
+
+## Display-cell width
+
+`display_width` measures one display run. `display_units` returns opaque units
+whose accessors expose half-open UTF-16 ranges and absolute display-column
+ranges. Most units are one grapheme cluster. Adjacent graphemes are combined
+when their terminal width is non-additive, such as an Arabic lam-alef
+ligature. If non-additivity appears only across a longer sequence, the complete
+tab-delimited segment becomes one unit so its total remains authoritative.
+Zero-width units remain observable with equal cell start/end values.
+
+Tabs are explicit display units. They advance from the current absolute column
+to the next `tab_width` stop, so `start_column` affects their width. A negative
+start column or non-positive tab width raises `DisplayWidthError` before any
+measurement. East Asian Ambiguous characters use one cell in `Narrow` mode and
+two in `Wide` mode.
+
+The input is one display run. Callers own hard-line splitting and control
+character escaping. The functions do not inspect a terminal or environment.
+`display_width_unicode_version` reports the reused width-table version; it is
+not implied to equal the Unicode 15.1 segmentation-data version.
 
 ## Named codepoint constants
 
@@ -111,6 +161,12 @@ peak throughput. Concrete characteristics callers should know:
   of the largest property table (~400 ranges). Each `gcb_of` may
   consult up to 13 tables before falling through to `Other`. ASCII
   inputs are dominated by the first three lookups (CR / LF / Control).
+- **Display measurement is normally O(n)** over grapheme clusters. Each
+  tab-delimited segment is measured once end-to-end to preserve the width
+  library's complete state-machine semantics. Detecting smaller non-additive
+  units remeasures a pending view; an adversarial run whose width remains
+  non-additive can therefore reach O(n²). Tabs are handled in the same forward
+  state machine without rescanning earlier segments.
 
 These costs are acceptable for canopy's editor call sites (short
 strings, single-shot queries on user mutation). They would not be
@@ -119,10 +175,11 @@ in that scenario, materialise the boundary array once.
 
 ## Out of scope
 
-Normalization, bidi, casing, display width, line/sentence boundaries,
-script detection, collation, well-formedness validation, JS bindings,
-CRDT position conversion (UTF-16 ↔ item-space is the caller's
-responsibility — see [spec §0][spec]).
+Normalization, bidi, casing, line/sentence boundaries, script detection,
+collation, well-formedness validation, font shaping, pixel measurement,
+terminal detection, ANSI rendering, wrapping, JS bindings, and CRDT position
+conversion (UTF-16 ↔ item-space is the caller's responsibility — see
+[spec §0][spec]).
 
 ## Re-generating tables and tests
 

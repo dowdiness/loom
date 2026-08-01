@@ -1,10 +1,20 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/moji"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
 pub const ZERO_WIDTH_SPACE : String = "​"
 
 pub fn decode_codepoint_at(String, Int) -> (Int, Int)
+
+pub fn display_units(String, start_column? : Int, tab_width? : Int, ambiguous_width? : AmbiguousWidth) -> Array[DisplayUnit] raise DisplayWidthError
+
+pub fn display_width(String, start_column? : Int, tab_width? : Int, ambiguous_width? : AmbiguousWidth) -> Int raise DisplayWidthError
+
+pub let display_width_unicode_version : (Int, Int, Int)
 
 pub fn gcb_of(Int) -> GCB
 
@@ -35,8 +45,25 @@ pub fn wb_of(Int) -> WB
 pub fn word_boundaries(String) -> Array[Int]
 
 // Errors
+pub(all) suberror DisplayWidthError {
+  InvalidStartColumn(Int)
+  InvalidTabWidth(Int)
+} derive(Eq, @debug.Debug)
 
 // Types and methods
+pub(all) enum AmbiguousWidth {
+  Narrow
+  Wide
+} derive(Eq, @debug.Debug)
+
+pub struct DisplayUnit {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn DisplayUnit::cell_end(Self) -> Int
+pub fn DisplayUnit::cell_start(Self) -> Int
+pub fn DisplayUnit::utf16_end(Self) -> Int
+pub fn DisplayUnit::utf16_start(Self) -> Int
+
 pub enum GCB {
   Other
   CR

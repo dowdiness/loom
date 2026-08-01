@@ -1,5 +1,3 @@
-// Parser-independent structured diagnostics use only MoonBit core APIs.
-
 import {
   "moonbitlang/core/quickcheck",
 } for "wbtest"
