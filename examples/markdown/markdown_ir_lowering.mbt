@@ -322,6 +322,39 @@ fn normalize_escaped_inline_recoveries(
 }
 
 ///|
+/// A recovered bracket is literal only when a typed inline sibling occurs to
+/// its right. Keep actual/injected diagnostic recovery and trailing unmatched
+/// brackets intact.
+fn normalize_typed_inline_recovered_prefix(
+  children : Array[MarkdownIR],
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+) -> Array[MarkdownIR] {
+  let typed_to_right = Array::make(children.length(), false)
+  let mut has_later_typed_inline = false
+  for index = children.length() - 1; index >= 0; index = index - 1 {
+    typed_to_right[index] = has_later_typed_inline
+    let child = children[index]
+    match child.node {
+      Link(_, _, _, _)
+      | InlineCode(_, _)
+      | InlineHtml(_, _)
+      | Autolink(_, _, _, _, _) => has_later_typed_inline = true
+      _ => ()
+    }
+  }
+  let normalized : Array[MarkdownIR] = []
+  for index, child in children {
+    match child.node {
+      Recovered("[", _) if typed_to_right[index] &&
+        diagnostics_in_origin(child.origin()).length() == 0 =>
+        normalized.push(MarkdownIR::text("[", child.origin()))
+      _ => normalized.push(child)
+    }
+  }
+  normalized
+}
+
+///|
 fn lower_inline_children_skip_with_diags(
   node : @seam.SyntaxNode,
   skip_kind : SyntaxKind?,
@@ -462,20 +495,40 @@ fn lower_inline_children_skip_with_diags(
         preceding_text_ends_escaped = false
         previous_was_escaped_backtick = false
         previous_was_literal_emphasis_marker = false
-        push_child(
-          lower_inline_node_with_diags(child_node, newline_text, context),
+        let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+          child_node.kind(),
         )
+        if child_kind == LinkNode {
+          for
+            atom in lower_link_node_atoms_with_diags(
+              child_node, newline_text, context,
+            ) {
+            push_child(atom)
+          }
+        } else {
+          push_child(
+            lower_inline_node_with_diags(child_node, newline_text, context),
+          )
+        }
       }
     }
   }
   resolve_inline_images(
-    resolve_shortcut_references(
-      normalize_escaped_inline_recoveries(
-        children,
-        context.source,
-        context.diagnostics_in_origin,
+    literalize_balanced_raw_parentheses(
+      resolve_emphasis_boundary_shortcuts(
+        normalize_typed_inline_recovered_prefix(
+          resolve_shortcut_references(
+            normalize_escaped_inline_recoveries(
+              children,
+              context.source,
+              context.diagnostics_in_origin,
+            ),
+            context,
+          ),
+          context.diagnostics_in_origin,
+        ),
+        context,
       ),
-      context,
     ),
     context.source,
   )
@@ -644,10 +697,26 @@ fn lower_direct_inline_children_with_newline_and_diags(
         preceding_text_ends_escaped = false
         previous_was_escaped_backtick = false
         previous_was_literal_emphasis_marker = false
-        match
-          lower_direct_inline_node_with_diags(node, Some(newline_text), context) {
-          Some(child) => push_child(child)
-          None => ()
+        let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+        if kind == LinkNode {
+          for
+            atom in lower_link_node_atoms_with_diags(
+              node,
+              Some(newline_text),
+              context,
+            ) {
+            push_child(atom)
+          }
+        } else {
+          match
+            lower_direct_inline_node_with_diags(
+              node,
+              Some(newline_text),
+              context,
+            ) {
+            Some(child) => push_child(child)
+            None => ()
+          }
         }
       }
     }
@@ -663,7 +732,7 @@ fn lower_direct_inline_children_with_newline_and_diags(
 
 ///|
 fn normalize_inline_code_value(value : String) -> String {
-  let line_normalized = StringBuilder::new()
+  let line_normalized = StringBuilder::StringBuilder()
   let mut pending_carriage_return = false
   for ch in value {
     if pending_carriage_return {
@@ -712,7 +781,7 @@ fn lower_code_span_with_source(
   source : String?,
 ) -> (String, MarkdownIROrigin?) {
   let mut crosses_structural_prefix = false
-  let buf = StringBuilder::new()
+  let buf = StringBuilder::StringBuilder()
   let content_tokens : Array[MarkdownIROrigin] = []
   let mut continuation_source : String? = None
   let mut continuation_content_column = 0
@@ -806,13 +875,190 @@ fn contiguous_label_origin(
 }
 
 ///|
-fn lower_link_node_with_diags(
+fn lower_literal_link_token(
+  token : @seam.SyntaxToken,
+  _context : MarkdownIRLoweringContext,
+) -> MarkdownIR? {
+  let kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+  let origin = origin_from_token(token)
+  match kind {
+    TextToken => Some(lower_inline_text_token(token))
+    BacktickToken => Some(MarkdownIR::text(token.text(), origin))
+    NewlineToken => Some(MarkdownIR::soft_break(origin))
+    // This helper is used exclusively for the parser-confirmed
+    // LiteralLinkDisposition envelope.  Its recovery tokens spell literal
+    // Markdown, unlike recovery elsewhere in the document.
+    ErrorToken | ErrorNode => Some(MarkdownIR::text(token.text(), origin))
+    _ => delimiter_text(kind).map(text => MarkdownIR::text(text, origin))
+  }
+}
+
+///|
+/// Inspect only an already-lowered inline subtree. The explicit stack keeps
+/// this bounded by the subtree's MarkdownIR nodes without recursive CST or
+/// source traversal.
+fn markdown_ir_contains_link(node : MarkdownIR) -> Bool {
+  let pending : Array[MarkdownIR] = [node]
+  while pending.length() > 0 {
+    let current = pending.pop().unwrap()
+    if current.node is Link(_, _, _, _) {
+      return true
+    }
+    for child in current.children() {
+      pending.push(child)
+    }
+  }
+  false
+}
+
+///|
+fn lower_literal_link_node_atoms(
+  node : @seam.SyntaxNode,
+  context : MarkdownIRLoweringContext,
+  target_start : Int?,
+  target_end : Int?,
+) -> Array[MarkdownIR] {
+  let atoms : Array[MarkdownIR] = []
+  let mut contains_nested_link = false
+  let opaque_target = match (target_start, target_end) {
+    (Some(start), Some(end)) if start <= end =>
+      match classify_inline_angle_text(context.source[start:end].to_owned()) {
+        Some({ kind: InlineHtmlAngle, .. }) =>
+          Some(
+            MarkdownIR::inline_html(
+              context.source[start:end].to_owned(),
+              MarkdownIROrigin(start~, end~),
+              Some(MarkdownIROrigin(start~, end~)),
+            ),
+          )
+        _ => None
+      }
+    _ => None
+  }
+  let mut emitted_opaque_target = false
+  for element in node.all_children() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let origin = origin_from_token(token)
+        let in_opaque_target = match (target_start, target_end, opaque_target) {
+          (Some(start), Some(end), Some(_)) =>
+            start <= origin.start() && origin.end() <= end
+          _ => false
+        }
+        if in_opaque_target {
+          if !emitted_opaque_target {
+            atoms.push(opaque_target.unwrap())
+            emitted_opaque_target = true
+          }
+        } else {
+          match lower_literal_link_token(token, context) {
+            Some(atom) => atoms.push(atom)
+            None => ()
+          }
+        }
+      }
+      @seam.SyntaxElement::Node(child_node) => {
+        let kind : SyntaxKind = @seam.FromRawKind::from_raw(child_node.kind())
+        if kind == LinkNode {
+          for
+            atom in lower_link_node_atoms_with_diags(child_node, None, context) {
+            if markdown_ir_contains_link(atom) {
+              contains_nested_link = true
+            }
+            // A nested candidate in a LiteralLinkDisposition envelope is
+            // literal source, but preserve every already-typed non-recovery
+            // atom (notably inline HTML and any nested image/link result).
+            match atom.node {
+              Raw(value, _) | Recovered(value, _) =>
+                atoms.push(MarkdownIR::text(value, atom.origin()))
+              _ => atoms.push(atom)
+            }
+          }
+        } else if kind == ErrorNode {
+          // See lower_literal_link_token: only this literal LinkNode fallback
+          // has authority to turn parser recovery into visible text.
+          atoms.push(
+            MarkdownIR::text(child_node.text(), origin_from_node(child_node)),
+          )
+        } else {
+          let atom = lower_inline_node_with_diags(child_node, None, context)
+          if markdown_ir_contains_link(atom) {
+            contains_nested_link = true
+          }
+          atoms.push(atom)
+        }
+      }
+    }
+  }
+  // The parser marks an outer candidate containing an active nested link as a
+  // literal envelope.  Hide only its primary opener from the later shortcut
+  // pass by joining it to the contiguous label prefix; any suffix `[ref]`
+  // remains a separate exact bracket atom and can resolve normally.
+  if contains_nested_link {
+    match atoms {
+      [first, second, ..] =>
+        match (first.node, second.node) {
+          (Text("["), Text(prefix)) if first.origin().end() ==
+            second.origin().start() => {
+            atoms[0] = MarkdownIR::text(
+              "[" + prefix,
+              MarkdownIROrigin(
+                start=first.origin().start(),
+                end=second.origin().end(),
+              ),
+            )
+            ignore(atoms.remove(1))
+          }
+          _ => ()
+        }
+      _ => ()
+    }
+  }
+  atoms
+}
+
+///|
+/// A parser-confirmed LiteralLinkDisposition keeps the label brackets
+/// structural but lowers every suffix token as TextToken.  Valid inline and
+/// full/collapsed-reference candidates always retain a structural suffix
+/// opener, so this shape is unambiguous without rereading source text.
+fn is_literal_link_node_envelope(node : @seam.SyntaxNode) -> Bool {
+  let mut saw_label_closer = false
+  let mut saw_post_label_text = false
+  let mut saw_structural_suffix = false
+  for element in node.all_children() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        if !saw_label_closer {
+          if kind == RightBracketToken {
+            saw_label_closer = true
+          }
+        } else {
+          match kind {
+            LeftParenToken | LeftBracketToken => saw_structural_suffix = true
+            TextToken => saw_post_label_text = true
+            _ => ()
+          }
+        }
+      }
+      @seam.SyntaxElement::Node(_) => ()
+    }
+  }
+  saw_label_closer && saw_post_label_text && !saw_structural_suffix
+}
+
+///|
+fn lower_link_node_atoms_with_diags(
   node : @seam.SyntaxNode,
   newline_text : String?,
   context : MarkdownIRLoweringContext,
-) -> MarkdownIR {
+) -> Array[MarkdownIR] {
+  if is_literal_link_node_envelope(node) {
+    return lower_literal_link_node_atoms(node, context, None, None)
+  }
   let display : Array[MarkdownIR] = []
-  let destination_buf = StringBuilder::new()
+  let destination_buf = StringBuilder::StringBuilder()
   let destination_origins : Array[MarkdownIROrigin] = []
   let mut label_start : Int? = None
   let mut label_end : Int? = None
@@ -820,6 +1066,7 @@ fn lower_link_node_with_diags(
   let mut past_bracket = false
   let mut target_start : Int? = None
   let mut target_end : Int? = None
+  let mut in_angle_destination = false
   let mut reference_label_start : Int? = None
   let mut reference_label_end : Int? = None
   let mut preceding_text_ends_escaped = false
@@ -848,20 +1095,40 @@ fn lower_link_node_with_diags(
           LeftParenToken if past_bracket && url_depth == 0 => {
             url_depth = 1
             target_start = Some(origin_from_token(token).end())
+            in_angle_destination = false
+          }
+          LeftParenToken if past_bracket && in_angle_destination => {
+            destination_buf.write_string(token.text())
+            destination_origins.push(origin_from_token(token))
           }
           LeftParenToken if past_bracket => {
             url_depth = url_depth + 1
             destination_buf.write_string(token.text())
             destination_origins.push(origin_from_token(token))
           }
-          RightParenToken if url_depth > 1 => {
+          RightParenToken if url_depth > 1 || in_angle_destination => {
             url_depth = url_depth - 1
+            if in_angle_destination {
+              url_depth = url_depth + 1
+            }
             destination_buf.write_string(token.text())
             destination_origins.push(origin_from_token(token))
           }
           RightParenToken if url_depth == 1 => {
             url_depth = 0
             target_end = Some(origin_from_token(token).start())
+          }
+          TextToken if url_depth > 0 => {
+            let origin = origin_from_token(token)
+            if target_start == Some(origin.start()) &&
+              token.text().has_prefix("<") {
+              in_angle_destination = true
+            }
+            destination_buf.write_string(token.text())
+            destination_origins.push(origin)
+            if in_angle_destination && token.text().has_suffix(">") {
+              in_angle_destination = false
+            }
           }
           _ if url_depth > 0 => {
             destination_buf.write_string(token.text())
@@ -919,9 +1186,21 @@ fn lower_link_node_with_diags(
       }
       @seam.SyntaxElement::Node(child_node) => {
         if !past_bracket && url_depth == 0 {
-          display.push(
-            lower_inline_node_with_diags(child_node, newline_text, context),
+          let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+            child_node.kind(),
           )
+          if child_kind == LinkNode {
+            for
+              atom in lower_link_node_atoms_with_diags(
+                child_node, newline_text, context,
+              ) {
+              display.push(atom)
+            }
+          } else {
+            display.push(
+              lower_inline_node_with_diags(child_node, newline_text, context),
+            )
+          }
         }
         preceding_text_ends_escaped = false
         previous_was_escaped_backtick = false
@@ -929,10 +1208,21 @@ fn lower_link_node_with_diags(
       }
     }
   }
-  let normalized_display = normalize_escaped_inline_recoveries(
-    display,
+  let normalized_display = resolve_inline_images(
+    literalize_balanced_raw_parentheses(
+      normalize_typed_inline_recovered_prefix(
+        resolve_shortcut_references(
+          normalize_escaped_inline_recoveries(
+            display,
+            context.source,
+            context.diagnostics_in_origin,
+          ),
+          context,
+        ),
+        context.diagnostics_in_origin,
+      ),
+    ),
     context.source,
-    context.diagnostics_in_origin,
   )
   let label_origin = match (label_start, label_end) {
     (Some(start), Some(end)) if start <= end =>
@@ -943,36 +1233,35 @@ fn lower_link_node_with_diags(
     (Some(start), Some(end)) if start <= end =>
       match parse_inline_link_target(context.source[start:end].to_owned()) {
         Some(target) =>
-          MarkdownIR::link_with_metadata(
-            normalized_display,
-            target.destination,
-            target.title,
-            InlineLinkForm,
-            origin_from_node(node),
-            label_origin,
-            None,
-            Some(
-              MarkdownIROrigin(
-                start=start + target.destination_start,
-                end=start + target.destination_end,
+          [
+            MarkdownIR::link_with_metadata(
+              normalized_display,
+              target.destination,
+              target.title,
+              InlineLinkForm,
+              origin_from_node(node),
+              label_origin,
+              None,
+              Some(
+                MarkdownIROrigin(
+                  start=start + target.destination_start,
+                  end=start + target.destination_end,
+                ),
               ),
+              match (target.title_start, target.title_end) {
+                (Some(title_start), Some(title_end)) =>
+                  Some(
+                    MarkdownIROrigin(
+                      start=start + title_start,
+                      end=start + title_end,
+                    ),
+                  )
+                _ => None
+              },
             ),
-            match (target.title_start, target.title_end) {
-              (Some(title_start), Some(title_end)) =>
-                Some(
-                  MarkdownIROrigin(
-                    start=start + title_start,
-                    end=start + title_end,
-                  ),
-                )
-              _ => None
-            },
-          )
+          ]
         None =>
-          MarkdownIR::text(
-            strip_backslash_escapes(node.text()),
-            origin_from_node(node),
-          )
+          lower_literal_link_node_atoms(node, context, target_start, target_end)
       }
     _ => {
       let resolved_reference = match
@@ -990,13 +1279,10 @@ fn lower_link_node_with_diags(
             reference_start
           }
           let lookup_end = if collapsed { label_end } else { reference_end }
-          context.reference_definitions
-          .lookup(
-            normalize_link_reference_label(
-              context.source[lookup_start:lookup_end].to_owned(),
-            ),
-          )
-          .map(definition => {
+          lookup_bounded_link_reference_definition(
+            context,
+            MarkdownIROrigin(start=lookup_start, end=lookup_end),
+          ).map(definition => {
             (
               definition,
               if collapsed {
@@ -1010,33 +1296,28 @@ fn lower_link_node_with_diags(
         }
         (Some(label_start), Some(label_end), None, None) if label_start <=
           label_end =>
-          context.reference_definitions
-          .lookup(
-            normalize_link_reference_label(
-              context.source[label_start:label_end].to_owned(),
-            ),
-          )
-          .map(definition => (definition, ShortcutReferenceLinkForm, None))
+          lookup_bounded_link_reference_definition(
+            context,
+            MarkdownIROrigin(start=label_start, end=label_end),
+          ).map(definition => (definition, ShortcutReferenceLinkForm, None))
         _ => None
       }
       match resolved_reference {
         Some((definition, form, reference_label_origin)) =>
-          MarkdownIR::link_with_metadata(
-            normalized_display,
-            definition.destination_value,
-            definition.title_value,
-            form,
-            origin_from_node(node),
-            label_origin,
-            reference_label_origin,
-            Some(definition.destination_value_origin),
-            definition.title_value_origin,
-          )
-        None =>
-          MarkdownIR::text(
-            strip_backslash_escapes(node.text()),
-            origin_from_node(node),
-          )
+          [
+            MarkdownIR::link_with_metadata(
+              normalized_display,
+              definition.destination_value,
+              definition.title_value,
+              form,
+              origin_from_node(node),
+              label_origin,
+              reference_label_origin,
+              Some(definition.destination_value_origin),
+              definition.title_value_origin,
+            ),
+          ]
+        None => lower_literal_link_node_atoms(node, context, None, None)
       }
     }
   }
@@ -1111,7 +1392,7 @@ fn lower_inline_node_with_diags(
       )
       MarkdownIR::inline_code(value, origin_from_node(node), content_origin)
     }
-    LinkNode => lower_link_node_with_diags(node, newline_text, context)
+    LinkNode => lower_link_node_atoms_with_diags(node, newline_text, context)[0]
     ErrorNode => {
       let origin = origin_from_node(node)
       MarkdownIR::recovered(
@@ -1651,7 +1932,7 @@ fn normalize_heading_whitespace(
 /// opening line, text lines, and interleaved newlines. HTML blocks preserve
 /// exact source formatting, so this does not trim leading or trailing newlines.
 fn html_block_value(node : @seam.SyntaxNode) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder::StringBuilder()
   let mut in_html = false
   for element in node.all_children() {
     match element {

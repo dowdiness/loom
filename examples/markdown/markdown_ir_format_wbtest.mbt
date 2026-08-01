@@ -1036,8 +1036,10 @@ test "checked canonical source-free corpus is deterministic and bounded" {
     MARKDOWN_CANONICAL_DOCUMENT_EXPANSIONS_PER_CONTAINER >=
     first.max_document_expansions * 2,
   )
-  assert_eq(first.digest, 2101345741)
-  assert_eq(first.transcript.length(), 18466)
+  // #827 makes balanced literal link-delimiter fallbacks typed Text rather
+  // than Raw/Recovered, so the deterministic corpus transcript changes.
+  assert_eq(first.digest, 1948679105)
+  assert_eq(first.transcript.length(), 18460)
   assert_eq(first.max_container_candidates, 49)
   assert_eq(first.max_container_expansions, 20)
   assert_eq(first.max_document_candidates, 20)
