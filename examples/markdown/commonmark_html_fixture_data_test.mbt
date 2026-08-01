@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=304, xfail=11, skip=0.
+// Baseline: pass=315, xfail=11, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (304, 11, 0)
+  (315, 11, 0)
 }
 
 ///|
@@ -802,6 +802,38 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
     // #16 -> #485; #17 -> #484; #18 -> #392; #19/#24 -> #479;
     // #20/#21 -> #487; #22 -> #486; #23 -> #482 and #486.
     {
+      example: 25,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-025",
+      source: "&nbsp; &amp; &copy; &AElig; &Dcaron;\n&frac34; &HilbertSpace; &DifferentialD;\n&ClockwiseContourIntegral; &ngE;\n",
+      expected_html: "<p>  &amp; © Æ Ď\n¾ ℋ ⅆ\n∲ ≧̸</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 26,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-026",
+      source: "&#35; &#1234; &#992; &#0;\n",
+      expected_html: "<p># Ӓ Ϡ �</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 27,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-027",
+      source: "&#X22; &#XD06; &#xcab;\n",
+      expected_html: "<p>&quot; ആ ಫ</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 28,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-028",
+      source: "&nbsp &x; &#; &#x;\n&#87654321;\n&#abcdef0;\n&ThisIsNotDefined; &hi?;\n",
+      expected_html: "<p>&amp;nbsp &amp;x; &amp;#; &amp;#x;\n&amp;#87654321;\n&amp;#abcdef0;\n&amp;ThisIsNotDefined; &amp;hi?;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 29,
       section: "Entity and numeric character references",
       name: "entity-and-numeric-character-references-029",
@@ -818,11 +850,68 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlPass,
     },
     {
+      example: 31,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-031",
+      source: "<a href=\"&ouml;&ouml;.html\">\n",
+      expected_html: "<a href=\"&ouml;&ouml;.html\">\n",
+      status: CommonMarkHtmlPass,
+    },
+    // #32, #33, and #41 are owned by link/reference resolution (#812).
+    {
+      example: 34,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-034",
+      source: "``` f&ouml;&ouml;\nfoo\n```\n",
+      expected_html: "<pre><code class=\"language-föö\">foo\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 35,
       section: "Entity and numeric character references",
       name: "entity-and-numeric-character-references-035",
       source: "`f&ouml;&ouml;`\n",
       expected_html: "<p><code>f&amp;ouml;&amp;ouml;</code></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 36,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-036",
+      source: "    f&ouml;f&ouml;\n",
+      expected_html: "<pre><code>f&amp;ouml;f&amp;ouml;\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 37,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-037",
+      source: "&#42;foo&#42;\n*foo*\n",
+      expected_html: "<p>*foo*\n<em>foo</em></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 38,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-038",
+      source: "&#42; foo\n\n* foo\n",
+      expected_html: "<p>* foo</p>\n<ul>\n<li>foo</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 39,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-039",
+      source: "foo&#10;&#10;bar\n",
+      expected_html: "<p>foo\n\nbar</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 40,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-040",
+      source: "&#9;foo\n",
+      expected_html: "<p>\tfoo</p>\n",
       status: CommonMarkHtmlPass,
     },
     {

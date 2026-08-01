@@ -1192,7 +1192,9 @@ fn code_block_info(node : @seam.SyntaxNode) -> String {
       let text = fence_token.text()
       let i = count_leading_fence_characters(text)
       if i < text.length() {
-        text[i:].to_owned()
+        decode_markdown_info_string_entities(text[i:].to_owned())
+        .trim(chars=" \t".view())
+        .to_owned()
       } else {
         ""
       }
@@ -1814,7 +1816,7 @@ pub fn experimental_markdown_ir_from_syntax(
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
     experimental_markdown_ir_fold_node(node, lower, context)
   }
-  lower(root)
+  decode_markdown_ir_text_entities(lower(root), context.source)
 }
 
 ///|
@@ -1833,5 +1835,5 @@ pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
     experimental_markdown_ir_fold_node_with_diags(node, lower, context)
   }
-  lower(root)
+  decode_markdown_ir_text_entities(lower(root), context.source)
 }
