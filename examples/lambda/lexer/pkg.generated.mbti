@@ -2,6 +2,7 @@
 package "dowdiness/lambda/lexer"
 
 import {
+  "dowdiness/diagnostic",
   "dowdiness/lambda/token",
   "dowdiness/loom/core",
 }
@@ -9,7 +10,7 @@ import {
 // Values
 pub fn lambda_step_lexer(String, Int) -> @core.LexStep[@token.Token]
 
-pub fn lex(@core.SourceId, String) -> @core.LexResult[@token.Token]
+pub fn lex(@diagnostic.SourceId, String) -> @core.LexResult[@token.Token]
 
 pub fn tokenize(String) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError
 

@@ -25,12 +25,12 @@ fn renderer_test_label(
 ///|
 test "plain diagnostic renderer renders a locationless diagnostic without source lookup" {
   let mut resolve_calls = 0
-  let provider = SourceProvider(_ => {
+  let provider = test_source_resolver(_ => {
     resolve_calls = resolve_calls + 1
     None
   })
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::lexer(),
+    origin=DiagnosticOrigin("lexer"),
     severity=Warning,
     code=Some(DiagnosticCode("W001")),
     message="locationless warning",
@@ -56,15 +56,15 @@ test "plain diagnostic renderer renders a source-backed primary label" {
   } noraise {
     range => range
   }
-  let provider = SourceProvider(requested => {
+  let provider = test_source_resolver(requested => {
     if requested == source_id {
-      Some(DiagnosticSourceFile("src/main.mbt", source, LineIndex::new(source)))
+      Some(SourceSnapshot("src/main.mbt", source, LineIndex::new(source)))
     } else {
       None
     }
   })
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     code=Some(DiagnosticCode("E100")),
     message="unexpected name",
@@ -93,16 +93,16 @@ test "plain diagnostic renderer groups styled labels in source order" {
   let source_id = SourceId("main")
   let source = "abc def ghi"
   let mut resolve_calls = 0
-  let provider = SourceProvider(requested => {
+  let provider = test_source_resolver(requested => {
     resolve_calls = resolve_calls + 1
     if requested == source_id {
-      Some(DiagnosticSourceFile("main.mbt", source, LineIndex::new(source)))
+      Some(SourceSnapshot("main.mbt", source, LineIndex::new(source)))
     } else {
       None
     }
   })
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Warning,
     message="related ranges",
     labels=[
@@ -134,15 +134,15 @@ test "plain diagnostic renderer groups styled labels in source order" {
 test "plain diagnostic renderer renders every line of a multiline half-open span" {
   let source_id = SourceId("multiline")
   let source = "abc\ndef\nghi"
-  let provider = SourceProvider(requested => {
+  let provider = test_source_resolver(requested => {
     if requested == source_id {
-      Some(DiagnosticSourceFile("multi.mbt", source, LineIndex::new(source)))
+      Some(SourceSnapshot("multi.mbt", source, LineIndex::new(source)))
     } else {
       None
     }
   })
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     message="multiline",
     labels=[renderer_test_label(Primary, source_id, 1, 10, "across lines")],
@@ -164,31 +164,28 @@ test "plain diagnostic renderer renders every line of a multiline half-open span
 }
 
 ///|
-test "plain diagnostic set renderer preserves order and stable separators" {
+test "plain diagnostic array renderer preserves order and stable separators" {
   let mut resolve_calls = 0
-  let provider = SourceProvider(_ => {
+  let provider = test_source_resolver(_ => {
     resolve_calls = resolve_calls + 1
     None
   })
-  let diagnostics = DiagnosticSet::empty()
-  diagnostics.push(
+  let diagnostics = [
     Diagnostic(
-      source=DiagnosticSource::parser(),
+      origin=DiagnosticOrigin("parser"),
       severity=Error,
       message="first",
     ),
-  )
-  diagnostics.push(
     Diagnostic(
-      source=DiagnosticSource::lexer(),
+      origin=DiagnosticOrigin("lexer"),
       severity=Hint,
       code=Some(DiagnosticCode("H2")),
       message="second",
     ),
-  )
-  inspect(DiagnosticSet::empty().render_plain(provider), content="")
+  ]
+  inspect(render_diagnostics_plain([], provider), content="")
   inspect(
-    diagnostics.render_plain(provider),
+    render_diagnostics_plain(diagnostics[:], provider),
     content=(
       #|error: first
       #|
@@ -199,37 +196,34 @@ test "plain diagnostic set renderer preserves order and stable separators" {
 }
 
 ///|
-test "plain diagnostic set renderer resolves each source once per render" {
+test "plain diagnostic array renderer resolves each source once per render" {
   let source_id = SourceId("shared")
   let source = "xy"
   let mut resolve_calls = 0
-  let provider = SourceProvider(requested => {
+  let provider = test_source_resolver(requested => {
     resolve_calls = resolve_calls + 1
     if requested == source_id {
-      Some(DiagnosticSourceFile("shared.mbt", source, LineIndex::new(source)))
+      Some(SourceSnapshot("shared.mbt", source, LineIndex::new(source)))
     } else {
       None
     }
   })
-  let diagnostics = DiagnosticSet::empty()
-  diagnostics.push(
+  let diagnostics = [
     Diagnostic(
-      source=DiagnosticSource::parser(),
+      origin=DiagnosticOrigin("parser"),
       severity=Error,
       message="first",
       labels=[renderer_test_label(Primary, source_id, 0, 1, "x")],
     ),
-  )
-  diagnostics.push(
     Diagnostic(
-      source=DiagnosticSource::lexer(),
+      origin=DiagnosticOrigin("lexer"),
       severity=Info,
       message="second",
       labels=[renderer_test_label(Secondary, source_id, 1, 2, "y")],
     ),
-  )
+  ]
   inspect(
-    diagnostics.render_plain(provider),
+    render_diagnostics_plain(diagnostics[:], provider),
     content=(
       #|error: first
       #|--> shared.mbt
@@ -252,14 +246,14 @@ test "plain diagnostic renderer reports typed source boundary failures" {
   let source_id = SourceId("boundary")
   let diagnostic_for : (Int, Int) -> Diagnostic = (start, end) => {
     Diagnostic(
-      source=DiagnosticSource::parser(),
+      origin=DiagnosticOrigin("parser"),
       severity=Error,
       message="boundary",
       labels=[renderer_test_label(Primary, source_id, start, end, "label")],
     )
   }
   let missing : Result[String, DiagnosticRenderError] = Ok(
-    diagnostic_for(0, 1).render_plain(SourceProvider(_ => None)),
+    diagnostic_for(0, 1).render_plain(test_source_resolver(_ => None)),
   ) catch {
     error => Err(error)
   }
@@ -269,8 +263,8 @@ test "plain diagnostic renderer reports typed source boundary failures" {
   }
   let mismatched : Result[String, DiagnosticRenderError] = Ok(
     diagnostic_for(0, 1).render_plain(
-      SourceProvider(_ => {
-        Some(DiagnosticSourceFile("bad.mbt", "x", LineIndex::new("\n")))
+      test_source_resolver(_ => {
+        Some(SourceSnapshot("bad.mbt", "x", LineIndex::new("\n")))
       }),
     ),
   ) catch {
@@ -283,8 +277,8 @@ test "plain diagnostic renderer reports typed source boundary failures" {
   }
   let out_of_bounds : Result[String, DiagnosticRenderError] = Ok(
     diagnostic_for(0, 2).render_plain(
-      SourceProvider(_ => {
-        Some(DiagnosticSourceFile("short.mbt", "x", LineIndex::new("x")))
+      test_source_resolver(_ => {
+        Some(SourceSnapshot("short.mbt", "x", LineIndex::new("x")))
       }),
     ),
   ) catch {
@@ -301,8 +295,8 @@ test "plain diagnostic renderer reports typed source boundary failures" {
   }
   let surrogate : Result[String, DiagnosticRenderError] = Ok(
     diagnostic_for(1, 2).render_plain(
-      SourceProvider(_ => {
-        Some(DiagnosticSourceFile("emoji.mbt", "😈", LineIndex::new("😈")))
+      test_source_resolver(_ => {
+        Some(SourceSnapshot("emoji.mbt", "😈", LineIndex::new("😈")))
       }),
     ),
   ) catch {
@@ -324,14 +318,14 @@ test "plain diagnostic renderer preserves UTF-16 point and Unicode semantics" {
   let eof_id = SourceId("eof")
   let unicode_id = SourceId("unicode")
   let unicode_source = "a😈e\u0301"
-  let provider = SourceProvider(source_id => {
+  let provider = test_source_resolver(source_id => {
     if source_id == empty_id {
-      Some(DiagnosticSourceFile("empty.mbt", "", LineIndex::new("")))
+      Some(SourceSnapshot("empty.mbt", "", LineIndex::new("")))
     } else if source_id == eof_id {
-      Some(DiagnosticSourceFile("eof.mbt", "ab", LineIndex::new("ab")))
+      Some(SourceSnapshot("eof.mbt", "ab", LineIndex::new("ab")))
     } else if source_id == unicode_id {
       Some(
-        DiagnosticSourceFile(
+        SourceSnapshot(
           "unicode.mbt",
           unicode_source,
           LineIndex::new(unicode_source),
@@ -342,7 +336,7 @@ test "plain diagnostic renderer preserves UTF-16 point and Unicode semantics" {
     }
   })
   let empty = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     message="empty source",
     labels=[renderer_test_label(Primary, empty_id, 0, 0, "empty point")],
@@ -358,7 +352,7 @@ test "plain diagnostic renderer preserves UTF-16 point and Unicode semantics" {
     ),
   )
   let eof = Diagnostic(
-    source=DiagnosticSource::lexer(),
+    origin=DiagnosticOrigin("lexer"),
     severity=Info,
     message="eof point",
     labels=[
@@ -380,7 +374,7 @@ test "plain diagnostic renderer preserves UTF-16 point and Unicode semantics" {
     ),
   )
   let unicode = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Hint,
     message="unicode widths",
     labels=[
@@ -408,46 +402,39 @@ test "plain diagnostic renderer preserves LF CRLF and CR terminator positions" {
   let lf_id = SourceId("lf")
   let crlf_id = SourceId("crlf")
   let cr_id = SourceId("cr")
-  let provider = SourceProvider(source_id => {
+  let provider = test_source_resolver(source_id => {
     if source_id == lf_id {
-      Some(DiagnosticSourceFile("lf.mbt", "ab\ncd", LineIndex::new("ab\ncd")))
+      Some(SourceSnapshot("lf.mbt", "ab\ncd", LineIndex::new("ab\ncd")))
     } else if source_id == crlf_id {
-      Some(
-        DiagnosticSourceFile("crlf.mbt", "ab\r\ncd", LineIndex::new("ab\r\ncd")),
-      )
+      Some(SourceSnapshot("crlf.mbt", "ab\r\ncd", LineIndex::new("ab\r\ncd")))
     } else if source_id == cr_id {
-      Some(DiagnosticSourceFile("cr.mbt", "ab\rcd", LineIndex::new("ab\rcd")))
+      Some(SourceSnapshot("cr.mbt", "ab\rcd", LineIndex::new("ab\rcd")))
     } else {
       None
     }
   })
-  let diagnostics = DiagnosticSet::empty()
-  diagnostics.push(
+  let diagnostics = [
     Diagnostic(
-      source=DiagnosticSource::parser(),
+      origin=DiagnosticOrigin("parser"),
       severity=Error,
       message="LF",
       labels=[renderer_test_label(Primary, lf_id, 2, 3, "line feed")],
     ),
-  )
-  diagnostics.push(
     Diagnostic(
-      source=DiagnosticSource::parser(),
+      origin=DiagnosticOrigin("parser"),
       severity=Error,
       message="CRLF",
       labels=[renderer_test_label(Primary, crlf_id, 3, 4, "inside CRLF")],
     ),
-  )
-  diagnostics.push(
     Diagnostic(
-      source=DiagnosticSource::parser(),
+      origin=DiagnosticOrigin("parser"),
       severity=Error,
       message="CR",
       labels=[renderer_test_label(Primary, cr_id, 2, 3, "carriage return")],
     ),
-  )
+  ]
   inspect(
-    diagnostics.render_plain(provider),
+    render_diagnostics_plain(diagnostics[:], provider),
     content=(
       #|error: LF
       #|--> lf.mbt
@@ -481,7 +468,7 @@ test "plain diagnostic renderer groups by source identity and keeps defensive co
   ]
   let notes = ["stable note"]
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::lexer(),
+    origin=DiagnosticOrigin("lexer"),
     severity=Warning,
     message="identity domains",
     labels~,
@@ -495,13 +482,13 @@ test "plain diagnostic renderer groups by source identity and keeps defensive co
   diagnostic.notes().push("accessor mutation")
   let mut source_a_calls = 0
   let mut source_b_calls = 0
-  let provider = SourceProvider(source_id => {
+  let provider = test_source_resolver(source_id => {
     if source_id == source_a {
       source_a_calls = source_a_calls + 1
-      Some(DiagnosticSourceFile("same.mbt", "abc", LineIndex::new("abc")))
+      Some(SourceSnapshot("same.mbt", "abc", LineIndex::new("abc")))
     } else if source_id == source_b {
       source_b_calls = source_b_calls + 1
-      Some(DiagnosticSourceFile("same.mbt", "abc", LineIndex::new("abc")))
+      Some(SourceSnapshot("same.mbt", "abc", LineIndex::new("abc")))
     } else {
       None
     }
@@ -529,32 +516,29 @@ test "plain diagnostic renderer groups by source identity and keeps defensive co
 }
 
 ///|
-test "plain diagnostic set rendering fails atomically" {
+test "plain diagnostic array rendering fails atomically" {
   let source_id = SourceId("atomic")
-  let diagnostics = DiagnosticSet::empty()
-  diagnostics.push(
+  let diagnostics = [
     Diagnostic(
-      source=DiagnosticSource::parser(),
+      origin=DiagnosticOrigin("parser"),
       severity=Error,
       message="valid first",
       labels=[renderer_test_label(Primary, source_id, 0, 1, "valid")],
     ),
-  )
-  diagnostics.push(
     Diagnostic(
-      source=DiagnosticSource::parser(),
+      origin=DiagnosticOrigin("parser"),
       severity=Error,
       message="invalid second",
       labels=[renderer_test_label(Primary, source_id, 0, 2, "invalid")],
     ),
-  )
+  ]
   let mut resolve_calls = 0
-  let provider = SourceProvider(_ => {
+  let provider = test_source_resolver(_ => {
     resolve_calls = resolve_calls + 1
-    Some(DiagnosticSourceFile("atomic.mbt", "x", LineIndex::new("x")))
+    Some(SourceSnapshot("atomic.mbt", "x", LineIndex::new("x")))
   })
   let rendered : Result[String, DiagnosticRenderError] = Ok(
-    diagnostics.render_plain(provider),
+    render_diagnostics_plain(diagnostics[:], provider),
   ) catch {
     error => Err(error)
   }

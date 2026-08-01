@@ -32,7 +32,7 @@ fn explicit_start_lex(source : String) -> LexResult[String] {
         [TokenInfo::new("ERR", 1), TokenInfo::new("EOF", 0)],
         [offset, source.length()],
         diagnostics=DiagnosticSet::single(
-          Diagnostic::lexer_error_at(
+          lexer_diagnostic_at(
             SourceId("token-buffer-source"),
             "bad bang",
             offset,

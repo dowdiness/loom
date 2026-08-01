@@ -9,6 +9,8 @@
 #      Keeps the CST model usable by packages above it.
 #      Note: seam importing example packages (dowdiness/json etc.) is already
 #      enforced at compile time — moon resolves it as a circular dependency.
+#   3. diagnostic production code MUST depend only on MoonBit core packages.
+#      Keeps structured diagnostics independent from Loom and parser policy.
 
 set -euo pipefail
 
@@ -64,6 +66,33 @@ else
       ok "$pkg_file: no loom import"
     fi
   done <<< "$SEAM_PKGS"
+fi
+
+echo ""
+echo "Rule 3: diagnostic production dependencies must be MoonBit core only"
+
+if [[ ! -f "diagnostic/moon.mod" || ! -f "diagnostic/moon.pkg" ]]; then
+  fail "diagnostic manifests not found — package layout changed, update this script"
+else
+  if grep -q '^import[[:space:]]*{' diagnostic/moon.mod; then
+    fail "diagnostic/moon.mod declares module dependencies — production must use MoonBit core only"
+  else
+    ok "diagnostic/moon.mod: no external module dependencies"
+  fi
+
+  invalid_diagnostic_imports=$(grep -E '^[[:space:]]*"' diagnostic/moon.pkg | grep -Ev '"moonbitlang/core/' || true)
+  if [[ -n "$invalid_diagnostic_imports" ]]; then
+    fail "diagnostic/moon.pkg imports a non-core package: $invalid_diagnostic_imports"
+  else
+    ok "diagnostic/moon.pkg: package imports are MoonBit core only"
+  fi
+
+  nested_diagnostic_packages=$(find diagnostic -mindepth 2 -name moon.pkg -print)
+  if [[ -n "$nested_diagnostic_packages" ]]; then
+    fail "diagnostic contains an unexpected nested package: $nested_diagnostic_packages"
+  else
+    ok "diagnostic: no hidden nested production packages"
+  fi
 fi
 
 echo ""

@@ -16,7 +16,7 @@ fn tok(t : @token.Token) -> @core.TokenInfo[@token.Token] {
 }
 
 ///|
-fn css_diagnostic_start(diag : @core.Diagnostic) -> Int {
+fn css_diagnostic_start(diag : @diagnostic.Diagnostic) -> Int {
   match diag.labels() {
     [label, ..] => label.span().range().start().value()
     [] => abort("expected CSS diagnostic range")

@@ -14,7 +14,7 @@ test "Diagnostic stores message and primary range" {
   let range = test_range_or_abort(3, 7)
   let span = SourceSpan(SourceId("parser-context-source"), range)
   let d = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     message="unexpected token",
     labels=[DiagnosticLabel(LabelStyle::Primary, span, None)],
@@ -42,7 +42,7 @@ fn test_parser_diagnostic(
     SourceId("parser-context-source"),
     test_range_or_abort(start, end),
   )
-  Diagnostic(source=DiagnosticSource::parser(), severity=Error, message~, labels=[
+  Diagnostic(origin=DiagnosticOrigin("parser"), severity=Error, message~, labels=[
     DiagnosticLabel(LabelStyle::Primary, span, None),
   ])
 }

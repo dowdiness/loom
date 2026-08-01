@@ -2,6 +2,7 @@
 package "dowdiness/markdown"
 
 import {
+  "dowdiness/diagnostic",
   "dowdiness/loom",
   "dowdiness/loom/core",
   "dowdiness/loom/pipeline",
@@ -12,13 +13,13 @@ import {
 // Values
 pub fn attach_markdown_role_spans(@pipeline.SyntaxParser) -> MarkdownRoleSpansAttachment
 
-pub fn experimental_markdown_ir_canonical_format(@core.SourceId, MarkdownIR) -> String
+pub fn experimental_markdown_ir_canonical_format(@diagnostic.SourceId, MarkdownIR) -> String
 
-pub fn experimental_markdown_ir_canonical_format_checked(@core.SourceId, MarkdownIR) -> Result[String, MarkdownIRCanonicalFormatFailure]
+pub fn experimental_markdown_ir_canonical_format_checked(@diagnostic.SourceId, MarkdownIR) -> Result[String, MarkdownIRCanonicalFormatFailure]
 
-pub fn experimental_markdown_ir_from_syntax(@core.SourceId, @seam.SyntaxNode) -> MarkdownIR
+pub fn experimental_markdown_ir_from_syntax(@diagnostic.SourceId, @seam.SyntaxNode) -> MarkdownIR
 
-pub fn experimental_markdown_ir_from_syntax_with_diagnostics(@core.SourceId, @seam.SyntaxNode, @core.DiagnosticSet) -> MarkdownIR
+pub fn experimental_markdown_ir_from_syntax_with_diagnostics(@diagnostic.SourceId, @seam.SyntaxNode, @core.DiagnosticSet) -> MarkdownIR
 
 pub fn experimental_markdown_ir_local_transform_rewrite(MarkdownIR, String, target_origin~ : MarkdownIROrigin, replacement_text~ : String) -> String
 
@@ -46,11 +47,11 @@ pub let markdown_mode_lexer : @core.ModeLexer[Token, MarkdownLexMode]
 
 pub let markdown_spec : @core.LanguageSpec[Token, SyntaxKind]
 
-pub fn parse(@core.SourceId, String) -> Block
+pub fn parse(@diagnostic.SourceId, String) -> Block
 
-pub fn parse_cst(@core.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 
-pub fn parse_markdown(@core.SourceId, String) -> (Block, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_markdown(@diagnostic.SourceId, String) -> (Block, @core.DiagnosticSet) raise @core.LexError
 
 pub fn project_markdown_roles(@seam.SyntaxNode) -> Array[MarkdownRoleSpan]
 
@@ -93,7 +94,7 @@ pub struct MarkdownIR {
 pub fn MarkdownIR::children(Self) -> Array[Self]
 pub fn MarkdownIR::content_origin(Self) -> MarkdownIROrigin?
 pub fn MarkdownIR::destination_origin(Self) -> MarkdownIROrigin?
-pub fn MarkdownIR::diagnostics(Self) -> Array[@core.Diagnostic]
+pub fn MarkdownIR::diagnostics(Self) -> Array[@diagnostic.Diagnostic]
 pub fn MarkdownIR::heading_depth(Self) -> Int?
 pub fn MarkdownIR::is_raw(Self) -> Bool
 pub fn MarkdownIR::is_recovered(Self) -> Bool

@@ -21,7 +21,7 @@ fn make_parser_diagnostic(
     }
   }
   Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     code~,
     message=msg,
@@ -59,7 +59,7 @@ pub fn[T, K] ParserContext::report_error(
   })
   self.report(
     Diagnostic(
-      source=DiagnosticSource::parser(),
+      origin=DiagnosticOrigin("parser"),
       severity=Error,
       code~,
       message~,

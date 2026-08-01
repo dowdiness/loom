@@ -2,6 +2,7 @@
 package "dowdiness/graph-dsl"
 
 import {
+  "dowdiness/diagnostic",
   "dowdiness/loom",
   "dowdiness/loom/core",
   "dowdiness/seam",
@@ -11,7 +12,7 @@ import {
 // Values
 pub let graph_grammar : @loom.Grammar[Token, SyntaxKind, GraphAst]
 
-pub fn project_graph_source(@core.SourceId, String) -> Result[GraphDoc, Array[String]]
+pub fn project_graph_source(@diagnostic.SourceId, String) -> Result[GraphDoc, Array[String]]
 
 // Errors
 
@@ -23,7 +24,7 @@ pub enum GraphAst {
 pub struct GraphAttachment {
   // private fields
 }
-pub fn GraphAttachment::GraphAttachment(@core.SourceId, String) -> Self
+pub fn GraphAttachment::GraphAttachment(@diagnostic.SourceId, String) -> Self
 pub fn GraphAttachment::apply_edit(Self, @core.Edit, String) -> Unit
 pub fn GraphAttachment::current_result(Self) -> Result[GraphDoc, String]
 pub fn GraphAttachment::diagnostics(Self) -> Array[String]

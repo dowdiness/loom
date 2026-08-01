@@ -2,20 +2,20 @@
 package "dowdiness/lambda/rename"
 
 import {
+  "dowdiness/diagnostic",
   "dowdiness/lambda/callers",
-  "dowdiness/loom/core",
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }
 
 // Values
-pub fn check_converse_capture(@core.SourceId, @callers.Def, String, Array[@callers.Call], Array[(@callers.ScopeId, @callers.ScopeId)], @seam.SyntaxNode) -> @core.Diagnostic?
+pub fn check_converse_capture(@diagnostic.SourceId, @callers.Def, String, Array[@callers.Call], Array[(@callers.ScopeId, @callers.ScopeId)], @seam.SyntaxNode) -> @diagnostic.Diagnostic?
 
-pub fn check_forward_capture(@core.SourceId, @callers.Def, String, Array[@callers.Def], Array[@callers.Call], Array[(@callers.ScopeId, @callers.ScopeId)], @seam.SyntaxNode) -> @core.Diagnostic?
+pub fn check_forward_capture(@diagnostic.SourceId, @callers.Def, String, Array[@callers.Def], Array[@callers.Call], Array[(@callers.ScopeId, @callers.ScopeId)], @seam.SyntaxNode) -> @diagnostic.Diagnostic?
 
-pub fn check_shadow(@core.SourceId, @callers.Def, String, Array[@callers.Def], Array[(@callers.ScopeId, @callers.ScopeId)], @seam.SyntaxNode) -> @core.Diagnostic?
+pub fn check_shadow(@diagnostic.SourceId, @callers.Def, String, Array[@callers.Def], Array[(@callers.ScopeId, @callers.ScopeId)], @seam.SyntaxNode) -> @diagnostic.Diagnostic?
 
-pub fn check_sibling_collision(@core.SourceId, @callers.Def, String, Array[@callers.Def], @seam.SyntaxNode) -> @core.Diagnostic?
+pub fn check_sibling_collision(@diagnostic.SourceId, @callers.Def, String, Array[@callers.Def], @seam.SyntaxNode) -> @diagnostic.Diagnostic?
 
 pub fn is_strict_ancestor(@callers.ScopeId, @callers.ScopeId, Array[(@callers.ScopeId, @callers.ScopeId)]) -> Bool
 
@@ -23,7 +23,7 @@ pub fn locate_target(Array[@callers.Def], @seam.SyntaxNode, Int) -> @callers.Def
 
 pub fn name_range_of(@callers.Def, @seam.SyntaxNode) -> (Int, Int)
 
-pub fn plan_rename(@core.SourceId, @callers.CallersPipeline, String, @seam.SyntaxNode, Int, String) -> RenamePlan
+pub fn plan_rename(@diagnostic.SourceId, @callers.CallersPipeline, String, @seam.SyntaxNode, Int, String) -> RenamePlan
 
 pub fn resolve_innermost(@callers.ScopeId, String, Array[@callers.Def], Array[(@callers.ScopeId, @callers.ScopeId)]) -> @callers.Def?
 
@@ -33,7 +33,7 @@ pub fn resolve_innermost(@callers.ScopeId, String, Array[@callers.Def], Array[(@
 pub struct RenamePlan {
   target : @callers.Def?
   edits : Array[TextEdit]
-  diagnostics : Array[@core.Diagnostic]
+  diagnostics : Array[@diagnostic.Diagnostic]
 }
 
 pub struct TextEdit {

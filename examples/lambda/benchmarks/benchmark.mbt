@@ -3,7 +3,7 @@
 
 ///|
 fn benchmark_source_id() -> @core.SourceId {
-  @core.SourceId::SourceId("lambda-benchmarks-core")
+  @diagnostic.SourceId("lambda-benchmarks-core")
 }
 
 ///|

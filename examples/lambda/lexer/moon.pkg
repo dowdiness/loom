@@ -4,6 +4,7 @@ import {
 }
 
 import {
+  "dowdiness/diagnostic",
   "moonbitlang/core/debug",
   "moonbitlang/quickcheck" @qc,
 } for "test"

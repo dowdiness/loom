@@ -111,7 +111,7 @@ test "structured lex error preserves caller source and lexer producer" {
   let diagnostics = lex(source_id, "@").diagnostics().items()
   inspect(diagnostics.length(), content="1")
   let diagnostic = diagnostics[0]
-  inspect(diagnostic.source().name(), content="lexer")
+  inspect(diagnostic.origin().name(), content="lexer")
   let labels = diagnostic.labels()
   inspect(labels.length(), content="1")
   inspect(labels[0].style() is @core.LabelStyle::Primary, content="true")

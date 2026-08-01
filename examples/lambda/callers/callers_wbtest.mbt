@@ -10,7 +10,7 @@
 
 ///|
 fn callers_wbtest_source_id() -> @core.SourceId {
-  @core.SourceId::SourceId("lambda-callers-wbtest")
+  @diagnostic.SourceId("lambda-callers-wbtest")
 }
 
 ///|

@@ -1,4 +1,5 @@
 members = [
+  "./diagnostic",
   "./loom",
   "./seam",
   "./pretty",
@@ -18,6 +19,7 @@ members = [
   "./egraph",
   "./egglog",
   "./fixtures/grammar_ir_regression",
+  "./fixtures/diagnostic_consumer",
   "./fixtures/line_lexer_regression",
   "./fixtures/pattern_lexer_regression",
 ]

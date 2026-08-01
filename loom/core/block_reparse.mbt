@@ -261,7 +261,7 @@ fn diagnostic_offset_failure(
   error : DiagnosticBuildError,
 ) -> Diagnostic {
   Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     message="internal: diagnostic offset failed",
     notes=[

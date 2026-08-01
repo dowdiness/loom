@@ -53,7 +53,7 @@ test "official lexer diagnostics retain supplied source IDs independently of nam
   let result_b = lex_moonbit(source_b, source, name="second.mbt")
   let diagnostic_a = result_a.diagnostics().items()[0]
   let diagnostic_b = result_b.diagnostics().items()[0]
-  inspect(diagnostic_a.source().name(), content="lexer")
+  inspect(diagnostic_a.origin().name(), content="lexer")
   inspect(
     diagnostic_a.code().unwrap().value(),
     content="moonbitlang/parser/lexer",

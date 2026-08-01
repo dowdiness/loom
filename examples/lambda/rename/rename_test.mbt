@@ -99,7 +99,7 @@ fn assert_rename_diagnostic_labels(
   secondary_message : String,
 ) -> Unit raise {
   let source_id = rename_test_source_id()
-  inspect(diagnostic.source().name(), content="rename")
+  inspect(diagnostic.origin().name(), content="rename")
   let labels = diagnostic.labels()
   inspect(labels.length(), content="2")
   inspect(labels[0].style() is @core.LabelStyle::Primary, content="true")

@@ -3,6 +3,7 @@
 **Date:** 2026-05-14
 **Status:** Accepted
 **Implementation plan:** [docs/archive/completed-phases/2026-05-12-parser-structured-diagnostics.md](../archive/completed-phases/2026-05-12-parser-structured-diagnostics.md)
+**Qualified by:** [ADR: Standalone Structured Diagnostics Boundary](2026-08-01-standalone-structured-diagnostics.md)
 
 ## Context
 
@@ -24,8 +25,8 @@ tokenization work to recover ranges and token evidence.
 Make the public parser boundary structured and total:
 
 - `Diagnostic`, `DiagnosticSet`, `TextOffset`, `TextRange`, labels, severities,
-  codes, and token-erased `TokenEvidence` are the parser-facing diagnostic data
-  model.
+  and codes are the parser-facing diagnostic data model. Public token evidence
+  was removed by PR #825 and is not part of the current model.
 - Lexing for grammar/factory use returns `LexResult[T]` with diagnostics
   instead of raising for recoverable malformed user input.
 - High-level parser updates publish `ParseSnapshot[Ast]`, containing source,
@@ -39,8 +40,9 @@ Make the public parser boundary structured and total:
   reporting helpers: `report`, `report_error`, `report_at_current`, and
   `report_expected`. The existing `error(String)` helper remains as a
   compatibility wrapper.
-- Parser-facing diagnostics may expose token-erased `RawKind` evidence, but not
-  language-specific token payloads.
+- Parser-facing diagnostics do not expose token evidence or language-specific
+  token payloads. Grammar internals retain token information where parsing
+  requires it.
 - Example fail-fast `ParseError` types carry formatted messages only; structured
   consumers should use parser snapshots or `parse_*` functions that return
   `DiagnosticSet`.
@@ -59,7 +61,7 @@ Make the public parser boundary structured and total:
 ## Rationale
 
 Diagnostics are data, and formatting is a rendering step. Keeping ranges,
-severity, codes, notes, labels, and token evidence structured lets editor
+severity, codes, notes, and labels structured lets editor
 clients, incremental reparsing, and tests consume one diagnostic model without
 parsing strings or re-tokenizing source.
 
@@ -71,9 +73,9 @@ High-level parsing should be total for malformed user input. Recoverable lexer
 and parser errors should produce trees with error or incomplete nodes plus
 diagnostics, not missing syntax trees.
 
-Token evidence must be erased at public parser boundaries. Grammar internals can
-use language-specific token types, while public diagnostics remain reusable
-across language examples and editor integrations.
+Token information remains an internal grammar/parser concern. Public diagnostics
+remain reusable across language examples and editor integrations without a
+token-evidence field or side table.
 
 ## Consequences
 
@@ -91,8 +93,8 @@ parser factories.
 
 Example `parse(String)` helpers are intentionally less expressive than parser
 snapshots. They are fail-fast convenience APIs; callers that need ranges,
-codes, labels, notes, token evidence, or multiple diagnostics should use APIs
-that return `DiagnosticSet`.
+codes, labels, notes, or multiple diagnostics should use APIs that return
+`DiagnosticSet`.
 
 Line/column coordinates remain presentation-only, following
 [ADR: Derive Line/Column Source Locations From Canonical Offsets](2026-05-11-derived-source-locations.md).

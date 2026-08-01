@@ -46,7 +46,7 @@ fn source_diagnostic(
 ) -> Diagnostic {
   let span = test_span(source_id, start, end)
   Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     code=Some(DiagnosticCode("parse.expected")),
     message~,
@@ -71,7 +71,7 @@ fn test_shift(
 fn test_diagnostic(message : String, start : Int, end : Int) -> Diagnostic {
   let span = test_span(test_source("test"), start, end)
   Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     code=Some(DiagnosticCode("parse.expected")),
     message~,
@@ -80,33 +80,8 @@ fn test_diagnostic(message : String, start : Int, end : Int) -> Diagnostic {
 }
 
 ///|
-test "TextOffset and TextRange expose validated values" {
-  let range = test_range(2, 5)
-  inspect(range.start().value(), content="2")
-  inspect(range.end().value(), content="5")
-  inspect(range.length(), content="3")
-}
-
-///|
-test "TextOffset and TextRange reject invalid inputs without aborting" {
-  try TextOffset(-3) catch {
-    NegativeTextOffset(value) => inspect(value, content="-3")
-    _ => abort("expected offset error")
-  } noraise {
-    _ => abort("expected invalid offset")
-  }
-  try TextRange(test_offset(5), test_offset(2)) catch {
-    InvalidTextRange(start, end) =>
-      debug_inspect([start, end], content="[5, 2]")
-    _ => abort("expected range error")
-  } noraise {
-    _ => abort("expected invalid range")
-  }
-}
-
-///|
 test "Diagnostic lexer_error_at reports invalid ranges as notes" {
-  let diagnostic = Diagnostic::lexer_error_at(
+  let diagnostic = lexer_diagnostic_at(
     test_source("test"),
     "invalid",
     5,
@@ -118,31 +93,6 @@ test "Diagnostic lexer_error_at reports invalid ranges as notes" {
   debug_inspect(
     diagnostic.notes(),
     content="[\"invalid lexer diagnostic range [5,2]: InvalidTextRange(5, 2)\"]",
-  )
-}
-
-///|
-test "Diagnostic formats raw offsets and line columns" {
-  let diagnostic = test_diagnostic("expected value", 1, 5)
-  inspect(diagnostic.format(), content="expected value [1,5]")
-  let index = LineIndex::new("ab\ncd")
-  inspect(
-    diagnostic.format_with_line_col(index),
-    content="expected value [0:1,1:2]",
-  )
-}
-
-///|
-test "Diagnostic without primary range formats as message only" {
-  let diagnostic = Diagnostic(
-    source=DiagnosticSource::lexer(),
-    severity=Error,
-    message="invalid token",
-  )
-  inspect(diagnostic.format(), content="invalid token")
-  inspect(
-    diagnostic.format_with_line_col(LineIndex::new("abc")),
-    content="invalid token",
   )
 }
 
@@ -253,7 +203,7 @@ test "DiagnosticSet after_relex shifts secondary labels" {
   let source = test_source("test")
   let primary = test_span(source, 0, 1)
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::lexer(),
+    origin=DiagnosticOrigin("lexer"),
     severity=Error,
     message="secondary",
     labels=[
@@ -274,7 +224,7 @@ test "DiagnosticSet after_relex shifts secondary labels" {
 test "DiagnosticSet after_relex drops diagnostics with secondary stale evidence" {
   let source = test_source("test")
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::lexer(),
+    origin=DiagnosticOrigin("lexer"),
     severity=Error,
     message="secondary",
     labels=[
@@ -426,7 +376,7 @@ test "LexResult from_located_tokens preserves zero-width tokens" {
 ///|
 test "LexResult from_located_tokens preserves supplied diagnostics" {
   let diagnostics = DiagnosticSet::single(
-    Diagnostic::lexer_error_at(
+    lexer_diagnostic_at(
       test_source("test"),
       "external lexer error",
       0,
@@ -479,28 +429,11 @@ test "LexResult from_located_tokens diagnoses invalid external spans" {
 }
 
 ///|
-test "source-aware labels preserve style span and message" {
-  let source = test_source("file-a")
-  let label = test_label(
-    LabelStyle::Secondary,
-    source,
-    1,
-    3,
-    message=Some("related declaration"),
-  )
-  debug_inspect(label.style(), content="Secondary")
-  inspect(label.span().source_id().value(), content="file-a")
-  inspect(label.span().range().start().value(), content="1")
-  inspect(label.span().range().end().value(), content="3")
-  debug_inspect(label.message(), content="Some(\"related declaration\")")
-}
-
-///|
 test "source-scoped offset shifts only labels in the edited source" {
   let source_a = test_source("a")
   let source_b = test_source("b")
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     message="two sources",
     labels=[
@@ -526,7 +459,7 @@ test "source-scoped offset preserves a diagnostic without edited-source labels" 
   let source_b = test_source("b")
   let source_c = test_source("c")
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Hint,
     message="unrelated labels do not select shift",
     labels=[
@@ -549,7 +482,7 @@ test "source A relex does not shift or drop source B labels" {
   let source_a = test_source("a")
   let source_b = test_source("b")
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::lexer(),
+    origin=DiagnosticOrigin("lexer"),
     severity=Warning,
     message="belongs to b",
     labels=[test_label(LabelStyle::Primary, source_b, 2, 3)],
@@ -570,7 +503,7 @@ test "same-source relex shifts labels and preserves style messages" {
   let source_a = test_source("a")
   let primary = test_span(source_a, 4, 5)
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::lexer(),
+    origin=DiagnosticOrigin("lexer"),
     severity=Error,
     message="shift",
     labels=[
@@ -603,7 +536,7 @@ test "overlap with any same-source label drops the whole diagnostic" {
   let source_a = test_source("a")
   let source_b = test_source("b")
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     message="related cause became stale",
     labels=[
@@ -647,48 +580,6 @@ test "source-scoped relex keeps half-open insertion boundaries" {
 }
 
 ///|
-test "multiple primary labels and sources remain explicit and distinct" {
-  let source_a = test_source("a")
-  let source_b = test_source("b")
-  let labels = [
-    test_label(LabelStyle::Primary, source_a, 1, 2, message=Some("a primary")),
-    test_label(LabelStyle::Primary, source_b, 1, 2, message=Some("b primary")),
-  ]
-  let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
-    severity=Error,
-    message="multi-primary",
-    labels~,
-  )
-  let stored = diagnostic.labels()
-  inspect(stored.length(), content="2")
-  inspect(stored[0].span().source_id().value(), content="a")
-  inspect(stored[1].span().source_id().value(), content="b")
-}
-
-///|
-test "diagnostic arrays are defensively copied at construction and access" {
-  let source = test_source("a")
-  let labels = [test_label(LabelStyle::Primary, source, 0, 1)]
-  let notes = ["first note"]
-  let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
-    severity=Error,
-    message="owned arrays",
-    labels~,
-    notes~,
-  )
-  labels.push(test_label(LabelStyle::Secondary, source, 2, 3))
-  notes.push("second note")
-  let exposed_labels = diagnostic.labels()
-  let exposed_notes = diagnostic.notes()
-  exposed_labels.push(test_label(LabelStyle::Secondary, source, 4, 5))
-  exposed_notes.push("third note")
-  inspect(diagnostic.labels().length(), content="1")
-  inspect(diagnostic.notes().length(), content="1")
-}
-
-///|
 test "equal numeric ranges in different sources do not deduplicate" {
   let set = DiagnosticSet::empty()
   set.push(source_diagnostic("same", test_source("a"), 1, 2))
@@ -697,35 +588,11 @@ test "equal numeric ranges in different sources do not deduplicate" {
 }
 
 ///|
-test "source identity remains distinct from producer identity" {
-  let source_id = test_source("parser")
-  let diagnostic = Diagnostic(
-    source=DiagnosticSource::lexer(),
-    severity=Info,
-    message="distinct domains",
-    labels=[test_label(LabelStyle::Primary, source_id, 0, 0)],
-  )
-  inspect(diagnostic.source().name(), content="lexer")
-  inspect(diagnostic.labels()[0].span().source_id().value(), content="parser")
-}
-
-///|
-test "diagnostics can have no primary or labels" {
-  let diagnostic = Diagnostic(
-    source=DiagnosticSource::lexer(),
-    severity=Error,
-    message="locationless",
-  )
-  inspect(diagnostic.labels().length(), content="0")
-  inspect(diagnostic.format(), content="locationless")
-}
-
-///|
 test "overlap with a same-source primary drops the whole diagnostic" {
   let source_a = test_source("a")
   let source_b = test_source("b")
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     message="primary became stale",
     labels=[
@@ -746,7 +613,7 @@ test "diagnostics with only B and C labels remain exactly unchanged by an A edit
   let source_b = test_source("b")
   let source_c = test_source("c")
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Hint,
     code=Some(DiagnosticCode("cross-source")),
     message="no labels in a",
@@ -787,7 +654,7 @@ test "property: edits affect only the selected source among two to four sources"
       )
     })
     let diagnostic = Diagnostic(
-      source=DiagnosticSource::parser(),
+      origin=DiagnosticOrigin("parser"),
       severity=Error,
       message="property",
       labels~,

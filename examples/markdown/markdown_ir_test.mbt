@@ -124,12 +124,12 @@ fn malformed_link_raw_diagnostics(
 ) -> @core.DiagnosticSet {
   let diagnostics = @core.DiagnosticSet::empty()
   diagnostics.push(
-    @core.Diagnostic::lexer_error_at(
+    @core.lexer_diagnostic_at(
       source_id, "synthetic raw bracket diagnostic", 5, 6, "synthetic-raw",
     ),
   )
   diagnostics.push(
-    @core.Diagnostic::lexer_error_at(
+    @core.lexer_diagnostic_at(
       source_id, "synthetic raw paren diagnostic", 6, 7, "synthetic-raw",
     ),
   )
@@ -962,7 +962,7 @@ test "experimental MarkdownIR: incoming diagnostics are attached to recovered no
   let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
-  let diagnostic = @core.Diagnostic::lexer_error_at(
+  let diagnostic = @core.lexer_diagnostic_at(
     @core.SourceId("markdown-ir-test-document"),
     "synthetic recovery diagnostic",
     0,
@@ -994,7 +994,7 @@ test "experimental MarkdownIR: diagnostics do not reclassify literal emphasis" {
   let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
-  let diagnostic = @core.Diagnostic::lexer_error_at(
+  let diagnostic = @core.lexer_diagnostic_at(
     @core.SourceId("markdown-ir-test-document"),
     "synthetic literal diagnostic",
     9,
@@ -1031,7 +1031,7 @@ test "experimental MarkdownIR: zero-width incoming diagnostics attach only with 
   }
   let diagnostics = @core.DiagnosticSet::empty()
   diagnostics.push(
-    @core.Diagnostic::lexer_error_at(
+    @core.lexer_diagnostic_at(
       @core.SourceId("markdown-ir-test-document"),
       "zero-width at recovered start",
       0,
@@ -1040,7 +1040,7 @@ test "experimental MarkdownIR: zero-width incoming diagnostics attach only with 
     ),
   )
   diagnostics.push(
-    @core.Diagnostic::lexer_error_at(
+    @core.lexer_diagnostic_at(
       @core.SourceId("markdown-ir-test-document"),
       "positive recovered overlap",
       0,
@@ -1049,7 +1049,7 @@ test "experimental MarkdownIR: zero-width incoming diagnostics attach only with 
     ),
   )
   diagnostics.push(
-    @core.Diagnostic::lexer_error_at(
+    @core.lexer_diagnostic_at(
       @core.SourceId("markdown-ir-test-document"),
       "zero-width at recovered end",
       1,
@@ -1186,7 +1186,7 @@ test "experimental MarkdownIR: mdastRecovered export carries injected diagnostic
   let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
-  let diagnostic = @core.Diagnostic::lexer_error_at(
+  let diagnostic = @core.lexer_diagnostic_at(
     @core.SourceId("markdown-ir-test-document"),
     "synthetic recovered diagnostic",
     0,
@@ -1212,7 +1212,7 @@ test "experimental MarkdownIR: direct syntax entry point attaches injected diagn
   let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
-  let diagnostic = @core.Diagnostic::lexer_error_at(
+  let diagnostic = @core.lexer_diagnostic_at(
     @core.SourceId("markdown-ir-test-document"),
     "direct syntax recovered diagnostic",
     0,

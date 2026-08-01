@@ -336,7 +336,7 @@ fn make_sibling_diagnostic(
     text_range_or_abort(collider_start, collider_end),
   )
   @core.Diagnostic::Diagnostic(
-    source=@core.DiagnosticSource::DiagnosticSource("rename"),
+    origin=@core.DiagnosticOrigin("rename"),
     severity=severity_error(),
     message="Cannot rename to '\{new_name}': another binding with that name already exists in the same scope",
     code=Some(@core.DiagnosticCode::DiagnosticCode("rename.sibling_collision")),
@@ -373,7 +373,7 @@ fn make_forward_capture_diagnostic(
     text_range_or_abort(capture_start, capture_end),
   )
   @core.Diagnostic::Diagnostic(
-    source=@core.DiagnosticSource::DiagnosticSource("rename"),
+    origin=@core.DiagnosticOrigin("rename"),
     severity=severity_error(),
     message="Cannot rename to '\{new_name}': an existing binding with that name would capture references",
     code=Some(@core.DiagnosticCode::DiagnosticCode("rename.capture")),
@@ -410,7 +410,7 @@ fn make_converse_capture_diagnostic(
     text_range_or_abort(target_start, target_end),
   )
   @core.Diagnostic::Diagnostic(
-    source=@core.DiagnosticSource::DiagnosticSource("rename"),
+    origin=@core.DiagnosticOrigin("rename"),
     severity=severity_error(),
     message="Cannot rename to '\{new_name}': an existing reference to that name may be captured",
     code=Some(@core.DiagnosticCode::DiagnosticCode("rename.capture")),
@@ -450,7 +450,7 @@ fn make_shadow_diagnostic(
     text_range_or_abort(shadowed_start, shadowed_end),
   )
   @core.Diagnostic::Diagnostic(
-    source=@core.DiagnosticSource::DiagnosticSource("rename"),
+    origin=@core.DiagnosticOrigin("rename"),
     severity=severity_warning(),
     message="Renaming to '\{new_name}' shadows an outer binding",
     code=Some(@core.DiagnosticCode::DiagnosticCode("rename.shadow")),

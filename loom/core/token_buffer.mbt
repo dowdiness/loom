@@ -678,7 +678,7 @@ fn offset_lex_diagnostics(
   try TextOffset(0) catch {
     err =>
       DiagnosticSet::single(
-        Diagnostic::lexer_error(
+        lexer_diagnostic(
           "failed to offset lexer diagnostics after " +
           context +
           ": " +
@@ -690,7 +690,7 @@ fn offset_lex_diagnostics(
       diagnostics.offset_by(source_id, offset, zero) catch {
         err =>
           DiagnosticSet::single(
-            Diagnostic::lexer_error(
+            lexer_diagnostic(
               "failed to offset lexer diagnostics after " +
               context +
               ": " +
@@ -721,7 +721,7 @@ fn[T : Eq] TokenBuffer::lex_range_impl(
       result_tokens,
       result_starts,
       DiagnosticSet::single(
-        Diagnostic::lexer_error("range lexer returned no EOF token"),
+        lexer_diagnostic("range lexer returned no EOF token"),
       ),
     )
   }
@@ -733,9 +733,7 @@ fn[T : Eq] TokenBuffer::lex_range_impl(
       "incremental relex range",
     )
     diagnostics.push(
-      Diagnostic::lexer_error(
-        "range lexer returned non-parallel tokens and starts",
-      ),
+      lexer_diagnostic("range lexer returned non-parallel tokens and starts"),
     )
     return (result_tokens, result_starts, diagnostics)
   }
@@ -751,9 +749,7 @@ fn[T : Eq] TokenBuffer::lex_range_impl(
       "incremental relex range",
     )
     diagnostics.push(
-      Diagnostic::lexer_error(
-        "range lexer returned invalid trailing EOF sentinel",
-      ),
+      lexer_diagnostic("range lexer returned invalid trailing EOF sentinel"),
     )
     return (result_tokens, result_starts, diagnostics)
   }
@@ -890,8 +886,8 @@ fn[T] tokenize_resilient_result(
           let prefix_tokens = tokenize_fn(prefix.to_owned()) catch {
             LexError(msg) => {
               diagnostics.push(
-                Diagnostic::lexer_error(
-                  "resilient lexer prefix replay failed: " + msg,
+                @diagnostic.ToDiagnostic::to_diagnostic(
+                  LexError("resilient lexer prefix replay failed: " + msg),
                 ),
               )
               []
@@ -914,7 +910,7 @@ fn[T] tokenize_resilient_result(
             message
           }
           diagnostics.push(
-            Diagnostic::lexer_error_at(
+            lexer_diagnostic_at(
               source_id, diagnostic_message, pos, end, "lex-error",
             ),
           )
@@ -956,7 +952,7 @@ fn[T] tokenize_from_steps_result(
         if next_offset <= pos {
           let end = next_char_offset(source, pos)
           diagnostics.push(
-            Diagnostic::lexer_error_at(
+            lexer_diagnostic_at(
               source_id,
               "step lexer made no progress at position " + pos.to_string(),
               pos,
@@ -977,7 +973,7 @@ fn[T] tokenize_from_steps_result(
         let end = lex_step_recovery_offset(source, pos, at, width)
         starts.push(error_start)
         diagnostics.push(
-          Diagnostic::lexer_error_at(
+          lexer_diagnostic_at(
             source_id, message, error_start, end, "lex-invalid",
           ),
         )
@@ -992,7 +988,7 @@ fn[T] tokenize_from_steps_result(
         let error_start = clamp_offset(if at > pos { at } else { pos }, len)
         starts.push(error_start)
         diagnostics.push(
-          Diagnostic::lexer_error_at(
+          lexer_diagnostic_at(
             source_id,
             "incomplete token; expected " + expected,
             error_start,

@@ -2,7 +2,7 @@
 test "push_offset_diagnostic reports invalid shifted diagnostic" {
   let source_id = SourceId("block-reparse-source")
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     message="after",
     labels=[

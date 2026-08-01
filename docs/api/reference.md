@@ -46,7 +46,7 @@ still raise `LexError`. All whitespace is preserved as trivia nodes.
 
 The `SourceId` passed to all parsing functions is caller-owned source identity.
 Keep it stable across revisions of the same source and distinct across different
-sources. It is not `DiagnosticSource`, which identifies the diagnostic
+sources. It is not `DiagnosticOrigin`, which identifies the diagnostic
 producer, and it must not be derived from text or diagnostic presentation.
 
 Structured locations are carried by `DiagnosticLabel` values, not by a

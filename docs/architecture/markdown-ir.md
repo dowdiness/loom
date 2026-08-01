@@ -272,7 +272,7 @@ Compatibility floor:
   `(@seam.CstNode, @core.DiagnosticSet)` and possibly raising `@core.LexError`.
   It must not start returning MarkdownIR or hiding parser diagnostics.
 - The caller supplies a stable `SourceId` for the document. Markdown does not
-  derive one from source text or diagnostics, and `DiagnosticSource` remains
+  derive one from source text or diagnostics, and `DiagnosticOrigin` remains
   the separate producer identity.
 - `markdown_spec` remains the Markdown `LanguageSpec`; `LanguageSpec`,
   lexer/recovery choices, and block-reparse configuration stay parser-side.
