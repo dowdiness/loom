@@ -226,7 +226,7 @@ inputs into `commonmark_emphasis_html_fixture_data_test.mbt`.
 
 The emphasis baseline is 127 pass, 5 xfail, and 0 skip. The optional MoonBit
 audit uses a separate diagnostic taxonomy and currently reports those five
-cases (475–477 and 480–481) as `mismatch`, not `unsupported-ir`. Pass fixtures
+cases (475–477 and 480–481) as `html-mismatch`, not `malformed-raw`. Pass fixtures
 must continue matching the official HTML, while an xfail that starts matching
 must be promoted to pass. Fixture metadata records the CommonMark section,
 example number, source, expected HTML, and `CommonMarkHtmlPass` /
@@ -251,9 +251,14 @@ this optional command from `examples/markdown`:
 NEW_MOON_MOD=0 moon run src/tools/commonmark_html_audit --target native
 ```
 
-The command reads the pinned `tools/commonmark-0.31.2-spec.json` corpus and
-prints pass/fail/skip counts by section plus each example number and category.
-Use `-- --spec path/to/spec.json` to audit another local CommonMark spec file.
+The command verifies the version, SHA-256, and 652-example total of the pinned
+`tools/commonmark-0.31.2-spec.json` corpus before auditing it. It prints one
+machine-readable category per example and section totals for parser diagnostics,
+`Unsupported`, malformed `Raw`, `Recovered`, adapter-policy rejection, and HTML
+mismatch. `render-match` is separate evidence: it preserves the original 437
+HTML matches, while only the 405 examples with matching HTML and no diagnostic,
+opaque, or recovery assistance count as `pass`. Use `-- --spec path/to/spec.json`
+only to point at an identical copy of the pinned corpus.
 Third-party parsers are optional comparison signals only: they cannot override
 the pinned official source or HTML, and any comparison tool added to this
 workflow must use an exact version pin.
