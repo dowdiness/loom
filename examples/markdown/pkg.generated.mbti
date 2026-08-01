@@ -28,6 +28,8 @@ pub fn experimental_markdown_ir_to_block(MarkdownIR) -> Block
 
 pub fn experimental_markdown_ir_to_commonmark_html(MarkdownIR) -> String
 
+pub fn experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(MarkdownIR, RawHtmlPolicy) -> Result[String, MarkdownIRHtmlRenderError]
+
 pub fn experimental_markdown_ir_to_mdast_json(MarkdownIR) -> Json
 
 pub fn experimental_markdown_ir_to_mdast_json_with_positions(MarkdownIR, String) -> Json
@@ -116,6 +118,10 @@ pub(all) enum MarkdownIRCanonicalOpaqueKind {
   Unsupported
 } derive(Eq, @debug.Debug)
 
+pub(all) enum MarkdownIRHtmlRenderError {
+  RawHtmlRejected(RawHtmlSurface, MarkdownIROrigin)
+} derive(Eq, @debug.Debug)
+
 pub struct MarkdownIROrigin {
   // private fields
 } derive(Eq, @debug.Debug)
@@ -174,6 +180,18 @@ pub fn OrderedListMarker::OrderedListMarker(start~ : Int, delimiter~ : OrderedLi
 pub fn OrderedListMarker::delimiter(Self) -> OrderedListDelimiter
 pub fn OrderedListMarker::start(Self) -> Int
 pub fn OrderedListMarker::text(Self) -> String
+
+pub(all) enum RawHtmlPolicy {
+  Escape
+  Omit
+  Reject
+  Passthrough
+} derive(Eq, @debug.Debug)
+
+pub(all) enum RawHtmlSurface {
+  RawHtmlBlock
+  RawHtmlInline
+} derive(Eq, @debug.Debug)
 
 pub(all) enum SyntaxKind {
   AtxHeadingMarkerToken

@@ -57,6 +57,22 @@ pub fn experimental_markdown_ir_canonical_format_checked(
   @core.SourceId, MarkdownIR
 )
   -> Result[String, MarkdownIRCanonicalFormatFailure]
+pub(all) enum RawHtmlPolicy {
+  Escape
+  Omit
+  Reject
+  Passthrough
+}
+pub(all) enum RawHtmlSurface {
+  RawHtmlBlock
+  RawHtmlInline
+}
+pub(all) enum MarkdownIRHtmlRenderError {
+  RawHtmlRejected(RawHtmlSurface, MarkdownIROrigin)
+}
+pub fn experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+  MarkdownIR, RawHtmlPolicy
+) -> Result[String, MarkdownIRHtmlRenderError]
 pub fn experimental_markdown_ir_to_commonmark_html(MarkdownIR) -> String
 
 // ── Lexing ────────────────────────────────────────────────────────────────────
@@ -108,12 +124,19 @@ IR, then adapt with `experimental_markdown_ir_to_block`, export with
 with `experimental_markdown_ir_preserve_rewrite`,
 `experimental_markdown_ir_local_transform_rewrite`,
 `experimental_markdown_ir_canonical_format`, its checked counterpart
-`experimental_markdown_ir_canonical_format_checked`, or render CommonMark-style HTML with
-`experimental_markdown_ir_to_commonmark_html`. The position-aware mdast export
-must receive the exact source string that produced the IR. The established parser
-surfaces (`parse`, `parse_markdown`, `parse_cst`, `markdown_grammar`, and
-`markdown_fold_node`) remain the compatibility path for the editor-facing
-`Block` / `Inline` model.
+`experimental_markdown_ir_canonical_format_checked`, or render CommonMark-style
+HTML with `experimental_markdown_ir_to_commonmark_html`. The HTML renderer uses
+`RawHtmlPolicy::Escape` as its safe product default. Call
+`experimental_markdown_ir_to_commonmark_html_with_raw_html_policy` to make an
+intentional `Escape`, `Omit`, `Reject`, or `Passthrough` decision at a trust
+boundary. `Reject` returns `MarkdownIRHtmlRenderError::RawHtmlRejected` with the
+HTML surface and source origin. Malformed recovery `Raw` is not valid HTML and
+remains escaped under every policy. mdast export is independent of rendering
+policy and continues to preserve valid HTML as an `html` node. The
+position-aware mdast export must receive the exact source string that produced
+the IR. The established parser surfaces (`parse`, `parse_markdown`, `parse_cst`,
+`markdown_grammar`, and `markdown_fold_node`) remain the compatibility path for
+the editor-facing `Block` / `Inline` model.
 
 ### Checked canonical formatting
 
@@ -210,9 +233,11 @@ surface rather than unist position export or later CommonMark/container work.
 
 `commonmark_html_fixture_test.mbt` compares MarkdownIR HTML rendering against
 checked-in official CommonMark 0.31.2 examples. The harness parses Markdown to
-MarkdownIR and calls `experimental_markdown_ir_to_commonmark_html`; it does not
-route through mdast. mdast fixture parity proves adapter tree shape, while
-CommonMark HTML parity proves rendered behavior and escaping.
+MarkdownIR and explicitly selects `RawHtmlPolicy::Passthrough`, as required by
+the CommonMark rendering contract; it does not route through mdast. Product
+callers that use the convenience renderer retain the safe `Escape` default.
+mdast fixture parity proves adapter tree shape, while CommonMark HTML parity
+proves rendered behavior and escaping.
 
 For numbered CommonMark fixtures, the pinned
 `tools/commonmark-0.31.2-spec.json` file is the sole normative oracle for source
@@ -252,7 +277,9 @@ NEW_MOON_MOD=0 moon run src/tools/commonmark_html_audit --target native
 ```
 
 The command verifies the version, SHA-256, and 652-example total of the pinned
-`tools/commonmark-0.31.2-spec.json` corpus before auditing it. It prints one
+`tools/commonmark-0.31.2-spec.json` corpus before auditing it. The audit selects
+`RawHtmlPolicy::Passthrough` explicitly and records any structured policy error
+as `adapter-policy-rejection`. It prints one
 machine-readable category per example and section totals for parser diagnostics,
 `Unsupported`, malformed `Raw`, `Recovered`, adapter-policy rejection, and HTML
 mismatch. `render-match` is separate evidence: it preserves the original 437

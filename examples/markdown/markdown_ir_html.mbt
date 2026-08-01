@@ -14,29 +14,82 @@ fn html_escape_text(value : String) -> String {
 }
 
 ///|
+pub(all) enum RawHtmlPolicy {
+  Escape
+  Omit
+  Reject
+  Passthrough
+} derive(Eq, Debug)
+
+///|
+pub(all) enum RawHtmlSurface {
+  RawHtmlBlock
+  RawHtmlInline
+} derive(Eq, Debug)
+
+///|
+pub(all) enum MarkdownIRHtmlRenderError {
+  RawHtmlRejected(RawHtmlSurface, MarkdownIROrigin)
+} derive(Eq, Debug)
+
+///|
+fn render_valid_raw_html(
+  value : String,
+  origin : MarkdownIROrigin,
+  surface : RawHtmlSurface,
+  policy : RawHtmlPolicy,
+) -> Result[String, MarkdownIRHtmlRenderError] {
+  match policy {
+    Escape => Ok(html_escape_text(value))
+    Omit => Ok("")
+    Reject => Err(RawHtmlRejected(surface, origin))
+    Passthrough => Ok(value)
+  }
+}
+
+///|
 fn markdown_ir_nodes_to_commonmark_html(
   children : Array[MarkdownIR],
   parent_list_spread~ : Bool,
-) -> String {
-  children
-  .map(child => {
-    markdown_ir_to_commonmark_html_with_list_context(child, parent_list_spread)
-  })
-  .join("")
+  raw_html_policy~ : RawHtmlPolicy,
+) -> Result[String, MarkdownIRHtmlRenderError] {
+  let buf = StringBuilder::new()
+  for child in children {
+    match
+      markdown_ir_to_commonmark_html_with_list_context(
+        child,
+        parent_list_spread,
+        raw_html_policy~,
+      ) {
+      Ok(html) => buf.write_string(html)
+      Err(error) => return Err(error)
+    }
+  }
+  Ok(buf.to_string())
 }
 
 ///|
 fn markdown_ir_children_to_commonmark_html(
   children : Array[MarkdownIR],
-) -> String {
-  markdown_ir_nodes_to_commonmark_html(children, parent_list_spread=false)
+  raw_html_policy~ : RawHtmlPolicy,
+) -> Result[String, MarkdownIRHtmlRenderError] {
+  markdown_ir_nodes_to_commonmark_html(
+    children,
+    parent_list_spread=false,
+    raw_html_policy~,
+  )
 }
 
 ///|
 fn markdown_ir_inline_children_to_commonmark_html(
   children : Array[MarkdownIR],
-) -> String {
-  markdown_ir_nodes_to_commonmark_html(children, parent_list_spread=false)
+  raw_html_policy~ : RawHtmlPolicy,
+) -> Result[String, MarkdownIRHtmlRenderError] {
+  markdown_ir_nodes_to_commonmark_html(
+    children,
+    parent_list_spread=false,
+    raw_html_policy~,
+  )
 }
 
 ///|
@@ -51,11 +104,17 @@ fn markdown_ir_list_item_has_block_content(ir : MarkdownIR) -> Bool {
 fn markdown_ir_list_item_child_to_commonmark_html(
   child : MarkdownIR,
   render_paragraphs~ : Bool,
-) -> String {
+  raw_html_policy~ : RawHtmlPolicy,
+) -> Result[String, MarkdownIRHtmlRenderError] {
   match child.node {
     Paragraph(children, _) if !render_paragraphs || children.length() == 0 =>
-      markdown_ir_inline_children_to_commonmark_html(children)
-    _ => markdown_ir_to_commonmark_html_with_list_context(child, false)
+      markdown_ir_inline_children_to_commonmark_html(children, raw_html_policy~)
+    _ =>
+      markdown_ir_to_commonmark_html_with_list_context(
+        child,
+        false,
+        raw_html_policy~,
+      )
   }
 }
 
@@ -71,7 +130,8 @@ fn markdown_ir_child_is_paragraph(ir : MarkdownIR) -> Bool {
 fn markdown_ir_list_item_children_to_commonmark_html(
   children : Array[MarkdownIR],
   render_paragraphs~ : Bool,
-) -> String {
+  raw_html_policy~ : RawHtmlPolicy,
+) -> Result[String, MarkdownIRHtmlRenderError] {
   let buf = StringBuilder::new()
   let mut previous_unwrapped_paragraph = false
   for child in children {
@@ -81,12 +141,18 @@ fn markdown_ir_list_item_children_to_commonmark_html(
       !current_is_paragraph {
       buf.write_string("\n")
     }
-    buf.write_string(
-      markdown_ir_list_item_child_to_commonmark_html(child, render_paragraphs~),
-    )
+    match
+      markdown_ir_list_item_child_to_commonmark_html(
+        child,
+        render_paragraphs~,
+        raw_html_policy~,
+      ) {
+      Ok(html) => buf.write_string(html)
+      Err(error) => return Err(error)
+    }
     previous_unwrapped_paragraph = !render_paragraphs && current_is_paragraph
   }
-  buf.to_string()
+  Ok(buf.to_string())
 }
 
 ///|
@@ -108,45 +174,77 @@ fn markdown_ir_code_block_commonmark_html(
 }
 
 ///|
+fn wrap_commonmark_html(
+  rendered : Result[String, MarkdownIRHtmlRenderError],
+  open : String,
+  close : String,
+) -> Result[String, MarkdownIRHtmlRenderError] {
+  match rendered {
+    Ok(html) => Ok(open + html + close)
+    Err(error) => Err(error)
+  }
+}
+
+///|
 fn markdown_ir_to_commonmark_html_with_list_context(
   ir : MarkdownIR,
   parent_list_spread : Bool,
-) -> String {
+  raw_html_policy~ : RawHtmlPolicy,
+) -> Result[String, MarkdownIRHtmlRenderError] {
   match ir.node {
-    Document(children) => markdown_ir_children_to_commonmark_html(children)
+    Document(children) =>
+      markdown_ir_children_to_commonmark_html(children, raw_html_policy~)
     Heading(depth, children, _) => {
       let tag = "h" + depth.to_string()
-      "<" +
-      tag +
-      ">" +
-      markdown_ir_inline_children_to_commonmark_html(children) +
-      "</" +
-      tag +
-      ">\n"
+      wrap_commonmark_html(
+        markdown_ir_inline_children_to_commonmark_html(
+          children,
+          raw_html_policy~,
+        ),
+        "<" + tag + ">",
+        "</" + tag + ">\n",
+      )
     }
     Paragraph(children, _) =>
-      "<p>" +
-      markdown_ir_inline_children_to_commonmark_html(children) +
-      "</p>\n"
+      wrap_commonmark_html(
+        markdown_ir_inline_children_to_commonmark_html(
+          children,
+          raw_html_policy~,
+        ),
+        "<p>",
+        "</p>\n",
+      )
     BlockQuote(children) =>
-      "<blockquote>\n" +
-      markdown_ir_children_to_commonmark_html(children) +
-      "</blockquote>\n"
+      wrap_commonmark_html(
+        markdown_ir_children_to_commonmark_html(children, raw_html_policy~),
+        "<blockquote>\n",
+        "</blockquote>\n",
+      )
     UnorderedList(children, spread, _) =>
-      "<ul>\n" +
-      markdown_ir_nodes_to_commonmark_html(children, parent_list_spread=spread) +
-      "</ul>\n"
+      wrap_commonmark_html(
+        markdown_ir_nodes_to_commonmark_html(
+          children,
+          parent_list_spread=spread,
+          raw_html_policy~,
+        ),
+        "<ul>\n",
+        "</ul>\n",
+      )
     OrderedList(children, spread, marker) => {
       let start_attr = match marker {
         Some(marker) if marker.start != 1 =>
           " start=\"" + marker.start.to_string() + "\""
         _ => ""
       }
-      "<ol" +
-      start_attr +
-      ">\n" +
-      markdown_ir_nodes_to_commonmark_html(children, parent_list_spread=spread) +
-      "</ol>\n"
+      wrap_commonmark_html(
+        markdown_ir_nodes_to_commonmark_html(
+          children,
+          parent_list_spread=spread,
+          raw_html_policy~,
+        ),
+        "<ol" + start_attr + ">\n",
+        "</ol>\n",
+      )
     }
     ListItem(children, spread, _, _)
     | OrderedListItem(children, spread, _, _) => {
@@ -159,39 +257,56 @@ fn markdown_ir_to_commonmark_html_with_list_context(
       } else {
         "<li>"
       }
-      open +
-      markdown_ir_list_item_children_to_commonmark_html(
-        children,
-        render_paragraphs~,
-      ) +
-      "</li>\n"
+      wrap_commonmark_html(
+        markdown_ir_list_item_children_to_commonmark_html(
+          children,
+          render_paragraphs~,
+          raw_html_policy~,
+        ),
+        open,
+        "</li>\n",
+      )
     }
     CodeBlock(info, value, _) =>
-      markdown_ir_code_block_commonmark_html(info, value)
-    HtmlBlock(value, _) => value
-    ThematicBreak => "<hr />\n"
-    Text(value) | Raw(value, _) => html_escape_text(value)
-    HardBreak(_) => "<br />\n"
+      Ok(markdown_ir_code_block_commonmark_html(info, value))
+    HtmlBlock(value, _) =>
+      render_valid_raw_html(value, ir.origin, RawHtmlBlock, raw_html_policy)
+    ThematicBreak => Ok("<hr />\n")
+    Text(value) | Raw(value, _) => Ok(html_escape_text(value))
+    HardBreak(_) => Ok("<br />\n")
     Bold(children, _) =>
-      "<strong>" +
-      markdown_ir_inline_children_to_commonmark_html(children) +
-      "</strong>"
+      wrap_commonmark_html(
+        markdown_ir_inline_children_to_commonmark_html(
+          children,
+          raw_html_policy~,
+        ),
+        "<strong>",
+        "</strong>",
+      )
     Italic(children, _) =>
-      "<em>" +
-      markdown_ir_inline_children_to_commonmark_html(children) +
-      "</em>"
-    InlineCode(value, _) => "<code>" + html_escape_text(value) + "</code>"
+      wrap_commonmark_html(
+        markdown_ir_inline_children_to_commonmark_html(
+          children,
+          raw_html_policy~,
+        ),
+        "<em>",
+        "</em>",
+      )
+    InlineCode(value, _) => Ok("<code>" + html_escape_text(value) + "</code>")
     Link(children, destination, _, _) =>
-      "<a href=\"" +
-      html_escape_text(destination) +
-      "\">" +
-      markdown_ir_inline_children_to_commonmark_html(children) +
-      "</a>"
+      wrap_commonmark_html(
+        markdown_ir_inline_children_to_commonmark_html(
+          children,
+          raw_html_policy~,
+        ),
+        "<a href=\"" + html_escape_text(destination) + "\">",
+        "</a>",
+      )
     Unsupported(message) =>
-      "<!-- unsupported MarkdownIR: " + html_escape_text(message) + " -->"
+      Ok("<!-- unsupported MarkdownIR: " + html_escape_text(message) + " -->")
     Recovered(message, _) if message == RECOVERED_PARSE_ERROR =>
-      "<!-- recovered MarkdownIR: " + html_escape_text(message) + " -->"
-    Recovered(message, _) => html_escape_text(message)
+      Ok("<!-- recovered MarkdownIR: " + html_escape_text(message) + " -->")
+    Recovered(message, _) => Ok(html_escape_text(message))
   }
 }
 
@@ -203,6 +318,23 @@ fn markdown_ir_to_commonmark_html_with_list_context(
 /// behavior and escaping. Unsupported IR and parse-error recovery placeholders
 /// render as escaped comments; recovered nodes that carry literal source text
 /// render as plain escaped text.
+pub fn experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+  ir : MarkdownIR,
+  raw_html_policy : RawHtmlPolicy,
+) -> Result[String, MarkdownIRHtmlRenderError] {
+  markdown_ir_to_commonmark_html_with_list_context(ir, false, raw_html_policy~)
+}
+
+///|
+/// Experimental CommonMark-style HTML rendering with a safe product default.
+///
+/// Valid raw HTML is escaped. Call
+/// `experimental_markdown_ir_to_commonmark_html_with_raw_html_policy` when a
+/// different trust decision is intentional.
 pub fn experimental_markdown_ir_to_commonmark_html(ir : MarkdownIR) -> String {
-  markdown_ir_to_commonmark_html_with_list_context(ir, false)
+  match
+    experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(ir, Escape) {
+    Ok(html) => html
+    Err(_) => abort("Escape raw HTML policy cannot reject valid HTML")
+  }
 }

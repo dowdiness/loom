@@ -42,7 +42,14 @@ fn CommonMarkHtmlFixture::ir(self : CommonMarkHtmlFixture) -> MarkdownIR {
 
 ///|
 fn CommonMarkHtmlFixture::actual_html(self : CommonMarkHtmlFixture) -> String {
-  experimental_markdown_ir_to_commonmark_html(self.ir())
+  match
+    experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+      self.ir(),
+      Passthrough,
+    ) {
+    Ok(html) => html
+    Err(_) => abort("Passthrough raw HTML policy cannot reject valid HTML")
+  }
 }
 
 ///|
