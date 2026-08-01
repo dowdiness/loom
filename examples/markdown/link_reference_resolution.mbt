@@ -28,8 +28,20 @@ fn inline_link_target(
 }
 
 ///|
+fn skip_inline_link_target_spaces(input : String, start : Int) -> Int {
+  let mut cursor = start
+  while cursor < input.length() {
+    match char_at(input, cursor) {
+      Some(' ') | Some('\t') | Some('\r') | Some('\n') => cursor = cursor + 1
+      _ => break
+    }
+  }
+  cursor
+}
+
+///|
 fn parse_inline_link_target(input : String) -> InlineLinkTarget? {
-  let destination_start = skip_reference_spaces(input, 0)
+  let destination_start = skip_inline_link_target_spaces(input, 0)
   if destination_start == input.length() {
     return Some(
       inline_link_target(
@@ -57,7 +69,9 @@ fn parse_inline_link_target(input : String) -> InlineLinkTarget? {
   } else {
     after_destination
   }
-  let after_destination_space = skip_reference_spaces(input, after_destination)
+  let after_destination_space = skip_inline_link_target_spaces(
+    input, after_destination,
+  )
   if after_destination_space == input.length() {
     return Some(
       inline_link_target(
@@ -76,7 +90,7 @@ fn parse_inline_link_target(input : String) -> InlineLinkTarget? {
     consume_reference_title(input, after_destination_space) is Some(after_title) else {
     return None
   }
-  guard skip_reference_spaces(input, after_title) == input.length() else {
+  guard skip_inline_link_target_spaces(input, after_title) == input.length() else {
     return None
   }
   Some(
@@ -100,8 +114,10 @@ fn parse_inline_link_target(input : String) -> InlineLinkTarget? {
 ///|
 fn is_shortcut_reference_open(child : MarkdownIR, source : String) -> Bool {
   match child.node {
-    Recovered(message, _) =>
-      message == "[" && source_slice(source, child.origin()) == "["
+    // Only the inline parser's unmatched opener recovery is a shortcut
+    // candidate.  Do not infer one from arbitrary source text or recovery.
+    Recovered(message, _) => message == "["
+    Text("[") => source_slice(source, child.origin()) == "["
     _ => false
   }
 }
@@ -109,68 +125,192 @@ fn is_shortcut_reference_open(child : MarkdownIR, source : String) -> Bool {
 ///|
 fn is_shortcut_reference_close(child : MarkdownIR, source : String) -> Bool {
   match child.node {
-    Raw(value, _) => value == "]" && source_slice(source, child.origin()) == "]"
+    Raw(value, _) | Recovered(value, _) => value == "]"
+    Text("]") => source_slice(source, child.origin()) == "]"
     _ => false
   }
 }
 
 ///|
-fn shortcut_reference_close_index(
-  children : Array[MarkdownIR],
-  start : Int,
-  source : String,
-) -> Int? {
-  let mut depth = 1
-  for index = start + 1; index < children.length(); index = index + 1 {
-    if is_shortcut_reference_open(children[index], source) {
-      depth = depth + 1
-    } else if is_shortcut_reference_close(children[index], source) {
-      depth = depth - 1
-      if depth == 0 {
-        return Some(index)
+priv struct ShortcutReferenceFrame {
+  opener : MarkdownIR
+  children : Array[ShortcutReferenceChunk]
+  mut contains_balanced_brackets : Bool
+}
+
+///|
+priv enum ShortcutReferenceChunk {
+  ShortcutReferenceAtom(MarkdownIR)
+  LiteralShortcutBracket(MarkdownIR, Array[ShortcutReferenceChunk], MarkdownIR)
+}
+
+///|
+fn push_shortcut_reference_chunk(
+  output : Array[ShortcutReferenceChunk],
+  frames : Array[ShortcutReferenceFrame],
+  chunk : ShortcutReferenceChunk,
+) -> Unit {
+  match frames.last() {
+    Some(frame) => frame.children.push(chunk)
+    None => output.push(chunk)
+  }
+}
+
+///|
+fn push_shortcut_reference_atom(
+  output : Array[ShortcutReferenceChunk],
+  frames : Array[ShortcutReferenceFrame],
+  atom : MarkdownIR,
+) -> Unit {
+  push_shortcut_reference_chunk(output, frames, ShortcutReferenceAtom(atom))
+}
+
+///|
+fn flatten_shortcut_reference_chunks(
+  chunks : Array[ShortcutReferenceChunk],
+) -> Array[MarkdownIR] {
+  let flattened : Array[MarkdownIR] = []
+  let pending : Array[ShortcutReferenceChunk] = []
+  for index = chunks.length() - 1; index >= 0; index = index - 1 {
+    pending.push(chunks[index])
+  }
+  while pending.length() > 0 {
+    match pending.pop().unwrap() {
+      ShortcutReferenceAtom(atom) => flattened.push(atom)
+      LiteralShortcutBracket(opener, children, closer) => {
+        pending.push(ShortcutReferenceAtom(closer))
+        for index = children.length() - 1; index >= 0; index = index - 1 {
+          pending.push(children[index])
+        }
+        pending.push(ShortcutReferenceAtom(opener))
       }
     }
   }
-  None
+  flattened
 }
 
 ///|
-fn shortcut_reference_label_children(
-  children : Array[MarkdownIR],
-  start : Int,
-  end : Int,
-) -> Array[MarkdownIR] {
-  let label : Array[MarkdownIR] = []
-  for index = start + 1; index < end; index = index + 1 {
-    label.push(children[index])
+priv struct LiteralShortcutSuffixFrame {
+  reference : ShortcutReferenceFrame
+  closer : MarkdownIR
+  atoms : Array[MarkdownIR]
+  mut depth : Int
+}
+
+///|
+priv struct OrphanLiteralShortcutSuffixFrame {
+  closer : MarkdownIR
+  atoms : Array[MarkdownIR]
+  mut depth : Int
+}
+
+///|
+priv struct FullReferenceSuffixFrame {
+  label : ShortcutReferenceFrame
+  label_closer : MarkdownIR
+  reference_opener : MarkdownIR
+  reference_children : Array[MarkdownIR]
+}
+
+///|
+fn emit_literal_shortcut_frame(
+  output : Array[ShortcutReferenceChunk],
+  frames : Array[ShortcutReferenceFrame],
+  frame : ShortcutReferenceFrame,
+  closer : MarkdownIR,
+) -> Unit {
+  push_shortcut_reference_chunk(
+    output,
+    frames,
+    LiteralShortcutBracket(
+      MarkdownIR::text("[", frame.opener.origin()),
+      frame.children,
+      MarkdownIR::text("]", closer.origin()),
+    ),
+  )
+}
+
+///|
+const COMMONMARK_LINK_LABEL_MAX_CHARACTERS = 999
+
+///|
+/// CommonMark counts Unicode characters rather than UTF-8 bytes. Stop after
+/// the first over-limit character so every lookup performs bounded work.
+fn link_reference_label_is_within_limit(
+  source : String,
+  origin : MarkdownIROrigin,
+) -> Bool {
+  let mut cursor = origin.start()
+  let mut character_count = 0
+  while cursor < origin.end() {
+    if character_count == COMMONMARK_LINK_LABEL_MAX_CHARACTERS {
+      return false
+    }
+    cursor = match reference_line_ending_end(source, cursor) {
+      Some(after_line_ending) if after_line_ending <= origin.end() =>
+        after_line_ending
+      _ => @core.next_char_offset(source, cursor)
+    }
+    character_count = character_count + 1
   }
-  label
+  true
 }
 
 ///|
-fn shortcut_reference_has_inline_destination_suffix(
-  children : Array[MarkdownIR],
-  close_index : Int,
-  source : String,
-) -> Bool {
-  let next_index = close_index + 1
-  guard next_index < children.length() else { return false }
-  let close_origin = children[close_index].origin()
-  let next_origin = children[next_index].origin()
-  close_origin.end() == next_origin.start() &&
-  char_at(source, next_origin.start()) is Some('(')
+fn lookup_bounded_link_reference_definition(
+  context : MarkdownIRLoweringContext,
+  label_origin : MarkdownIROrigin,
+) -> LinkReferenceDefinition? {
+  guard link_reference_label_is_within_limit(context.source, label_origin) else {
+    return None
+  }
+  context.reference_definitions.lookup(
+    normalize_link_reference_label(source_slice(context.source, label_origin)),
+  )
 }
 
 ///|
-fn unmatched_reference_open_has_later_close(
-  children : Array[MarkdownIR],
-  index : Int,
-  source : String,
-) -> Bool {
-  guard children.last() is Some(last) else { return false }
-  let start = children[index].origin().end()
-  let end = last.origin().end()
-  start <= end && source[start:end].to_owned().contains("]")
+fn emit_resolved_shortcut_reference(
+  output : Array[ShortcutReferenceChunk],
+  frames : Array[ShortcutReferenceFrame],
+  frame : ShortcutReferenceFrame,
+  closer : MarkdownIR,
+  context : MarkdownIRLoweringContext,
+) -> Unit {
+  let opener_origin = frame.opener.origin()
+  let closer_origin = closer.origin()
+  let label_origin = MarkdownIROrigin(
+    start=opener_origin.end(),
+    end=closer_origin.start(),
+  )
+  match lookup_bounded_link_reference_definition(context, label_origin) {
+    Some(definition) =>
+      push_shortcut_reference_atom(
+        output,
+        frames,
+        MarkdownIR::link_with_metadata(
+          flatten_shortcut_reference_chunks(frame.children),
+          definition.destination_value,
+          definition.title_value,
+          ShortcutReferenceLinkForm,
+          MarkdownIROrigin(start=opener_origin.start(), end=closer_origin.end()),
+          Some(label_origin),
+          None,
+          Some(definition.destination_value_origin),
+          definition.title_value_origin,
+        ),
+      )
+    None => emit_literal_shortcut_frame(output, frames, frame, closer)
+  }
+}
+
+///|
+fn literal_shortcut_suffix_atom(atom : MarkdownIR) -> MarkdownIR {
+  match atom.node {
+    Raw(value, _) | Recovered(value, _) =>
+      MarkdownIR::text(value, atom.origin())
+    _ => atom
+  }
 }
 
 ///|
@@ -178,83 +318,524 @@ fn resolve_shortcut_references(
   children : Array[MarkdownIR],
   context : MarkdownIRLoweringContext,
 ) -> Array[MarkdownIR] {
-  let resolved : Array[MarkdownIR] = []
-  let mut index = 0
-  while index < children.length() {
-    if is_shortcut_reference_open(children[index], context.source) {
-      match shortcut_reference_close_index(children, index, context.source) {
-        Some(close_index) if shortcut_reference_has_inline_destination_suffix(
-            children,
-            close_index,
-            context.source,
-          ) => {
-          resolved.push(children[index])
-          index = index + 1
-        }
-        Some(close_index) => {
-          let open_origin = children[index].origin()
-          let close_origin = children[close_index].origin()
-          let label_origin = MarkdownIROrigin(
-            start=open_origin.end(),
-            end=close_origin.start(),
+  let output : Array[ShortcutReferenceChunk] = []
+  let frames : Array[ShortcutReferenceFrame] = []
+  let mut pending : (ShortcutReferenceFrame, MarkdownIR)? = None
+  let mut orphan_close : MarkdownIR? = None
+  let mut literal_suffix : LiteralShortcutSuffixFrame? = None
+  let mut orphan_literal_suffix : OrphanLiteralShortcutSuffixFrame? = None
+  let mut full_reference_suffix : FullReferenceSuffixFrame? = None
+  // Each structural bracket atom is consumed exactly once.  The parser has
+  // already classified LinkNode candidates, so this pass never reparses a
+  // suffix or searches ahead for a closer.
+  for child in children {
+    match full_reference_suffix {
+      Some(suffix) =>
+        if is_shortcut_reference_close(child, context.source) {
+          let reference_origin = MarkdownIROrigin(
+            start=suffix.reference_opener.origin().end(),
+            end=child.origin().start(),
           )
-          let definition = context.reference_definitions.lookup(
-            normalize_link_reference_label(
-              source_slice(context.source, label_origin),
-            ),
-          )
-          match definition {
+          match
+            lookup_bounded_link_reference_definition(context, reference_origin) {
             Some(definition) =>
-              resolved.push(
+              push_shortcut_reference_atom(
+                output,
+                frames,
                 MarkdownIR::link_with_metadata(
-                  shortcut_reference_label_children(
-                    children, index, close_index,
-                  ),
+                  flatten_shortcut_reference_chunks(suffix.label.children),
                   definition.destination_value,
                   definition.title_value,
-                  ShortcutReferenceLinkForm,
+                  FullReferenceLinkForm,
                   MarkdownIROrigin(
-                    start=open_origin.start(),
-                    end=close_origin.end(),
+                    start=suffix.label.opener.origin().start(),
+                    end=child.origin().end(),
                   ),
-                  Some(label_origin),
-                  None,
+                  Some(
+                    MarkdownIROrigin(
+                      start=suffix.label.opener.origin().end(),
+                      end=suffix.label_closer.origin().start(),
+                    ),
+                  ),
+                  Some(reference_origin),
                   Some(definition.destination_value_origin),
                   definition.title_value_origin,
                 ),
               )
             None => {
-              resolved.push(MarkdownIR::text("[", open_origin))
-              for child_index = index + 1
-                  child_index < close_index
-                  child_index = child_index + 1 {
-                resolved.push(children[child_index])
+              emit_literal_shortcut_frame(
+                output,
+                frames,
+                suffix.label,
+                suffix.label_closer,
+              )
+              let literal_reference_children : Array[ShortcutReferenceChunk] = []
+              for atom in suffix.reference_children {
+                if is_shortcut_reference_open(atom, context.source) {
+                  literal_reference_children.push(
+                    ShortcutReferenceAtom(MarkdownIR::text("[", atom.origin())),
+                  )
+                } else {
+                  literal_reference_children.push(ShortcutReferenceAtom(atom))
+                }
               }
-              resolved.push(MarkdownIR::text("]", close_origin))
+              pending = Some(
+                (
+                  {
+                    opener: suffix.reference_opener,
+                    children: literal_reference_children,
+                    contains_balanced_brackets: false,
+                  },
+                  child,
+                ),
+              )
             }
           }
-          index = close_index + 1
+          full_reference_suffix = None
+        } else {
+          suffix.reference_children.push(child)
         }
-        None => {
-          if unmatched_reference_open_has_later_close(
-              children,
-              index,
-              context.source,
-            ) {
-            let origin = children[index].origin()
-            resolved.push(MarkdownIR::text("[", origin))
-          } else {
-            resolved.push(children[index])
+      None =>
+        match orphan_literal_suffix {
+          Some(suffix) => {
+            suffix.atoms.push(child)
+            match child.node {
+              Raw("(", _) | Recovered("(", _) => suffix.depth = suffix.depth + 1
+              Raw(")", _) | Recovered(")", _) => suffix.depth = suffix.depth - 1
+              _ => ()
+            }
+            if suffix.depth == 0 {
+              push_shortcut_reference_atom(
+                output,
+                frames,
+                MarkdownIR::text("]", suffix.closer.origin()),
+              )
+              for atom in suffix.atoms {
+                push_shortcut_reference_atom(
+                  output,
+                  frames,
+                  literal_shortcut_suffix_atom(atom),
+                )
+              }
+              orphan_literal_suffix = None
+            }
           }
-          index = index + 1
+          None =>
+            match literal_suffix {
+              Some(suffix) => {
+                suffix.atoms.push(child)
+                match child.node {
+                  Raw("(", _) | Recovered("(", _) =>
+                    suffix.depth = suffix.depth + 1
+                  Raw(")", _) | Recovered(")", _) =>
+                    suffix.depth = suffix.depth - 1
+                  _ => ()
+                }
+                if suffix.depth == 0 {
+                  push_shortcut_reference_atom(
+                    output,
+                    frames,
+                    MarkdownIR::text("[", suffix.reference.opener.origin()),
+                  )
+                  for
+                    atom in flatten_shortcut_reference_chunks(
+                      suffix.reference.children,
+                    ) {
+                    push_shortcut_reference_atom(
+                      output,
+                      frames,
+                      literal_shortcut_suffix_atom(atom),
+                    )
+                  }
+                  push_shortcut_reference_atom(
+                    output,
+                    frames,
+                    MarkdownIR::text("]", suffix.closer.origin()),
+                  )
+                  for atom in suffix.atoms {
+                    push_shortcut_reference_atom(
+                      output,
+                      frames,
+                      literal_shortcut_suffix_atom(atom),
+                    )
+                  }
+                  literal_suffix = None
+                }
+              }
+              None =>
+                match orphan_close {
+                  Some(closer) if (
+                      child.node is Raw("(", _) ||
+                      child.node is Recovered("(", _)
+                    ) &&
+                    closer.origin().end() == child.origin().start() => {
+                    orphan_literal_suffix = Some({
+                      closer,
+                      atoms: [child],
+                      depth: 1,
+                    })
+                    orphan_close = None
+                  }
+                  Some(closer) => {
+                    push_shortcut_reference_atom(output, frames, closer)
+                    orphan_close = None
+                    if is_shortcut_reference_open(child, context.source) {
+                      frames.push({
+                        opener: child,
+                        children: [],
+                        contains_balanced_brackets: false,
+                      })
+                    } else {
+                      push_shortcut_reference_atom(output, frames, child)
+                    }
+                  }
+                  None =>
+                    match pending {
+                      Some((frame, closer)) if is_shortcut_reference_open(
+                          child,
+                          context.source,
+                        ) => {
+                        full_reference_suffix = Some({
+                          label: frame,
+                          label_closer: closer,
+                          reference_opener: child,
+                          reference_children: [],
+                        })
+                        pending = None
+                      }
+                      Some((frame, closer)) if (
+                          child.node is Raw("(", _) ||
+                          child.node is Recovered("(", _)
+                        ) &&
+                        closer.origin().end() == child.origin().start() => {
+                        literal_suffix = Some({
+                          reference: frame,
+                          closer,
+                          atoms: [child],
+                          depth: 1,
+                        })
+                        pending = None
+                      }
+                      Some((frame, closer)) => {
+                        emit_resolved_shortcut_reference(
+                          output, frames, frame, closer, context,
+                        )
+                        pending = None
+                        if is_shortcut_reference_open(child, context.source) {
+                          frames.push({
+                            opener: child,
+                            children: [],
+                            contains_balanced_brackets: false,
+                          })
+                        } else if is_shortcut_reference_close(
+                            child,
+                            context.source,
+                          ) {
+                          match frames.pop() {
+                            Some(frame) => {
+                              match frames.last() {
+                                Some(parent) =>
+                                  parent.contains_balanced_brackets = true
+                                None => ()
+                              }
+                              pending = Some((frame, child))
+                            }
+                            None => orphan_close = Some(child)
+                          }
+                        } else {
+                          push_shortcut_reference_atom(output, frames, child)
+                        }
+                      }
+                      None =>
+                        if is_shortcut_reference_open(child, context.source) {
+                          frames.push({
+                            opener: child,
+                            children: [],
+                            contains_balanced_brackets: false,
+                          })
+                        } else if is_shortcut_reference_close(
+                            child,
+                            context.source,
+                          ) {
+                          match frames.pop() {
+                            Some(frame) => {
+                              match frames.last() {
+                                Some(parent) =>
+                                  parent.contains_balanced_brackets = true
+                                None => ()
+                              }
+                              pending = Some((frame, child))
+                            }
+                            None => orphan_close = Some(child)
+                          }
+                        } else {
+                          push_shortcut_reference_atom(output, frames, child)
+                        }
+                    }
+                }
+            }
         }
-      }
-    } else {
-      resolved.push(children[index])
-      index = index + 1
     }
   }
-  resolved
+  match full_reference_suffix {
+    Some(suffix) => {
+      emit_literal_shortcut_frame(
+        output,
+        frames,
+        suffix.label,
+        suffix.label_closer,
+      )
+      push_shortcut_reference_atom(output, frames, suffix.reference_opener)
+      for atom in suffix.reference_children {
+        push_shortcut_reference_atom(output, frames, atom)
+      }
+    }
+    None => ()
+  }
+  match literal_suffix {
+    Some(suffix) => {
+      push_shortcut_reference_atom(output, frames, suffix.reference.opener)
+      for atom in flatten_shortcut_reference_chunks(suffix.reference.children) {
+        push_shortcut_reference_atom(output, frames, atom)
+      }
+      push_shortcut_reference_atom(output, frames, suffix.closer)
+      for atom in suffix.atoms {
+        push_shortcut_reference_atom(output, frames, atom)
+      }
+    }
+    None => ()
+  }
+  match orphan_literal_suffix {
+    Some(suffix) => {
+      push_shortcut_reference_atom(output, frames, suffix.closer)
+      for atom in suffix.atoms {
+        push_shortcut_reference_atom(output, frames, atom)
+      }
+    }
+    None => ()
+  }
+  match pending {
+    Some((frame, closer)) =>
+      emit_resolved_shortcut_reference(output, frames, frame, closer, context)
+    None => ()
+  }
+  match orphan_close {
+    Some(closer) => push_shortcut_reference_atom(output, frames, closer)
+    None => ()
+  }
+  // An unclosed opener remains its genuine parser recovery atom.  It was not
+  // in a completed literal-reference envelope and must not be silently
+  // reclassified as semantic text.
+  for frame in frames {
+    let opener = if frame.contains_balanced_brackets {
+      MarkdownIR::text("[", frame.opener.origin())
+    } else {
+      frame.opener
+    }
+    output.push(ShortcutReferenceAtom(opener))
+    for chunk in frame.children {
+      output.push(chunk)
+    }
+  }
+  flatten_shortcut_reference_chunks(output)
+}
+
+///|
+/// Error-token parentheses are ordinary literal text when structurally
+/// balanced.  Keep unmatched recovery atoms untouched.
+fn literalize_balanced_raw_parentheses(
+  children : Array[MarkdownIR],
+) -> Array[MarkdownIR] {
+  let matched = Array::make(children.length(), false)
+  let open_indices : Array[Int] = []
+  for index, child in children {
+    match child.node {
+      Raw("(", _) => open_indices.push(index)
+      Raw(")", _) =>
+        match open_indices.pop() {
+          Some(open_index) => {
+            matched[open_index] = true
+            matched[index] = true
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  let output : Array[MarkdownIR] = []
+  for index, child in children {
+    if matched[index] {
+      match child.node {
+        Raw("(", _) => output.push(MarkdownIR::text("(", child.origin()))
+        Raw(")", _) => output.push(MarkdownIR::text(")", child.origin()))
+        _ => output.push(child)
+      }
+    } else {
+      output.push(child)
+    }
+  }
+  output
+}
+
+///|
+fn emphasis_with_literal_recovered_open(node : MarkdownIR) -> MarkdownIR? {
+  let replace = fn(children : Array[MarkdownIR]) {
+    let rewritten : Array[MarkdownIR] = []
+    let mut found = false
+    for child in children {
+      match child.node {
+        Recovered("[", _) => {
+          rewritten.push(MarkdownIR::text("[", child.origin()))
+          found = true
+        }
+        _ => rewritten.push(child)
+      }
+    }
+    (found, rewritten)
+  }
+  match node.node {
+    Italic(children, content_origin) => {
+      let (found, rewritten) = replace(children)
+      if found {
+        Some(MarkdownIR::italic(rewritten, node.origin(), content_origin))
+      } else {
+        None
+      }
+    }
+    Bold(children, content_origin) => {
+      let (found, rewritten) = replace(children)
+      if found {
+        Some(MarkdownIR::bold(rewritten, node.origin(), content_origin))
+      } else {
+        None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn emphasis_recovered_open_start(node : MarkdownIR) -> Int? {
+  let inner = match node.node {
+    Italic(children, _) | Bold(children, _) => Some(children)
+    _ => None
+  }
+  match inner {
+    Some(children) => {
+      for atom in children {
+        if atom.node is Recovered("[", _) {
+          return Some(atom.origin().start())
+        }
+      }
+      None
+    }
+    None => None
+  }
+}
+
+///|
+/// Resolve only the parser-owned `Recovered("[")` that is embedded in one
+/// emphasis container and closed by a later sibling Raw `]`.  This is a
+/// single parent-level pass; it neither searches source nor recurses.
+fn resolve_emphasis_boundary_shortcuts(
+  children : Array[MarkdownIR],
+  context : MarkdownIRLoweringContext,
+) -> Array[MarkdownIR] {
+  let output : Array[MarkdownIR] = []
+  let mut pending : (MarkdownIR, MarkdownIR, Array[MarkdownIR])? = None
+  for child in children {
+    match pending {
+      Some((original, rewritten, between)) =>
+        match child.node {
+          Raw("]", _) if original.origin().end() <= child.origin().start() => {
+            let opener_start = emphasis_recovered_open_start(original)
+            match opener_start {
+              Some(start) if between.is_empty() => {
+                let label_start = start + 1
+                let label_end = original.origin().end()
+                match
+                  lookup_bounded_link_reference_definition(
+                    context,
+                    MarkdownIROrigin(start=label_start, end=label_end),
+                  ) {
+                  Some(definition) => {
+                    let prefix = MarkdownIR::text(
+                      context.source[original.origin().start():start].to_owned(),
+                      MarkdownIROrigin(
+                        start=original.origin().start(),
+                        end=start,
+                      ),
+                    )
+                    output.push(prefix)
+                    let label : Array[MarkdownIR] = []
+                    let mut label_cursor = label_start
+                    match rewritten.node {
+                      Italic(inner, _) | Bold(inner, _) =>
+                        for atom in inner {
+                          if atom.origin().start() >= label_start {
+                            label_cursor = atom.origin().end()
+                            label.push(atom)
+                          }
+                        }
+                      _ => ()
+                    }
+                    if label_cursor < label_end {
+                      label.push(
+                        MarkdownIR::text(
+                          context.source[label_cursor:label_end].to_owned(),
+                          MarkdownIROrigin(start=label_cursor, end=label_end),
+                        ),
+                      )
+                    }
+                    output.push(
+                      MarkdownIR::link_with_metadata(
+                        label,
+                        definition.destination_value,
+                        definition.title_value,
+                        ShortcutReferenceLinkForm,
+                        MarkdownIROrigin(start~, end=child.origin().end()),
+                        Some(MarkdownIROrigin(start=label_start, end=label_end)),
+                        None,
+                        Some(definition.destination_value_origin),
+                        definition.title_value_origin,
+                      ),
+                    )
+                  }
+                  None => {
+                    output.push(rewritten)
+                    output.push(MarkdownIR::text("]", child.origin()))
+                  }
+                }
+              }
+              _ => {
+                output.push(rewritten)
+                for atom in between {
+                  output.push(atom)
+                }
+                output.push(MarkdownIR::text("]", child.origin()))
+              }
+            }
+            pending = None
+          }
+          _ => between.push(child)
+        }
+      None =>
+        match emphasis_with_literal_recovered_open(child) {
+          Some(rewritten) => pending = Some((child, rewritten, []))
+          None => output.push(child)
+        }
+    }
+  }
+  match pending {
+    Some((original, _, between)) => {
+      output.push(original)
+      for atom in between {
+        output.push(atom)
+      }
+    }
+    None => ()
+  }
+  output
 }
 
 ///|
@@ -264,7 +845,8 @@ fn inline_image_bang_start(
   source : String,
 ) -> Int? {
   guard previous.origin().end() == link.origin().start() else { return None }
-  guard previous.node is Text(value) && value.has_suffix("!") else {
+  guard (previous.node is Text(value) && value.has_suffix("!")) ||
+    previous.node is Raw("!", _) else {
     return None
   }
   let bang_start = previous.origin().end() - 1
@@ -287,10 +869,11 @@ fn resolve_inline_images(
         match inline_image_bang_start(previous, child, source) {
           Some(bang_start) => {
             let previous = resolved.pop().unwrap()
-            guard previous.node is Text(value) else {
-              abort("inline image bang owner must be text")
+            let remaining = match previous.node {
+              Text(value) => value[0:value.length() - 1].to_owned()
+              Raw("!", _) => ""
+              _ => abort("inline image bang owner must be text or raw bang")
             }
-            let remaining = value[0:value.length() - 1].to_owned()
             if !remaining.is_empty() {
               resolved.push(
                 MarkdownIR::text(
