@@ -2,6 +2,7 @@
 package "dowdiness/jsx"
 
 import {
+  "dowdiness/diagnostic",
   "dowdiness/jsx/syntax",
   "dowdiness/jsx/token",
   "dowdiness/loom",
@@ -13,13 +14,13 @@ import {
 // Values
 pub let jsx_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, JsxNode]
 
-pub fn lex(@core.SourceId, String) -> @core.LexResult[@token.Token]
+pub fn lex(@diagnostic.SourceId, String) -> @core.LexResult[@token.Token]
 
 pub fn make_jsx_spec((@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : @syntax.SyntaxKind) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]
 
-pub fn parse_ast(@core.SourceId, String) -> (JsxNode, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_ast(@diagnostic.SourceId, String) -> (JsxNode, @core.DiagnosticSet) raise @core.LexError
 
-pub fn parse_cst(@core.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 
 // Errors
 

@@ -7,3 +7,7 @@ import {
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }
+
+import {
+  "dowdiness/diagnostic",
+} for "test"

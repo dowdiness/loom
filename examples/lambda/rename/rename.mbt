@@ -344,7 +344,7 @@ fn consider_scope(
 ///|
 fn make_no_target_diagnostic(offset : Int) -> @core.Diagnostic {
   @core.Diagnostic::Diagnostic(
-    source=@core.DiagnosticSource::DiagnosticSource("rename"),
+    origin=@core.DiagnosticOrigin("rename"),
     severity=severity_error(),
     message="No binding identifier at offset \{offset}",
     code=Some(
@@ -356,7 +356,7 @@ fn make_no_target_diagnostic(offset : Int) -> @core.Diagnostic {
 ///|
 fn make_no_op_diagnostic() -> @core.Diagnostic {
   @core.Diagnostic::Diagnostic(
-    source=@core.DiagnosticSource::DiagnosticSource("rename"),
+    origin=@core.DiagnosticOrigin("rename"),
     severity=severity_info(),
     message="new_name equals existing name; nothing to do",
     code=Some(@core.DiagnosticCode::DiagnosticCode("rename.no_op")),

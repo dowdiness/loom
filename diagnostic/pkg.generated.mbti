@@ -1,0 +1,168 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/diagnostic"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn[R : SourceResolver] render_diagnostics_plain(ArrayView[Diagnostic], R) -> String raise DiagnosticRenderError
+
+// Errors
+pub(all) suberror DiagnosticBuildError {
+  NegativeTextOffset(Int)
+  InvalidTextRange(Int, Int)
+} derive(@debug.Debug)
+
+pub suberror DiagnosticFixError {
+  EmptyDiagnosticFix
+  MultiSourceDiagnosticFix(SourceId, SourceId)
+  OverlappingDiagnosticFixEdits(SourceSpan, SourceSpan)
+  DuplicateDiagnosticFixInsertion(SourceSpan, SourceSpan)
+  DiagnosticFixSourceMismatch(SourceId, SourceId)
+  DiagnosticFixRangeOutOfBounds(SourceSpan, Int)
+  DiagnosticFixInvalidUtf16Boundary(SourceSpan)
+} derive(Eq, @debug.Debug)
+
+pub suberror DiagnosticRenderError {
+  MissingSource(SourceId)
+  MismatchedLineIndex(SourceId)
+  RangeOutOfBounds(SourceSpan, Int)
+  InvalidUtf16Boundary(SourceSpan)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub struct Diagnostic {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Diagnostic::Diagnostic(origin~ : DiagnosticOrigin, severity~ : DiagnosticSeverity, message~ : String, code? : DiagnosticCode?, labels? : Array[DiagnosticLabel], notes? : Array[String], fixes? : Array[DiagnosticFix]) -> Self
+pub fn Diagnostic::code(Self) -> DiagnosticCode?
+pub fn Diagnostic::fixes(Self) -> Array[DiagnosticFix]
+pub fn Diagnostic::format(Self) -> String
+pub fn Diagnostic::format_with_line_col(Self, LineIndex) -> String
+pub fn Diagnostic::labels(Self) -> Array[DiagnosticLabel]
+pub fn Diagnostic::line_range(Self, LineIndex) -> LineRange?
+pub fn Diagnostic::message(Self) -> String
+pub fn Diagnostic::notes(Self) -> Array[String]
+pub fn Diagnostic::offset_by(Self, SourceId, Int, TextOffset) -> Self raise DiagnosticBuildError
+pub fn Diagnostic::origin(Self) -> DiagnosticOrigin
+pub fn[R : SourceResolver] Diagnostic::render_plain(Self, R) -> String raise DiagnosticRenderError
+pub fn Diagnostic::severity(Self) -> DiagnosticSeverity
+
+pub struct DiagnosticCode {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn DiagnosticCode::DiagnosticCode(String) -> Self
+pub fn DiagnosticCode::value(Self) -> String
+
+pub struct DiagnosticFix {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn DiagnosticFix::DiagnosticFix(String, FixApplicability, Array[TextReplacement]) -> Self raise DiagnosticFixError
+pub fn DiagnosticFix::applicability(Self) -> FixApplicability
+pub fn DiagnosticFix::apply(Self, SourceId, String) -> String raise DiagnosticFixError
+pub fn DiagnosticFix::edits(Self) -> Array[TextReplacement]
+pub fn DiagnosticFix::title(Self) -> String
+
+pub struct DiagnosticLabel {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn DiagnosticLabel::DiagnosticLabel(LabelStyle, SourceSpan, String?) -> Self
+pub fn DiagnosticLabel::message(Self) -> String?
+pub fn DiagnosticLabel::span(Self) -> SourceSpan
+pub fn DiagnosticLabel::style(Self) -> LabelStyle
+
+pub struct DiagnosticOrigin {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn DiagnosticOrigin::DiagnosticOrigin(String) -> Self
+pub fn DiagnosticOrigin::name(Self) -> String
+
+pub(all) enum DiagnosticSeverity {
+  Error
+  Warning
+  Info
+  Hint
+} derive(Eq, @debug.Debug)
+pub fn DiagnosticSeverity::all() -> Array[Self]
+
+pub(all) enum FixApplicability {
+  Always
+  MaybeIncorrect
+} derive(Eq, @debug.Debug)
+
+pub(all) enum LabelStyle {
+  Primary
+  Secondary
+} derive(Eq, Hash, @debug.Debug)
+
+pub(all) struct LineCol {
+  line : Int
+  column : Int
+} derive(Eq, @debug.Debug)
+
+pub struct LineIndex {
+  // private fields
+}
+pub fn LineIndex::line_col(Self, Int) -> LineCol
+pub fn LineIndex::line_range(Self, Int, Int) -> LineRange
+pub fn LineIndex::new(String) -> Self
+
+pub(all) struct LineRange {
+  start : LineCol
+  end : LineCol
+} derive(Eq, @debug.Debug)
+
+pub struct SourceId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn SourceId::SourceId(String) -> Self
+pub fn SourceId::value(Self) -> String
+
+pub struct SourceSnapshot {
+  // private fields
+}
+pub fn SourceSnapshot::SourceSnapshot(String, String, LineIndex) -> Self
+
+pub struct SourceSpan {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn SourceSpan::SourceSpan(SourceId, TextRange) -> Self
+pub fn SourceSpan::range(Self) -> TextRange
+pub fn SourceSpan::source_id(Self) -> SourceId
+
+pub struct TextOffset {
+  // private fields
+} derive(Compare, Eq, Hash, @debug.Debug)
+pub fn TextOffset::TextOffset(Int) -> Self raise DiagnosticBuildError
+pub fn TextOffset::offset_by(Self, Int) -> Self raise DiagnosticBuildError
+pub fn TextOffset::value(Self) -> Int
+
+pub struct TextRange {
+  // private fields
+} derive(Compare, Eq, Hash, @debug.Debug)
+pub fn TextRange::TextRange(TextOffset, TextOffset) -> Self raise DiagnosticBuildError
+pub fn TextRange::end(Self) -> TextOffset
+pub fn TextRange::from_offsets(Int, Int) -> Self raise DiagnosticBuildError
+pub fn TextRange::length(Self) -> Int
+pub fn TextRange::offset_by(Self, Int, TextOffset) -> Self raise DiagnosticBuildError
+pub fn TextRange::start(Self) -> TextOffset
+
+pub struct TextReplacement {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn TextReplacement::TextReplacement(SourceSpan, String) -> Self
+pub fn TextReplacement::replacement(Self) -> String
+pub fn TextReplacement::span(Self) -> SourceSpan
+
+// Type aliases
+
+// Traits
+pub(open) trait SourceResolver {
+  fn resolve_source(Self, SourceId) -> SourceSnapshot?
+}
+
+pub(open) trait ToDiagnostic {
+  fn to_diagnostic(Self) -> Diagnostic
+}
+

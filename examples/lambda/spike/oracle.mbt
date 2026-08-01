@@ -48,7 +48,7 @@ pub fn diagnostics_structurally_equal(
   for i = 0; i < a_items.length(); i = i + 1 {
     let ad = a_items[i]
     let bd = b_items[i]
-    if ad.source() != bd.source() {
+    if ad.origin() != bd.origin() {
       return false
     }
     if ad.severity() != bd.severity() {
@@ -59,11 +59,11 @@ pub fn diagnostics_structurally_equal(
     }
     let a_primary_spans = ad
       .labels()
-      .filter(label => label.style() == @core.LabelStyle::Primary)
+      .filter(label => label.style() == @diagnostic.LabelStyle::Primary)
       .map(label => label.span())
     let b_primary_spans = bd
       .labels()
-      .filter(label => label.style() == @core.LabelStyle::Primary)
+      .filter(label => label.style() == @diagnostic.LabelStyle::Primary)
       .map(label => label.span())
     if a_primary_spans != b_primary_spans {
       return false

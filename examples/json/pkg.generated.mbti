@@ -2,6 +2,7 @@
 package "dowdiness/json"
 
 import {
+  "dowdiness/diagnostic",
   "dowdiness/loom",
   "dowdiness/loom/core",
   "dowdiness/loom/pipeline",
@@ -27,7 +28,7 @@ pub let json_grammar : @loom.Grammar[Token, SyntaxKind, JsonValue]
 
 pub fn json_step_lexer(String, Int) -> @core.LexStep[Token]
 
-pub fn lex(@core.SourceId, String) -> @core.LexResult[Token]
+pub fn lex(@diagnostic.SourceId, String) -> @core.LexResult[Token]
 
 pub fn make_json_spec((@core.ParserContext[Token, SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : SyntaxKind) -> @core.LanguageSpec[Token, SyntaxKind]
 
@@ -35,15 +36,15 @@ pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[Token]],
 
 pub fn make_reuse_cursor_with_edit(@seam.CstNode, @core.Edit, Array[@core.TokenInfo[Token]], String, old_token_cache? : @core.OldTokenCache, allow_left_adjacent_reuse? : Bool) -> @core.ReuseCursor[Token, SyntaxKind]
 
-pub fn parse(@core.SourceId, String) -> JsonValue raise
+pub fn parse(@diagnostic.SourceId, String) -> JsonValue raise
 
 pub fn parse_array(@core.ParserContext[Token, SyntaxKind]) -> Unit
 
-pub fn parse_cst(@core.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 
-pub fn parse_cst_recover_with_tokens(@core.SourceId, String, Array[@core.TokenInfo[Token]], @core.ReuseCursor[Token, SyntaxKind]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int)
+pub fn parse_cst_recover_with_tokens(@diagnostic.SourceId, String, Array[@core.TokenInfo[Token]], @core.ReuseCursor[Token, SyntaxKind]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int)
 
-pub fn parse_json(@core.SourceId, String) -> (JsonValue, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_json(@diagnostic.SourceId, String) -> (JsonValue, @core.DiagnosticSet) raise @core.LexError
 
 pub fn parse_json_string(String) -> String
 
@@ -59,7 +60,7 @@ pub fn project_json_roles(@seam.SyntaxNode) -> Array[JsonRoleSpan]
 
 pub fn syntax_node_to_json(@seam.SyntaxNode) -> JsonValue
 
-pub fn tokenize(@core.SourceId, String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
+pub fn tokenize(@diagnostic.SourceId, String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
 
 // Errors
 pub suberror ParseError {

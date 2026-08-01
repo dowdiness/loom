@@ -5,7 +5,12 @@ import {
 }
 
 import {
+  "dowdiness/diagnostic",
   "moonbitlang/core/quickcheck" @coreqc,
   "moonbitlang/core/quickcheck/splitmix",
   "moonbitlang/quickcheck" @qc,
 } for "wbtest"
+
+import {
+  "dowdiness/diagnostic",
+} for "test"

@@ -6,6 +6,11 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Removed
 
+- **Breaking diagnostic API cleanup:** removed `DiagnosticSource`,
+  `DiagnosticSourceFile`, the callback-holder `SourceProvider`, and the
+  `Diagnostic::lexer_error*` parser convenience methods. Loom now exposes
+  `lexer_diagnostic` / `lexer_diagnostic_at` as parser-owned adapters.
+
 - **Breaking `@core` API removal:** `ParserContext::lex_mode()` and
   `ParserContext::set_lex_mode(Int)` are removed. Persistent lexer-decided modes
   should use `ModeLexer`/`ModeRelexFactory`; explicit parser-directed goals
@@ -13,6 +18,10 @@ Notable user-facing changes to Loom and its sibling modules.
   also removed.
 
 ### Changed
+
+- **Breaking diagnostic naming:** `Diagnostic` construction/access now uses
+  `origin` and `DiagnosticOrigin`; rendering receives any `SourceResolver`, and
+  coherent rendering inputs use `SourceSnapshot`.
 
 - `examples/markdown` adds
   `experimental_markdown_ir_canonical_format_checked`, which formats a
@@ -71,6 +80,13 @@ Notable user-facing changes to Loom and its sibling modules.
   compatibility aliases.
 
 ### Added
+
+- **`dowdiness/diagnostic`:** new parser-independent module for validated UTF-16
+  offsets/ranges, structured diagnostics, source-qualified labels, line
+  indexing, deterministic plain rendering, and atomic single-source fixes. The
+  open `SourceResolver` and `ToDiagnostic` traits support external source stores
+  and application-defined errors without a Loom dependency. Loom's `LexError`
+  is the first production `ToDiagnostic` implementation.
 
 
 - **`dowdiness/loomgen` — M16 EBNF subset: `~` (Emit), `!` (EmitOr), `@until` (ErrorUntil):**

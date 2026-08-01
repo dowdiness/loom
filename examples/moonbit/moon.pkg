@@ -9,6 +9,7 @@ import {
 }
 
 import {
+  "dowdiness/diagnostic",
   "moonbitlang/core/list",
   "moonbitlang/parser",
   "moonbitlang/parser/syntax",

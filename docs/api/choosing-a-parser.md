@@ -152,7 +152,7 @@ let s = @loom.new_syntax_parser(
 The caller allocates or receives `source_id` at its document/provider boundary.
 Keep it stable for edits and whole-source resets of that document, and use a
 different ID for a different source. Do not derive it from text, diagnostic
-messages, list positions, or producer names. `DiagnosticSource` names the
+messages, list positions, or producer names. `DiagnosticOrigin` names the
 producer; it is deliberately separate from source-file identity.
 
 `new_parser` requires `T : IsTrivia + Eq` and `Ast : Eq` because the underlying

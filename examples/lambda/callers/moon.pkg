@@ -10,12 +10,14 @@ import {
 }
 
 import {
+  "dowdiness/diagnostic",
   "dowdiness/lambda",
   "dowdiness/loom",
   "dowdiness/loom/core",
 } for "test"
 
 import {
+  "dowdiness/diagnostic",
   "dowdiness/lambda",
   "dowdiness/loom",
   "dowdiness/loom/core",

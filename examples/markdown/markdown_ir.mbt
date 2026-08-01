@@ -628,7 +628,7 @@ fn recovery_diagnostic(
 ) -> @core.Diagnostic {
   let range = try! @core.TextRange::from_offsets(origin.start(), origin.end())
   @core.Diagnostic::Diagnostic(
-    source=@core.DiagnosticSource::parser(),
+    origin=@core.DiagnosticOrigin("parser"),
     severity=@core.DiagnosticSeverity::all()[0],
     code=Some(@core.DiagnosticCode("markdown-ir.recovery")),
     message~,

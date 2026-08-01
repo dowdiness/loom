@@ -15,9 +15,7 @@ fn syntax_test_language() -> @incremental.ImperativeLanguage[Unit] {
     }
     let diagnostics = match s {
       [.. "@", ..] =>
-        @core.DiagnosticSet::single(
-          @core.Diagnostic::lexer_error("lex error: " + s),
-        )
+        @core.DiagnosticSet::single(@core.lexer_diagnostic("lex error: " + s))
       _ => @core.DiagnosticSet::empty()
     }
     (@seam.SyntaxNode::from_cst(cst), diagnostics, 0)
@@ -78,7 +76,7 @@ test "SyntaxParser::diagnostics is isolated from snapshot diagnostic mutation" {
   let source_id = @core.SourceId("pipeline-syntax-defensive-source")
   let parser = SyntaxParser::new(source_id, "abc", syntax_test_language())
   let snapshot = parser.snapshot().read_or_abort()
-  snapshot.diagnostics.push(@core.Diagnostic::lexer_error("external mutation"))
+  snapshot.diagnostics.push(@core.lexer_diagnostic("external mutation"))
   inspect(parser.diagnostics().read_or_abort().length(), content="0")
 }
 

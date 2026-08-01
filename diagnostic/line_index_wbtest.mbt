@@ -70,6 +70,14 @@ test "LineIndex: non-BMP character uses UTF-16 column width" {
 }
 
 ///|
+test "LineIndex: lone surrogate advances one UTF-16 code unit" {
+  let lone_high_surrogate = (0xD800).unsafe_to_char().to_string()
+  let index = LineIndex::new(lone_high_surrogate + "\nx")
+  inspect(render_line_col(index.line_col(1)), content="0:1")
+  inspect(render_line_col(index.line_col(2)), content="1:0")
+}
+
+///|
 test "LineIndex: line range maps both endpoints" {
   let index = LineIndex::new("ab\ncd")
   inspect(render_line_range(index.line_range(1, 5)), content="0:1-1:2")
@@ -84,7 +92,7 @@ test "format_diagnostic_with_line_col uses line range" {
     range => range
   }
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     message="expected token",
     labels=[

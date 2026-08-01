@@ -136,13 +136,7 @@ fn flex_from_tokenize(
           @core.TokenInfo::new(Eof, 0),
         ],
         diagnostics=@core.DiagnosticSet::single(
-          @core.Diagnostic::lexer_error_at(
-            source_id,
-            msg,
-            0,
-            s.length(),
-            "lex-error",
-          ),
+          @core.lexer_diagnostic_at(source_id, msg, 0, s.length(), "lex-error"),
         ),
       )
   } noraise {
@@ -195,7 +189,7 @@ fn flex_late_error(
         [@core.TokenInfo::new(Err, 1), @core.TokenInfo::new(Eof, 0)],
         [offset, s.length()],
         diagnostics=@core.DiagnosticSet::single(
-          @core.Diagnostic::lexer_error_at(
+          @core.lexer_diagnostic_at(
             source_id,
             "unexpected char",
             offset,
@@ -499,7 +493,7 @@ test "reparse_block preserves block lexer diagnostics" {
     let result = flex_recoverable_steps(lex_source_id, source)
     let diagnostics = result.diagnostics()
     diagnostics.push(
-      @core.Diagnostic::lexer_error_at(
+      @core.lexer_diagnostic_at(
         lex_source_id, "block-only lexer diagnostic", 0, 1, "block-lex",
       ),
     )
@@ -657,9 +651,7 @@ test "create_buffer: mode lex keeps total diagnostics" {
     let result = (state.tokenize)(source_id, source)
     let diagnostics = result.diagnostics()
     diagnostics.push(
-      @core.Diagnostic::lexer_error_at(
-        source_id, "soft mode note", 0, 1, "lex-note",
-      ),
+      @core.lexer_diagnostic_at(source_id, "soft mode note", 0, 1, "lex-note"),
     )
     @core.LexResult::with_starts(result.tokens(), result.starts(), diagnostics~)
   }
@@ -684,7 +676,7 @@ test "create_buffer: mode update skips total lex on incremental path" {
     let result = (state.tokenize)(source_id, source)
     let diagnostics = result.diagnostics()
     diagnostics.push(
-      @core.Diagnostic::lexer_error_at(
+      @core.lexer_diagnostic_at(
         source_id,
         "mode source length " + source.length().to_string(),
         0,

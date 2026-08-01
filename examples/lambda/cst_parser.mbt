@@ -148,7 +148,7 @@ fn lambda_expect(
         )
         ctx.report(
           @core.Diagnostic::Diagnostic(
-            source=@core.DiagnosticSource::parser(),
+            origin=@core.DiagnosticOrigin("parser"),
             severity=@core.DiagnosticSeverity::all()[0],
             code=Some(
               @core.DiagnosticCode::DiagnosticCode("loom.lambda.expected_else"),

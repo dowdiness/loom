@@ -56,7 +56,7 @@ source    : String
   document identity changes.
 - **Source identity.** The caller supplies one stable `SourceId` at construction.
   Edits and resets retain it; a different source gets a different parser/ID.
-  `DiagnosticSource` identifies a producer and is never substituted for it.
+  `DiagnosticOrigin` identifies a producer and is never substituted for it.
 
 | Symbol | Stability | Notes |
 |---|---|---|

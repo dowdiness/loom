@@ -418,6 +418,10 @@ jobs:
       max-parallel: 5
       matrix:
         include:
+          - name: diagnostic
+            path: diagnostic
+          - name: diagnostic-consumer-fixture
+            path: fixtures/diagnostic_consumer
           - name: loom
             path: loom
           - name: text-change
@@ -523,6 +527,12 @@ jobs:
       max-parallel: 5
       matrix:
         include:
+          - name: diagnostic
+            path: diagnostic
+            module: dowdiness/diagnostic
+          - name: diagnostic-consumer-fixture
+            path: fixtures/diagnostic_consumer
+            module: dowdiness/diagnostic-consumer-fixture
           - name: loom
             path: loom
             module: dowdiness/loom

@@ -14,9 +14,6 @@ pub(all) struct LineRange {
 
 ///|
 /// Derived index that maps canonical source offsets to line/column positions.
-///
-/// Offsets are UTF-16 code-unit offsets, matching `Edit`, `TokenInfo.len`,
-/// token starts, and CST text lengths.
 pub struct LineIndex {
   priv line_starts : Array[Int]
   priv source_len : Int
@@ -38,7 +35,18 @@ pub fn LineIndex::new(source : String) -> LineIndex {
         pos = rest.start_offset()
         line_starts.push(pos)
       }
-      _ => pos = next_char_offset(source, pos)
+      _ =>
+        pos = match source.get_char(pos) {
+          Some(_) => {
+            let unit = source.code_unit_at(pos)
+            if unit.is_surrogate() && pos + 1 < len {
+              pos + 2
+            } else {
+              pos + 1
+            }
+          }
+          None => pos + 1
+        }
     }
   }
   { line_starts, source_len: len }

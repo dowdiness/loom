@@ -286,7 +286,7 @@ test "diagnostic stores defensive fix copies and candidates stay distinct" {
   ])
   let fixes = [first, second]
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     message="two choices",
     fixes~,
@@ -307,7 +307,7 @@ test "diagnostic transforms preserve snapshot-bound fixes without remapping" {
     fix_test_replacement(source_id, 4, 5, "X"),
   ])
   let diagnostic = Diagnostic(
-    source=DiagnosticSource::parser(),
+    origin=DiagnosticOrigin("parser"),
     severity=Error,
     message="shift label only",
     labels=[
@@ -330,27 +330,6 @@ test "diagnostic transforms preserve snapshot-bound fixes without remapping" {
   inspect(
     shifted.fixes()[0].edits()[0].span().range().start().value(),
     content="4",
-  )
-}
-
-///|
-test "parser diagnostic identity includes fix candidates" {
-  let source_id = fix_test_source("main")
-  let make_diagnostic = replacement => {
-    Diagnostic(
-      source=DiagnosticSource::parser(),
-      severity=Error,
-      message="same parser error",
-      fixes=[
-        fix_test_make("candidate", Always, [
-          fix_test_replacement(source_id, 0, 1, replacement),
-        ]),
-      ],
-    )
-  }
-  inspect(
-    parser_diagnostic_same_key(make_diagnostic("A"), make_diagnostic("B")),
-    content="false",
   )
 }
 

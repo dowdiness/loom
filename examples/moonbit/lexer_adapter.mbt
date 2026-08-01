@@ -20,7 +20,7 @@ pub fn lex_moonbit(
   for error in official.errors {
     let (start_pos, end_pos, err) = error
     diagnostics.push(
-      @core.Diagnostic::lexer_error_at(
+      @core.lexer_diagnostic_at(
         source_id,
         err.to_string(),
         start_pos.cnum,

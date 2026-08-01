@@ -65,11 +65,13 @@ let diagnostics = parser.diagnostics().read_or_abort()
 
 Allocate or receive a `SourceId` at the document/provider boundary and keep it
 stable across edits to that source. Do not derive it from the source text or a
-diagnostic message. `DiagnosticSource` identifies the producer (for example,
+diagnostic message. `DiagnosticOrigin` identifies the producer (for example,
 the parser or lexer); it is not a source-file identity. Diagnostic locations
 are styled labels whose `SourceSpan` pairs a source ID with a half-open UTF-16
 code-unit range. Diagnostics do not own source text; the caller's source
-provider resolves spans against the matching source ID.
+resolver supplies a `SourceSnapshot` for the matching source ID. The portable
+value, rendering, and fix APIs are defined by the standalone
+[`dowdiness/diagnostic`](../diagnostic/) module and re-exported by Loom.
 
 See [`examples/lambda`](../examples/lambda/) for the full grammar used above.
 For smaller references, see [`examples/json`](../examples/json/),
@@ -90,7 +92,7 @@ For smaller references, see [`examples/json`](../examples/json/),
 @loom.Edit                // edit descriptor (start, old_len, new_len)
 @loom.Diagnostic
 @loom.DiagnosticLabel
-@loom.DiagnosticSource    // producer identity, distinct from SourceId
+@loom.DiagnosticOrigin    // producer identity, distinct from SourceId
 @loom.LabelStyle          // Primary or Secondary
 @loom.SourceId            // stable source identity
 @loom.SourceSpan          // SourceId + half-open UTF-16 TextRange

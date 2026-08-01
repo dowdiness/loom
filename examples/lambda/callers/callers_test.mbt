@@ -18,7 +18,7 @@
 
 ///|
 fn callers_test_source_id() -> @core.SourceId {
-  @core.SourceId::SourceId("lambda-callers-test")
+  @diagnostic.SourceId("lambda-callers-test")
 }
 
 ///|

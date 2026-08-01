@@ -6,7 +6,7 @@ test "MarkdownIR recovery ignores foreign primary and local secondary labels" {
   let (cst, _) = try! parse_cst(source_a, source)
   let overlap = try! @core.TextRange::from_offsets(0, 1)
   let incoming = @core.Diagnostic::Diagnostic(
-    source=@core.DiagnosticSource::lexer(),
+    origin=@core.DiagnosticOrigin("lexer"),
     severity=@core.DiagnosticSeverity::all()[0],
     code=Some(@core.DiagnosticCode("markdown-test.foreign-primary")),
     message="foreign primary must not select",
@@ -38,7 +38,7 @@ test "MarkdownIR recovery ignores foreign primary and local secondary labels" {
             attached[0].message(),
             content="recovered malformed Markdown: [",
           )
-          inspect(attached[0].source().name(), content="parser")
+          inspect(attached[0].origin().name(), content="parser")
           match attached[0].labels() {
             [label] => {
               inspect(
@@ -86,7 +86,7 @@ test "MarkdownIR recovery preserves ordered styled labels from the current sourc
     ),
   ]
   let incoming = @core.Diagnostic::Diagnostic(
-    source=@core.DiagnosticSource::lexer(),
+    origin=@core.DiagnosticOrigin("lexer"),
     severity=@core.DiagnosticSeverity::all()[0],
     message="preserve all labels",
     labels~,
@@ -123,22 +123,22 @@ test "MarkdownIR recovery uses positive half-open overlap in the current source"
   let (cst, _) = try! parse_cst(source_a, source)
   let diagnostics = @core.DiagnosticSet::empty()
   diagnostics.push(
-    @core.Diagnostic::lexer_error_at(
+    @core.lexer_diagnostic_at(
       source_a, "zero-width start", 0, 0, "markdown-test.zero",
     ),
   )
   diagnostics.push(
-    @core.Diagnostic::lexer_error_at(
+    @core.lexer_diagnostic_at(
       source_a, "positive local overlap", 0, 1, "markdown-test.positive",
     ),
   )
   diagnostics.push(
-    @core.Diagnostic::lexer_error_at(
+    @core.lexer_diagnostic_at(
       source_a, "zero-width end", 1, 1, "markdown-test.zero",
     ),
   )
   diagnostics.push(
-    @core.Diagnostic::lexer_error_at(
+    @core.lexer_diagnostic_at(
       source_b, "foreign numeric overlap", 0, 1, "markdown-test.foreign",
     ),
   )

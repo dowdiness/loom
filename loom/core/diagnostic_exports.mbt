@@ -1,0 +1,27 @@
+///|
+// Parser-independent diagnostic API, re-exported for Loom consumers.
+pub using @diagnostic {
+  type DiagnosticBuildError,
+  type DiagnosticCode,
+  type DiagnosticFix,
+  type DiagnosticFixError,
+  type DiagnosticLabel,
+  type DiagnosticOrigin,
+  type DiagnosticRenderError,
+  type DiagnosticSeverity,
+  type Diagnostic,
+  type FixApplicability,
+  type LabelStyle,
+  type LineCol,
+  type LineIndex,
+  type LineRange,
+  type SourceId,
+  type SourceSnapshot,
+  type SourceSpan,
+  type TextOffset,
+  type TextRange,
+  type TextReplacement,
+  trait SourceResolver,
+  trait ToDiagnostic,
+  render_diagnostics_plain,
+}

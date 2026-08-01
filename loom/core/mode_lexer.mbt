@@ -133,7 +133,7 @@ fn[T, M] push_recovered_mode_step(
       let end = if next_offset <= pos {
         let end = next_char_offset(source, pos)
         diagnostics.push(
-          Diagnostic::lexer_error_at(
+          lexer_diagnostic_at(
             source_id,
             "mode lexer made no progress at position " + pos.to_string(),
             pos,
@@ -154,9 +154,7 @@ fn[T, M] push_recovered_mode_step(
       starts.push(error_start)
       modes.push(mode)
       diagnostics.push(
-        Diagnostic::lexer_error_at(
-          source_id, message, error_start, end, "lex-invalid",
-        ),
+        lexer_diagnostic_at(source_id, message, error_start, end, "lex-invalid"),
       )
       tokens.push(
         TokenInfo::new(
@@ -173,7 +171,7 @@ fn[T, M] push_recovered_mode_step(
       starts.push(error_start)
       modes.push(mode)
       diagnostics.push(
-        Diagnostic::lexer_error_at(
+        lexer_diagnostic_at(
           source_id,
           "incomplete token; expected " + expected,
           error_start,

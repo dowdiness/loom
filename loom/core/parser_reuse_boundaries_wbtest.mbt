@@ -760,7 +760,7 @@ test "ParserContext replay keeps other-source labels unchanged after a source-sc
   let primary = test_span(source_a, 2, 3)
   let old_diagnostics = DiagnosticSet::single(
     Diagnostic(
-      source=DiagnosticSource::parser(),
+      origin=DiagnosticOrigin("parser"),
       severity=Error,
       code=Some(DiagnosticCode("parse.replay")),
       message="replay two sources",
@@ -1026,7 +1026,7 @@ test "ParserContext parser diagnostic key includes source identity" {
   let diagnostic_for = source_id => {
     let span = test_span(source_id, 1, 1)
     Diagnostic(
-      source=DiagnosticSource::parser(),
+      origin=DiagnosticOrigin("parser"),
       severity=Error,
       code=Some(DiagnosticCode("parse.same")),
       message="same logical error",

@@ -270,7 +270,7 @@ test "parser diagnostic preserves caller source and parser producer" {
   let diagnostics = diagnostic_set.items()
   inspect(diagnostics.length(), content="1")
   let diagnostic = diagnostics[0]
-  inspect(diagnostic.source().name(), content="parser")
+  inspect(diagnostic.origin().name(), content="parser")
   let labels = diagnostic.labels()
   inspect(labels.length(), content="1")
   inspect(labels[0].style() is @core.LabelStyle::Primary, content="true")

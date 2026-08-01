@@ -51,7 +51,7 @@ boundary and reuses it across edits to that source. Do not derive a source ID
 from source text, diagnostic wording, or a producer name. If the facade lowers
 Loom diagnostics into language-owned values, preserve each label's source ID,
 half-open UTF-16 range, `Primary`/`Secondary` style, and optional message.
-`DiagnosticSource` remains producer identity and must not be substituted for
+`DiagnosticOrigin` remains producer identity and must not be substituted for
 the document identity.
 
 For stateful editor sessions, keep current diagnostics separate from semantic

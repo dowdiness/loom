@@ -2,6 +2,7 @@
 package "dowdiness/json-settings"
 
 import {
+  "dowdiness/diagnostic",
   "dowdiness/loom/core",
   "moonbitlang/core/debug",
 }
@@ -21,7 +22,7 @@ pub fn Setting::Setting(id~ : String, key~ : String, value~ : Double) -> Self
 pub struct SettingsAttachment {
   // private fields
 }
-pub fn SettingsAttachment::SettingsAttachment(@core.SourceId, String) -> Self
+pub fn SettingsAttachment::SettingsAttachment(@diagnostic.SourceId, String) -> Self
 pub fn SettingsAttachment::apply_edit(Self, @core.Edit, String) -> Unit
 pub fn SettingsAttachment::current_result(Self) -> Result[SettingsDoc, String]
 pub fn SettingsAttachment::dispose(Self) -> Unit

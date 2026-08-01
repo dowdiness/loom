@@ -1,0 +1,3 @@
+import {
+  "dowdiness/diagnostic",
+} for "test"

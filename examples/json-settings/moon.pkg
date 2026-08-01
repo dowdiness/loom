@@ -8,3 +8,7 @@ import {
   "moonbitlang/core/string",
   "moonbitlang/core/bench",
 }
+
+import {
+  "dowdiness/diagnostic",
+} for "wbtest"

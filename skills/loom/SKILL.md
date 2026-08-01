@@ -301,7 +301,7 @@ the same source, and use a different identity for a different source. Never
 derive it from source text, a diagnostic message, a list position, or another
 presentation artifact.
 
-`DiagnosticSource` is producer identity (parser, lexer, rename, and so on), not
+`DiagnosticOrigin` is producer identity (parser, lexer, rename, and so on), not
 source-file identity. Locations live on `DiagnosticLabel` values: each label has
 a `LabelStyle` (`Primary` or `Secondary`), a `SourceSpan`, and an optional label
 message. `SourceSpan` combines a `SourceId` with a validated, half-open UTF-16
