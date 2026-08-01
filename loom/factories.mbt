@@ -155,19 +155,41 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
               last_parse_diags.val,
             ) {
             Some((new_cst, new_diagnostics)) => {
-              let buffer = create_buffer(
-                source_id,
-                source,
-                lex,
-                spec.eof_token,
-                incremental_relex_enabled~,
-                mode_relex~,
-              )
+              // Keep the persistent token buffer synchronized with the
+              // accepted block splice. Rebuilding it here made a localized
+              // block edit pay a full-document lexing cost.
+              match token_buf.val {
+                Some(buffer) =>
+                  buffer.update(edit, source) catch {
+                    @core.LexError(_) =>
+                      token_buf.val = Some(
+                        create_buffer(
+                          source_id,
+                          source,
+                          lex,
+                          spec.eof_token,
+                          incremental_relex_enabled~,
+                          mode_relex~,
+                        ),
+                      )
+                  }
+                None =>
+                  token_buf.val = Some(
+                    create_buffer(
+                      source_id,
+                      source,
+                      lex,
+                      spec.eof_token,
+                      incremental_relex_enabled~,
+                      mode_relex~,
+                    ),
+                  )
+              }
+              let buffer = token_buf.val.unwrap()
               let lex_diagnostics = buffer.get_diagnostics()
               let all_diagnostics = lex_diagnostics.copy()
               all_diagnostics.add_all(new_diagnostics)
               last_parse_diags.val = new_diagnostics
-              token_buf.val = Some(buffer)
               return (@seam.SyntaxNode::from_cst(new_cst), all_diagnostics, 1)
             }
             None => () // Fall through to normal incremental
