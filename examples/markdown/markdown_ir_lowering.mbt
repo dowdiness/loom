@@ -149,6 +149,42 @@ fn append_inline_text_ir(
 }
 
 ///|
+fn lower_inline_text_token(token : @seam.SyntaxToken) -> MarkdownIR {
+  let origin = origin_from_token(token)
+  match classify_inline_angle_text(token.text()) {
+    Some({ kind: UriAutolink, .. }) => {
+      let value = token.text()[1:token.text().length() - 1].to_owned()
+      let value_origin = MarkdownIROrigin(
+        start=origin.start() + 1,
+        end=origin.end() - 1,
+      )
+      MarkdownIR::autolink(
+        UriAutolinkKind,
+        value,
+        normalize_autolink_uri_destination(value),
+        origin,
+        Some(value_origin),
+        Some(value_origin),
+      )
+    }
+    Some({ kind: EmailAutolink, .. }) => {
+      let value = token.text()[1:token.text().length() - 1].to_owned()
+      MarkdownIR::autolink(
+        EmailAutolinkKind,
+        value,
+        "mailto:" + value,
+        origin,
+        Some(MarkdownIROrigin(start=origin.start() + 1, end=origin.end() - 1)),
+        None,
+      )
+    }
+    Some({ kind: InlineHtmlAngle, .. }) =>
+      MarkdownIR::inline_html(token.text(), origin, Some(origin))
+    None => MarkdownIR::text(strip_backslash_escapes(token.text()), origin)
+  }
+}
+
+///|
 /// Context for parser-recovery delimiters that remain literal because their
 /// opener was backslash-escaped. CST recovery stays lossless; this state only
 /// controls the semantic MarkdownIR projection.
@@ -336,24 +372,31 @@ fn lower_inline_children_skip_with_diags(
         }
         match token_kind {
           TextToken => {
-            let origin = origin_from_token(token)
-            let text = strip_backslash_escapes(token.text())
-            let literal_marker = is_literal_emphasis_marker_text(token.text())
-            if pending_newline is None &&
-              (
-                previous_was_escaped_backtick ||
-                previous_was_literal_emphasis_marker ||
-                literal_marker
-              ) {
-              append_inline_text_ir(children, text, origin)
-            } else {
-              push_child(MarkdownIR::text(text, origin))
+            match classify_inline_angle_text(token.text()) {
+              Some(_) => push_child(lower_inline_text_token(token))
+              None => {
+                let origin = origin_from_token(token)
+                let text = strip_backslash_escapes(token.text())
+                let literal_marker = is_literal_emphasis_marker_text(
+                  token.text(),
+                )
+                if pending_newline is None &&
+                  (
+                    previous_was_escaped_backtick ||
+                    previous_was_literal_emphasis_marker ||
+                    literal_marker
+                  ) {
+                  append_inline_text_ir(children, text, origin)
+                } else {
+                  push_child(MarkdownIR::text(text, origin))
+                }
+                previous_was_literal_emphasis_marker = literal_marker
+              }
             }
             preceding_text_ends_escaped = text_ends_with_odd_backslashes(
               token.text(),
             )
             previous_was_escaped_backtick = false
-            previous_was_literal_emphasis_marker = literal_marker
           }
           BacktickToken => {
             let origin = origin_from_token(token)
@@ -447,13 +490,7 @@ fn lower_direct_inline_token_with_diags(
 ) -> MarkdownIR? {
   let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
   match token_kind {
-    TextToken =>
-      Some(
-        MarkdownIR::text(
-          strip_backslash_escapes(token.text()),
-          origin_from_token(token),
-        ),
-      )
+    TextToken => Some(lower_inline_text_token(token))
     BacktickToken =>
       Some(MarkdownIR::text(token.text(), origin_from_token(token)))
     ErrorToken | ErrorNode => {
@@ -545,24 +582,31 @@ fn lower_direct_inline_children_with_newline_and_diags(
         } else {
           match token_kind {
             TextToken => {
-              let origin = origin_from_token(token)
-              let text = strip_backslash_escapes(token.text())
-              let literal_marker = is_literal_emphasis_marker_text(token.text())
-              if pending_newline is None &&
-                (
-                  previous_was_escaped_backtick ||
-                  previous_was_literal_emphasis_marker ||
-                  literal_marker
-                ) {
-                append_inline_text_ir(children, text, origin)
-              } else {
-                push_child(MarkdownIR::text(text, origin))
+              match classify_inline_angle_text(token.text()) {
+                Some(_) => push_child(lower_inline_text_token(token))
+                None => {
+                  let origin = origin_from_token(token)
+                  let text = strip_backslash_escapes(token.text())
+                  let literal_marker = is_literal_emphasis_marker_text(
+                    token.text(),
+                  )
+                  if pending_newline is None &&
+                    (
+                      previous_was_escaped_backtick ||
+                      previous_was_literal_emphasis_marker ||
+                      literal_marker
+                    ) {
+                    append_inline_text_ir(children, text, origin)
+                  } else {
+                    push_child(MarkdownIR::text(text, origin))
+                  }
+                  previous_was_literal_emphasis_marker = literal_marker
+                }
               }
               preceding_text_ends_escaped = text_ends_with_odd_backslashes(
                 token.text(),
               )
               previous_was_escaped_backtick = false
-              previous_was_literal_emphasis_marker = literal_marker
             }
             BacktickToken => {
               let origin = origin_from_token(token)

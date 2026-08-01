@@ -329,7 +329,7 @@ fn local_transform_render(
       }
     ThematicBreak => source_slice(source, ir.origin())
     HtmlBlock(_, _) => source_slice(source, ir.origin())
-    Text(_) | Raw(_, _) | SoftBreak(_) | HardBreak(_, _) =>
+    Text(_) | InlineHtml(_, _) | Raw(_, _) | SoftBreak(_) | HardBreak(_, _) =>
       source_slice(source, ir.origin())
     Bold(children, content_origin) => {
       let rendered = if content_origin == Some(target_origin) {
@@ -386,6 +386,18 @@ fn local_transform_render(
       "](" +
       rendered_destination +
       ")"
+    }
+    Autolink(_, display, destination, display_origin, destination_origin) => {
+      let rendered = if display_origin == Some(target_origin) {
+        replacement_text
+      } else if destination_origin == Some(target_origin) {
+        replacement_text
+      } else if destination.has_prefix("mailto:") {
+        display
+      } else {
+        destination
+      }
+      "<" + rendered + ">"
     }
     Unsupported(_message) | Recovered(_message, _) =>
       // The caller only reaches this branch when target_origin is inside the

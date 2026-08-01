@@ -195,6 +195,8 @@ fn canonical_format_with_list_marker(
     InlineCode(value, _) => inline_code_markdown(value)
     Link(children, destination, _, _) =>
       "[" + canonical_inline_text(children) + "](" + destination + ")"
+    Autolink(_, display, _, _, _) => "<" + display + ">"
+    InlineHtml(value, _) => value
     Unsupported(message) => "<!-- unsupported MarkdownIR: " + message + " -->"
     Recovered(message, _) if message == RECOVERED_PARSE_ERROR =>
       "<!-- recovered MarkdownIR: " + message + " -->"

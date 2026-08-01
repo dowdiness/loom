@@ -165,9 +165,9 @@ function buildFixtureModel(specBytes, manifestSource) {
   }))
   const counts = { pass: 0, xfail: 0, skip: 0 }
   for (const fixture of modeledFixtures) counts[fixture.status.status] += 1
-  if (counts.pass !== 127 || counts.xfail !== 5 || counts.skip !== 0) {
+  if (counts.pass !== 132 || counts.xfail !== 0 || counts.skip !== 0) {
     fail(
-      `expected baseline pass=127, xfail=5, skip=0; got ` +
+      `expected baseline pass=132, xfail=0, skip=0; got ` +
         `pass=${counts.pass}, xfail=${counts.xfail}, skip=${counts.skip}`,
     )
   }

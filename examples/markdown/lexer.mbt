@@ -234,47 +234,6 @@ fn extract_html_tag_name(line : StringView, pos : Int) -> (String, Int)? {
 }
 
 ///|
-fn valid_html_tag_quote_follow(line : StringView, pos : Int) -> Bool {
-  if pos >= line.length() {
-    true
-  } else {
-    match line.get_char(pos) {
-      Some(' ') | Some('\t') | Some('/') | Some('>') => true
-      _ => false
-    }
-  }
-}
-
-///|
-fn first_html_tag_end(line : StringView) -> Int? {
-  let mut quote : Char? = None
-  for i, ch in line {
-    match quote {
-      Some(q) if ch == q => {
-        guard valid_html_tag_quote_follow(line, i + 1) else { return None }
-        quote = None
-      }
-      Some(_) => ()
-      None =>
-        match ch {
-          '\"' | '\'' => quote = Some(ch)
-          '>' => return Some(i)
-          _ => ()
-        }
-    }
-  }
-  None
-}
-
-///|
-fn line_has_only_tag(line : StringView) -> Bool {
-  match first_html_tag_end(line) {
-    Some(end) => line[end + 1:].trim().is_empty()
-    None => false
-  }
-}
-
-///|
 fn html_tag_name_follow_is_valid(line : StringView, tag_end : Int) -> Bool {
   if tag_end >= line.length() {
     true
@@ -287,16 +246,12 @@ fn html_tag_name_follow_is_valid(line : StringView, tag_end : Int) -> Bool {
 }
 
 ///|
-fn closing_line_has_only_tag(line : StringView, tag_end : Int) -> Bool {
-  let mut pos = tag_end
-  while pos < line.length() {
-    match line.get_char(pos) {
-      Some(' ') | Some('\t') => pos = pos + 1
-      Some('>') => return line[pos + 1:].trim().is_empty()
-      _ => return false
-    }
+fn line_is_complete_type7_html_tag(line : StringView) -> Bool {
+  let owned = line.to_owned()
+  match classify_inline_html_at(owned, 0) {
+    Some({ kind: InlineHtmlAngle, end }) => owned[end:].trim().is_empty()
+    _ => false
   }
-  false
 }
 
 ///|
@@ -325,11 +280,8 @@ fn classify_html_block_opening(line : StringView) -> HtmlBlockType? {
     Some((tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
       is_type6_tag_name(tag) => Some(Raw)
     Some((_tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
-      name_start == 2 &&
-      closing_line_has_only_tag(trimmed, tag_end) => Some(Raw)
-    Some((_tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
-      name_start == 1 &&
-      line_has_only_tag(trimmed) => Some(Raw)
+      (name_start == 1 || name_start == 2) &&
+      line_is_complete_type7_html_tag(trimmed) => Some(Raw)
     _ => None
   }
 }
@@ -600,7 +552,7 @@ fn lex_block_quote_line_start(
 /// Special characters that terminate a Text run in Inline mode.
 fn is_inline_special(ch : Char) -> Bool {
   match ch {
-    '*' | '_' | '`' | '[' | ']' | '(' | ')' | '\r' | '\n' => true
+    '*' | '_' | '`' | '[' | ']' | '(' | ')' | '<' | '\r' | '\n' => true
     _ => false
   }
 }
@@ -633,6 +585,24 @@ fn lex_inline(
     [']', .. rest] => produced_until(RightBracket, pos, rest, Inline)
     ['(', .. rest] => produced_until(LeftParen, pos, rest, Inline)
     [')', .. rest] => produced_until(RightParen, pos, rest, Inline)
+    ['<', ..] =>
+      match classify_inline_angle_at(input, pos) {
+        Some(candidate) => {
+          let text = input[pos:candidate.end].to_owned()
+          (
+            Produced(
+              @core.TokenInfo::new(Text(text), candidate.end - pos),
+              next_offset=candidate.end,
+            ),
+            Inline,
+          )
+        }
+        None =>
+          (
+            Produced(@core.TokenInfo::new(Text("<"), 1), next_offset=pos + 1),
+            Inline,
+          )
+      }
     _ => {
       // Text run: consume until next special char or newline
       let mut end = @core.next_char_offset(input, pos)
