@@ -510,40 +510,6 @@ pub(all) enum LabelStyle {
 } derive(Eq, Debug, Hash)
 
 ///|
-pub struct TokenEvidence {
-  priv kind : @seam.RawKind
-  priv span : SourceSpan
-} derive(Eq, Debug)
-
-///|
-pub fn TokenEvidence::TokenEvidence(
-  kind : @seam.RawKind,
-  span : SourceSpan,
-) -> TokenEvidence {
-  { kind, span }
-}
-
-///|
-pub fn TokenEvidence::kind(self : TokenEvidence) -> @seam.RawKind {
-  self.kind
-}
-
-///|
-pub fn TokenEvidence::span(self : TokenEvidence) -> SourceSpan {
-  self.span
-}
-
-///|
-fn TokenEvidence::offset_by(
-  self : TokenEvidence,
-  edited_source : SourceId,
-  delta : Int,
-  after : TextOffset,
-) -> TokenEvidence raise DiagnosticBuildError {
-  TokenEvidence(self.kind, self.span.offset_by(edited_source, delta, after))
-}
-
-///|
 pub struct DiagnosticLabel {
   priv style : LabelStyle
   priv span : SourceSpan
@@ -598,7 +564,6 @@ pub struct Diagnostic {
   priv labels : Array[DiagnosticLabel]
   priv notes : Array[String]
   priv fixes : Array[DiagnosticFix]
-  priv token : TokenEvidence?
 } derive(Eq, Debug)
 
 ///|
@@ -610,7 +575,6 @@ pub fn Diagnostic::Diagnostic(
   labels? : Array[DiagnosticLabel] = [],
   notes? : Array[String] = [],
   fixes? : Array[DiagnosticFix] = [],
-  token? : TokenEvidence? = None,
 ) -> Diagnostic {
   {
     source,
@@ -620,7 +584,6 @@ pub fn Diagnostic::Diagnostic(
     labels: labels.copy(),
     notes: notes.copy(),
     fixes: fixes.copy(),
-    token,
   }
 }
 
@@ -657,11 +620,6 @@ pub fn Diagnostic::notes(self : Diagnostic) -> Array[String] {
 ///|
 pub fn Diagnostic::fixes(self : Diagnostic) -> Array[DiagnosticFix] {
   self.fixes.copy()
-}
-
-///|
-pub fn Diagnostic::token(self : Diagnostic) -> TokenEvidence? {
-  self.token
 }
 
 ///|
@@ -786,14 +744,6 @@ pub fn Diagnostic::offset_by(
   let labels = self.labels.map(label => {
     label.offset_by(edited_source, delta, after)
   })
-  let token = if labels == self.labels {
-    self.token
-  } else {
-    match self.token {
-      Some(token) => Some(token.offset_by(edited_source, delta, after))
-      None => None
-    }
-  }
   Diagnostic(
     source=self.source,
     severity=self.severity,
@@ -802,7 +752,6 @@ pub fn Diagnostic::offset_by(
     labels~,
     notes=self.notes,
     fixes=self.fixes,
-    token~,
   )
 }
 

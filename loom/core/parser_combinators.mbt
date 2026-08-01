@@ -131,7 +131,7 @@ pub fn[
 /// the current token. Wrapped mode stores the placeholder inside
 /// `element_kind`; wrapper-free mode emits the placeholder directly so existing
 /// grammars can keep parser-owned element nodes as direct children.
-fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_empty_element(
+fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::emit_empty_element(
   self : ParserContext[T, K],
   element_kind : K,
   wrap_element : Bool,

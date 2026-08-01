@@ -742,12 +742,8 @@ test "ParserContext reuse: excludes boundary diagnostics at reused node end" {
     test_spec,
   )
   let old_diags = DiagnosticSet::empty()
-  old_diags.push(
-    test_parser_diagnostic("inside-first-node", 0, 1, TestTok::Num(1)),
-  )
-  old_diags.push(
-    test_parser_diagnostic("boundary-next-sibling", 1, 1, TestTok::Ws),
-  )
+  old_diags.push(test_parser_diagnostic("inside-first-node", 0, 1))
+  old_diags.push(test_parser_diagnostic("boundary-next-sibling", 1, 1))
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.set_reuse_diagnostics(old_diags)
@@ -778,7 +774,6 @@ test "ParserContext replay keeps other-source labels unchanged after a source-sc
           message=Some("related"),
         ),
       ],
-      token=Some(TokenEvidence(@seam.RawKind(1), primary)),
     ),
   )
   let shifted = old_diagnostics.after_relex(
@@ -985,9 +980,9 @@ test "ParserContext reuse: later EOF emission replaces replayed stale got_token"
     },
     test_spec,
   )
-  // Simulate replayed stale token evidence for the same logical diagnostic.
+  // Simulate a replayed diagnostic for the same logical error.
   let stale_diags = DiagnosticSet::single(
-    test_parser_diagnostic("missing trailing expression", 1, 1, TestTok::Ws),
+    test_parser_diagnostic("missing trailing expression", 1, 1),
   )
 
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -1001,7 +996,6 @@ test "ParserContext reuse: later EOF emission replaces replayed stale got_token"
     ctx.diagnostics.items()[0].message(),
     content="missing trailing expression",
   )
-  inspect(diagnostic_token_raw(ctx.diagnostics.items()[0]), content="7")
 }
 
 ///|
@@ -1011,15 +1005,14 @@ test "ParserContext push_diagnostic_unique deduplicates by parser message and sp
   let (toks, _starts) = test_tokenize_with_starts(src)
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
   let added = ctx.push_diagnostic_unique(
-    test_parser_diagnostic("same logical error", 1, 1, TestTok::Ws),
+    test_parser_diagnostic("same logical error", 1, 1),
   )
   let updated = ctx.push_diagnostic_unique(
-    test_parser_diagnostic("same logical error", 1, 1, TestTok::TokEof),
+    test_parser_diagnostic("same logical error", 1, 1),
   )
   inspect(added, content="true")
   inspect(updated, content="false")
   inspect(ctx.diagnostics.length(), content="1")
-  inspect(diagnostic_token_raw(ctx.diagnostics.items()[0]), content="7")
   inspect(ctx.too_many_errors(1), content="true")
 }
 
@@ -1038,7 +1031,6 @@ test "ParserContext parser diagnostic key includes source identity" {
       code=Some(DiagnosticCode("parse.same")),
       message="same logical error",
       labels=[DiagnosticLabel(LabelStyle::Primary, span, None)],
-      token=Some(TokenEvidence(@seam.RawKind(7), span)),
     )
   }
   let added_a = ctx.push_diagnostic_unique(diagnostic_for(source_a))
@@ -1337,7 +1329,6 @@ test "ParserContext reuse: replays structured diagnostic code and token evidence
   inspect(diagnostic_code_value(diagnostic), content="parse.expected.plus")
   inspect(diagnostic_start(diagnostic), content="1")
   inspect(diagnostic_end(diagnostic), content="1")
-  inspect(diagnostic_token_raw(diagnostic), content="7")
 }
 
 ///|

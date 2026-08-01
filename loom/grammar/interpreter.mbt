@@ -335,7 +335,7 @@ const PRATT_APP_NO_PROGRESS : String = "grammar: PrattApp atom made no progress"
 /// report the failure so the caller can stop its own loop.
 ///
 /// Returns true when the cursor advanced past `before`.
-fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] required_progress(
+fn[T : @seam.IsTrivia, K : @seam.ToRawKind] required_progress(
   ctx : @core.ParserContext[T, K],
   before : Int,
   message : String,
