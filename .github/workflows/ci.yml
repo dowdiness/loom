@@ -617,6 +617,11 @@ jobs:
         working-directory: examples/markdown
         run: moon test native_regression_test.mbt --target native
 
+      - name: Native CommonMark audit taxonomy
+        if: matrix.name == 'examples-markdown'
+        working-directory: examples/markdown
+        run: moon test src/tools/commonmark_html_audit --target native --deny-warn
+
   test-modules-submodules:
     name: Check + Test ${{ matrix.name }}
     runs-on: ubuntu-latest
