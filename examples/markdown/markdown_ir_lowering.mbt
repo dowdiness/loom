@@ -19,24 +19,57 @@ fn trim_inline_text_end_before_newline(children : Array[MarkdownIR]) -> Int {
 }
 
 ///|
+fn trim_inline_backslash_end_before_newline(
+  children : Array[MarkdownIR],
+) -> Unit {
+  match children.pop() {
+    Some({ node: Text(value), origin }) => {
+      guard value.has_suffix("\\") else {
+        abort("hard-break backslash must end inline text")
+      }
+      let retained = value[:value.length() - 1].to_owned()
+      if retained.length() > 0 {
+        children.push(
+          MarkdownIR::text(
+            retained,
+            MarkdownIROrigin(start=origin.start(), end=origin.end() - 1),
+          ),
+        )
+      }
+    }
+    _ => abort("hard-break backslash must follow inline text")
+  }
+}
+
+///|
 fn flush_pending_inline_newline(
   children : Array[MarkdownIR],
   origin : MarkdownIROrigin,
   newline_text : String?,
+  source : String,
 ) -> Unit {
   let hard_break_spaces = trim_inline_text_end_before_newline(children)
   if hard_break_spaces >= 2 {
     children.push(
       MarkdownIR::hard_break(
+        TrailingSpaces(hard_break_spaces),
         MarkdownIROrigin(
           start=origin.start() - hard_break_spaces,
           end=origin.end(),
         ),
       ),
     )
+  } else if preceded_by_odd_backslashes(source, origin.start()) {
+    trim_inline_backslash_end_before_newline(children)
+    children.push(
+      MarkdownIR::hard_break(
+        Backslash,
+        MarkdownIROrigin(start=origin.start() - 1, end=origin.end()),
+      ),
+    )
   } else {
     match newline_text {
-      Some(text) => children.push(MarkdownIR::text(text, origin))
+      Some(_) => children.push(MarkdownIR::soft_break(origin))
       None => ()
     }
   }
@@ -238,7 +271,7 @@ fn normalize_escaped_inline_recoveries(
           normalized.push(child)
         }
       }
-      HardBreak(_) => {
+      SoftBreak(_) | HardBreak(_, _) => {
         state = NoEscapedInlineRecovery
         normalized.push(child)
       }
@@ -266,7 +299,12 @@ fn lower_inline_children_skip_with_diags(
   fn push_child(child : MarkdownIR) -> Unit {
     let child = match pending_newline {
       Some(origin) => {
-        flush_pending_inline_newline(children, origin, newline_text)
+        flush_pending_inline_newline(
+          children,
+          origin,
+          newline_text,
+          context.source,
+        )
         pending_newline = None
         trim_inline_text_start_after_newline(child)
       }
@@ -281,7 +319,12 @@ fn lower_inline_children_skip_with_diags(
         if skip_kind is Some(kind) && token_kind == kind {
           match pending_newline {
             Some(origin) => {
-              flush_pending_inline_newline(children, origin, newline_text)
+              flush_pending_inline_newline(
+                children,
+                origin,
+                newline_text,
+                context.source,
+              )
               pending_newline = None
             }
             None => ()
@@ -477,7 +520,12 @@ fn lower_direct_inline_children_with_newline_and_diags(
   fn push_child(child : MarkdownIR) -> Unit {
     let child = match pending_newline {
       Some(origin) => {
-        flush_pending_inline_newline(children, origin, Some(newline_text))
+        flush_pending_inline_newline(
+          children,
+          origin,
+          Some(newline_text),
+          context.source,
+        )
         pending_newline = None
         trim_inline_text_start_after_newline(child)
       }
@@ -1159,6 +1207,7 @@ fn append_list_item_flow_block_children(
 fn markdown_ir_has_non_blank_inline_content(ir : MarkdownIR) -> Bool {
   match ir.node {
     Text(text) => direct_list_item_text_has_non_blank_content(text)
+    SoftBreak(_) => false
     _ => true
   }
 }

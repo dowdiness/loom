@@ -40,6 +40,20 @@ fn MarkdownIROrigin::contains(
 const RECOVERED_PARSE_ERROR = "parse error"
 
 ///|
+priv enum HardBreakSurface {
+  TrailingSpaces(Int)
+  Backslash
+} derive(Eq, Debug)
+
+///|
+fn hard_break_surface_text(surface : HardBreakSurface) -> String {
+  match surface {
+    TrailingSpaces(count) => " ".repeat(count) + "\n"
+    Backslash => "\\\n"
+  }
+}
+
+///|
 priv enum MarkdownIRNode {
   Document(Array[MarkdownIR])
   Heading(Int, Array[MarkdownIR], MarkdownIROrigin?)
@@ -62,7 +76,8 @@ priv enum MarkdownIRNode {
   Italic(Array[MarkdownIR], MarkdownIROrigin?)
   InlineCode(String, MarkdownIROrigin?)
   Link(Array[MarkdownIR], String, MarkdownIROrigin?, MarkdownIROrigin?)
-  HardBreak(MarkdownIROrigin?)
+  SoftBreak(MarkdownIROrigin?)
+  HardBreak(HardBreakSurface, MarkdownIROrigin?)
   Unsupported(String)
   Raw(String, Array[@core.Diagnostic])
   Recovered(String, Array[@core.Diagnostic])
@@ -230,8 +245,21 @@ fn MarkdownIR::link(
 }
 
 ///|
-fn MarkdownIR::hard_break(origin : MarkdownIROrigin) -> MarkdownIR {
-  { node: HardBreak(Some(origin)), origin }
+fn MarkdownIR::soft_break(origin : MarkdownIROrigin) -> MarkdownIR {
+  { node: SoftBreak(Some(origin)), origin }
+}
+
+///|
+fn MarkdownIR::hard_break(
+  surface : HardBreakSurface,
+  origin : MarkdownIROrigin,
+) -> MarkdownIR {
+  match surface {
+    TrailingSpaces(count) if count < 2 =>
+      abort("trailing-space hard break requires at least two spaces")
+    _ => ()
+  }
+  { node: HardBreak(surface, Some(origin)), origin }
 }
 
 ///|
@@ -305,7 +333,8 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     Italic(_, _) => "Italic"
     InlineCode(_, _) => "InlineCode"
     Link(_, _, _, _) => "Link"
-    HardBreak(_) => "HardBreak"
+    SoftBreak(_) => "SoftBreak"
+    HardBreak(_, _) => "HardBreak"
     Unsupported(_) => "Unsupported"
     Raw(_, _) => "Raw"
     Recovered(_, _) => "Recovered"
@@ -331,7 +360,8 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
     | ThematicBreak
     | Text(_)
     | InlineCode(_, _)
-    | HardBreak(_)
+    | SoftBreak(_)
+    | HardBreak(_, _)
     | Unsupported(_)
     | Raw(_, _)
     | Recovered(_, _) => []
@@ -366,7 +396,8 @@ pub fn MarkdownIR::content_origin(self : MarkdownIR) -> MarkdownIROrigin? {
     | Bold(_, origin)
     | Italic(_, origin)
     | InlineCode(_, origin)
-    | HardBreak(origin) => origin
+    | SoftBreak(origin)
+    | HardBreak(_, origin) => origin
     _ => None
   }
 }

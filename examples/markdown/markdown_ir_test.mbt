@@ -260,9 +260,12 @@ test "experimental MarkdownIR: escaped delimiter tails stay semantic text" {
   match ir.children() {
     [paragraph] => {
       for child in paragraph.children() {
-        inspect(child.kind_tag(), content="Text")
         inspect(child.diagnostics().length(), content="0")
       }
+      inspect(
+        paragraph.children().map(child => child.kind_tag()).join(","),
+        content="Text,SoftBreak,Text,SoftBreak,Text",
+      )
       match
         paragraph
         .children()
@@ -1807,7 +1810,7 @@ test "experimental MarkdownIR: canonical format preserves hard breaks" {
     @core.SourceId("markdown-ir-test-document"),
     ir,
   )
-  inspect(canonical, content="aaa  \nbbb")
+  inspect(canonical, content="aaa     \nbbb")
   inspect(
     experimental_markdown_ir_to_block(ir),
     content="Document([Paragraph([Text(\"aaa\"), Text(\"\\n\"), Text(\"bbb\")])])",

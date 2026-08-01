@@ -188,7 +188,8 @@ fn canonical_format_with_list_marker(
     HtmlBlock(value, _) => value
     ThematicBreak => "---"
     Text(value) | Raw(value, _) => value
-    HardBreak(_) => "  \n"
+    SoftBreak(_) => "\n"
+    HardBreak(surface, _) => hard_break_surface_text(surface)
     Bold(children, _) => "**" + canonical_inline_text(children) + "**"
     Italic(children, _) => "*" + canonical_inline_text(children) + "*"
     InlineCode(value, _) => inline_code_markdown(value)

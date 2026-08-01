@@ -273,7 +273,8 @@ fn markdown_ir_to_commonmark_html_with_list_context(
       render_valid_raw_html(value, ir.origin, RawHtmlBlock, raw_html_policy)
     ThematicBreak => Ok("<hr />\n")
     Text(value) | Raw(value, _) => Ok(html_escape_text(value))
-    HardBreak(_) => Ok("<br />\n")
+    SoftBreak(_) => Ok("\n")
+    HardBreak(_, _) => Ok("<br />\n")
     Bold(children, _) =>
       wrap_commonmark_html(
         markdown_ir_inline_children_to_commonmark_html(
