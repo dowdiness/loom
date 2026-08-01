@@ -90,6 +90,7 @@ fn block_start_action_name(action : BlockStartAction) -> String {
     StartCodeFence(true) => "code-fence-prefixed"
     StartHtmlBlock(false) => "html-block"
     StartHtmlBlock(true) => "html-block-prefixed"
+    StartReferenceDefinition => "reference-definition"
     StartIndentedCode => "indented-code"
     StartIndentedMarkerCode => "indented-marker-code"
     StartParagraph(false) => "paragraph"
@@ -209,6 +210,11 @@ test "block container core: root block-start table is deterministic" {
     state,
     block_start_facts(FactHtmlBlock, current_indent=4),
     "start-over-indented-html-paragraph",
+  )
+  assert_start_decision(
+    state,
+    block_start_facts(FactReferenceDefinition),
+    "start-reference-definition",
   )
 }
 

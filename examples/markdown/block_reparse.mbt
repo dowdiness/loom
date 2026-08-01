@@ -370,7 +370,10 @@ fn parse_paragraph_if_still_paragraph(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
   // Boundary tokens can change the block extent, so decline by emitting no node.
-  if !is_block_boundary(ctx.peek()) {
+  // Reference definitions are parser-classified from an otherwise-inline token
+  // stream, so they must be checked explicitly at this reparse boundary.
+  if !is_block_boundary(ctx.peek()) &&
+    !current_line_is_link_reference_definition(ctx) {
     parse_paragraph(ctx)
   }
 }

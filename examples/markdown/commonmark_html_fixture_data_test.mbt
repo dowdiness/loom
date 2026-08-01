@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=354, xfail=5, skip=0.
+// Baseline: pass=357, xfail=5, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (354, 5, 0)
+  (357, 5, 0)
 }
 
 ///|
@@ -259,6 +259,30 @@ fn commonmark_inline_angle_html_fixture_cases() -> Array[CommonMarkHtmlFixture] 
 ///|
 fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
   let fixtures : Array[CommonMarkHtmlFixture] = [
+    {
+      example: 207,
+      section: "Link reference definitions",
+      name: "reference-definition-only-document",
+      source: "[foo]: /url\n",
+      expected_html: "",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 208,
+      section: "Link reference definitions",
+      name: "multiline-reference-label-leaves-following-flow",
+      source: "[\nfoo\n]: /url\nbar\n",
+      expected_html: "<p>bar</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 317,
+      section: "Lists",
+      name: "list-contained-reference-definition",
+      source: "- a\n- b\n\n  [ref]: /url\n- d\n",
+      expected_html: "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
     {
       example: 62,
       section: "ATX headings",
