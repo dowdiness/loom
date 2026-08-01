@@ -203,6 +203,7 @@ priv enum EscapedInlineRecoveryState {
 priv struct MarkdownIRLoweringContext {
   source_id : @core.SourceId
   source : String
+  reference_definitions : LinkReferenceDefinitionTable
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic]
 }
 
@@ -538,7 +539,8 @@ fn lower_direct_inline_node_with_diags(
     | HtmlBlockNode
     | ThematicBreakNode
     | CodeBlockNode
-    | BlockQuoteNode => None
+    | BlockQuoteNode
+    | LinkReferenceDefinitionNode => None
     _ => Some(lower_inline_node_with_diags(node, newline_text, context))
   }
 }
@@ -1722,6 +1724,9 @@ fn experimental_markdown_ir_fold_node_with_diags(
   let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match kind {
     DocumentNode => {
+      // #811 collects the immutable document table before recursive lowering.
+      // #812 will consume it while resolving reference-form inline nodes.
+      ignore(context.reference_definitions)
       let children : Array[MarkdownIR] = node
         .children()
         .iter()
@@ -1904,6 +1909,7 @@ pub fn experimental_markdown_ir_from_syntax(
   let context : MarkdownIRLoweringContext = {
     source_id,
     source: syntax_root(root).text(),
+    reference_definitions: collect_link_reference_definitions(root),
     diagnostics_in_origin: _ => [],
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
@@ -1921,6 +1927,7 @@ pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
   let context : MarkdownIRLoweringContext = {
     source_id,
     source: syntax_root(root).text(),
+    reference_definitions: collect_link_reference_definitions(root),
     diagnostics_in_origin: origin => {
       diagnostics_in_origin(source_id, diagnostics, origin)
     },

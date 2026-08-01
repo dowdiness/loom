@@ -60,6 +60,7 @@ priv enum BlockTokenFact {
   FactBlockQuoteMarker
   FactFence
   FactHtmlBlock
+  FactReferenceDefinition
   FactBlank
   FactIndentation
   FactNewline
@@ -133,6 +134,7 @@ priv enum BlockStartAction {
   StartBlockQuote
   StartCodeFence(Bool)
   StartHtmlBlock(Bool)
+  StartReferenceDefinition
   StartIndentedCode
   StartIndentedMarkerCode
   StartParagraph(Bool)
@@ -240,6 +242,7 @@ fn block_start_from_token_fact(fact : BlockTokenFact) -> BlockStartAction? {
     FactBlockQuoteMarker => Some(StartBlockQuote)
     FactFence => Some(StartCodeFence(false))
     FactHtmlBlock => Some(StartHtmlBlock(false))
+    FactReferenceDefinition => Some(StartReferenceDefinition)
     FactBlank => Some(ConsumeBlankLine)
     FactNewline => Some(ConsumeNewline)
     FactEnd => Some(EndOfInput)
@@ -284,6 +287,7 @@ fn decide_root_block_start(
       } else {
         StartOverIndentedHtmlParagraph
       }
+    FactReferenceDefinition => StartReferenceDefinition
     FactBlank => ConsumeBlankLine
     FactIndentation =>
       if facts.current_indent >= 4 {
@@ -297,6 +301,7 @@ fn decide_root_block_start(
           FactBlockQuoteMarker => StartBlockQuote
           FactFence => StartCodeFence(true)
           FactHtmlBlock => StartHtmlBlock(true)
+          FactReferenceDefinition => StartReferenceDefinition
           _ => StartParagraph(true)
         }
       }

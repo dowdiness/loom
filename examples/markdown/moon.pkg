@@ -8,6 +8,8 @@ import {
   "moonbitlang/core/debug",
   "moonbitlang/core/bench",
   "moonbitlang/core/string",
+  "moonbitlang/core/immut/hashmap",
+  "moonbit-community/casefold",
 }
 
 import {

@@ -74,6 +74,11 @@ fn observe_root_block_start(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> BlockLineFacts {
   let current = ctx.peek()
+  let current_fact = if current_line_is_link_reference_definition(ctx) {
+    FactReferenceDefinition
+  } else {
+    block_token_fact(current)
+  }
   let current_indent = match current {
     ListMarker | OrderedListMarker(_) =>
       current_list_marker_indent(ctx).map_or(-1, indent => indent)
@@ -88,7 +93,7 @@ fn observe_root_block_start(
     FactInline
   }
   BlockStart(BlockStartFacts::{
-    current: block_token_fact(current),
+    current: current_fact,
     after_prefix,
     current_indent,
     prefixed,
@@ -139,6 +144,7 @@ fn execute_root_block_start(
       parse_code_block_with_prefix(ctx, current_line_prefix(prefixed))
     StartHtmlBlock(prefixed) =>
       parse_html_block(ctx, current_line_prefix(prefixed))
+    StartReferenceDefinition => parse_link_reference_definition(ctx)
     StartIndentedCode => parse_indented_code_block(ctx)
     StartIndentedMarkerCode =>
       parse_indented_code_block_from_current_line(ctx, min_indent=4)
@@ -789,6 +795,8 @@ fn parse_block_quote_after_marker(
   marker_end_column : Int,
 ) -> Unit {
   match ctx.peek() {
+    _ if current_line_is_link_reference_definition(ctx) =>
+      parse_link_reference_definition(ctx)
     ThematicBreak => parse_thematic_break(ctx)
     HeadingMarker(_) => parse_heading(ctx)
     ListMarker if current_block_quote_list_marker_indent(
@@ -1179,6 +1187,11 @@ fn try_parse_list_item_block_after_newline(
   let checkpoint = ctx.checkpoint()
   ctx.emit_token(NewlineToken)
   match ctx.peek() {
+    _ if current_line_is_link_reference_definition(ctx) &&
+      current_token_text_has_min_leading_spaces(ctx, content_indent) => {
+      parse_link_reference_definition(ctx)
+      true
+    }
     BlockQuoteMarker if !(ctx.peek_nth(1) is BlankLine) &&
       current_token_text_has_min_leading_spaces(ctx, content_indent) => {
       parse_block_quote(ctx)
@@ -1251,6 +1264,8 @@ fn prefixed_list_item_block_starts(
       let indent = current_token_leading_indent(ctx)
       if indent < content_indent || indent >= content_indent + 4 {
         false
+      } else if current_line_is_link_reference_definition(ctx) {
+        true
       } else {
         match ctx.peek_nth(1) {
           ThematicBreak
@@ -1584,6 +1599,10 @@ fn parse_list_item_prefixed_block(
     Indentation(_) => PresentLinePrefix
     _ => abort("parse_list_item_prefixed_block requires indentation")
   }
+  if current_line_is_link_reference_definition(ctx) {
+    parse_link_reference_definition(ctx)
+    return
+  }
   match ctx.peek_nth(1) {
     ThematicBreak => parse_thematic_break_with_prefix(ctx, Some(prefix))
     HeadingMarker(_) => parse_heading_with_prefix(ctx, Some(prefix))
@@ -1669,7 +1688,11 @@ fn parse_list_item_body(
   marker_end_column : Int,
   allow_ordered_marker~ : Bool,
 ) -> Unit {
-  let has_paragraph_content = list_item_line_starts_paragraph(ctx)
+  let starts_reference_definition = current_line_is_link_reference_definition(
+    ctx,
+  )
+  let has_paragraph_content = !starts_reference_definition &&
+    list_item_line_starts_paragraph(ctx)
   match ctx.peek() {
     ListMarker => {
       parse_list_at_min_indent(ctx, 0)
@@ -1681,7 +1704,9 @@ fn parse_list_item_body(
     }
     _ => ()
   }
-  if current_text_reaches_indented_code_column(
+  if starts_reference_definition {
+    parse_link_reference_definition(ctx)
+  } else if current_text_reaches_indented_code_column(
       ctx, marker_end_column, content_indent,
     ) {
     parse_indented_code_block_from_current_line(

@@ -43,6 +43,7 @@ pub(all) enum SyntaxKind {
   BlockQuoteNode
   ThematicBreakNode
   HtmlBlockNode
+  LinkReferenceDefinitionNode
 } derive(Debug, Eq)
 
 ///|
@@ -128,6 +129,7 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
       SetextHeadingUnderlineToken => 38
       UnderscoreToken => 39
       EmphasisDelimiterToken => 40
+      LinkReferenceDefinitionNode => 41
     },
   )
 }
@@ -176,6 +178,7 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     38 => SetextHeadingUnderlineToken
     39 => UnderscoreToken
     40 => EmphasisDelimiterToken
+    41 => LinkReferenceDefinitionNode
     _ => ErrorNode
   }
 }

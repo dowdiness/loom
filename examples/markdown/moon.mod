@@ -7,6 +7,7 @@ import {
   "dowdiness/seam@0.1.0",
   "dowdiness/incr@0.14.2",
   "moonbitlang/x@0.4.40",
+  "moonbit-community/casefold@0.1.5",
 }
 
 license = "Apache-2.0"
