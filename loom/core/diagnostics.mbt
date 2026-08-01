@@ -762,7 +762,7 @@ fn diagnostic_same_key(a : Diagnostic, b : Diagnostic) -> Bool {
 
 ///|
 fn parser_diagnostic_same_key(a : Diagnostic, b : Diagnostic) -> Bool {
-  // Parser replay can refresh token evidence without changing the logical error.
+  // Parser replay can refresh a diagnostic without changing the logical error.
   a.source == b.source &&
   a.severity == b.severity &&
   a.code == b.code &&

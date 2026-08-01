@@ -951,7 +951,7 @@ test "ParserContext reuse: incomplete-kind sibling owns EOF boundary diagnostic"
 }
 
 ///|
-test "ParserContext reuse: later EOF emission replaces replayed stale got_token" {
+test "ParserContext reuse: later EOF emission deduplicates a replayed diagnostic" {
   fn grammar_with_trailing_eof_error(
     ctx : ParserContext[TestTok, TestKind],
   ) -> Unit {
@@ -1286,7 +1286,7 @@ test "ParserContext reuse: replays diagnostics for incomplete subtree at EOF" {
 }
 
 ///|
-test "ParserContext reuse: replays structured diagnostic code and token evidence" {
+test "ParserContext reuse: replays structured diagnostic code and range" {
   fn grammar_structured_eof(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     ctx.node(KExpr, fn() {
       ctx.emit_token(KNum)
