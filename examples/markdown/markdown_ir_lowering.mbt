@@ -1906,10 +1906,11 @@ pub fn experimental_markdown_ir_from_syntax(
   source_id : @core.SourceId,
   root : @seam.SyntaxNode,
 ) -> MarkdownIR {
+  let document_root = syntax_root(root)
   let context : MarkdownIRLoweringContext = {
     source_id,
-    source: syntax_root(root).text(),
-    reference_definitions: collect_link_reference_definitions(root),
+    source: document_root.text(),
+    reference_definitions: collect_link_reference_definitions(document_root),
     diagnostics_in_origin: _ => [],
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
@@ -1924,10 +1925,11 @@ pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
   root : @seam.SyntaxNode,
   diagnostics : @core.DiagnosticSet,
 ) -> MarkdownIR {
+  let document_root = syntax_root(root)
   let context : MarkdownIRLoweringContext = {
     source_id,
-    source: syntax_root(root).text(),
-    reference_definitions: collect_link_reference_definitions(root),
+    source: document_root.text(),
+    reference_definitions: collect_link_reference_definitions(document_root),
     diagnostics_in_origin: origin => {
       diagnostics_in_origin(source_id, diagnostics, origin)
     },

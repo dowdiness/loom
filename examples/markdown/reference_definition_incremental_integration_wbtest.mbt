@@ -147,4 +147,34 @@ test "incremental reference definitions: construction, destruction, duplicate, a
     None,
     "<blockquote>\n<p>[foo]: x)y</p>\n</blockquote>\n",
   )
+  let list_paragraph_prefix = "- text\n  [foo]"
+  assert_reference_definition_incremental_parity(
+    "list-paragraph-does-not-become-definition",
+    list_paragraph_prefix + " /url\n",
+    @core.Edit::insert(list_paragraph_prefix.length(), 1),
+    list_paragraph_prefix + ": /url\n",
+    None,
+    None,
+    "<ul>\n<li>text\n[foo]: /url</li>\n</ul>\n",
+  )
+  let blank_separated_prefix = "- text\n\n  [foo]"
+  assert_reference_definition_incremental_parity(
+    "blank-separated-list-definition",
+    blank_separated_prefix + " /url\n",
+    @core.Edit::insert(blank_separated_prefix.length(), 1),
+    blank_separated_prefix + ": /url\n",
+    Some("foo"),
+    Some("/url"),
+    "<ul>\n<li>\n<p>text</p>\n</li>\n</ul>\n",
+  )
+  let empty_item_prefix = "-\n  [foo]"
+  assert_reference_definition_incremental_parity(
+    "empty-list-item-definition",
+    empty_item_prefix + " /url\n",
+    @core.Edit::insert(empty_item_prefix.length(), 1),
+    empty_item_prefix + ": /url\n",
+    Some("foo"),
+    Some("/url"),
+    "<ul>\n<li></li>\n</ul>\n",
+  )
 }

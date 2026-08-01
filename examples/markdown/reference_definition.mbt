@@ -185,16 +185,18 @@ fn consume_reference_destination(input : String, start : Int) -> Int? {
 
 ///|
 fn consume_reference_title(input : String, start : Int) -> Int? {
-  let close = match char_at(input, start) {
+  let open = match char_at(input, start) {
     Some('\"') => '\"'
     Some('\'') => '\''
-    Some('(') => ')'
+    Some('(') => '('
     _ => return None
   }
+  let close = if open == '(' { ')' } else { open }
   let mut cursor = start + 1
   while cursor < input.length() {
     match char_at(input, cursor) {
       Some(ch) if ch == close => return Some(cursor + 1)
+      Some('(') if open == '(' => return None
       Some('\r') | Some('\n') => {
         guard reference_line_ending_end(input, cursor) is Some(after_newline) else {
           return None
@@ -379,11 +381,10 @@ fn classify_link_reference_definition(
 
 ///|
 fn normalize_link_reference_label(label : String) -> String {
-  let decoded = decode_markdown_inline_text(label)
   let builder = StringBuilder::StringBuilder()
   let mut has_content = false
   let mut pending_space = false
-  for ch in decoded {
+  for ch in label {
     match ch {
       ' ' | '\t' | '\r' | '\n' => if has_content { pending_space = true }
       _ => {

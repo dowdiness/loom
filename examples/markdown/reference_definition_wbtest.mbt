@@ -127,6 +127,24 @@ test "reference definition table normalizes labels and keeps the first definitio
 }
 
 ///|
+test "reference definition table normalizes raw labels without decoding escapes" {
+  let root = reference_definition_syntax_from_source(
+    "[foo\\!]: /escaped\n[foo!]: /plain\n",
+  )
+  let table = collect_link_reference_definitions(root)
+  assert_eq(table.length(), 2)
+  match table.lookup("foo\\!") {
+    Some(definition) =>
+      inspect(definition.destination_value, content="/escaped")
+    None => fail("escaped raw label must retain a distinct normalized key")
+  }
+  match table.lookup("foo!") {
+    Some(definition) => inspect(definition.destination_value, content="/plain")
+    None => fail("plain raw label must retain a distinct normalized key")
+  }
+}
+
+///|
 test "reference definition: label may span nonblank lines" {
   let ir = reference_definition_ir_from_source("[\nfoo\n]: /url\nbar\n")
   assert_eq(ir.children().length(), 1)
@@ -180,7 +198,7 @@ test "reference definition: block quote definition is collected but not rendered
 ///|
 test "reference definition: list-contained definitions enter the document table" {
   let direct = "- [foo]: /direct\n"
-  let continuation = "- item\n  [bar]: /continuation\n"
+  let continuation = "- item\n\n  [bar]: /continuation\n"
   debug_inspect(
     reference_definition_node_texts(direct),
     content="[\"[foo]: /direct\\n\"]",
@@ -207,6 +225,24 @@ test "reference definition: list-contained definitions enter the document table"
 }
 
 ///|
+test "reference definition: cannot interrupt a list-item paragraph" {
+  let source = "- text\n  [foo]: /url\n"
+  debug_inspect(reference_definition_node_texts(source), content="[]")
+  assert_eq(
+    collect_link_reference_definitions(
+      reference_definition_syntax_from_source(source),
+    ).length(),
+    0,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(
+      reference_definition_ir_from_source(source),
+    ),
+    content="<ul>\n<li>text\n[foo]: /url</li>\n</ul>\n",
+  )
+}
+
+///|
 test "reference definition: list continuation does not create an empty flow item" {
   let source = "- a\n- b\n\n  [ref]: /url\n- d\n"
   let ir = reference_definition_ir_from_source(source)
@@ -229,7 +265,7 @@ test "reference definition classifier follows CommonMark valid boundaries" {
     "[foo]: /url \"title\"\n", "   [foo]: \n      /url  \n           'the title'  \n",
     "[Foo*bar\\]]:my_(url) 'title (with parens)'\n", "[Foo bar]:\n<my url>\n'title'\n",
     "[foo]: /url '\ntitle\nline1\nline2\n'\n", "[foo]:\n/url\n", "[foo]: <>\n", "[foo]: /url\\bar\\*baz \"foo\\\"bar\\baz\"\n",
-    "[\nfoo\n]: /url\n",
+    "[foo]: /url (a\\(b\\))\n", "[\nfoo\n]: /url\n",
   ]
   for source in valid {
     guard classify_link_reference_definition(source) is Some(definition) &&
@@ -245,7 +281,7 @@ test "reference definition classifier rejects malformed boundaries" {
     "[foo]:\n", "[foo]: <bar>(baz)\n", "[foo]: /url \"title\" ok\n", "    [foo]: /url \"title\"\n",
     "[]: /url\n", "[   ]: /url\n", "[foo]: /url 'title\n\nwith blank line'\n", "[foo]: /url)\n",
     "[foo]: <a\\\nb>\n", "[foo\\\n\nbar]: /url\n", "[foo]: /url 'title\\\n\nblank'\n",
-    "[foo]: /u\u{000B}rl\n", "\t[foo]: /url\n",
+    "[foo]: /u\u{000B}rl\n", "\t[foo]: /url\n", "[foo]: /url (a(b)\n",
   ]
   for source in invalid {
     guard classify_link_reference_definition(source) is None else {
@@ -263,6 +299,18 @@ test "reference definition: malformed candidate remains paragraph CST" {
       reference_definition_ir_from_source(source),
     ),
     content="<p>[foo]: /url &quot;title&quot; ok</p>\n",
+  )
+}
+
+///|
+test "reference definition: unescaped nested parenthesized title remains paragraph" {
+  let source = "[foo]: /url (a(b)\n"
+  debug_inspect(reference_definition_node_texts(source), content="[]")
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(
+      reference_definition_ir_from_source(source),
+    ),
+    content="<p>[foo]: /url (a(b)</p>\n",
   )
 }
 

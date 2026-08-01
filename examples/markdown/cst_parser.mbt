@@ -1187,7 +1187,8 @@ fn try_parse_list_item_block_after_newline(
   let checkpoint = ctx.checkpoint()
   ctx.emit_token(NewlineToken)
   match ctx.peek() {
-    _ if current_line_is_link_reference_definition(ctx) &&
+    _ if !allow_prefixed_blocks &&
+      current_line_is_link_reference_definition(ctx) &&
       current_token_text_has_min_leading_spaces(ctx, content_indent) => {
       parse_link_reference_definition(ctx)
       true
@@ -1198,6 +1199,7 @@ fn try_parse_list_item_block_after_newline(
       true
     }
     Indentation(_) if allow_prefixed_blocks &&
+      !current_line_is_link_reference_definition(ctx) &&
       prefixed_list_item_block_starts(ctx, content_indent) => {
       parse_list_item_prefixed_block(ctx)
       true
@@ -1289,6 +1291,7 @@ fn next_prefix_requires_list_item_block_dispatch(
   ctx.lookahead(() => {
     ctx.emit_token(NewlineToken)
     match ctx.peek() {
+      Indentation(_) if current_line_is_link_reference_definition(ctx) => false
       Indentation(_) => prefixed_list_item_block_starts(ctx, content_indent)
       _ => false
     }
@@ -1595,13 +1598,13 @@ fn next_indented_text_indent_after_newline(
 fn parse_list_item_prefixed_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
-  let prefix = match ctx.peek() {
-    Indentation(_) => PresentLinePrefix
-    _ => abort("parse_list_item_prefixed_block requires indentation")
-  }
   if current_line_is_link_reference_definition(ctx) {
     parse_link_reference_definition(ctx)
     return
+  }
+  let prefix = match ctx.peek() {
+    Indentation(_) => PresentLinePrefix
+    _ => abort("parse_list_item_prefixed_block requires indentation")
   }
   match ctx.peek_nth(1) {
     ThematicBreak => parse_thematic_break_with_prefix(ctx, Some(prefix))
