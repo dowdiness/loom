@@ -88,6 +88,12 @@ Notable user-facing changes to Loom and its sibling modules.
   and application-defined errors without a Loom dependency. Loom's `LexError`
   is the first production `ToDiagnostic` implementation.
 
+- **`dowdiness/moji`:** added grapheme-aware terminal display measurement.
+  `display_width` and `display_units` combine moji's UTF-16 grapheme boundaries
+  with UAX #11 widths, explicit East Asian Ambiguous policy, absolute tab-stop
+  expansion, zero-width units, and non-additive ligature grouping. Width-table
+  Unicode versioning is exposed independently from segmentation data.
+
 
 - **`dowdiness/loomgen` — M16 EBNF subset: `~` (Emit), `!` (EmitOr), `@until` (ErrorUntil):**
   Postfix `Token~` lowers to `Expr::Emit(token, kind)` — silently skip if absent.

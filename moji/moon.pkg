@@ -1,3 +1,7 @@
+import {
+  "moonbit-community/unicodewidth",
+}
+
 options(
   is_main: false,
 )
