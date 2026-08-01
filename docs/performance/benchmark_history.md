@@ -2,6 +2,96 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-08-02 (Markdown stage envelope and incremental bottleneck isolation)
+
+- Issue: [#838](https://github.com/dowdiness/loom/issues/838)
+- Implementation under test: `a1af356a0e98f0b5fa835f6033d2de1830be747d`
+  plus the checked-in benchmark harness from this change
+- Environment: local WSL2, Linux 6.6.114.1, x86_64
+- Toolchain: MoonBit `0.10.4+2cc641edf` (2026-07-15), Moon
+  `0.1.20260713`
+- Commands:
+  - `rtk moon bench --release --target js -p dowdiness/markdown -f performance_envelope_benchmark_test.mbt`
+  - `rtk moon bench --release --target wasm-gc -p dowdiness/markdown -f performance_envelope_benchmark_test.mbt`
+  - `rtk moon bench --release --target js -p dowdiness/markdown -f performance_envelope_benchmark_wbtest.mbt`
+  - `rtk moon bench --release --target wasm-gc -p dowdiness/markdown -f performance_envelope_benchmark_wbtest.mbt`
+  - `rtk moon test examples/markdown/performance_envelope_wbtest.mbt`
+
+The stage corpus contains a title followed by independent paragraphs with
+emphasis and strong emphasis. Each incremental row is a same-length edit and
+restore cycle near the middle of the document. Moon Bench selected the repeat
+count per row and reported ten sample means with their standard deviation.
+
+| Stage | Scale | wasm-gc mean | JavaScript mean |
+|---|---:|---:|---:|
+| tokenize | 10 paragraphs | 47.31 µs | 35.27 µs |
+| tokenize | 100 paragraphs | 383.44 µs | 348.93 µs |
+| tokenize | 500 paragraphs | 3.21 ms | 1.78 ms |
+| CST | 10 paragraphs | 222.30 µs | 203.66 µs |
+| CST | 100 paragraphs | 1.84 ms | 2.08 ms |
+| CST | 500 paragraphs | 9.57 ms | 10.83 ms |
+| CST + AST | 10 paragraphs | 207.91 µs | 251.71 µs |
+| CST + AST | 100 paragraphs | 2.19 ms | 2.51 ms |
+| CST + AST | 500 paragraphs | 11.01 ms | 13.66 ms |
+| isolated cold AST fold | 100 paragraphs | 258.43 µs | 400.01 µs |
+| isolated cold AST fold | 500 paragraphs | 1.42 ms | 2.36 ms |
+| isolated MarkdownIR | 100 paragraphs | 901.71 µs | 1.31 ms |
+| isolated MarkdownIR | 500 paragraphs | 5.88 ms | 7.23 ms |
+| imperative AST edit cycle | 10 paragraphs | 156.11 µs | 145.28 µs |
+| imperative AST edit cycle | 100 paragraphs | 907.42 µs | 1.12 ms |
+| imperative AST edit cycle | 500 paragraphs | 4.83 ms | 8.55 ms |
+| reactive syntax edit cycle | 10 paragraphs | 130.79 µs | 193.85 µs |
+| reactive syntax edit cycle | 100 paragraphs | 817.63 µs | 1.16 ms |
+| reactive syntax edit cycle | 500 paragraphs | 3.76 ms | 6.14 ms |
+| reactive AST edit cycle | 10 paragraphs | 110.67 µs | 143.62 µs |
+| reactive AST edit cycle | 100 paragraphs | 883.94 µs | 998.46 µs |
+| reactive AST edit cycle | 500 paragraphs | 5.30 ms | 5.10 ms |
+
+The simple paragraph corpus scales approximately linearly through CST, cold AST
+folding, and MarkdownIR lowering. It does not reproduce the much steeper full-
+parse curve of the mixed standard corpus, so the mixed-corpus effect remains
+shape-sensitive rather than attributable to one universal parser stage. The
+isolated fold and reactive syntax/AST rows also show that downstream AST
+publication is not the source of the edit-time size slope.
+
+The deterministic `FoldStats` guard confirms this interpretation: localized
+edits at 10, 100, and 500 paragraphs all reuse nodes, while recomputed and
+unvisited AST work remain within four nodes of the 10-paragraph result. This is
+the blocking regression signal; the wall times remain informational.
+
+### Reproduced incremental bottleneck
+
+A private `TokenBuffer` probe compared the work performed after an accepted
+block splice:
+
+| JavaScript edit + restore cycle | 100 paragraphs | 500 paragraphs |
+|---|---:|---:|
+| construct two replacement token buffers | 786.56 µs | 3.64 ms |
+| update one persistent token buffer twice | 106.81 µs | 446.52 µs |
+| rebuild / update ratio | 7.4x | 8.2x |
+
+The block-reparse fast path rebuilt the full token buffer after it had already
+accepted a localized subtree splice. This isolated probe reproduces a
+meaningful-scale optimization target and justifies a separate implementation
+issue. It does not justify changing parser APIs, caching ASTs, or weakening
+incremental correctness.
+
+### Supported envelope and remaining gaps
+
+- The measured local envelope covers the standard mixed corpus through roughly
+  2,000 lines and the stage-isolation corpus through 500 paragraphs. These are
+  investigation bounds, not a hard product limit.
+- Keep deterministic operation counts as blocking guards. Do not derive a new
+  wall-time threshold from this one machine; retain the A/A-calibrated PR guard
+  and weekly same-runner detector.
+- #732 is inconclusive from this run because these measurements were not made
+  on its GitHub-hosted runner. A same-runner base/head run is still required.
+- Moon Bench did not expose allocation counts for these JS and wasm-gc runs, so
+  memory and allocation behavior remains unmeasured.
+- Existing delimiter-heavy/plain-control benchmarks isolate inline-resolution
+  sensitivity, and #821 owns reference-definition work. This investigation
+  does not duplicate either counter.
+
 ## 2026-07-30 (MarkdownIR checked canonical formatter baseline)
 
 - Issue: [#777](https://github.com/dowdiness/loom/issues/777)
