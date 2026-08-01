@@ -42,6 +42,10 @@ pub fn word_boundaries(text : String) -> Array[Int]
 
 // Terminal display-cell measurement
 pub(all) enum AmbiguousWidth { Narrow; Wide }
+pub(all) suberror DisplayWidthError {
+  InvalidStartColumn(Int)
+  InvalidTabWidth(Int)
+}
 pub fn display_width(
   text : String,
   start_column? : Int = 0,
@@ -54,6 +58,10 @@ pub fn display_units(
   tab_width? : Int = 4,
   ambiguous_width? : AmbiguousWidth = Narrow,
 ) -> Array[DisplayUnit] raise DisplayWidthError
+pub fn DisplayUnit::utf16_start(self : DisplayUnit) -> Int
+pub fn DisplayUnit::utf16_end(self : DisplayUnit) -> Int
+pub fn DisplayUnit::cell_start(self : DisplayUnit) -> Int
+pub fn DisplayUnit::cell_end(self : DisplayUnit) -> Int
 pub let display_width_unicode_version : (Int, Int, Int)
 
 // Property lookups (also public; useful for debugging segmentation)

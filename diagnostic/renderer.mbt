@@ -231,7 +231,8 @@ fn[D : TextDisplay] render_diagnostic_source_line(
   let start = line_range.start
   let end = line_range.end
   let display_line = (line + 1).to_string()
-  let source_column_start = 5 + display_line.length()
+  let gutter_width = 3 + display_line.length()
+  let source_column_start = gutter_width + 2
   let line_start = match
     source.line_index.checked_offset(source.text, { line, column: 0 }) {
     Some(offset) => offset
@@ -261,7 +262,7 @@ fn[D : TextDisplay] render_diagnostic_source_line(
   }
   builder.write_string(rendered_line)
   builder.write_char('\n')
-  builder.write_string(" ".repeat(3 + display_line.length()))
+  builder.write_string(" ".repeat(gutter_width))
   builder.write_string("| ")
   builder.write_string(" ".repeat(marker_cell_start))
   let width = if marker_end > marker_start {
