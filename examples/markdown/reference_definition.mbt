@@ -380,6 +380,31 @@ fn classify_link_reference_definition(
 }
 
 ///|
+/// A malformed angle destination is still a reference-definition-shaped line.
+/// Keep it opaque to inline lowering so the block boundary owns the failed
+/// definition as ordinary paragraph text rather than recovering fragments.
+fn invalid_reference_definition_angle_destination_is_literal(
+  input : String,
+) -> Bool {
+  let label_start = skip_reference_initial_spaces(input)
+  guard label_start <= 3 else { return false }
+  guard consume_reference_label(input, label_start) is Some(after_label) else {
+    return false
+  }
+  guard char_at(input, after_label) is Some(':') else { return false }
+  let destination_start = skip_reference_spaces(input, after_label + 1)
+  guard char_at(input, destination_start) is Some('<') else { return false }
+  guard consume_reference_destination(input, destination_start)
+    is Some(after_destination) else {
+    return false
+  }
+  match char_at(input, after_destination) {
+    Some(' ') | Some('\t') | Some('\r') | Some('\n') | None => false
+    Some(_) => true
+  }
+}
+
+///|
 fn normalize_link_reference_label(label : String) -> String {
   let builder = StringBuilder::StringBuilder()
   let mut has_content = false
@@ -516,6 +541,22 @@ fn current_line_is_link_reference_definition(
 }
 
 ///|
+fn current_line_has_invalid_reference_definition_angle_destination(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  let possible_opener = match ctx.peek() {
+    LeftBracket => true
+    Indentation(_) =>
+      current_token_leading_indent(ctx) <= 3 && ctx.peek_nth(1) is LeftBracket
+    _ => false
+  }
+  possible_opener &&
+  invalid_reference_definition_angle_destination_is_literal(
+    current_reference_definition_source(ctx),
+  )
+}
+
+///|
 fn parse_link_reference_definition(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
@@ -537,6 +578,30 @@ fn parse_link_reference_definition(
     }
     guard consumed == definition.end else {
       abort("reference-definition parser did not reach its classified end")
+    }
+  })
+}
+
+///|
+/// A malformed angle destination remains an ordinary paragraph, but block
+/// ownership emits its tokens literally so inline recovery cannot reinterpret
+/// the candidate.
+fn parse_invalid_reference_definition_angle_destination_paragraph(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  ctx.node(ParagraphNode, fn() {
+    while !(ctx.peek() is Newline) &&
+          !(ctx.peek() is BlankLine) &&
+          ctx.peek() != EOF {
+      ctx.emit_token(TextToken)
+    }
+    let handler : ContinuationHandler[BlockContinuationAction] = {
+      decide: () => decide_root_paragraph_continuation(ctx),
+      consume: action => consume_block_continuation(ctx, action),
+    }
+    parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
+    if ctx.peek() is Newline {
+      ctx.emit_token(NewlineToken)
     }
   })
 }

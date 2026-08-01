@@ -315,6 +315,131 @@ test "reference definition: unescaped nested parenthesized title remains paragra
 }
 
 ///|
+test "reference definition: CommonMark 201 invalid angle destination remains diagnostic-free paragraph" {
+  let source = "[foo]: <bar>(baz)\n\n[foo]\n"
+  let source_id = @core.SourceId("markdown-reference-definition-commonmark-201")
+  let (cst, diagnostics) = parse_cst(source_id, source) catch {
+    _ => abort("CommonMark 201 parse failed")
+  }
+  assert_true(diagnostics.is_empty())
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  debug_inspect(reference_definition_node_texts(source), content="[]")
+  match syntax.children() {
+    [paragraph, ..] => {
+      let kind : SyntaxKind = @seam.FromRawKind::from_raw(paragraph.kind())
+      assert_eq(kind, ParagraphNode)
+      for element in paragraph.all_children() {
+        match element {
+          @seam.SyntaxElement::Token(token) => {
+            let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+              token.kind(),
+            )
+            assert_true(token_kind is TextToken || token_kind is NewlineToken)
+          }
+          _ =>
+            fail("CommonMark 201 literal paragraph must contain direct tokens")
+        }
+      }
+    }
+    _ => fail("CommonMark 201 must begin with a paragraph")
+  }
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    source_id, syntax, diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content="<p>[foo]: &lt;bar&gt;(baz)</p>\n<p>[foo]</p>\n",
+  )
+}
+
+///|
+test "reference definition: escaped angle and punctuation remain inside angle destinations" {
+  let escaped_angle = "[foo]: <bar\\>baz>\n\n[foo]\n"
+  let angle_table = collect_link_reference_definitions(
+    reference_definition_syntax_from_source(escaped_angle),
+  )
+  match angle_table.lookup("foo") {
+    Some(definition) => inspect(definition.destination_value, content="bar>baz")
+    None => fail("escaped closing angle must remain inside the destination")
+  }
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(
+      reference_definition_ir_from_source(escaped_angle),
+    ),
+    content="<p><a href=\"bar%3Ebaz\">foo</a></p>\n",
+  )
+  let escaped_punctuation = "[foo]: <bar\\*baz>\n\n[foo]\n"
+  let punctuation_table = collect_link_reference_definitions(
+    reference_definition_syntax_from_source(escaped_punctuation),
+  )
+  match punctuation_table.lookup("foo") {
+    Some(definition) => inspect(definition.destination_value, content="bar*baz")
+    None => fail("escaped punctuation must remain a valid angle destination")
+  }
+}
+
+///|
+test "reference definition: malformed angle candidate keeps lazy paragraph continuation" {
+  let source = "[foo]: <bar>(baz)\ncontinued\n"
+  let syntax = reference_definition_syntax_from_source(source)
+  debug_inspect(reference_definition_node_texts(source), content="[]")
+  match syntax.children() {
+    [paragraph] => {
+      let kind : SyntaxKind = @seam.FromRawKind::from_raw(paragraph.kind())
+      assert_eq(kind, ParagraphNode)
+      inspect(paragraph.text(), content=source)
+    }
+    _ => fail("malformed candidate continuation must remain one paragraph")
+  }
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(
+      reference_definition_ir_from_source(source),
+    ),
+    content="<p>[foo]: &lt;bar&gt;(baz)\ncontinued</p>\n",
+  )
+}
+
+///|
+test "reference definition: CommonMark 211 indented candidate remains code" {
+  let source = "    [foo]: /url \"title\"\n\n[foo]\n"
+  let source_id = @core.SourceId("markdown-reference-definition-commonmark-211")
+  let (cst, diagnostics) = parse_cst(source_id, source) catch {
+    _ => abort("CommonMark 211 parse failed")
+  }
+  assert_true(diagnostics.is_empty())
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(
+      experimental_markdown_ir_from_syntax_with_diagnostics(
+        source_id,
+        @seam.SyntaxNode::from_cst(cst),
+        diagnostics,
+      ),
+    ),
+    content="<pre><code>[foo]: /url &quot;title&quot;\n</code></pre>\n<p>[foo]</p>\n",
+  )
+}
+
+///|
+test "reference definition: CommonMark 195 multiline title remains semantic" {
+  let source = "[Foo bar]:\n<my url>\n'title'\n\n[Foo bar]\n"
+  let source_id = @core.SourceId("markdown-reference-definition-commonmark-195")
+  let (cst, diagnostics) = parse_cst(source_id, source) catch {
+    _ => abort("CommonMark 195 parse failed")
+  }
+  assert_true(diagnostics.is_empty())
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(
+      experimental_markdown_ir_from_syntax_with_diagnostics(
+        source_id,
+        @seam.SyntaxNode::from_cst(cst),
+        diagnostics,
+      ),
+    ),
+    content="<p><a href=\"my%20url\" title=\"title\">Foo bar</a></p>\n",
+  )
+}
+
+///|
 test "reference definition: cannot interrupt a paragraph" {
   let source = "Foo\n[bar]: /baz\n\n[bar]\n"
   debug_inspect(reference_definition_node_texts(source), content="[]")

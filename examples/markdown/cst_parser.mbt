@@ -171,6 +171,10 @@ fn execute_root_block_start(
 ///|
 /// Parse a single block. Dispatches based on the current token.
 fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+  if current_line_has_invalid_reference_definition_angle_destination(ctx) {
+    parse_invalid_reference_definition_angle_destination_paragraph(ctx)
+    return
+  }
   let transition = decide_block_container(
     root_block_container_state(ParagraphMode, false),
     observe_root_block_start(ctx),
