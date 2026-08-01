@@ -52,6 +52,23 @@ priv enum AutolinkKind {
 } derive(Eq, Debug)
 
 ///|
+priv enum LinkReferenceForm {
+  InlineLinkForm
+  FullReferenceLinkForm
+  CollapsedReferenceLinkForm
+  ShortcutReferenceLinkForm
+} derive(Eq, Debug)
+
+///|
+priv struct LinkSurface {
+  form : LinkReferenceForm
+  label_origin : MarkdownIROrigin?
+  reference_label_origin : MarkdownIROrigin?
+  destination_origin : MarkdownIROrigin?
+  title_origin : MarkdownIROrigin?
+} derive(Eq, Debug)
+
+///|
 fn hard_break_surface_text(surface : HardBreakSurface) -> String {
   match surface {
     TrailingSpaces(count) => " ".repeat(count) + "\n"
@@ -81,7 +98,8 @@ priv enum MarkdownIRNode {
   Bold(Array[MarkdownIR], MarkdownIROrigin?)
   Italic(Array[MarkdownIR], MarkdownIROrigin?)
   InlineCode(String, MarkdownIROrigin?)
-  Link(Array[MarkdownIR], String, MarkdownIROrigin?, MarkdownIROrigin?)
+  Link(Array[MarkdownIR], String, String?, LinkSurface)
+  Image(Array[MarkdownIR], String, String?, LinkSurface)
   Autolink(AutolinkKind, String, String, MarkdownIROrigin?, MarkdownIROrigin?)
   InlineHtml(String, MarkdownIROrigin?)
   SoftBreak(MarkdownIROrigin?)
@@ -239,6 +257,7 @@ fn MarkdownIR::inline_code(
 }
 
 ///|
+#warnings("-unused_value")
 fn MarkdownIR::link(
   children : Array[MarkdownIR],
   destination : String,
@@ -246,9 +265,52 @@ fn MarkdownIR::link(
   label_origin : MarkdownIROrigin?,
   destination_origin : MarkdownIROrigin?,
 ) -> MarkdownIR {
-  {
-    node: Link(children, destination, label_origin, destination_origin),
+  MarkdownIR::link_with_metadata(
+    children,
+    destination,
+    None,
+    InlineLinkForm,
     origin,
+    label_origin,
+    None,
+    destination_origin,
+    None,
+  )
+}
+
+///|
+fn MarkdownIR::link_with_metadata(
+  children : Array[MarkdownIR],
+  destination : String,
+  title : String?,
+  form : LinkReferenceForm,
+  origin : MarkdownIROrigin,
+  label_origin : MarkdownIROrigin?,
+  reference_label_origin : MarkdownIROrigin?,
+  destination_origin : MarkdownIROrigin?,
+  title_origin : MarkdownIROrigin?,
+) -> MarkdownIR {
+  {
+    node: Link(children, destination, title, {
+      form,
+      label_origin,
+      reference_label_origin,
+      destination_origin,
+      title_origin,
+    }),
+    origin,
+  }
+}
+
+///|
+fn MarkdownIR::image_from_link(
+  link : MarkdownIR,
+  origin : MarkdownIROrigin,
+) -> MarkdownIR {
+  match link.node {
+    Link(children, destination, title, surface) =>
+      { node: Image(children, destination, title, surface), origin }
+    _ => abort("MarkdownIR::image_from_link requires a Link node")
   }
 }
 
@@ -367,6 +429,7 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     Italic(_, _) => "Italic"
     InlineCode(_, _) => "InlineCode"
     Link(_, _, _, _) => "Link"
+    Image(_, _, _, _) => "Image"
     Autolink(_, _, _, _, _) => "Autolink"
     InlineHtml(_, _) => "InlineHtml"
     SoftBreak(_) => "SoftBreak"
@@ -390,7 +453,8 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
     | OrderedListItem(children, _, _, _)
     | Bold(children, _)
     | Italic(children, _)
-    | Link(children, _, _, _) => children.copy()
+    | Link(children, _, _, _)
+    | Image(children, _, _, _) => children.copy()
     CodeBlock(_, _, _)
     | HtmlBlock(_, _)
     | ThematicBreak
@@ -466,7 +530,8 @@ pub fn MarkdownIR::list_marker(self : MarkdownIR) -> UnorderedListMarker? {
 ///|
 pub fn MarkdownIR::label_origin(self : MarkdownIR) -> MarkdownIROrigin? {
   match self.node {
-    Link(_, _, origin, _) | Autolink(_, _, _, origin, _) => origin
+    Link(_, _, _, surface) | Image(_, _, _, surface) => surface.label_origin
+    Autolink(_, _, _, origin, _) => origin
     _ => None
   }
 }
@@ -474,9 +539,53 @@ pub fn MarkdownIR::label_origin(self : MarkdownIR) -> MarkdownIROrigin? {
 ///|
 pub fn MarkdownIR::destination_origin(self : MarkdownIR) -> MarkdownIROrigin? {
   match self.node {
-    Link(_, _, _, origin) | Autolink(_, _, _, _, origin) => origin
+    Link(_, _, _, surface) | Image(_, _, _, surface) =>
+      surface.destination_origin
+    Autolink(_, _, _, _, origin) => origin
     _ => None
   }
+}
+
+///|
+fn markdown_ir_plain_text(children : Array[MarkdownIR]) -> String {
+  let builder = StringBuilder::StringBuilder()
+  fn append(node : MarkdownIR) -> Unit {
+    match node.node {
+      Text(value)
+      | InlineCode(value, _)
+      | InlineHtml(value, _)
+      | Raw(value, _) => builder.write_string(value)
+      Autolink(_, display, _, _, _) => builder.write_string(display)
+      SoftBreak(_) | HardBreak(_, _) => builder.write_char('\n')
+      Bold(children, _)
+      | Italic(children, _)
+      | Link(children, _, _, _)
+      | Image(children, _, _, _) =>
+        for child in children {
+          append(child)
+        }
+      Recovered(message, _) | Unsupported(message) =>
+        builder.write_string(message)
+      Document(children)
+      | Heading(_, children, _)
+      | Paragraph(children, _)
+      | BlockQuote(children)
+      | UnorderedList(children, _, _)
+      | OrderedList(children, _, _)
+      | ListItem(children, _, _, _)
+      | OrderedListItem(children, _, _, _) =>
+        for child in children {
+          append(child)
+        }
+      CodeBlock(_, value, _) | HtmlBlock(value, _) =>
+        builder.write_string(value)
+      ThematicBreak => ()
+    }
+  }
+  for child in children {
+    append(child)
+  }
+  builder.to_string()
 }
 
 ///|

@@ -170,6 +170,41 @@ test "MarkdownIR identity leaves: preserve parsed semantic anchor order" {
 }
 
 ///|
+test "MarkdownIR identity leaves: reference targets do not duplicate definition anchors" {
+  let source_id = @core.SourceId("markdown-identity-reference-definition")
+  let source = "[a][ref] [b][ref]\n\n[ref]: /url \"t\"\n"
+  inspect(
+    @debug.to_string(parsed_markdown_identity_leaves(source_id, source)),
+    content=@debug.to_string([
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=0, end=17),
+        MarkdownSemanticKey::Paragraph,
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=1, end=2),
+        MarkdownSemanticKey::LinkLabel,
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=1, end=2),
+        MarkdownSemanticKey::Text,
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=8, end=9),
+        MarkdownSemanticKey::Text,
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=10, end=11),
+        MarkdownSemanticKey::LinkLabel,
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=10, end=11),
+        MarkdownSemanticKey::Text,
+      ),
+    ]),
+  )
+}
+
+///|
 test "MarkdownIR identity leaves: anchor parsed paragraph and list item payloads" {
   let source_id = @core.SourceId("markdown-identity-paragraph-list-payloads")
   inspect(

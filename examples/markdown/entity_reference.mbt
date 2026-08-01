@@ -245,7 +245,8 @@ fn decode_markdown_ir_text_entities(
     | OrderedListItem(children, _, _, _)
     | Bold(children, _)
     | Italic(children, _)
-    | Link(children, _, _, _) => {
+    | Link(children, _, _, _)
+    | Image(children, _, _, _) => {
       decode_markdown_ir_entity_children(children, source)
       ir
     }

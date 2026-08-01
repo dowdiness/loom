@@ -468,10 +468,16 @@ fn lower_inline_children_skip_with_diags(
       }
     }
   }
-  normalize_escaped_inline_recoveries(
-    children,
+  resolve_inline_images(
+    resolve_shortcut_references(
+      normalize_escaped_inline_recoveries(
+        children,
+        context.source,
+        context.diagnostics_in_origin,
+      ),
+      context,
+    ),
     context.source,
-    context.diagnostics_in_origin,
   )
 }
 
@@ -812,6 +818,10 @@ fn lower_link_node_with_diags(
   let mut label_end : Int? = None
   let mut url_depth = 0
   let mut past_bracket = false
+  let mut target_start : Int? = None
+  let mut target_end : Int? = None
+  let mut reference_label_start : Int? = None
+  let mut reference_label_end : Int? = None
   let mut preceding_text_ends_escaped = false
   let mut previous_was_escaped_backtick = false
   let mut previous_was_literal_emphasis_marker = false
@@ -824,12 +834,21 @@ fn lower_link_node_with_diags(
             label_start = Some(origin_from_token(token).end())
             previous_was_literal_emphasis_marker = false
           }
-          RightBracketToken if url_depth == 0 => {
+          RightBracketToken if !past_bracket && url_depth == 0 => {
             label_end = Some(origin_from_token(token).start())
             past_bracket = true
             previous_was_literal_emphasis_marker = false
           }
-          LeftParenToken if past_bracket && url_depth == 0 => url_depth = 1
+          LeftBracketToken if past_bracket && url_depth == 0 =>
+            reference_label_start = Some(origin_from_token(token).end())
+          RightBracketToken if past_bracket &&
+            url_depth == 0 &&
+            reference_label_start is Some(_) =>
+            reference_label_end = Some(origin_from_token(token).start())
+          LeftParenToken if past_bracket && url_depth == 0 => {
+            url_depth = 1
+            target_start = Some(origin_from_token(token).end())
+          }
           LeftParenToken if past_bracket => {
             url_depth = url_depth + 1
             destination_buf.write_string(token.text())
@@ -840,7 +859,10 @@ fn lower_link_node_with_diags(
             destination_buf.write_string(token.text())
             destination_origins.push(origin_from_token(token))
           }
-          RightParenToken if url_depth == 1 => url_depth = 0
+          RightParenToken if url_depth == 1 => {
+            url_depth = 0
+            target_end = Some(origin_from_token(token).start())
+          }
           _ if url_depth > 0 => {
             destination_buf.write_string(token.text())
             destination_origins.push(origin_from_token(token))
@@ -917,13 +939,107 @@ fn lower_link_node_with_diags(
       contiguous_label_origin(normalized_display, start, end)
     _ => None
   }
-  MarkdownIR::link(
-    normalized_display,
-    destination_buf.to_string(),
-    origin_from_node(node),
-    label_origin,
-    span_token_origins(destination_origins),
-  )
+  match (target_start, target_end) {
+    (Some(start), Some(end)) if start <= end =>
+      match parse_inline_link_target(context.source[start:end].to_owned()) {
+        Some(target) =>
+          MarkdownIR::link_with_metadata(
+            normalized_display,
+            target.destination,
+            target.title,
+            InlineLinkForm,
+            origin_from_node(node),
+            label_origin,
+            None,
+            Some(
+              MarkdownIROrigin(
+                start=start + target.destination_start,
+                end=start + target.destination_end,
+              ),
+            ),
+            match (target.title_start, target.title_end) {
+              (Some(title_start), Some(title_end)) =>
+                Some(
+                  MarkdownIROrigin(
+                    start=start + title_start,
+                    end=start + title_end,
+                  ),
+                )
+              _ => None
+            },
+          )
+        None =>
+          MarkdownIR::text(
+            strip_backslash_escapes(node.text()),
+            origin_from_node(node),
+          )
+      }
+    _ => {
+      let resolved_reference = match
+        (label_start, label_end, reference_label_start, reference_label_end) {
+        (
+          Some(label_start),
+          Some(label_end),
+          Some(reference_start),
+          Some(reference_end),
+        ) if label_start <= label_end && reference_start <= reference_end => {
+          let collapsed = reference_start == reference_end
+          let lookup_start = if collapsed {
+            label_start
+          } else {
+            reference_start
+          }
+          let lookup_end = if collapsed { label_end } else { reference_end }
+          context.reference_definitions
+          .lookup(
+            normalize_link_reference_label(
+              context.source[lookup_start:lookup_end].to_owned(),
+            ),
+          )
+          .map(definition => {
+            (
+              definition,
+              if collapsed {
+                CollapsedReferenceLinkForm
+              } else {
+                FullReferenceLinkForm
+              },
+              Some(MarkdownIROrigin(start=reference_start, end=reference_end)),
+            )
+          })
+        }
+        (Some(label_start), Some(label_end), None, None) if label_start <=
+          label_end =>
+          context.reference_definitions
+          .lookup(
+            normalize_link_reference_label(
+              context.source[label_start:label_end].to_owned(),
+            ),
+          )
+          .map(definition => (definition, ShortcutReferenceLinkForm, None))
+        _ => None
+      }
+      match resolved_reference {
+        Some((definition, form, reference_label_origin)) =>
+          MarkdownIR::link_with_metadata(
+            normalized_display,
+            definition.destination_value,
+            definition.title_value,
+            form,
+            origin_from_node(node),
+            label_origin,
+            reference_label_origin,
+            Some(definition.destination_value_origin),
+            definition.title_value_origin,
+          )
+        None =>
+          MarkdownIR::text(
+            strip_backslash_escapes(node.text()),
+            origin_from_node(node),
+          )
+      }
+    }
+  }
 }
 
 ///|

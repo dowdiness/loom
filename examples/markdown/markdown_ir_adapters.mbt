@@ -7,6 +7,8 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
     InlineCode(value, _) => Inline::InlineCode(value)
     Link(children, destination, _, _) =>
       Inline::Link(ir_children_to_inlines(children), destination)
+    Image(children, destination, _, _) =>
+      Inline::Link(ir_children_to_inlines(children), destination)
     Autolink(_, display, destination, _, _) =>
       Inline::Link([Inline::Text(display)], destination)
     InlineHtml(value, _) => Inline::Text(value)
@@ -39,6 +41,8 @@ fn experimental_markdown_ir_to_editor_inline(ir : MarkdownIR) -> Inline {
     Italic(children, _) =>
       Inline::Italic(ir_children_to_editor_inlines(children, None))
     Link(children, destination, _, _) =>
+      Inline::Link(ir_children_to_editor_inlines(children, None), destination)
+    Image(children, destination, _, _) =>
       Inline::Link(ir_children_to_editor_inlines(children, None), destination)
     _ => experimental_markdown_ir_to_inline(ir)
   }
@@ -128,6 +132,7 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
     InlineCode(_, _) =>
       Block::Error("expected block MarkdownIR, got inline code")
     Link(_, _, _, _) => Block::Error("expected block MarkdownIR, got link")
+    Image(_, _, _, _) => Block::Error("expected block MarkdownIR, got image")
     Autolink(_, _, _, _, _) =>
       Block::Error("expected block MarkdownIR, got autolink")
     InlineHtml(_, _) =>
@@ -390,11 +395,37 @@ fn markdown_ir_to_mdast_json(
     Italic(children, _) =>
       { "type": "emphasis", "children": mdast_children_json(children, context) }
     InlineCode(value, _) => { "type": "inlineCode", "value": value }
-    Link(children, destination, _, _) =>
-      {
-        "type": "link",
-        "url": destination,
-        "children": mdast_children_json(children, context),
+    Link(children, destination, title, _) =>
+      match title {
+        Some(title) =>
+          {
+            "type": "link",
+            "url": destination,
+            "title": title,
+            "children": mdast_children_json(children, context),
+          }
+        None =>
+          {
+            "type": "link",
+            "url": destination,
+            "children": mdast_children_json(children, context),
+          }
+      }
+    Image(children, destination, title, _) =>
+      match title {
+        Some(title) =>
+          {
+            "type": "image",
+            "url": destination,
+            "title": title,
+            "alt": markdown_ir_plain_text(children),
+          }
+        None =>
+          {
+            "type": "image",
+            "url": destination,
+            "alt": markdown_ir_plain_text(children),
+          }
       }
     Autolink(_, display, destination, display_origin, _) =>
       {

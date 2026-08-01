@@ -98,6 +98,15 @@ priv struct InlineLinkDelimiterIndex {
   label_closers_by_open : Map[Int, Int]
   label_closes : Map[Int, Bool]
   destination_ends : Map[Int, Int]
+  reference_ends : Map[Int, Int]
+  kinds_by_open : Map[Int, InlineLinkCandidateKind]
+}
+
+///|
+priv enum InlineLinkCandidateKind {
+  InlineLinkCandidate
+  FullReferenceLinkCandidate
+  CollapsedReferenceLinkCandidate
 }
 
 ///|
@@ -209,11 +218,7 @@ fn index_inline_links(
     }
     index = index + 1
   }
-  let links : InlineLinkDelimiterIndex = {
-    label_closers_by_open: Map([]),
-    label_closes: Map([]),
-    destination_ends: Map([]),
-  }
+  let bracket_matches : Map[Int, Int] = Map([])
   let bracket_stack : Array[Int] = []
   index = 0
   while index < tokens.length() {
@@ -221,25 +226,68 @@ fn index_inline_links(
       Some(closer) => index = closer + 1
       None => {
         match tokens[index].kind {
+          AnalysisLineBoundary => ()
           AnalysisLeftBracket => bracket_stack.push(index)
           AnalysisRightBracket =>
             match bracket_stack.pop() {
-              Some(opener) => {
-                let destination_start = index + 1
-                if destination_start < tokens.length() &&
-                  tokens[destination_start].kind == AnalysisLeftParen &&
-                  paren_matches.get(destination_start) is Some(destination_end) {
-                  links.label_closers_by_open[tokens[opener].start] = tokens[index].start
-                  links.label_closes[tokens[index].start] = true
-                  links.destination_ends[tokens[destination_start].start] = tokens[destination_end].end
-                  index = destination_end
-                }
-              }
+              Some(opener) => bracket_matches[opener] = index
               None => ()
             }
           _ => ()
         }
         index = index + 1
+      }
+    }
+  }
+  let links : InlineLinkDelimiterIndex = {
+    label_closers_by_open: Map([]),
+    label_closes: Map([]),
+    destination_ends: Map([]),
+    reference_ends: Map([]),
+    kinds_by_open: Map([]),
+  }
+  index = 0
+  while index < tokens.length() {
+    match analysis_code_closer_index(tokens, index, code_delimiters) {
+      Some(closer) => index = closer + 1
+      None => {
+        match tokens[index].kind {
+          AnalysisLeftBracket =>
+            match bracket_matches.get(index) {
+              Some(label_closer) => {
+                let after_label = label_closer + 1
+                if after_label < tokens.length() &&
+                  tokens[after_label].kind == AnalysisLeftParen &&
+                  paren_matches.get(after_label) is Some(destination_end) {
+                  links.label_closers_by_open[tokens[index].start] = tokens[label_closer].start
+                  links.label_closes[tokens[label_closer].start] = true
+                  links.kinds_by_open[tokens[index].start] = InlineLinkCandidate
+                  links.destination_ends[tokens[after_label].start] = tokens[destination_end].end
+                  index = destination_end + 1
+                } else if after_label < tokens.length() &&
+                  tokens[after_label].kind == AnalysisLeftBracket &&
+                  bracket_matches.get(after_label) is Some(reference_closer) {
+                  links.label_closers_by_open[tokens[index].start] = tokens[label_closer].start
+                  links.label_closes[tokens[label_closer].start] = true
+                  links.kinds_by_open[tokens[index].start] = if reference_closer ==
+                    after_label + 1 {
+                    CollapsedReferenceLinkCandidate
+                  } else {
+                    FullReferenceLinkCandidate
+                  }
+                  links.reference_ends[tokens[after_label].start] = tokens[reference_closer].end
+                  index = reference_closer + 1
+                } else {
+                  index = label_closer + 1
+                }
+              }
+              None => index = index + 1
+            }
+          _ => ()
+        }
+        if index < tokens.length() && tokens[index].kind != AnalysisLeftBracket {
+          index = index + 1
+        }
       }
     }
   }
@@ -278,73 +326,96 @@ fn build_inline_delimiter_plan(
         index = closer + 1
       }
       None =>
-        match links.destination_ends.get(tokens[index].start) {
-          Some(destination_end) => {
+        match links.reference_ends.get(tokens[index].start) {
+          Some(reference_end) => {
             let start = tokens[index].start
-            while index < tokens.length() && tokens[index].end < destination_end {
+            while index < tokens.length() && tokens[index].end < reference_end {
               index = index + 1
             }
-            guard index < tokens.length() &&
-              tokens[index].end == destination_end else {
-              abort(
-                "link destination index points outside its inline container",
-              )
+            guard index < tokens.length() && tokens[index].end == reference_end else {
+              abort("link reference index points outside its inline container")
             }
             events.push(
-              OpaqueInlineEvent(DelimiterSourceRange(start, destination_end)),
+              OpaqueInlineEvent(DelimiterSourceRange(start, reference_end)),
             )
-            previous_char = Some(')')
+            previous_char = Some(']')
             index = index + 1
           }
-          None => {
-            if links.label_closers_by_open.get(tokens[index].start) is Some(_) {
-              events.push(PushLinkLabelScope)
-            }
-            match analysis_delimiter_marker(tokens[index].kind) {
-              Some(marker) => {
+          None =>
+            match links.destination_ends.get(tokens[index].start) {
+              Some(destination_end) => {
                 let start = tokens[index].start
-                let mut end = tokens[index].end
-                let mut next = index + 1
-                while next < tokens.length() &&
-                      analysis_delimiter_marker(tokens[next].kind) ==
-                      Some(marker) &&
-                      tokens[next].start == end {
-                  end = tokens[next].end
-                  next = next + 1
+                while index < tokens.length() &&
+                      tokens[index].end < destination_end {
+                  index = index + 1
                 }
-                let after = if next < tokens.length() {
-                  tokens[next].first
-                } else {
-                  None
+                guard index < tokens.length() &&
+                  tokens[index].end == destination_end else {
+                  abort(
+                    "link destination index points outside its inline container",
+                  )
                 }
                 events.push(
-                  DelimiterRunEvent(
-                    delimiter_run_fact(
-                      marker,
-                      start,
-                      end - start,
-                      delimiter_neighbor_from_char(previous_char),
-                      delimiter_neighbor_from_char(after),
-                      escaped=false,
-                    ),
+                  OpaqueInlineEvent(
+                    DelimiterSourceRange(start, destination_end),
                   ),
                 )
-                previous_char = if marker is AsteriskDelimiter {
-                  Some('*')
-                } else {
-                  Some('_')
-                }
-                index = next
-              }
-              None => {
-                previous_char = tokens[index].last
-                if links.label_closes.get(tokens[index].start).unwrap_or(false) {
-                  events.push(ResolveLinkLabelScope)
-                }
+                previous_char = Some(')')
                 index = index + 1
               }
+              None => {
+                if links.label_closers_by_open.get(tokens[index].start)
+                  is Some(_) {
+                  events.push(PushLinkLabelScope)
+                }
+                match analysis_delimiter_marker(tokens[index].kind) {
+                  Some(marker) => {
+                    let start = tokens[index].start
+                    let mut end = tokens[index].end
+                    let mut next = index + 1
+                    while next < tokens.length() &&
+                          analysis_delimiter_marker(tokens[next].kind) ==
+                          Some(marker) &&
+                          tokens[next].start == end {
+                      end = tokens[next].end
+                      next = next + 1
+                    }
+                    let after = if next < tokens.length() {
+                      tokens[next].first
+                    } else {
+                      None
+                    }
+                    events.push(
+                      DelimiterRunEvent(
+                        delimiter_run_fact(
+                          marker,
+                          start,
+                          end - start,
+                          delimiter_neighbor_from_char(previous_char),
+                          delimiter_neighbor_from_char(after),
+                          escaped=false,
+                        ),
+                      ),
+                    )
+                    previous_char = if marker is AsteriskDelimiter {
+                      Some('*')
+                    } else {
+                      Some('_')
+                    }
+                    index = next
+                  }
+                  None => {
+                    previous_char = tokens[index].last
+                    if links.label_closes
+                      .get(tokens[index].start)
+                      .unwrap_or(false) {
+                      events.push(ResolveLinkLabelScope)
+                    }
+                    index = index + 1
+                  }
+                }
+              }
             }
-          }
         }
     }
   }
@@ -695,9 +766,13 @@ fn parse_link(
   delimiter_cursor : InlineDelimiterPlanCursor,
   continue_line : () -> Bool,
 ) -> Unit {
-  guard links.label_closers_by_open.get(ctx.current_token_range().start)
+  let opener_start = ctx.current_token_range().start
+  guard links.label_closers_by_open.get(opener_start)
     is Some(label_closer_start) else {
     abort("parse_link requires a pre-indexed confirmed link")
+  }
+  guard links.kinds_by_open.get(opener_start) is Some(candidate_kind) else {
+    abort("parse_link requires a pre-indexed candidate kind")
   }
   ctx.start_node(LinkNode)
   ctx.emit_token(LeftBracketToken) // [
@@ -733,36 +808,72 @@ fn parse_link(
     abort("pre-indexed link label did not reach its closing bracket")
   }
   ctx.emit_token(RightBracketToken) // ]
-  // Expect (url)
-  if !(ctx.peek() is LeftParen) {
-    abort("pre-indexed link label did not reach its destination")
-  }
-  guard links.destination_ends.get(ctx.current_token_range().start)
-    is Some(destination_end) else {
-    abort("parse_link requires a pre-indexed destination end")
-  }
-  ctx.emit_token(LeftParenToken) // (
-  // The analysis pass is the single owner of destination balancing. Consume
-  // raw destination tokens up to its exact outer closer rather than resolving
-  // parentheses a second time in the imperative emission pass.
-  while !is_inline_end(ctx.peek()) &&
-        ctx.current_token_range().end < destination_end {
-    match ctx.peek() {
-      LeftParen => ctx.emit_token(LeftParenToken)
-      RightParen => ctx.emit_token(RightParenToken)
-      Text(_) => ctx.emit_token(TextToken)
-      Star | StarStar | Underscore => ctx.emit_token(TextToken)
-      Backtick => ctx.emit_token(BacktickToken)
-      LeftBracket => ctx.emit_token(LeftBracketToken)
-      RightBracket => ctx.emit_token(RightBracketToken)
-      _ => ctx.bump_error()
+  match candidate_kind {
+    InlineLinkCandidate => {
+      if !(ctx.peek() is LeftParen) {
+        abort("pre-indexed link label did not reach its destination")
+      }
+      guard links.destination_ends.get(ctx.current_token_range().start)
+        is Some(destination_end) else {
+        abort("parse_link requires a pre-indexed destination end")
+      }
+      ctx.emit_token(LeftParenToken) // (
+      // The analysis pass is the single owner of destination balancing. Consume
+      // raw destination tokens up to its exact outer closer rather than resolving
+      // parentheses a second time in the imperative emission pass.
+      while !is_inline_end(ctx.peek()) &&
+            ctx.current_token_range().end < destination_end {
+        match ctx.peek() {
+          LeftParen => ctx.emit_token(LeftParenToken)
+          RightParen => ctx.emit_token(RightParenToken)
+          Text(_) => ctx.emit_token(TextToken)
+          Star | StarStar | Underscore => ctx.emit_token(TextToken)
+          Backtick => ctx.emit_token(BacktickToken)
+          LeftBracket => ctx.emit_token(LeftBracketToken)
+          RightBracket => ctx.emit_token(RightBracketToken)
+          _ => ctx.bump_error()
+        }
+      }
+      guard !is_inline_end(ctx.peek()) &&
+        ctx.current_token_range().end == destination_end &&
+        ctx.peek() is RightParen else {
+        abort(
+          "pre-indexed link destination did not reach its closing parenthesis",
+        )
+      }
+      ctx.emit_token(RightParenToken)
+    }
+    FullReferenceLinkCandidate | CollapsedReferenceLinkCandidate => {
+      guard ctx.peek() is LeftBracket else {
+        abort("pre-indexed reference link did not reach its reference label")
+      }
+      guard links.reference_ends.get(ctx.current_token_range().start)
+        is Some(reference_end) else {
+        abort("parse_link requires a pre-indexed reference end")
+      }
+      ctx.emit_token(LeftBracketToken)
+      while !token_is_inline_block_boundary(ctx.peek(), policy) &&
+            ctx.current_token_range().end < reference_end {
+        if ctx.peek() is Newline {
+          guard continue_line() else {
+            abort("indexed reference label crossed its container boundary")
+          }
+        } else {
+          match ctx.peek() {
+            LeftBracket => ctx.emit_token(LeftBracketToken)
+            RightBracket => ctx.emit_token(RightBracketToken)
+            Backtick => ctx.emit_token(BacktickToken)
+            _ => ctx.emit_token(TextToken)
+          }
+        }
+      }
+      guard !token_is_inline_block_boundary(ctx.peek(), policy) &&
+        ctx.current_token_range().end == reference_end &&
+        ctx.peek() is RightBracket else {
+        abort("pre-indexed reference label did not reach its closing bracket")
+      }
+      ctx.emit_token(RightBracketToken)
     }
   }
-  guard !is_inline_end(ctx.peek()) &&
-    ctx.current_token_range().end == destination_end &&
-    ctx.peek() is RightParen else {
-    abort("pre-indexed link destination did not reach its closing parenthesis")
-  }
-  ctx.emit_token(RightParenToken)
   ctx.finish_node()
 }

@@ -373,11 +373,17 @@ fn local_transform_render(
       } else {
         inline_code_markdown(value)
       }
-    Link(children, destination, _, destination_origin) => {
-      let rendered_destination = if destination_origin == Some(target_origin) {
+    Link(children, destination, title, surface) => {
+      let rendered_destination = if surface.destination_origin ==
+        Some(target_origin) {
         replacement_text
       } else {
         destination
+      }
+      let rendered_title = if surface.title_origin == Some(target_origin) {
+        Some(replacement_text)
+      } else {
+        title
       }
       "[" +
       local_transform_inline_text(
@@ -385,6 +391,28 @@ fn local_transform_render(
       ) +
       "](" +
       rendered_destination +
+      markdown_link_title_suffix(rendered_title) +
+      ")"
+    }
+    Image(children, destination, title, surface) => {
+      let rendered_destination = if surface.destination_origin ==
+        Some(target_origin) {
+        replacement_text
+      } else {
+        destination
+      }
+      let rendered_title = if surface.title_origin == Some(target_origin) {
+        Some(replacement_text)
+      } else {
+        title
+      }
+      "![" +
+      local_transform_inline_text(
+        children, source, target_origin, replacement_text,
+      ) +
+      "](" +
+      rendered_destination +
+      markdown_link_title_suffix(rendered_title) +
       ")"
     }
     Autolink(_, display, destination, display_origin, destination_origin) => {

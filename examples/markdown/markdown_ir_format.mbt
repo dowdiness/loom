@@ -44,6 +44,25 @@ fn canonical_inline_text(children : Array[MarkdownIR]) -> String {
 }
 
 ///|
+fn markdown_link_title_suffix(title : String?) -> String {
+  match title {
+    Some(title) => {
+      let buf = StringBuilder::StringBuilder()
+      buf.write_string(" \"")
+      for ch in title {
+        if ch == '\\' || ch == '"' {
+          buf.write_char('\\')
+        }
+        buf.write_char(ch)
+      }
+      buf.write_char('"')
+      buf.to_string()
+    }
+    None => ""
+  }
+}
+
+///|
 fn indent_canonical_block(text : String, indent : String) -> String {
   text.split("\n").map(line => indent + line.to_owned()).join("\n")
 }
@@ -193,8 +212,20 @@ fn canonical_format_with_list_marker(
     Bold(children, _) => "**" + canonical_inline_text(children) + "**"
     Italic(children, _) => "*" + canonical_inline_text(children) + "*"
     InlineCode(value, _) => inline_code_markdown(value)
-    Link(children, destination, _, _) =>
-      "[" + canonical_inline_text(children) + "](" + destination + ")"
+    Link(children, destination, title, _) =>
+      "[" +
+      canonical_inline_text(children) +
+      "](" +
+      destination +
+      markdown_link_title_suffix(title) +
+      ")"
+    Image(children, destination, title, _) =>
+      "![" +
+      canonical_inline_text(children) +
+      "](" +
+      destination +
+      markdown_link_title_suffix(title) +
+      ")"
     Autolink(_, display, _, _, _) => "<" + display + ">"
     InlineHtml(value, _) => value
     Unsupported(message) => "<!-- unsupported MarkdownIR: " + message + " -->"
