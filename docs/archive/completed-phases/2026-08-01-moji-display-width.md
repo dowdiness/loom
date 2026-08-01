@@ -91,6 +91,9 @@ filesystem, locale, environment-variable, or renderer access.
 
 ## Follow-up integration
 
-`dowdiness/diagnostic` plain rendering consumes this API for Unicode marker
-alignment. It expands tabs to deterministic four-column stops while retaining
-UTF-16 coordinates in diagnostic headers and structured values.
+`dowdiness/diagnostic_moji` consumes this API through the core-only
+`dowdiness/diagnostic` display capability. The adapter provides Unicode marker
+alignment and deterministic four-column tab expansion while retaining UTF-16
+coordinates in diagnostic headers and structured values. The base diagnostic
+module keeps its MoonBit-core-only production boundary and code-unit-compatible
+default renderer.

@@ -84,11 +84,16 @@ Notable user-facing changes to Loom and its sibling modules.
 - **`dowdiness/diagnostic`:** new parser-independent module for validated UTF-16
   offsets/ranges, structured diagnostics, source-qualified labels, line
   indexing, deterministic plain rendering, and atomic single-source fixes. The
-  open `SourceResolver` and `ToDiagnostic` traits support external source stores
-  and application-defined errors without a Loom dependency. Loom's `LexError`
-  is the first production `ToDiagnostic` implementation. Plain source rendering
-  now uses `dowdiness/moji` display cells for Unicode marker alignment and
-  deterministic four-column tab expansion.
+  open `SourceResolver`, `TextDisplay`, and `ToDiagnostic` traits support
+  external source stores, presentation policy, and application-defined errors
+  without a Loom dependency. Loom's `LexError` is the first production
+  `ToDiagnostic` implementation. The default plain renderer remains
+  code-unit-compatible and the production module remains MoonBit-core-only.
+
+- **`dowdiness/diagnostic_moji`:** new opt-in adapter that renders structured
+  diagnostics with `dowdiness/moji` display cells for Unicode marker alignment,
+  deterministic four-column tab expansion, combined display units, and visible
+  markers for non-empty zero-width spans.
 
 - **`dowdiness/moji`:** added grapheme-aware terminal display measurement.
   `display_width` and `display_units` combine moji's UTF-16 grapheme boundaries

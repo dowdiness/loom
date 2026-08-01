@@ -29,6 +29,7 @@ Going deeper:
 Framework-level:
 
 - [../diagnostic/README.mbt.md](../diagnostic/README.mbt.md) — parser-independent structured diagnostics, source resolution, rendering, and fixes
+- [../diagnostic-moji/README.mbt.md](../diagnostic-moji/README.mbt.md) — opt-in grapheme-aware display-cell rendering for structured diagnostics
 - [api/choosing-a-parser.md](api/choosing-a-parser.md) — when to reach for `ImperativeParser` directly instead of the unified `Parser[Ast]`
 - [api/api-contract.md](api/api-contract.md) — `Parser[Ast]` API contract and stability guarantees
 - [api/imperative-api-contract.md](api/imperative-api-contract.md) — `ImperativeParser` API contract

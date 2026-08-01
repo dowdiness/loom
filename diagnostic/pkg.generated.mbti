@@ -8,6 +8,8 @@ import {
 // Values
 pub fn[R : SourceResolver] render_diagnostics_plain(ArrayView[Diagnostic], R) -> String raise DiagnosticRenderError
 
+pub fn[R : SourceResolver, D : TextDisplay] render_diagnostics_plain_with_display(ArrayView[Diagnostic], R, D) -> String raise DiagnosticRenderError
+
 // Errors
 pub(all) suberror DiagnosticBuildError {
   NegativeTextOffset(Int)
@@ -47,6 +49,7 @@ pub fn Diagnostic::notes(Self) -> Array[String]
 pub fn Diagnostic::offset_by(Self, SourceId, Int, TextOffset) -> Self raise DiagnosticBuildError
 pub fn Diagnostic::origin(Self) -> DiagnosticOrigin
 pub fn[R : SourceResolver] Diagnostic::render_plain(Self, R) -> String raise DiagnosticRenderError
+pub fn[R : SourceResolver, D : TextDisplay] Diagnostic::render_plain_with_display(Self, R, D) -> String raise DiagnosticRenderError
 pub fn Diagnostic::severity(Self) -> DiagnosticSeverity
 
 pub struct DiagnosticCode {
@@ -160,6 +163,11 @@ pub fn TextReplacement::span(Self) -> SourceSpan
 // Traits
 pub(open) trait SourceResolver {
   fn resolve_source(Self, SourceId) -> SourceSnapshot?
+}
+
+pub(open) trait TextDisplay {
+  fn render_line(Self, String, Int) -> String
+  fn marker_cells(Self, String, Int, Int, Int) -> (Int, Int)
 }
 
 pub(open) trait ToDiagnostic {

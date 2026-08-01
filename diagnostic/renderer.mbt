@@ -22,6 +22,36 @@ pub(open) trait SourceResolver {
 }
 
 ///|
+/// Capability that renders one raw source line and projects its UTF-16 ranges
+/// to relative display ranges. Both methods receive the absolute column where
+/// the rendered line starts and must use the same display model. Marker ranges
+/// must be non-negative and ordered; offsets beyond the line text represent
+/// stripped line terminators.
+pub(open) trait TextDisplay {
+  fn render_line(Self, String, Int) -> String
+  fn marker_cells(Self, String, Int, Int, Int) -> (Int, Int)
+}
+
+///|
+priv struct CodeUnitTextDisplay {}
+
+///|
+impl TextDisplay for CodeUnitTextDisplay with fn render_line(_, text, _) {
+  text
+}
+
+///|
+impl TextDisplay for CodeUnitTextDisplay with fn marker_cells(
+  _,
+  _,
+  _,
+  utf16_start,
+  utf16_end,
+) {
+  (utf16_start, utf16_end)
+}
+
+///|
 /// Expected failures at the source-backed rendering boundary.
 pub suberror DiagnosticRenderError {
   MissingSource(SourceId)
@@ -189,77 +219,11 @@ fn source_line_content_end(source : SourceSnapshot, line : Int) -> Int {
 }
 
 ///|
-/// Measure a complete source line with the renderer's deterministic tab policy.
-fn diagnostic_display_units(
-  text : String,
-  start_column : Int,
-) -> Array[@moji.DisplayUnit] {
-  try @moji.display_units(text, start_column~, tab_width=4) catch {
-    _ => abort("diagnostic display-width context must be valid")
-  } noraise {
-    units => units
-  }
-}
-
-///|
-/// Write source text while expanding tabs with the same cell model used for
-/// marker placement. Other graphemes retain their original source spelling.
-fn write_diagnostic_source_text(
-  builder : StringBuilder,
-  text : String,
-  units : Array[@moji.DisplayUnit],
-) -> Unit {
-  units.each(unit => {
-    let view = text.view(
-      start_offset=unit.utf16_start(),
-      end_offset=unit.utf16_end(),
-    )
-    if view.equal_to_string("\t") {
-      builder.write_string(" ".repeat(unit.cell_end() - unit.cell_start()))
-    } else {
-      builder.write_stringview(view)
-    }
-  })
-}
-
-///|
-/// Project a half-open UTF-16 range through complete-line display units.
-/// Boundaries inside a combined unit expand to that unit's cell boundaries.
-fn diagnostic_marker_cells(
-  units : Array[@moji.DisplayUnit],
-  utf16_start : Int,
-  utf16_end : Int,
-  line_utf16_end : Int,
-  line_cell_start : Int,
-) -> (Int, Int) {
-  let line_cell_end = match units.last() {
-    Some(unit) => unit.cell_end()
-    None => line_cell_start
-  }
-  let cell_start = match
-    units.search_by(unit => utf16_start < unit.utf16_end()) {
-    Some(index) => units[index].cell_start()
-    None => line_cell_end + utf16_start - line_utf16_end
-  }
-  let cell_end = match units.search_by(unit => utf16_end <= unit.utf16_end()) {
-    Some(index) => {
-      let unit = units[index]
-      if utf16_end <= unit.utf16_start() {
-        unit.cell_start()
-      } else {
-        unit.cell_end()
-      }
-    }
-    None => line_cell_end + utf16_end - line_utf16_end
-  }
-  (cell_start - line_cell_start, cell_end - line_cell_start)
-}
-
-///|
-fn render_diagnostic_source_line(
+fn[D : TextDisplay] render_diagnostic_source_line(
   builder : StringBuilder,
   validated : ValidatedDiagnosticLabel,
   line : Int,
+  display : D,
 ) -> Unit raise DiagnosticRenderError {
   let label = validated.label
   let source = validated.source
@@ -285,13 +249,9 @@ fn render_diagnostic_source_line(
     line_end - line_start
   }
   let line_text = line_view.to_owned()
-  let display_units = diagnostic_display_units(line_text, source_column_start)
-  let (marker_cell_start, marker_cell_end) = diagnostic_marker_cells(
-    display_units,
-    marker_start,
-    marker_end,
-    line_text.length(),
-    source_column_start,
+  let rendered_line = display.render_line(line_text, source_column_start)
+  let (marker_cell_start, marker_cell_end) = display.marker_cells(
+    line_text, source_column_start, marker_start, marker_end,
   )
   builder.write_string("\n  ")
   builder.write_string(display_line)
@@ -299,7 +259,7 @@ fn render_diagnostic_source_line(
   if line_end > line_start {
     builder.write_char(' ')
   }
-  write_diagnostic_source_text(builder, line_text, display_units)
+  builder.write_string(rendered_line)
   builder.write_char('\n')
   builder.write_string(" ".repeat(3 + display_line.length()))
   builder.write_string("| ")
@@ -318,9 +278,10 @@ fn render_diagnostic_source_line(
 }
 
 ///|
-fn render_diagnostic_label(
+fn[D : TextDisplay] render_diagnostic_label(
   builder : StringBuilder,
   validated : ValidatedDiagnosticLabel,
+  display : D,
 ) -> Unit raise DiagnosticRenderError {
   let label = validated.label
   let line_range = validated.line_range
@@ -349,27 +310,29 @@ fn render_diagnostic_label(
     end.line
   }
   Array::makei(last_line - start.line + 1, index => start.line + index).each(line => {
-    render_diagnostic_source_line(builder, validated, line)
+    render_diagnostic_source_line(builder, validated, line, display)
   })
 }
 
 ///|
-fn render_diagnostic_source_group(
+fn[D : TextDisplay] render_diagnostic_source_group(
   builder : StringBuilder,
   group : ValidatedDiagnosticSourceGroup,
+  display : D,
 ) -> Unit raise DiagnosticRenderError {
   builder.write_string("\n--> ")
   builder.write_string(group.source.name)
   group.labels.each(label => {
     builder.write_char('\n')
-    render_diagnostic_label(builder, label)
+    render_diagnostic_label(builder, label, display)
   })
 }
 
 ///|
-fn[R : SourceResolver] Diagnostic::render_plain_with_context(
+fn[R : SourceResolver, D : TextDisplay] Diagnostic::render_plain_with_context(
   self : Diagnostic,
   context : DiagnosticRenderContext[R],
+  display : D,
 ) -> String raise DiagnosticRenderError {
   let groups = validate_diagnostic_groups(context, self.labels())
   let builder = StringBuilder()
@@ -384,7 +347,7 @@ fn[R : SourceResolver] Diagnostic::render_plain_with_context(
   }
   builder.write_string(": ")
   builder.write_string(self.message())
-  groups.each(group => render_diagnostic_source_group(builder, group))
+  groups.each(group => render_diagnostic_source_group(builder, group, display))
   self
   .notes()
   .each(note => {
@@ -399,7 +362,19 @@ pub fn[R : SourceResolver] Diagnostic::render_plain(
   self : Diagnostic,
   resolver : R,
 ) -> String raise DiagnosticRenderError {
-  self.render_plain_with_context(DiagnosticRenderContext(resolver))
+  self.render_plain_with_context(DiagnosticRenderContext(resolver), CodeUnitTextDisplay::{
+
+  })
+}
+
+///|
+/// Render with an explicit source display capability.
+pub fn[R : SourceResolver, D : TextDisplay] Diagnostic::render_plain_with_display(
+  self : Diagnostic,
+  resolver : R,
+  display : D,
+) -> String raise DiagnosticRenderError {
+  self.render_plain_with_context(DiagnosticRenderContext(resolver), display)
 }
 
 ///|
@@ -410,6 +385,21 @@ pub fn[R : SourceResolver] render_diagnostics_plain(
 ) -> String raise DiagnosticRenderError {
   let context = DiagnosticRenderContext(resolver)
   diagnostics
-  .map(diagnostic => diagnostic.render_plain_with_context(context))
+  .map(diagnostic => {
+    diagnostic.render_plain_with_context(context, CodeUnitTextDisplay::{  })
+  })
+  .join("\n\n")
+}
+
+///|
+/// Render an ordered diagnostic view with an explicit source display capability.
+pub fn[R : SourceResolver, D : TextDisplay] render_diagnostics_plain_with_display(
+  diagnostics : ArrayView[Diagnostic],
+  resolver : R,
+  display : D,
+) -> String raise DiagnosticRenderError {
+  let context = DiagnosticRenderContext(resolver)
+  diagnostics
+  .map(diagnostic => diagnostic.render_plain_with_context(context, display))
   .join("\n\n")
 }

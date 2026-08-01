@@ -1,7 +1,3 @@
 import {
-  "dowdiness/moji",
-}
-
-import {
   "moonbitlang/core/quickcheck",
 } for "wbtest"
