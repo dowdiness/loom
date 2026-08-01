@@ -303,17 +303,21 @@ fn CommonMarkSpecExample::assessment(
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
-  let actual = @markdown.experimental_markdown_ir_to_commonmark_html(ir)
+  let (actual, adapter_policy_rejected) = match
+    @markdown.experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+      ir,
+      @markdown.Passthrough,
+    ) {
+    Ok(html) => (html, false)
+    Err(_) => ("", true)
+  }
   let assistance = markdown_ir_assistance(ir)
   let signals = AuditSignals::{
     parser_diagnostics: diagnostics.length() > 0,
     unsupported: assistance.unsupported,
     malformed_raw: assistance.malformed_raw,
     recovered: assistance.recovered,
-    // The current CommonMark adapter cannot reject a raw-HTML policy. This
-    // remains an explicit signal so #809 can wire its structured failure into
-    // the taxonomy without changing classification precedence.
-    adapter_policy_rejected: false,
+    adapter_policy_rejected,
     html_matches: actual == self.html,
   }
   { outcome: classify_audit(signals), html_matches: signals.html_matches }

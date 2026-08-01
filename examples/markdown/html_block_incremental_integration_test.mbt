@@ -25,10 +25,22 @@ fn assert_html_block_incremental_projection_parity(
     source_id, fresh_syntax, fresh_diagnostics,
   )
   assert_eq(incremental_ir, fresh_ir)
-  let incremental_html = experimental_markdown_ir_to_commonmark_html(
-    incremental_ir,
-  )
-  let fresh_html = experimental_markdown_ir_to_commonmark_html(fresh_ir)
+  let incremental_html = match
+    experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+      incremental_ir,
+      Passthrough,
+    ) {
+    Ok(html) => html
+    Err(_) => abort("Passthrough raw HTML policy cannot reject valid HTML")
+  }
+  let fresh_html = match
+    experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+      fresh_ir,
+      Passthrough,
+    ) {
+    Ok(html) => html
+    Err(_) => abort("Passthrough raw HTML policy cannot reject valid HTML")
+  }
   assert_eq(incremental_html, fresh_html)
   inspect(fresh_html, content=expected_html)
   reuse_count
