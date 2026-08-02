@@ -10,10 +10,12 @@ fn trim_trailing_line_ending(text : String) -> String {
 }
 
 ///|
-/// Algebra for CstFold: convert SyntaxNode to Block.
-pub fn markdown_fold_node(
+/// Algebra core for CstFold: convert SyntaxNode to Block with an explicit
+/// code-value capability.
+fn markdown_fold_node_with_code_value(
   node : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> Block,
+  code_value : (@seam.SyntaxNode) -> String,
 ) -> Block {
   let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match kind {
@@ -88,7 +90,7 @@ pub fn markdown_fold_node(
         }
         None => ""
       }
-      Block::CodeBlock(info, code_block_value(node))
+      Block::CodeBlock(info, code_value(node))
     }
     HtmlBlockNode => Block::HtmlBlock(html_block_value(node))
     ThematicBreakNode =>
@@ -96,4 +98,27 @@ pub fn markdown_fold_node(
     ErrorNode => Block::Error(RECOVERED_PARSE_ERROR)
     _ => Block::Error("unknown node: " + kind.to_string())
   }
+}
+
+///|
+/// Algebra for CstFold: convert SyntaxNode to Block.
+pub fn markdown_fold_node(
+  node : @seam.SyntaxNode,
+  recurse : (@seam.SyntaxNode) -> Block,
+) -> Block {
+  markdown_fold_node_with_code_value(node, recurse, code_block_value)
+}
+
+///|
+/// Source-aware Block algebra used when the top-level caller already owns the
+/// current document string. This keeps indented-code column handling explicit
+/// and avoids rebuilding the syntax root for each code block.
+fn markdown_fold_node_with_source(
+  node : @seam.SyntaxNode,
+  recurse : (@seam.SyntaxNode) -> Block,
+  source : String,
+) -> Block {
+  markdown_fold_node_with_code_value(node, recurse, code_node => {
+    code_block_value_with_source(code_node, source)
+  })
 }

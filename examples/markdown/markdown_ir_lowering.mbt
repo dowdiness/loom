@@ -2253,7 +2253,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
     CodeBlockNode =>
       MarkdownIR::code_block(
         code_block_info(node),
-        code_block_value(node),
+        code_block_value_with_source(node, context.source),
         origin_from_node(node),
         code_block_content_origin(node),
       )
