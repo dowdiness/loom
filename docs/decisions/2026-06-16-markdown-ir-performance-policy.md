@@ -109,6 +109,15 @@ it does not by itself justify a new position-aware memo. Full commands and the
 performance envelope are recorded in
 [`docs/performance/benchmark_history.md`](../performance/benchmark_history.md).
 
+The completed 10,000-line residual matrix further separates IR construction
+from its Block adapter. On a code-heavy corpus, constructing MarkdownIR carries
+the same superlinear fenced-code value extraction seen by direct Block lowering,
+while adapting an already constructed IR remains milliseconds rather than
+seconds. The owning seam is `code_block_value` rebuilding the whole document
+string once per fenced block, not the absence of a MarkdownIR memo. The policy
+therefore remains **current**, and that isolated implementation cost is tracked
+separately in [#843](https://github.com/dowdiness/loom/issues/843).
+
 ### Checked canonical formatter policy
 
 Issue #777 adds a separate cost boundary for checked canonical formatting. Its
