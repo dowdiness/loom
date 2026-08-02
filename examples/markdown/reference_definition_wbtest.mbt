@@ -353,6 +353,18 @@ test "reference definition: CommonMark 201 invalid angle destination remains dia
 }
 
 ///|
+test "reference definition: malformed angle literal detection stays line-local" {
+  assert_true(
+    scan_link_reference_definition("[   ]: <bar>(baz)\n")
+    is InvalidAngleDestinationLiteral,
+  )
+  assert_true(
+    scan_link_reference_definition("[foo]:\n<bar>(baz)\n")
+    is NoReferenceDefinition,
+  )
+}
+
+///|
 test "reference definition: escaped angle and punctuation remain inside angle destinations" {
   let escaped_angle = "[foo]: <bar\\>baz>\n\n[foo]\n"
   let angle_table = collect_link_reference_definitions(

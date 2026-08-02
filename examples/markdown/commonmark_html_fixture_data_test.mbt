@@ -7,7 +7,7 @@
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (366, 5, 0)
+  (367, 5, 0)
 }
 
 ///|
@@ -259,6 +259,14 @@ fn commonmark_inline_angle_html_fixture_cases() -> Array[CommonMarkHtmlFixture] 
 ///|
 fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
   let fixtures : Array[CommonMarkHtmlFixture] = [
+    {
+      example: 196,
+      section: "Link reference definitions",
+      name: "arbitrarily-multiline-reference-title",
+      source: "[foo]: /url '\ntitle\nline1\nline2\n'\n\n[foo]\n",
+      expected_html: "<p><a href=\"/url\" title=\"\ntitle\nline1\nline2\n\">foo</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
     {
       example: 207,
       section: "Link reference definitions",

@@ -72,15 +72,6 @@ fn skip_reference_spaces(input : String, start : Int) -> Int {
 }
 
 ///|
-fn skip_reference_initial_spaces(input : String) -> Int {
-  let mut cursor = 0
-  while cursor < input.length() && char_at(input, cursor) is Some(' ') {
-    cursor = cursor + 1
-  }
-  cursor
-}
-
-///|
 fn reference_backslash_escape_end(input : String, start : Int) -> Int? {
   guard char_at(input, start) is Some('\\') && start + 1 < input.length() else {
     return None
@@ -90,47 +81,6 @@ fn reference_backslash_escape_end(input : String, start : Int) -> Int? {
       Some(@core.next_char_offset(input, start + 1))
     _ => None
   }
-}
-
-///|
-fn consume_reference_label(input : String, start : Int) -> Int? {
-  guard char_at(input, start) is Some('[') else { return None }
-  let mut cursor = start + 1
-  let mut content_chars = 0
-  while cursor < input.length() && content_chars <= 999 {
-    match char_at(input, cursor) {
-      Some(']') if content_chars > 0 => return Some(cursor + 1)
-      Some('[') | None => return None
-      Some('\r') | Some('\n') => {
-        guard reference_line_ending_end(input, cursor) is Some(after_newline) else {
-          return None
-        }
-        let next_content = skip_reference_spaces(input, after_newline)
-        guard reference_line_ending_end(input, next_content) is None else {
-          return None
-        }
-        content_chars = content_chars + 1
-        cursor = after_newline
-      }
-      Some('\\') =>
-        match reference_backslash_escape_end(input, cursor) {
-          Some(after_escape) => {
-            cursor = after_escape
-            content_chars = content_chars + 2
-          }
-          None => {
-            cursor = cursor + 1
-            content_chars = content_chars + 1
-          }
-        }
-      Some(_) => {
-        let next = @core.next_char_offset(input, cursor)
-        content_chars = content_chars + 1
-        cursor = next
-      }
-    }
-  }
-  None
 }
 
 ///|
@@ -229,12 +179,257 @@ fn reference_line_ending_end(input : String, start : Int) -> Int? {
 }
 
 ///|
-fn finish_reference_definition_line(input : String, start : Int) -> Int? {
-  let line_end = skip_reference_spaces(input, start)
-  match reference_line_ending_end(input, line_end) {
-    Some(end) => Some(end)
-    None if line_end == input.length() => Some(line_end)
+/// A forward-only view over reference-definition source pieces. Parser
+/// lookahead supplies zero-copy token views and ends the sequence at a blank
+/// line; String classification supplies one whole-source view. Every supplied
+/// piece is inspected at most once. `inspected` is retained as a deterministic
+/// work measure for the private adversarial test.
+priv struct ReferenceDefinitionCursor {
+  piece_at : (Int) -> StringView?
+  mut piece_index : Int
+  mut piece : StringView
+  mut piece_offset : Int
+  mut offset : Int
+  mut inspected : Int
+  mut exhausted : Bool
+}
+
+///|
+fn new_reference_definition_cursor(
+  piece_at : (Int) -> StringView?,
+) -> ReferenceDefinitionCursor {
+  {
+    piece_at,
+    piece_index: 0,
+    piece: StringView::default(),
+    piece_offset: 0,
+    offset: 0,
+    inspected: 0,
+    exhausted: false,
+  }
+}
+
+///|
+fn ReferenceDefinitionCursor::ensure_piece(
+  self : ReferenceDefinitionCursor,
+) -> Bool {
+  while self.piece_offset >= self.piece.length() && !self.exhausted {
+    match (self.piece_at)(self.piece_index) {
+      Some(piece) => {
+        self.piece_index = self.piece_index + 1
+        self.piece = piece
+        self.piece_offset = 0
+        self.inspected = self.inspected + piece.length()
+      }
+      None => self.exhausted = true
+    }
+  }
+  !self.exhausted
+}
+
+///|
+fn ReferenceDefinitionCursor::peek(self : ReferenceDefinitionCursor) -> Char? {
+  if self.ensure_piece() {
+    self.piece.get_char(self.piece_offset)
+  } else {
+    None
+  }
+}
+
+///|
+fn ReferenceDefinitionCursor::advance(
+  self : ReferenceDefinitionCursor,
+) -> Char? {
+  match self.peek() {
+    Some(ch) => {
+      let width = if ch.to_int() > 0xFFFF { 2 } else { 1 }
+      self.piece_offset = self.piece_offset + width
+      self.offset = self.offset + width
+      Some(ch)
+    }
     None => None
+  }
+}
+
+///|
+fn ReferenceDefinitionCursor::skip_spaces(
+  self : ReferenceDefinitionCursor,
+) -> Unit {
+  while self.peek() is Some(' ' | '\t') {
+    ignore(self.advance())
+  }
+}
+
+///|
+fn ReferenceDefinitionCursor::consume_line_ending(
+  self : ReferenceDefinitionCursor,
+) -> Bool {
+  match self.peek() {
+    Some('\r') => {
+      ignore(self.advance())
+      if self.peek() is Some('\n') {
+        ignore(self.advance())
+      }
+      true
+    }
+    Some('\n') => {
+      ignore(self.advance())
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn ReferenceDefinitionCursor::consume_backslash_escape(
+  self : ReferenceDefinitionCursor,
+) -> Int {
+  guard self.peek() is Some('\\') else { return 0 }
+  ignore(self.advance())
+  match self.peek() {
+    Some(ch) if ch.is_ascii_punctuation() => {
+      ignore(self.advance())
+      2
+    }
+    _ => 1
+  }
+}
+
+///|
+fn ReferenceDefinitionCursor::consume_label(
+  self : ReferenceDefinitionCursor,
+) -> (Int, Int, Bool)? {
+  guard self.peek() is Some('[') else { return None }
+  ignore(self.advance())
+  let label_start = self.offset
+  let mut content_chars = 0
+  let mut has_non_whitespace = false
+  while content_chars <= 999 {
+    match self.peek() {
+      Some(']') if content_chars > 0 => {
+        let label_end = self.offset
+        ignore(self.advance())
+        return Some((label_start, label_end, has_non_whitespace))
+      }
+      Some('[') | None => return None
+      Some('\r') | Some('\n') => {
+        guard self.consume_line_ending() else { return None }
+        content_chars = content_chars + 1
+        while self.peek() is Some(' ' | '\t') {
+          ignore(self.advance())
+          content_chars = content_chars + 1
+        }
+        guard !(self.peek() is Some('\r' | '\n')) else { return None }
+      }
+      Some('\\') => {
+        content_chars = content_chars + self.consume_backslash_escape()
+        has_non_whitespace = true
+      }
+      Some(ch) => {
+        ignore(self.advance())
+        content_chars = content_chars + 1
+        match ch {
+          ' ' | '\t' => ()
+          _ => has_non_whitespace = true
+        }
+      }
+    }
+  }
+  None
+}
+
+///|
+fn ReferenceDefinitionCursor::consume_destination(
+  self : ReferenceDefinitionCursor,
+) -> (Int, Int, Bool)? {
+  let start = self.offset
+  guard self.peek() is Some(_) else { return None }
+  if self.peek() is Some('<') {
+    ignore(self.advance())
+    let value_start = self.offset
+    while true {
+      match self.peek() {
+        Some('>') => {
+          let value_end = self.offset
+          ignore(self.advance())
+          return Some((value_start, value_end, true))
+        }
+        Some('<') | Some('\r') | Some('\n') | None => return None
+        Some('\\') => ignore(self.consume_backslash_escape())
+        Some(_) => ignore(self.advance())
+      }
+    }
+  }
+  let mut depth = 0
+  while true {
+    match self.peek() {
+      Some('\\') => ignore(self.consume_backslash_escape())
+      Some('(') => {
+        guard depth < 32 else { return None }
+        depth = depth + 1
+        ignore(self.advance())
+      }
+      Some(')') if depth > 0 => {
+        depth = depth - 1
+        ignore(self.advance())
+      }
+      Some(')') => return None
+      Some(' ') | Some('\t') | Some('\r') | Some('\n') | None => break
+      Some(ch) if ch.to_int() < 0x20 || ch.to_int() == 0x7F => return None
+      Some(_) => ignore(self.advance())
+    }
+  }
+  if self.offset > start && depth == 0 {
+    Some((start, self.offset, false))
+  } else {
+    None
+  }
+}
+
+///|
+fn ReferenceDefinitionCursor::consume_title(
+  self : ReferenceDefinitionCursor,
+) -> (Int, Int)? {
+  let open = match self.peek() {
+    Some('\"') => '\"'
+    Some('\'') => '\''
+    Some('(') => '('
+    _ => return None
+  }
+  ignore(self.advance())
+  let value_start = self.offset
+  let close = if open == '(' { ')' } else { open }
+  while true {
+    match self.peek() {
+      Some(ch) if ch == close => {
+        let value_end = self.offset
+        ignore(self.advance())
+        return Some((value_start, value_end))
+      }
+      Some('(') if open == '(' => return None
+      Some('\r') | Some('\n') => {
+        guard self.consume_line_ending() else { return None }
+        self.skip_spaces()
+        guard !(self.peek() is Some('\r' | '\n')) else { return None }
+      }
+      None => return None
+      Some('\\') => ignore(self.consume_backslash_escape())
+      Some(_) => ignore(self.advance())
+    }
+  } nobreak {
+    None
+  }
+}
+
+///|
+fn ReferenceDefinitionCursor::finish_line(
+  self : ReferenceDefinitionCursor,
+) -> Int? {
+  self.skip_spaces()
+  if self.consume_line_ending() || self.peek() is None {
+    Some(self.offset)
+  } else {
+    None
   }
 }
 
@@ -260,147 +455,173 @@ fn reference_definition_match(
 }
 
 ///|
-fn classify_link_reference_definition(
-  input : String,
-) -> LinkReferenceDefinitionMatch? {
-  let label_start = skip_reference_initial_spaces(input)
-  guard label_start <= 3 else { return None }
-  guard consume_reference_label(input, label_start) is Some(after_label) else {
-    return None
+priv enum ReferenceDefinitionScanOutcome {
+  ReferenceDefinitionFound(LinkReferenceDefinitionMatch)
+  InvalidAngleDestinationLiteral
+  NoReferenceDefinition
+}
+
+///|
+fn scan_reference_definition_cursor(
+  cursor : ReferenceDefinitionCursor,
+) -> ReferenceDefinitionScanOutcome {
+  // Keep this recognizer monotonic: optional multiline labels and titles move
+  // the same cursor forward instead of rebuilding and rescanning a suffix.
+  let mut initial_spaces = 0
+  while cursor.peek() is Some(' ') {
+    ignore(cursor.advance())
+    initial_spaces = initial_spaces + 1
   }
-  guard normalize_link_reference_label(
-      input[label_start + 1:after_label - 1].to_owned(),
-    ) !=
-    "" else {
-    return None
+  guard initial_spaces <= 3 else { return NoReferenceDefinition }
+  guard cursor.consume_label()
+    is Some((label_start, label_end, label_has_content)) else {
+    return NoReferenceDefinition
   }
-  guard char_at(input, after_label) is Some(':') else { return None }
-  let after_colon_space = skip_reference_spaces(input, after_label + 1)
-  let destination_start = match
-    reference_line_ending_end(input, after_colon_space) {
-    Some(after_newline) => skip_reference_spaces(input, after_newline)
-    None => after_colon_space
+  guard cursor.peek() is Some(':') else { return NoReferenceDefinition }
+  ignore(cursor.advance())
+  cursor.skip_spaces()
+  let destination_on_next_line = cursor.consume_line_ending()
+  if destination_on_next_line {
+    cursor.skip_spaces()
   }
-  guard consume_reference_destination(input, destination_start)
-    is Some(after_destination) else {
-    return None
+  guard cursor.consume_destination()
+    is Some((destination_start, destination_end, angle_destination)) else {
+    return NoReferenceDefinition
   }
-  let destination_value_start = if char_at(input, destination_start)
-    is Some('<') {
-    destination_start + 1
-  } else {
-    destination_start
+  let after_destination = cursor.offset
+  if angle_destination && !destination_on_next_line {
+    match cursor.peek() {
+      Some(' ' | '\t' | '\r' | '\n') | None => ()
+      Some(_) => return InvalidAngleDestinationLiteral
+    }
   }
-  let destination_value_end = if char_at(input, destination_start) is Some('<') {
-    after_destination - 1
-  } else {
-    after_destination
-  }
-  let after_destination_space = skip_reference_spaces(input, after_destination)
+  guard label_has_content else { return NoReferenceDefinition }
+  cursor.skip_spaces()
+  let after_destination_space = cursor.offset
   if after_destination_space > after_destination {
-    match consume_reference_title(input, after_destination_space) {
-      Some(title_end) => {
-        guard finish_reference_definition_line(input, title_end) is Some(end) else {
-          return None
+    match cursor.peek() {
+      Some('\"' | '\'' | '(') =>
+        match cursor.consume_title() {
+          Some((title_start, title_end)) =>
+            match cursor.finish_line() {
+              Some(end) =>
+                return ReferenceDefinitionFound(
+                  reference_definition_match(
+                    end,
+                    label_start,
+                    label_end,
+                    destination_start,
+                    destination_end,
+                    Some(title_start),
+                    Some(title_end),
+                  ),
+                )
+              None => return NoReferenceDefinition
+            }
+          None => return NoReferenceDefinition
         }
-        return Some(
+      _ => ()
+    }
+  }
+  if cursor.consume_line_ending() {
+    let definition_end = cursor.offset
+    cursor.skip_spaces()
+    match cursor.peek() {
+      Some('\"' | '\'' | '(') =>
+        match cursor.consume_title() {
+          Some((title_start, title_end)) =>
+            match cursor.finish_line() {
+              Some(end) =>
+                ReferenceDefinitionFound(
+                  reference_definition_match(
+                    end,
+                    label_start,
+                    label_end,
+                    destination_start,
+                    destination_end,
+                    Some(title_start),
+                    Some(title_end),
+                  ),
+                )
+              None =>
+                ReferenceDefinitionFound(
+                  reference_definition_match(
+                    definition_end,
+                    label_start,
+                    label_end,
+                    destination_start,
+                    destination_end,
+                    None,
+                    None,
+                  ),
+                )
+            }
+          None =>
+            ReferenceDefinitionFound(
+              reference_definition_match(
+                definition_end,
+                label_start,
+                label_end,
+                destination_start,
+                destination_end,
+                None,
+                None,
+              ),
+            )
+        }
+      _ =>
+        ReferenceDefinitionFound(
           reference_definition_match(
-            end,
-            label_start + 1,
-            after_label - 1,
-            destination_value_start,
-            destination_value_end,
-            Some(after_destination_space + 1),
-            Some(title_end - 1),
+            definition_end,
+            label_start,
+            label_end,
+            destination_start,
+            destination_end,
+            None,
+            None,
           ),
         )
-      }
-      None => ()
     }
-  }
-  match reference_line_ending_end(input, after_destination_space) {
-    Some(definition_end) => {
-      let next_title_start = skip_reference_spaces(input, definition_end)
-      match consume_reference_title(input, next_title_start) {
-        Some(title_end) =>
-          match finish_reference_definition_line(input, title_end) {
-            Some(end) =>
-              Some(
-                reference_definition_match(
-                  end,
-                  label_start + 1,
-                  after_label - 1,
-                  destination_value_start,
-                  destination_value_end,
-                  Some(next_title_start + 1),
-                  Some(title_end - 1),
-                ),
-              )
-            None =>
-              Some(
-                reference_definition_match(
-                  definition_end,
-                  label_start + 1,
-                  after_label - 1,
-                  destination_value_start,
-                  destination_value_end,
-                  None,
-                  None,
-                ),
-              )
-          }
-        None =>
-          Some(
-            reference_definition_match(
-              definition_end,
-              label_start + 1,
-              after_label - 1,
-              destination_value_start,
-              destination_value_end,
-              None,
-              None,
-            ),
-          )
-      }
-    }
-    None if after_destination_space == input.length() =>
-      Some(
-        reference_definition_match(
-          after_destination_space,
-          label_start + 1,
-          after_label - 1,
-          destination_value_start,
-          destination_value_end,
-          None,
-          None,
-        ),
-      )
-    None => None
+  } else if cursor.peek() is None {
+    ReferenceDefinitionFound(
+      reference_definition_match(
+        cursor.offset,
+        label_start,
+        label_end,
+        destination_start,
+        destination_end,
+        None,
+        None,
+      ),
+    )
+  } else {
+    NoReferenceDefinition
   }
 }
 
 ///|
-/// A malformed angle destination is still a reference-definition-shaped line.
-/// Keep it opaque to inline lowering so the block boundary owns the failed
-/// definition as ordinary paragraph text rather than recovering fragments.
-fn invalid_reference_definition_angle_destination_is_literal(
+fn scan_link_reference_definition(
   input : String,
-) -> Bool {
-  let label_start = skip_reference_initial_spaces(input)
-  guard label_start <= 3 else { return false }
-  guard consume_reference_label(input, label_start) is Some(after_label) else {
-    return false
-  }
-  guard char_at(input, after_label) is Some(':') else { return false }
-  let destination_start = skip_reference_spaces(input, after_label + 1)
-  guard char_at(input, destination_start) is Some('<') else { return false }
-  guard consume_reference_destination(input, destination_start)
-    is Some(after_destination) else {
-    return false
-  }
-  match char_at(input, after_destination) {
-    Some(' ') | Some('\t') | Some('\r') | Some('\n') | None => false
-    Some(_) => true
+) -> ReferenceDefinitionScanOutcome {
+  let source = input.view()
+  scan_reference_definition_cursor(
+    new_reference_definition_cursor(index => {
+      if index == 0 {
+        Some(source)
+      } else {
+        None
+      }
+    }),
+  )
+}
+
+///|
+fn classify_link_reference_definition(
+  input : String,
+) -> LinkReferenceDefinitionMatch? {
+  match scan_link_reference_definition(input) {
+    ReferenceDefinitionFound(definition) => Some(definition)
+    _ => None
   }
 }
 
@@ -497,25 +718,17 @@ fn collect_link_reference_definitions(
 }
 
 ///|
-fn current_reference_definition_source(
+fn current_reference_definition_scan(
   ctx : @core.ParserContext[Token, SyntaxKind],
-) -> String {
-  let builder = StringBuilder::StringBuilder()
+) -> ReferenceDefinitionScanOutcome {
   let start = ctx.cursor_position()
-  for offset = 0 {
+  let cursor = new_reference_definition_cursor(offset => {
     match ctx.peek_index(offset) {
-      EOF | BlankLine => break
-      Newline => {
-        builder.write_string(ctx.token_text_at(start + offset).to_owned())
-        continue offset + 1
-      }
-      _ => {
-        builder.write_string(ctx.token_text_at(start + offset).to_owned())
-        continue offset + 1
-      }
+      EOF | BlankLine => None
+      _ => Some(ctx.token_text_at(start + offset))
     }
-  }
-  builder.to_string()
+  })
+  scan_reference_definition_cursor(cursor)
 }
 
 ///|
@@ -529,8 +742,10 @@ fn current_link_reference_definition(
     _ => false
   }
   guard possible_opener else { return None }
-  let source = current_reference_definition_source(ctx)
-  classify_link_reference_definition(source)
+  match current_reference_definition_scan(ctx) {
+    ReferenceDefinitionFound(definition) => Some(definition)
+    _ => None
+  }
 }
 
 ///|
@@ -551,9 +766,7 @@ fn current_line_has_invalid_reference_definition_angle_destination(
     _ => false
   }
   possible_opener &&
-  invalid_reference_definition_angle_destination_is_literal(
-    current_reference_definition_source(ctx),
-  )
+  current_reference_definition_scan(ctx) is InvalidAngleDestinationLiteral
 }
 
 ///|
