@@ -33,6 +33,8 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(@di
 
 pub fn[R : @diagnostic.SourceResolver] render_diagnostics_plain(ArrayView[@diagnostic.Diagnostic], R) -> String raise @diagnostic.DiagnosticRenderError
 
+pub fn[R : @diagnostic.SourceResolver, D : @diagnostic.TextDisplay] render_diagnostics_plain_with_display(ArrayView[@diagnostic.Diagnostic], R, D) -> String raise @diagnostic.DiagnosticRenderError
+
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(@diagnostic.SourceId, @seam.SyntaxNode, String, Edit, (@diagnostic.SourceId, String) -> LexResult[T], LanguageSpec[T, K], BlockReparseSpec[T, K], DiagnosticSet) -> (@seam.CstNode, DiagnosticSet)?
 
 pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode, trivia_kinds? : Array[@seam.RawKind]?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode
@@ -433,6 +435,8 @@ pub using @diagnostic {type TextReplacement}
 pub using @seam {trait AstView}
 
 pub using @diagnostic {trait SourceResolver}
+
+pub using @diagnostic {trait TextDisplay}
 
 pub using @diagnostic {trait ToDiagnostic}
 
