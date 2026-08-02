@@ -115,6 +115,57 @@ per-label dependencies. Recovery diagnostics, cache retirement, and A/A
 calibration remain gates in the
 [production design](../superpowers/specs/2026-08-02-markdown-local-unresolved-block-design.md).
 
+## 2026-08-02 (Markdown fenced-code source reconstruction removal)
+
+- Issue: [#843](https://github.com/dowdiness/loom/issues/843)
+- Base implementation and harness:
+  `262941db2e90810daf1a3c31ab09b0f1dbf531c5`
+- Head implementation: `ce67b797492081bba08709086f2ff27098fabd8b`
+- Environment: local WSL2, Linux 6.6.114.1, x86_64
+- Toolchain: MoonBit `0.10.4+2cc641edf` (2026-07-15), Moon
+  `0.1.20260713`
+- Commands, run at both commits:
+  - `rtk moon bench --release --frozen --target js -p dowdiness/markdown -f performance_residual_benchmark_test.mbt -i 29-31`
+  - `rtk moon bench --release --frozen --target wasm-gc -p dowdiness/markdown -f performance_residual_benchmark_test.mbt -i 29-31`
+  - `rtk moon bench --release --frozen --target js -p dowdiness/markdown -f performance_residual_benchmark_test.mbt -i 3-13`
+  - `rtk moon bench --release --frozen --target wasm-gc -p dowdiness/markdown -f performance_residual_benchmark_test.mbt -i 3-13`
+
+Every row reports ten samples as `mean ± σ`. Base and head were measured in
+separate runs on the same machine. The deterministic guard separately proves
+that 128 fenced blocks request zero owning-source reconstructions.
+
+### Isolated fenced-code recursive Block lowering
+
+| Target / corpus | Base mean ± σ | Head mean ± σ | Head 2k → 10k ratio |
+|---|---:|---:|---:|
+| JS / 2k | 126.32 ms ± 18.33 ms | 478.97 µs ± 21.15 µs | — |
+| JS / 10k | 3.60 s ± 1.22 s | 2.41 ms ± 59.26 µs | 5.03× |
+| wasm-gc / 2k | 104.94 ms ± 22.87 ms | 497.03 µs ± 9.71 µs | — |
+| wasm-gc / 10k | 3.57 s ± 609.44 ms | 2.60 ms ± 42.06 µs | 5.23× |
+
+The 5× line increase returns to the expected linear scale band instead of the
+previous 28.5× on JS and 34.0× on wasm-gc in this same-machine comparison.
+The 10k isolated operation is approximately 1,490× faster on JS and 1,370×
+faster on wasm-gc.
+
+### Mixed corpus lowering attribution
+
+| Target / operation | Base 2k → 10k | Head 2k → 10k |
+|---|---:|---:|
+| JS / direct Block | 67.06 ms ± 0.75 ms → 1.82 s ± 65.46 ms | 2.83 ms ± 0.14 ms → 15.57 ms ± 0.56 ms |
+| JS / recursive Block | 65.59 ms ± 2.84 ms → 1.76 s ± 41.79 ms | 1.63 ms ± 0.06 ms → 9.80 ms ± 0.61 ms |
+| JS / MarkdownIR construction | 70.66 ms ± 1.75 ms → 1.82 s ± 81.59 ms | 6.13 ms ± 0.26 ms → 37.05 ms ± 1.16 ms |
+| wasm-gc / direct Block | 61.33 ms ± 1.96 ms → 1.68 s ± 89.07 ms | 2.09 ms ± 0.06 ms → 14.98 ms ± 0.60 ms |
+| wasm-gc / recursive Block | 53.21 ms ± 1.28 ms → 1.76 s ± 75.12 ms | 1.28 ms ± 0.05 ms → 9.16 ms ± 0.24 ms |
+| wasm-gc / MarkdownIR construction | 64.78 ms ± 1.18 ms → 1.94 s ± 74.06 ms | 5.94 ms ± 0.13 ms → 34.45 ms ± 2.50 ms |
+
+Fenced code now lowers from local CST token text without requesting the owning
+document string. Indented code retains the existing visual-column semantics and
+receives one explicit source snapshot from the direct Block and MarkdownIR
+top-level lowering contexts. The compatibility algebra keeps source loading
+demand-driven for syntax-only callers. No public parser API, CST shape,
+MarkdownIR shape, or rendering behavior changes.
+
 ## 2026-08-02 (Markdown 10,000-line residual envelope)
 
 - Issue: [#838](https://github.com/dowdiness/loom/issues/838)
