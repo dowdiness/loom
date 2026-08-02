@@ -128,6 +128,42 @@ construction falls from 1.82 s to 37.05 ms on JavaScript and from 1.94 s to
 linear band. Full base/head evidence and commands remain in
 [`docs/performance/benchmark_history.md`](../performance/benchmark_history.md).
 
+A subsequent reactive observation probe tested the concrete memoization driver
+that was previously missing. On an independent-paragraph corpus with 2,500
+top-level blocks, an edit-and-restore plus full MarkdownIR-to-Block observation
+fell from 77.86 ms to 7.13 ms on wasm-gc and from 86.35 ms to 10.27 ms on
+JavaScript when block-local projection was cached through `DerivedMap`. The
+same keyed shape made the existing direct Block full observation slower than
+its persistent `CstFold`, confirming that the opportunity is specific to the
+position-carrying MarkdownIR path rather than a parser-wide cache deficiency.
+
+This probe supplied the performance motivation required by Future work. A
+correctness-first follow-up then proved that a top-level `LocalRawBlock` can
+store block-owned origins relatively and be placed downstream to reproduce the
+existing complete `MarkdownIR` exactly. Differential scenarios cover local and
+prepend edits, duplicate blocks, inline and reference links, containers, lists,
+block quotes, fenced code, and HTML on valid CSTs. For a 2,500-block local edit,
+the exact keyed path is 2.85× faster on wasm-gc and 2.99× faster on JavaScript
+than whole-document lowering.
+
+The same prototype rejects the simplest global-reference dependency design.
+Making every cached block depend on one exact definition-table snapshot is
+correct, but a semantic-only definition edit makes the keyed path 1.62× slower
+than a coarse loop on wasm-gc and 1.83× slower on JavaScript because every entry
+is invalidated. Current lowering also copies absolute definition origins into
+each resolved reference link, coupling position-independent syntax work to
+document-global placement.
+
+Therefore the prototype does not authorize caching resolved `MarkdownIR`
+blocks. A production design must first preserve unresolved reference syntax in
+a position-independent intermediate result, then resolve it in a separate
+stage with explicit definition dependencies and place document-global origins
+outside the cached local value. Recovery diagnostics and stale-key retirement
+also remain unproven. Until those seams are defined, the public eager/lazy
+policy and the existing Block `CstFold` path remain unchanged. Full commands,
+measurements, and caveats are recorded in
+[`docs/performance/benchmark_history.md`](../performance/benchmark_history.md).
+
 ### Checked canonical formatter policy
 
 Issue #777 adds a separate cost boundary for checked canonical formatting. Its
@@ -183,16 +219,24 @@ returned value once consumers finish with it.
 
 ## Future work
 
-If MarkdownIR lowering later becomes a measurable bottleneck, a position-aware
-memo layer can be introduced. Such a layer must either:
+MarkdownIR lowering is now a measured bottleneck on large, locally edited
+documents, but the accepted implementation boundary is not yet complete. The
+next design must:
 
-- key cache entries by absolute source range plus structural content, not by
-  `CstNode.hash` alone; or
-- re-derive origins from the live `SyntaxNode` on every cache hit, storing only
-  position-independent semantic data in the cached value.
+- cache only position-independent, block-local semantic data keyed by
+  structural CST identity;
+- preserve unresolved full, collapsed, and shortcut reference syntax so local
+  lowering does not depend on document definitions;
+- resolve references through explicit definition dependencies after local
+  lowering, without copying document-global origins into the cached value;
+- place block-relative origins from the current `SyntaxNode` layout;
+- preserve recovery diagnostics exactly; and
+- define stale-key retirement for long-lived editor sessions.
 
-Either approach requires design work beyond the M1 slice and should be driven
-by a new benchmark showing the need.
+Keying by absolute source ranges is no longer preferred: it would deliberately
+discard the prepend/move reuse that the relative-origin prototype proved. No
+generic `incr` collection API change is required by the current evidence;
+`DerivedMap` already exposes the needed keyed computation behavior.
 
 ## Consequences
 

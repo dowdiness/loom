@@ -2,6 +2,106 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-08-02 (Reactive Markdown lowering observation probe)
+
+- Base implementation: `cfaceae` (`perf/843-code-block-source`)
+- Harness:
+  `examples/markdown/reactive_lowering_benchmark_test.mbt`
+- Environment: local WSL2, Linux 6.6.114.1, x86_64
+- Commands:
+  - `rtk moon bench --release --target wasm-gc -p dowdiness/markdown -f reactive_lowering_benchmark_test.mbt`
+  - `rtk moon bench --release --target js -p dowdiness/markdown -f reactive_lowering_benchmark_test.mbt`
+  - `rtk moon test --release -p dowdiness/markdown -f reactive_lowering_benchmark_test.mbt`
+
+The fixture holds parsing constant through one syntax-only parser and measures
+an edit-and-restore cycle followed by the requested observation. The direct
+Block coarse path preserves one `CstFold` across revisions, matching
+`@loom.Parser[Block]`. The keyed paths use one `DerivedMap[CstNode, Block]` and
+either materialize all top-level blocks or observe only the edited block.
+
+| Projection / observation | Blocks | wasm-gc mean ± σ | JavaScript mean ± σ |
+|---|---:|---:|---:|
+| Block / persistent `CstFold` full | 100 | 111.89 µs ± 5.86 µs | 213.46 µs ± 9.95 µs |
+| Block / `DerivedMap` full | 100 | 195.05 µs ± 5.70 µs | 303.96 µs ± 4.07 µs |
+| Block / `DerivedMap` sparse | 100 | 115.53 µs ± 1.57 µs | 219.53 µs ± 3.31 µs |
+| Block / persistent `CstFold` full | 2,500 | 4.12 ms ± 0.16 ms | 7.03 ms ± 0.40 ms |
+| Block / `DerivedMap` full | 2,500 | 6.87 ms ± 0.31 ms | 12.18 ms ± 0.78 ms |
+| Block / `DerivedMap` sparse | 2,500 | 3.89 ms ± 0.10 ms | 7.21 ms ± 0.42 ms |
+| MarkdownIR → Block / coarse full | 100 | 2.09 ms ± 0.03 ms | 2.53 ms ± 0.02 ms |
+| MarkdownIR → Block / `DerivedMap` full | 100 | 190.92 µs ± 3.04 µs | 326.45 µs ± 6.67 µs |
+| MarkdownIR → Block / `DerivedMap` sparse | 100 | 116.41 µs ± 2.70 µs | 219.68 µs ± 4.44 µs |
+| MarkdownIR → Block / coarse full | 2,500 | 77.86 ms ± 1.41 ms | 86.35 ms ± 3.22 ms |
+| MarkdownIR → Block / `DerivedMap` full | 2,500 | 7.13 ms ± 0.31 ms | 10.27 ms ± 0.29 ms |
+| MarkdownIR → Block / `DerivedMap` sparse | 2,500 | 4.22 ms ± 0.14 ms | 7.04 ms ± 0.24 ms |
+
+The current Block AST needs no new keyed cache: full `DerivedMap`
+materialization is about 1.67× slower on wasm-gc and 1.73× slower on JavaScript
+at 2,500 blocks, while sparse observation is approximately the syntax-parser
+baseline. Its persistent `CstFold` is already the correct position-independent
+memo boundary.
+
+MarkdownIR has a real measured opportunity. For this independent-paragraph
+corpus, keyed full materialization is about 10.9× faster on wasm-gc and 8.4×
+faster on JavaScript at 2,500 blocks. This is a feasibility result, not a
+production design approval: the probe adapts block-local IR immediately to
+position-independent `Block`, so block-relative origins are discarded, and it
+does not exercise document-wide reference definitions, containers, structural
+insertion, or long-session key retirement. The next design step is therefore a
+position-independent `LocalRawBlock` plus downstream origin placement and
+reference resolution—not a generic `incr` collection API and not a change to
+the existing Block parser path.
+
+### Exact-origin `LocalRawBlock` prototype
+
+A follow-up prototype keeps block-owned origins relative to the top-level CST
+block, places them at the current document offset, and returns the complete
+`MarkdownIR` rather than adapting immediately to `Block`. Differential tests
+compare the result with the existing whole-document lowering, including inline
+links and images, reference links, duplicate blocks, prepend edits, containers,
+lists, block quotes, fenced code, and HTML. All comparisons are exact
+`MarkdownIR` equality; recovery diagnostics remain outside the prototype.
+
+The keyed path also reads a definition-table snapshot with equality over every
+definition value and absolute origin. This is the conservative correctness
+model: an unchanged snapshot backdates, while any definition change
+invalidates every cached block. Commands used the same package/file selection
+as above with
+`local_raw_block_prototype_benchmark_wbtest.mbt`; every row reports ten samples
+as `mean ± σ`.
+
+| Edit-and-restore observation, 2,500 blocks | wasm-gc mean ± σ | JavaScript mean ± σ |
+|---|---:|---:|
+| Syntax only / same-length local edit | 3.43 ms ± 0.12 ms | 6.41 ms ± 0.37 ms |
+| Exact IR / coarse same-length local edit | 69.73 ms ± 1.95 ms | 84.49 ms ± 7.24 ms |
+| Exact IR / keyed same-length local edit | 24.48 ms ± 1.50 ms | 28.24 ms ± 1.25 ms |
+| Syntax only / prepend block | 101.51 ms ± 3.81 ms | 137.11 ms ± 7.13 ms |
+| Exact IR / coarse prepend block | 174.42 ms ± 4.80 ms | 214.74 ms ± 7.85 ms |
+| Exact IR / keyed prepend block | 146.79 ms ± 12.95 ms | 185.58 ms ± 14.87 ms |
+
+Relative-origin placement preserves the opportunity: the exact keyed path is
+about 2.85× faster on wasm-gc and 2.99× faster on JavaScript for the local edit.
+Prepend gains are only 1.19× and 1.16× because syntax reparsing dominates that
+cycle.
+
+To isolate reference dependency cost from syntax reparsing, a second benchmark
+holds the CST/layout fixed and alternates only the definition snapshot for a
+document whose 2,500 blocks use the same reference label:
+
+| Semantic-only definition edit | wasm-gc mean ± σ | JavaScript mean ± σ |
+|---|---:|---:|
+| Coarse full lowering | 27.06 ms ± 1.59 ms | 25.18 ms ± 0.79 ms |
+| Keyed full lowering, whole-table dependency | 43.82 ms ± 3.43 ms | 46.04 ms ± 1.06 ms |
+
+When every entry is invalidated, `DerivedMap` adds overhead without avoiding
+work: it is 1.62× slower than the coarse loop on wasm-gc and 1.83× slower on
+JavaScript. The whole-table dependency is correct but is not a production
+design. Production lowering must cache syntax-local, unresolved reference
+atoms and resolve them in a separate stage with explicit definition
+dependencies. It must also avoid copying document-global definition origins
+into the cached local value. Recovery diagnostics and stale-key retirement
+still require separate proof, so the prototype does not change the public
+MarkdownIR policy.
+
 ## 2026-08-02 (Markdown fenced-code source reconstruction removal)
 
 - Issue: [#843](https://github.com/dowdiness/loom/issues/843)
