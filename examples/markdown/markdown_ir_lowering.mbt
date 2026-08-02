@@ -203,8 +203,10 @@ priv enum EscapedInlineRecoveryState {
 priv struct MarkdownIRLoweringContext {
   source_id : @core.SourceId
   source : String
-  reference_definitions : LinkReferenceDefinitionTable
+  reference_definition_lookup : (String) -> LinkReferenceDefinition?
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic]
+  defer_reference_resolution : Bool
+  deferred_reference_candidates : Array[LocalReferenceCandidate]?
 }
 
 ///|
@@ -352,6 +354,42 @@ fn normalize_typed_inline_recovered_prefix(
     }
   }
   normalized
+}
+
+///|
+fn finalize_inline_reference_children(
+  children : Array[MarkdownIR],
+  context : MarkdownIRLoweringContext,
+) -> Array[MarkdownIR] {
+  let normalized = normalize_escaped_inline_recoveries(
+    children,
+    context.source,
+    context.diagnostics_in_origin,
+  )
+  if context.defer_reference_resolution {
+    mark_local_deferred_inline_finalize(normalized)
+  } else {
+    resolve_normalized_inline_reference_children(normalized, context)
+  }
+}
+
+///|
+fn resolve_normalized_inline_reference_children(
+  normalized : Array[MarkdownIR],
+  context : MarkdownIRLoweringContext,
+) -> Array[MarkdownIR] {
+  resolve_inline_images(
+    literalize_balanced_raw_parentheses(
+      resolve_emphasis_boundary_shortcuts(
+        normalize_typed_inline_recovered_prefix(
+          resolve_shortcut_references(normalized, context),
+          context.diagnostics_in_origin,
+        ),
+        context,
+      ),
+    ),
+    context.source,
+  )
 }
 
 ///|
@@ -513,25 +551,7 @@ fn lower_inline_children_skip_with_diags(
       }
     }
   }
-  resolve_inline_images(
-    literalize_balanced_raw_parentheses(
-      resolve_emphasis_boundary_shortcuts(
-        normalize_typed_inline_recovered_prefix(
-          resolve_shortcut_references(
-            normalize_escaped_inline_recoveries(
-              children,
-              context.source,
-              context.diagnostics_in_origin,
-            ),
-            context,
-          ),
-          context.diagnostics_in_origin,
-        ),
-        context,
-      ),
-    ),
-    context.source,
-  )
+  finalize_inline_reference_children(children, context)
 }
 
 ///|
@@ -1208,22 +1228,7 @@ fn lower_link_node_atoms_with_diags(
       }
     }
   }
-  let normalized_display = resolve_inline_images(
-    literalize_balanced_raw_parentheses(
-      normalize_typed_inline_recovered_prefix(
-        resolve_shortcut_references(
-          normalize_escaped_inline_recoveries(
-            display,
-            context.source,
-            context.diagnostics_in_origin,
-          ),
-          context,
-        ),
-        context.diagnostics_in_origin,
-      ),
-    ),
-    context.source,
-  )
+  let normalized_display = finalize_inline_reference_children(display, context)
   let label_origin = match (label_start, label_end) {
     (Some(start), Some(end)) if start <= end =>
       contiguous_label_origin(normalized_display, start, end)
@@ -1264,7 +1269,7 @@ fn lower_link_node_atoms_with_diags(
           lower_literal_link_node_atoms(node, context, target_start, target_end)
       }
     _ => {
-      let resolved_reference = match
+      let reference_candidate = match
         (label_start, label_end, reference_label_start, reference_label_end) {
         (
           Some(label_start),
@@ -1279,44 +1284,65 @@ fn lower_link_node_atoms_with_diags(
             reference_start
           }
           let lookup_end = if collapsed { label_end } else { reference_end }
-          lookup_bounded_link_reference_definition(
-            context,
-            MarkdownIROrigin(start=lookup_start, end=lookup_end),
-          ).map(definition => {
+          Some(
             (
-              definition,
+              MarkdownIROrigin(start=lookup_start, end=lookup_end),
               if collapsed {
                 CollapsedReferenceLinkForm
               } else {
                 FullReferenceLinkForm
               },
               Some(MarkdownIROrigin(start=reference_start, end=reference_end)),
-            )
-          })
+            ),
+          )
         }
         (Some(label_start), Some(label_end), None, None) if label_start <=
           label_end =>
-          lookup_bounded_link_reference_definition(
-            context,
-            MarkdownIROrigin(start=label_start, end=label_end),
-          ).map(definition => (definition, ShortcutReferenceLinkForm, None))
+          Some(
+            (
+              MarkdownIROrigin(start=label_start, end=label_end),
+              ShortcutReferenceLinkForm,
+              None,
+            ),
+          )
         _ => None
       }
-      match resolved_reference {
-        Some((definition, form, reference_label_origin)) =>
-          [
-            MarkdownIR::link_with_metadata(
-              normalized_display,
-              definition.destination_value,
-              definition.title_value,
-              form,
-              origin_from_node(node),
-              label_origin,
-              reference_label_origin,
-              Some(definition.destination_value_origin),
-              definition.title_value_origin,
-            ),
-          ]
+      match reference_candidate {
+        Some((lookup_origin, form, reference_label_origin)) =>
+          if context.defer_reference_resolution {
+            let candidates = context.deferred_reference_candidates.unwrap()
+            [
+              register_local_reference_candidate(
+                candidates,
+                bounded_link_reference_label(context, lookup_origin),
+                normalized_display,
+                lower_literal_link_node_atoms(node, context, None, None),
+                form,
+                origin_from_node(node),
+                label_origin,
+                reference_label_origin,
+              ),
+            ]
+          } else {
+            match
+              lookup_bounded_link_reference_definition(context, lookup_origin) {
+              Some(definition) =>
+                [
+                  MarkdownIR::link_with_metadata(
+                    normalized_display,
+                    definition.destination_value,
+                    definition.title_value,
+                    form,
+                    origin_from_node(node),
+                    label_origin,
+                    reference_label_origin,
+                    Some(definition.destination_value_origin),
+                    definition.title_value_origin,
+                  ),
+                ]
+              None => lower_literal_link_node_atoms(node, context, None, None)
+            }
+          }
         None => lower_literal_link_node_atoms(node, context, None, None)
       }
     }
@@ -2121,9 +2147,6 @@ fn experimental_markdown_ir_fold_node_with_diags(
   let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match kind {
     DocumentNode => {
-      // #811 collects the immutable document table before recursive lowering.
-      // #812 will consume it while resolving reference-form inline nodes.
-      ignore(context.reference_definitions)
       let children : Array[MarkdownIR] = node
         .children()
         .iter()
@@ -2304,11 +2327,14 @@ pub fn experimental_markdown_ir_from_syntax(
   root : @seam.SyntaxNode,
 ) -> MarkdownIR {
   let document_root = syntax_root(root)
+  let reference_definitions = collect_link_reference_definitions(document_root)
   let context : MarkdownIRLoweringContext = {
     source_id,
     source: document_root.text(),
-    reference_definitions: collect_link_reference_definitions(document_root),
+    reference_definition_lookup: label => reference_definitions.lookup(label),
     diagnostics_in_origin: _ => [],
+    defer_reference_resolution: false,
+    deferred_reference_candidates: None,
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
     experimental_markdown_ir_fold_node(node, lower, context)
@@ -2323,13 +2349,16 @@ pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
   diagnostics : @core.DiagnosticSet,
 ) -> MarkdownIR {
   let document_root = syntax_root(root)
+  let reference_definitions = collect_link_reference_definitions(document_root)
   let context : MarkdownIRLoweringContext = {
     source_id,
     source: document_root.text(),
-    reference_definitions: collect_link_reference_definitions(document_root),
+    reference_definition_lookup: label => reference_definitions.lookup(label),
     diagnostics_in_origin: origin => {
       diagnostics_in_origin(source_id, diagnostics, origin)
     },
+    defer_reference_resolution: false,
+    deferred_reference_candidates: None,
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
     experimental_markdown_ir_fold_node_with_diags(node, lower, context)
