@@ -261,10 +261,21 @@ fn lookup_bounded_link_reference_definition(
   context : MarkdownIRLoweringContext,
   label_origin : MarkdownIROrigin,
 ) -> LinkReferenceDefinition? {
+  match bounded_link_reference_label(context, label_origin) {
+    Some(label) => (context.reference_definition_lookup)(label)
+    None => None
+  }
+}
+
+///|
+fn bounded_link_reference_label(
+  context : MarkdownIRLoweringContext,
+  label_origin : MarkdownIROrigin,
+) -> String? {
   guard link_reference_label_is_within_limit(context.source, label_origin) else {
     return None
   }
-  context.reference_definitions.lookup(
+  Some(
     normalize_link_reference_label(source_slice(context.source, label_origin)),
   )
 }

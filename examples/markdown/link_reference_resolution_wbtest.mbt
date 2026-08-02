@@ -430,8 +430,9 @@ fn deep_unclosed_shortcut_fixture(
     {
       source_id,
       source,
-      reference_definitions: LinkReferenceDefinitionTable::empty(),
+      reference_definition_lookup: _ => None,
       diagnostics_in_origin: _ => [],
+      deferred_reference_candidates: None,
     },
   )
 }
@@ -450,8 +451,9 @@ test "incomplete full-reference suffix preserves every atom at EOF" {
   let resolved = resolve_shortcut_references(children, {
     source_id,
     source,
-    reference_definitions: LinkReferenceDefinitionTable::empty(),
+    reference_definition_lookup: _ => None,
     diagnostics_in_origin: _ => [],
+    deferred_reference_candidates: None,
   })
   assert_eq(resolved.length(), 5)
   assert_eq(markdown_ir_plain_text(resolved), source)
@@ -625,8 +627,9 @@ fn deep_balanced_shortcut_fixture(
     {
       source_id,
       source,
-      reference_definitions: LinkReferenceDefinitionTable::empty(),
+      reference_definition_lookup: _ => None,
       diagnostics_in_origin: _ => [],
+      deferred_reference_candidates: None,
     },
   )
 }
