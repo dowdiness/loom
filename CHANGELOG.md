@@ -95,6 +95,13 @@ Notable user-facing changes to Loom and its sibling modules.
   deterministic four-column tab expansion, combined display units, and visible
   markers for non-empty zero-width spans.
 
+- **`dowdiness/diagnostic_pretty`:** new opt-in adapter that converts structured
+  diagnostics into width-aware `dowdiness/pretty` layouts with typed severity,
+  code, source, gutter, label, and note annotations. Unicode display-cell
+  measurement, configurable tabs, and East Asian Ambiguous-width policy come
+  from `dowdiness/moji`; ANSI, HTML, themes, and terminal detection remain
+  separate consumers.
+
 - **`dowdiness/moji`:** added grapheme-aware terminal display measurement.
   `display_width` and `display_units` combine moji's UTF-16 grapheme boundaries
   with UAX #11 widths, explicit East Asian Ambiguous policy, absolute tab-stop

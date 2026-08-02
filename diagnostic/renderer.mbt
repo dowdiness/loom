@@ -16,6 +16,21 @@ pub fn SourceSnapshot::SourceSnapshot(
 }
 
 ///|
+pub fn SourceSnapshot::name(self : SourceSnapshot) -> String {
+  self.name
+}
+
+///|
+pub fn SourceSnapshot::text(self : SourceSnapshot) -> String {
+  self.text
+}
+
+///|
+pub fn SourceSnapshot::line_index(self : SourceSnapshot) -> LineIndex {
+  self.line_index
+}
+
+///|
 /// Capability for resolving one atomic source snapshot by identity.
 pub(open) trait SourceResolver {
   fn resolve_source(Self, SourceId) -> SourceSnapshot?
@@ -127,6 +142,17 @@ fn LineIndex::matches_source(self : LineIndex, source : String) -> Bool {
 }
 
 ///|
+pub fn SourceSnapshot::validate_for_source(
+  self : SourceSnapshot,
+  source_id : SourceId,
+) -> Unit raise DiagnosticRenderError {
+  guard self.line_index.strict_offset(self.text, { line: 0, column: 0 }) ==
+    Some(0) else {
+    raise MismatchedLineIndex(source_id)
+  }
+}
+
+///|
 fn[R : SourceResolver] DiagnosticRenderContext::resolve_source(
   self : DiagnosticRenderContext[R],
   source_id : SourceId,
@@ -138,10 +164,7 @@ fn[R : SourceResolver] DiagnosticRenderContext::resolve_source(
         Some(source) => source
         None => raise MissingSource(source_id)
       }
-      if source.line_index.strict_offset(source.text, { line: 0, column: 0 }) !=
-        Some(0) {
-        raise MismatchedLineIndex(source_id)
-      }
+      source.validate_for_source(source_id)
       self.sources.push({ source_id, source })
       source
     }

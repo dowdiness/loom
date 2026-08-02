@@ -37,7 +37,7 @@ render_string(doc, width=5)    // "[\n  1,\n  2,\n  3\n]"
 
 ## Core API
 
-- **Constructors:** `text`, `char`, `line`, `hardline`, `softline`
+- **Constructors:** `text`, `text_with_width`, `char`, `line`, `hardline`, `softline`
 - **Combinators:** `group`, `nest`, `concat` (`+`), `annotate`,
   `separate`, `surround`, `parens`, `brackets`, `braces`, `bracket`
 - **Renderers:** `render_string`, `render_spans`, `resolve`

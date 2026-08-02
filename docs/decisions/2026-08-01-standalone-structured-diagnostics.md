@@ -32,6 +32,13 @@ code-unit columns for compatibility. Unicode terminal policy lives in the
 separate `dowdiness/diagnostic_moji` adapter, which may depend on both
 `dowdiness/diagnostic` and `dowdiness/moji` without reversing the boundary.
 
+Rich width-aware presentation lives in the separate
+`dowdiness/diagnostic_pretty` adapter. It composes `dowdiness/diagnostic`,
+`dowdiness/moji`, and `dowdiness/pretty` into an annotated layout value while
+leaving ANSI, HTML, terminal detection, and themes to later consumers. The
+adapter owns tab and East Asian Ambiguous-width policy explicitly; it does not
+add presentation dependencies to the diagnostic model.
+
 Use unambiguous domain names:
 
 - `DiagnosticOrigin` identifies the subsystem that produced a diagnostic.
@@ -76,6 +83,12 @@ Unicode display-cell alignment is opt-in through
 `dowdiness/diagnostic_moji`; keeping it outside the base module preserves the
 core-only production dependency guarantee. Custom display adapters must keep
 line rendering and marker projection consistent.
+
+Consumers that need semantic presentation roles and width-sensitive wrapping
+may instead use `dowdiness/diagnostic_pretty`. Its result is a reusable
+`Layout[DiagnosticStyle]`, not a terminal string, so output-format adapters can
+interpret annotations without parsing rendered text. The first slice remains
+deliberately deterministic and format-neutral.
 
 The renames from `DiagnosticSource`, `DiagnosticSourceFile`, and `SourceProvider`
 to `DiagnosticOrigin`, `SourceSnapshot`, and `SourceResolver` are intentional

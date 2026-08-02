@@ -4,8 +4,26 @@ pub fn[A] empty() -> Layout[A] {
 }
 
 ///|
+pub(all) suberror PrettyBuildError {
+  NegativeTextWidth(Int)
+} derive(Debug, Eq)
+
+///|
+pub fn[A] text_with_width(
+  s : String,
+  width : Int,
+) -> Layout[A] raise PrettyBuildError {
+  guard width >= 0 else { raise NegativeTextWidth(width) }
+  Text(s, width)
+}
+
+///|
 pub fn[A] text(s : String) -> Layout[A] {
-  Text(s, s.length())
+  try text_with_width(s, s.length()) catch {
+    NegativeTextWidth(_) => abort("String length must be non-negative")
+  } noraise {
+    doc => doc
+  }
 }
 
 ///|

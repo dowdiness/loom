@@ -59,3 +59,15 @@ test "render_spans with indented line" {
     ),
   )
 }
+
+///|
+test "render_spans keeps emitted UTF-16 offsets for measured text" {
+  let doc = annotate("wide", text_with_width("界", 2)) +
+    annotate("emoji", text_with_width("😈", 2))
+  debug_inspect(
+    render_spans(doc),
+    content=(
+      #|[({ start: 0, end: 1 }, "wide"), ({ start: 1, end: 3 }, "emoji")]
+    ),
+  )
+}

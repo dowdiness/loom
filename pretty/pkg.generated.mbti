@@ -56,7 +56,12 @@ pub fn[A] surround(Layout[A], Layout[A], Layout[A]) -> Layout[A]
 
 pub fn[A] text(String) -> Layout[A]
 
+pub fn[A] text_with_width(String, Int) -> Layout[A] raise PrettyBuildError
+
 // Errors
+pub(all) suberror PrettyBuildError {
+  NegativeTextWidth(Int)
+} derive(Eq, @debug.Debug)
 
 // Types and methods
 pub(all) enum Cmd[A] {

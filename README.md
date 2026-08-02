@@ -7,8 +7,7 @@ A generic incremental parser framework for MoonBit — edit-aware lexing, a loss
 
 ## Quick Start
 
-Monorepo — no root `moon.mod.json`; run `moon` from each module's directory.
-`incr`, `egraph`, `egglog`, and `event-graph-walker` are git submodules, so clone with `--recursive`:
+Monorepo — no root `moon.mod.json`; run `moon` from each module's directory. `incr`, `egraph`, `egglog`, and `event-graph-walker` are git submodules, so clone with `--recursive`:
 
 ```bash
 git clone --recursive https://github.com/dowdiness/loom.git && cd loom
@@ -28,6 +27,7 @@ Core framework (stable):
 |--------|------|---------|
 | [`dowdiness/diagnostic`](diagnostic/) | `diagnostic/` | Parser-independent structured diagnostics, rendering, and atomic fixes |
 | [`dowdiness/diagnostic_moji`](diagnostic-moji/) | `diagnostic-moji/` | Opt-in Unicode display-cell rendering adapter for structured diagnostics |
+| [`dowdiness/diagnostic_pretty`](diagnostic-pretty/) | `diagnostic-pretty/` | Opt-in width-aware Unicode report layouts with semantic annotations |
 | [`dowdiness/loom`](loom/) | `loom/` | Parser framework: incremental parsing, CST building, grammar composition |
 | [`dowdiness/seam`](seam/) | `seam/` | Language-agnostic CST infrastructure (`CstNode` / `SyntaxNode`) |
 | [`dowdiness/incr`](incr/) | `incr/` | Salsa-inspired reactive inputs / derived cells |

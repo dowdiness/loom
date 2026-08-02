@@ -9,7 +9,9 @@ The production package depends only on MoonBit core. It does not depend on
 Loom, a syntax tree, a lexer, a terminal, or a filesystem. Its default plain
 renderer preserves UTF-16 code-unit columns for compatibility. Applications
 that need grapheme-aware terminal alignment can use the sibling
-`dowdiness/diagnostic_moji` adapter.
+`dowdiness/diagnostic_moji` adapter. Applications that need width-aware,
+semantically annotated report layouts can use
+`dowdiness/diagnostic_pretty` without adding presentation dependencies here.
 
 ## Install
 

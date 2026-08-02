@@ -38,7 +38,7 @@ pub fn[A] flat_width(layout : Layout[A]) -> Int {
 pub fn[A] prefix_flat_width(layout : Layout[A]) -> Int {
   match layout {
     Empty(_) => 0
-    Text(s, _) => s.length()
+    Text(_, width) => width
     Line(_) => 1
     HardLine(_) => 0
     Nest(_, doc, _) => prefix_flat_width(doc)
@@ -79,9 +79,9 @@ pub fn[A] resolve(width : Int, layout : Layout[A]) -> Array[Cmd[A]] {
   ) -> Int {
     match lay {
       Empty(_) => column
-      Text(s, _) => {
+      Text(s, text_width) => {
         cmds.push(CText(s))
-        column + s.length()
+        column + text_width
       }
       Line(_) =>
         match mode {
@@ -104,11 +104,12 @@ pub fn[A] resolve(width : Int, layout : Layout[A]) -> Array[Cmd[A]] {
         let r_fw = layout_fw(r)
         // When r can be fully flattened, left's suffix is r's width + outer suffix.
         // When r contains HardLine (r_fw < 0), only the content before that
-        // break shares a line with l — use prefix_flat_width(r) instead.
+        // break shares a line with l. The outer suffix follows after r and
+        // therefore cannot cross r's first hard line.
         let left_suffix = if r_fw >= 0 {
           r_fw + suffix_fw
         } else {
-          prefix_flat_width(r) + suffix_fw
+          prefix_flat_width(r)
         }
         let col = go(indent, mode, column, l, left_suffix)
         go(indent, mode, col, r, suffix_fw)

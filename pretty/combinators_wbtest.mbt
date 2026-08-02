@@ -5,6 +5,25 @@ test "text" {
 }
 
 ///|
+test "text_with_width stores a measured display width" {
+  let doc : Layout[Unit] = text_with_width("界", 2)
+  inspect(doc, content="Text(\"界\", 2)")
+}
+
+///|
+test "text_with_width rejects a negative display width" {
+  let result : Result[Layout[Unit], PrettyBuildError] = Ok(
+    text_with_width("x", -1),
+  ) catch {
+    error => Err(error)
+  }
+  match result {
+    Err(NegativeTextWidth(actual)) => inspect(actual, content="-1")
+    _ => abort("expected a negative text width error")
+  }
+}
+
+///|
 test "char" {
   let doc : Layout[Unit] = char('x')
   inspect(doc, content="Text(\"x\", 1)")

@@ -1,6 +1,7 @@
 members = [
   "./diagnostic",
   "./diagnostic-moji",
+  "./diagnostic-pretty",
   "./loom",
   "./seam",
   "./pretty",
@@ -21,6 +22,7 @@ members = [
   "./egglog",
   "./fixtures/grammar_ir_regression",
   "./fixtures/diagnostic_consumer",
+  "./fixtures/diagnostic_pretty_consumer",
   "./fixtures/line_lexer_regression",
   "./fixtures/pattern_lexer_regression",
 ]
