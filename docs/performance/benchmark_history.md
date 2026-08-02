@@ -40,9 +40,17 @@ construction rather than incremental publication or AST folding.
 | 2,005 lines / 34,884 bytes, source to CST + AST | 117.77 ms ± 16.74 | 78.96 ms ± 6.60 |
 | 9,999 lines, source to CST | 100.89 ms ± 16.60 | 73.38 ms ± 9.44 |
 
-The wasm-gc observations above seed explicit gated entries in the existing
-weekly persistent-regression detector. JavaScript remains the deployment-target
-optimization objective and requires same-runner base/head evidence.
+These local WSL2 observations are baseline-only investigation evidence; they
+must not seed the scheduled detector because that detector runs on GitHub's
+Ubuntu runner. The machine-readable wasm-gc baseline is calibrated separately
+on that runner. JavaScript remains the deployment-target optimization objective
+and requires same-runner base/head evidence for optimization claims.
+
+The eight contract rows in `bench-baseline.tsv` come from the `bench-baseline`
+artifact produced by GitHub Actions
+[run 30759285784](https://github.com/dowdiness/loom/actions/runs/30759285784)
+at head `f4bf7c0a`. Only these newly registered rows were adopted from the full
+refresh, leaving unrelated benchmark baselines unchanged.
 
 ## 2026-08-02 (Markdown keyed local-lowering design probe)
 

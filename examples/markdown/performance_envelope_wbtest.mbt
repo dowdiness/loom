@@ -52,8 +52,8 @@ test "perf envelope: isolated full-parse stages preserve the production result" 
     source_id, source, buffer,
   )
   assert_eq(staged_cst, production_cst)
-  assert_eq(buffer.get_diagnostics().length(), 0)
-  assert_eq(staged_diagnostics.length(), production_diagnostics.length())
+  assert_eq(buffer.get_diagnostics(), @core.DiagnosticSet::empty())
+  assert_eq(staged_diagnostics, production_diagnostics)
   assert_eq(reuse_count, 0)
   let fold = @core.CstFold::new(markdown_fold_node)
   let staged_ast = fold.fold(@seam.SyntaxNode::from_cst(staged_cst))

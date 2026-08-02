@@ -22,9 +22,13 @@ place its regression and product objectives under repository-owned policy.
 ## Exit evidence
 
 - Dependency health: `moon check --frozen` passed before implementation.
-- New stage parity tests pass.
+- Post-change `moon check --frozen --deny-warn` and the 3,833-test release
+  workspace suite pass.
+- New stage parity tests compare complete CST, diagnostic, and AST values.
 - Release JS and wasm-gc stage benchmarks execute and expose separate
   token-buffer and pretokenized-CST costs.
+- The scheduled detector's eight new rows use the baseline artifact from
+  GitHub Actions run 30759285784 rather than local WSL2 timings.
 - `bench-check.sh --validate` accepts the baseline/policy relationship.
 
 Decision record:
