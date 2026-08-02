@@ -118,6 +118,16 @@ string once per fenced block, not the absence of a MarkdownIR memo. The policy
 therefore remains **current**, and that isolated implementation cost is tracked
 separately in [#843](https://github.com/dowdiness/loom/issues/843).
 
+The #843 implementation removes that isolated cost without changing this
+policy. Fenced-code values are now assembled from local CST token text and do
+not request an owning source snapshot. Direct Block and MarkdownIR lowering
+pass their already-owned source explicitly for indented-code visual-column
+handling. In the same-machine 10,000-line residual comparison, MarkdownIR
+construction falls from 1.82 s to 37.05 ms on JavaScript and from 1.94 s to
+34.45 ms on wasm-gc; the 2,000-to-10,000 scale ratio returns to the expected
+linear band. Full base/head evidence and commands remain in
+[`docs/performance/benchmark_history.md`](../performance/benchmark_history.md).
+
 ### Checked canonical formatter policy
 
 Issue #777 adds a separate cost boundary for checked canonical formatting. Its
