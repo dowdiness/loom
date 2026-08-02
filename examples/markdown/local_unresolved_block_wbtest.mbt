@@ -24,25 +24,6 @@ fn first_local_unresolved_test_block(
 }
 
 ///|
-fn is_local_unresolved_flow_block(node : @seam.SyntaxNode) -> Bool {
-  // Keep this test-only document filter aligned with the accepted kinds in
-  // lower_container_child_with_diags.
-  let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
-  match kind {
-    HeadingNode
-    | ParagraphNode
-    | BlockQuoteNode
-    | UnorderedListNode
-    | OrderedListNode
-    | CodeBlockNode
-    | HtmlBlockNode
-    | ThematicBreakNode
-    | ErrorNode => true
-    _ => false
-  }
-}
-
-///|
 fn assert_local_unresolved_blocks_match_direct(source : String) -> Unit raise {
   let source_id = @core.SourceId("markdown-local-unresolved-differential")
   let (syntax, diagnostics) = local_unresolved_test_syntax(source_id, source)
@@ -62,15 +43,12 @@ fn assert_local_unresolved_blocks_match_direct(source : String) -> Unit raise {
         definitions.lookup(label)
       })
       let resolved = if resolved_local_block_requires_context(locally_resolved) {
-        resolve_local_block(
-          lower_contextual_local_block(
-            source_id,
-            block,
-            root.text(),
-            label => definitions.lookup(label),
-            origin => diagnostics_in_origin(source_id, diagnostics, origin),
-          ),
+        lower_contextual_resolved_block(
+          source_id,
+          block,
+          root.text(),
           label => definitions.lookup(label),
+          origin => diagnostics_in_origin(source_id, diagnostics, origin),
         )
       } else {
         locally_resolved
@@ -205,17 +183,14 @@ test "local unresolved block: malformed block takes exact contextual fallback" {
     label => definitions.lookup(label),
   )
   assert_true(resolved_local_block_requires_context(local_result))
-  let plan = lower_contextual_local_block(
+  let resolved = lower_contextual_resolved_block(
     source_id,
     block,
     root.text(),
     label => definitions.lookup(label),
     origin => diagnostics_in_origin(source_id, diagnostics, origin),
   )
-  let actual = place_resolved_local_block(
-    resolve_local_block(plan, label => definitions.lookup(label)),
-    0,
-  )
+  let actual = place_resolved_local_block(resolved, 0)
   let expected = experimental_markdown_ir_from_syntax_with_diagnostics(
       source_id, syntax, diagnostics,
     )

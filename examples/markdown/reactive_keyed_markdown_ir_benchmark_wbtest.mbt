@@ -1,0 +1,131 @@
+// Focused production-shell benchmark for #847.
+//
+// Each measured iteration applies one same-length edit in the middle of a
+// 2,500-block document, observes the complete MarkdownIR, reverses the edit,
+// and observes the complete MarkdownIR again. Parser construction, shell
+// attachment, watch priming, and workload construction stay outside the timed
+// body.
+
+///|
+priv struct ReactiveKeyedMarkdownIRBenchmarkInput {
+  source : String
+  edited : String
+  edit : @core.Edit
+}
+
+///|
+fn reactive_keyed_markdown_ir_benchmark_source(block_count : Int) -> String {
+  let out = StringBuilder::StringBuilder()
+  for index = 0; index < block_count; index = index + 1 {
+    out.write_string(
+      "Paragraph \{index} contains marker_\{index}, *emphasis*, **strong text**, and `code`.\n\n",
+    )
+  }
+  out.to_string()
+}
+
+///|
+fn reactive_keyed_markdown_ir_benchmark_find(
+  source : String,
+  target : String,
+) -> Int {
+  for index = 0; index <= source.length() - target.length(); index = index + 1 {
+    if source[index:index + target.length()].to_owned() == target {
+      return index
+    }
+  }
+  abort("reactive keyed MarkdownIR benchmark target not found")
+}
+
+///|
+fn reactive_keyed_markdown_ir_benchmark_input(
+  block_count : Int,
+) -> ReactiveKeyedMarkdownIRBenchmarkInput {
+  let source = reactive_keyed_markdown_ir_benchmark_source(block_count)
+  let selected_block = block_count / 2
+  let target = "marker_\{selected_block}"
+  let position = reactive_keyed_markdown_ir_benchmark_find(source, target)
+  let edited = source[:position].to_owned() +
+    "M" +
+    source[position + 1:].to_owned()
+  {
+    source,
+    edited,
+    edit: @core.Edit::replace(position, position + 1, position + 1),
+  }
+}
+
+///|
+fn reactive_keyed_markdown_ir_benchmark_direct_read(
+  parser : @loom.SyntaxParser,
+) -> MarkdownIR {
+  let snapshot = parser.snapshot().read_or_abort()
+  experimental_markdown_ir_from_syntax_with_diagnostics(
+    parser.source_id(),
+    snapshot.syntax,
+    snapshot.diagnostics,
+  )
+}
+
+///|
+fn benchmark_reactive_keyed_markdown_ir_direct(
+  b : @bench.T,
+  block_count : Int,
+) -> Unit {
+  let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
+  let parser = @loom.new_syntax_parser(
+    @core.SourceId("markdown-reactive-keyed-benchmark-direct"),
+    input.source,
+    markdown_grammar.to_syntax_grammar(),
+  )
+  ignore(reactive_keyed_markdown_ir_benchmark_direct_read(parser))
+  b.bench(() => {
+    parser.apply_edit(input.edit, input.edited)
+    b.keep(reactive_keyed_markdown_ir_benchmark_direct_read(parser))
+    parser.apply_edit(input.edit, input.source)
+    b.keep(reactive_keyed_markdown_ir_benchmark_direct_read(parser))
+  })
+}
+
+///|
+fn benchmark_reactive_keyed_markdown_ir_shell(
+  b : @bench.T,
+  block_count : Int,
+  instrumented : Bool,
+) -> Unit {
+  let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
+  let parser = @loom.new_syntax_parser(
+    @core.SourceId("markdown-reactive-keyed-benchmark-shell"),
+    input.source,
+    markdown_grammar.to_syntax_grammar(),
+  )
+  let shell = if instrumented {
+    attach_instrumented_reactive_keyed_markdown_ir(parser)
+  } else {
+    attach_reactive_keyed_markdown_ir(parser)
+  }
+  b.bench(() => {
+    parser.apply_edit(input.edit, input.edited)
+    b.keep(shell.read())
+    parser.apply_edit(input.edit, input.source)
+    b.keep(shell.read())
+  })
+  shell.dispose()
+}
+
+///|
+test "reactive keyed MarkdownIR: direct full cycle 2500 blocks" (b : @bench.T) {
+  benchmark_reactive_keyed_markdown_ir_direct(b, 2500)
+}
+
+///|
+test "reactive keyed MarkdownIR: shell full cycle 2500 blocks" (b : @bench.T) {
+  benchmark_reactive_keyed_markdown_ir_shell(b, 2500, false)
+}
+
+///|
+test "reactive keyed MarkdownIR: instrumented shell calibration 2500 blocks" (
+  b : @bench.T,
+) {
+  benchmark_reactive_keyed_markdown_ir_shell(b, 2500, true)
+}
