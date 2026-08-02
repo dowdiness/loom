@@ -56,6 +56,7 @@ Understanding how the layers fit together. Principles only — no specific types
 - [architecture/overview.md](architecture/overview.md) — layer diagram, architectural principles
 - [architecture/pipeline.md](architecture/pipeline.md) — parse pipeline step by step
 - [architecture/markdown-ir.md](architecture/markdown-ir.md) — MarkdownIR responsibilities, identity boundary, invariants, anti-CST-cloning rule, extension scope, and M0/M1 exit criteria
+- [superpowers/specs/2026-08-02-markdown-local-unresolved-block-design.md](superpowers/specs/2026-08-02-markdown-local-unresolved-block-design.md) — accepted private unresolved block-lowering seam for relative origins, per-label reference dependencies, and lazy keyed MarkdownIR reuse
 - [architecture/language.md](architecture/language.md) — grammar, syntax, Token/Term data types
 - [architecture/seam-model.md](architecture/seam-model.md) — `CstNode`/`SyntaxNode` two-tree model
 - [architecture/generic-parser.md](architecture/generic-parser.md) — `LanguageSpec`, `ParserContext` API

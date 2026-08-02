@@ -2,6 +2,69 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-08-02 (Markdown keyed local-lowering design probe)
+
+- Evidence commit:
+  [`4f743f7`](https://github.com/dowdiness/loom/commit/4f743f78ee3e61aec94f1b8c9b19ef9d7587cdca)
+  on the throwaway `perf/markdown-keyed-lowering-bench` branch
+- Base: `cfaceae`, stacked on the unmerged #843 implementation
+- Harnesses:
+  [`reactive_lowering_benchmark_test.mbt`](https://github.com/dowdiness/loom/blob/4f743f78ee3e61aec94f1b8c9b19ef9d7587cdca/examples/markdown/reactive_lowering_benchmark_test.mbt)
+  and
+  [`local_raw_block_prototype_benchmark_wbtest.mbt`](https://github.com/dowdiness/loom/blob/4f743f78ee3e61aec94f1b8c9b19ef9d7587cdca/examples/markdown/local_raw_block_prototype_benchmark_wbtest.mbt)
+- Environment: local WSL2, Linux 6.6.114.1, x86_64
+- Targets: release wasm-gc and JavaScript
+
+The first probe compared the existing persistent Block `CstFold` with a keyed
+`DerivedMap`, then adapted block-local MarkdownIR immediately to the
+position-independent legacy Block model:
+
+| Full edit-and-restore observation, 2,500 blocks | wasm-gc mean ± σ | JavaScript mean ± σ |
+|---|---:|---:|
+| Block / persistent `CstFold` | 4.12 ms ± 0.16 ms | 7.03 ms ± 0.40 ms |
+| Block / keyed `DerivedMap` | 6.87 ms ± 0.31 ms | 12.18 ms ± 0.78 ms |
+| MarkdownIR → Block / coarse | 77.86 ms ± 1.41 ms | 86.35 ms ± 3.22 ms |
+| MarkdownIR → Block / keyed | 7.13 ms ± 0.31 ms | 10.27 ms ± 0.29 ms |
+
+The existing Block path needs no keyed replacement. Its persistent `CstFold`
+already owns the position-independent reuse seam and is faster for full
+materialization. MarkdownIR has a distinct measured opportunity, but this first
+probe discarded origin correctness.
+
+The follow-up kept block-owned origins relative, placed them at the live block
+offset, and returned complete MarkdownIR. Exact differential tests cover local
+and prepend edits, duplicate blocks, inline/reference links and images,
+containers, lists, block quotes, fenced code, and HTML on valid CSTs.
+
+| Exact edit-and-restore observation, 2,500 blocks | wasm-gc mean ± σ | JavaScript mean ± σ |
+|---|---:|---:|
+| Syntax only / same-length local edit | 3.43 ms ± 0.12 ms | 6.41 ms ± 0.37 ms |
+| Exact IR / coarse local edit | 69.73 ms ± 1.95 ms | 84.49 ms ± 7.24 ms |
+| Exact IR / keyed local edit | 24.48 ms ± 1.50 ms | 28.24 ms ± 1.25 ms |
+| Syntax only / prepend block | 101.51 ms ± 3.81 ms | 137.11 ms ± 7.13 ms |
+| Exact IR / coarse prepend | 174.42 ms ± 4.80 ms | 214.74 ms ± 7.85 ms |
+| Exact IR / keyed prepend | 146.79 ms ± 12.95 ms | 185.58 ms ± 14.87 ms |
+
+Relative-origin placement preserves a 2.85× wasm-gc and 2.99× JavaScript
+improvement for the local edit. Prepend improves only 1.19× and 1.16× because
+syntax reparsing and full absolute-origin materialization dominate.
+
+The conservative correct reference model made every cached block depend on one
+exact definition snapshot. A semantic-only dense-reference benchmark held CST
+and layout fixed and alternated only that snapshot:
+
+| Semantic-only definition edit, 2,500 blocks | wasm-gc mean ± σ | JavaScript mean ± σ |
+|---|---:|---:|
+| Coarse full lowering | 27.06 ms ± 1.59 ms | 25.18 ms ± 0.79 ms |
+| Keyed full lowering, whole-table dependency | 43.82 ms ± 3.43 ms | 46.04 ms ± 1.06 ms |
+
+When every entry is invalidated, keyed lowering is 1.62× slower on wasm-gc and
+1.83× slower on JavaScript. The production candidate therefore caches only
+syntax-local unresolved block plans and resolves references later through
+per-label dependencies. Recovery diagnostics, cache retirement, and A/A
+calibration remain gates in the
+[production design](../superpowers/specs/2026-08-02-markdown-local-unresolved-block-design.md).
+
 ## 2026-08-02 (Markdown 10,000-line residual envelope)
 
 - Issue: [#838](https://github.com/dowdiness/loom/issues/838)

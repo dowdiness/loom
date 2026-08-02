@@ -3,7 +3,8 @@
 **Date:** 2026-06-16
 **Status:** Accepted
 **Issue:** [#339](https://github.com/dowdiness/loom/issues/339)
-**Updated by:** [#777](https://github.com/dowdiness/loom/issues/777)
+**Updated by:** [#777](https://github.com/dowdiness/loom/issues/777),
+[#845](https://github.com/dowdiness/loom/issues/845)
 **Implementation plan:** N/A — issue-scoped benchmark and policy note.
 
 ## Context
@@ -118,6 +119,31 @@ string once per fenced block, not the absence of a MarkdownIR memo. The policy
 therefore remains **current**, and that isolated implementation cost is tracked
 separately in [#843](https://github.com/dowdiness/loom/issues/843).
 
+A correctness-first keyed-lowering prototype then tested the memoization driver
+that the residual matrix did not cover. A top-level block result with relative
+owned origins can be placed downstream to reproduce complete MarkdownIR exactly
+for valid local/prepend edits, duplicate blocks, inline/reference links,
+containers, lists, block quotes, fenced code, and HTML. On a 2,500-block local
+edit, exact keyed observation was 2.85× faster on wasm-gc and 2.99× faster on
+JavaScript than whole-document lowering.
+
+The prototype also rejects the simplest document-global dependency model.
+Making every cached block depend on one exact reference-definition snapshot is
+correct, but a semantic-only definition edit made the keyed path 1.62× slower
+than a coarse loop on wasm-gc and 1.83× slower on JavaScript because every entry
+was invalidated. Current lowering also copies absolute definition origins into
+each resolved reference node, coupling local syntax work to document placement.
+
+Therefore this evidence does not authorize caching resolved MarkdownIR blocks.
+The proposed production seam first preserves unresolved reference syntax in a
+private position-independent block plan, then resolves through explicit
+per-label dependencies and places origins from the live layout. Recovery
+diagnostics and stale-key retirement remain correctness gates. The existing
+lazy policy, direct one-shot path, and Block `CstFold` remain unchanged. See the
+[design specification](../superpowers/specs/2026-08-02-markdown-local-unresolved-block-design.md)
+and the throwaway evidence commit
+[`4f743f7`](https://github.com/dowdiness/loom/commit/4f743f78ee3e61aec94f1b8c9b19ef9d7587cdca).
+
 ### Checked canonical formatter policy
 
 Issue #777 adds a separate cost boundary for checked canonical formatting. Its
@@ -173,16 +199,22 @@ returned value once consumers finish with it.
 
 ## Future work
 
-If MarkdownIR lowering later becomes a measurable bottleneck, a position-aware
-memo layer can be introduced. Such a layer must either:
+MarkdownIR lowering is now a measured bottleneck on large, locally edited
+documents, but the accepted production implementation remains gated. It must:
 
-- key cache entries by absolute source range plus structural content, not by
-  `CstNode.hash` alone; or
-- re-derive origins from the live `SyntaxNode` on every cache hit, storing only
-  position-independent semantic data in the cached value.
+- cache only position-independent block-local semantic data keyed by structural
+  CST identity;
+- preserve unresolved full, collapsed, and shortcut reference syntax so local
+  lowering does not depend on document definitions;
+- resolve references through explicit per-label definition dependencies;
+- place block-relative origins from the current live layout;
+- preserve recovery diagnostics exactly; and
+- define stale-key retirement for long-lived editor sessions.
 
-Either approach requires design work beyond the M1 slice and should be driven
-by a new benchmark showing the need.
+Keying by absolute source range is no longer preferred because it discards the
+prepend/move reuse proven by the relative-origin prototype. No generic `incr`
+interface change is justified: existing `DerivedMap`, runtime GC, and cache
+sweeping provide the required shell mechanisms.
 
 ## Consequences
 
