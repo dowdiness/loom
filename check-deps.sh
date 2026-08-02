@@ -11,6 +11,8 @@
 #      enforced at compile time — moon resolves it as a circular dependency.
 #   3. diagnostic production code MUST depend only on MoonBit core packages.
 #      Keeps structured diagnostics independent from Loom and parser policy.
+#   4. diagnostic-pretty production code MUST depend exactly on diagnostic,
+#      pretty, and moji. Keeps the optional adapter narrow and format-neutral.
 
 set -euo pipefail
 
@@ -92,6 +94,30 @@ else
     fail "diagnostic contains an unexpected nested package: $nested_diagnostic_packages"
   else
     ok "diagnostic: no hidden nested production packages"
+  fi
+fi
+
+echo ""
+echo "Rule 4: diagnostic-pretty production dependencies are exactly diagnostic, pretty, and moji"
+
+if [[ ! -f "diagnostic-pretty/moon.mod" || ! -f "diagnostic-pretty/moon.pkg" ]]; then
+  fail "diagnostic-pretty manifests not found — package layout changed, update this script"
+else
+  expected_pretty_deps=$(printf '%s\n' \
+    'dowdiness/diagnostic' \
+    'dowdiness/moji' \
+    'dowdiness/pretty' | sort)
+  actual_pretty_mod_deps=$(grep -oE '"dowdiness/[^"@]+@' diagnostic-pretty/moon.mod | tr -d '"@' | sort)
+  actual_pretty_pkg_deps=$(grep -oE '"dowdiness/[^" ]+"' diagnostic-pretty/moon.pkg | tr -d '"' | sort)
+  if [[ "$actual_pretty_mod_deps" == "$expected_pretty_deps" ]]; then
+    ok "diagnostic-pretty/moon.mod: exact adapter module dependencies"
+  else
+    fail "diagnostic-pretty/moon.mod dependencies differ from diagnostic, moji, pretty"
+  fi
+  if [[ "$actual_pretty_pkg_deps" == "$expected_pretty_deps" ]]; then
+    ok "diagnostic-pretty/moon.pkg: exact adapter package imports"
+  else
+    fail "diagnostic-pretty/moon.pkg imports differ from diagnostic, moji, pretty"
   fi
 fi
 

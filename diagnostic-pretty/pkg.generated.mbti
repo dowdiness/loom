@@ -1,0 +1,39 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/diagnostic_pretty"
+
+import {
+  "dowdiness/diagnostic",
+  "dowdiness/moji",
+  "dowdiness/pretty",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn[R : @diagnostic.SourceResolver] layout(@diagnostic.Diagnostic, R, DiagnosticPrettyOptions) -> @pretty.Layout[DiagnosticStyle] raise DiagnosticPrettyError
+
+// Errors
+pub(all) suberror DiagnosticPrettyError {
+  Diagnostic(@diagnostic.DiagnosticRenderError)
+  DisplayWidth(@moji.DisplayWidthError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub struct DiagnosticPrettyOptions {
+  // private fields
+}
+pub fn DiagnosticPrettyOptions::DiagnosticPrettyOptions(tab_width? : Int, ambiguous_width? : @moji.AmbiguousWidth) -> Self raise DiagnosticPrettyError
+
+pub(all) enum DiagnosticStyle {
+  Severity(@diagnostic.DiagnosticSeverity)
+  Code
+  SourceName
+  Gutter
+  Primary
+  Secondary
+  Note
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

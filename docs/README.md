@@ -30,6 +30,7 @@ Framework-level:
 
 - [../diagnostic/README.mbt.md](../diagnostic/README.mbt.md) — parser-independent structured diagnostics, source resolution, rendering, and fixes
 - [../diagnostic-moji/README.mbt.md](../diagnostic-moji/README.mbt.md) — opt-in grapheme-aware display-cell rendering for structured diagnostics
+- [../diagnostic-pretty/README.mbt.md](../diagnostic-pretty/README.mbt.md) — opt-in width-aware Unicode report layouts with semantic annotations
 - [api/choosing-a-parser.md](api/choosing-a-parser.md) — when to reach for `ImperativeParser` directly instead of the unified `Parser[Ast]`
 - [api/api-contract.md](api/api-contract.md) — `Parser[Ast]` API contract and stability guarantees
 - [api/imperative-api-contract.md](api/imperative-api-contract.md) — `ImperativeParser` API contract
@@ -88,7 +89,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
-- [decisions/2026-08-01-standalone-structured-diagnostics.md](decisions/2026-08-01-standalone-structured-diagnostics.md) — **Accepted** portable diagnostic values/rendering/fixes move to `dowdiness/diagnostic`; Loom retains parser lifecycle policy (#830)
+- [decisions/2026-08-01-standalone-structured-diagnostics.md](decisions/2026-08-01-standalone-structured-diagnostics.md) — **Accepted** portable diagnostic values/rendering/fixes stay core-only while optional Unicode plain and pretty-layout adapters own presentation dependencies (#830, #848)
 - [decisions/2026-08-01-commonmark-completion-contract.md](decisions/2026-08-01-commonmark-completion-contract.md) — **Accepted** 652/652 clean-pipeline contract, explicit raw HTML policy, private block-container core, two-pass reference resolution, and incremental matrix (#800, #801, #803)
 - [decisions/2026-07-30-error-node-ebnf-syntax.md](decisions/2026-07-30-error-node-ebnf-syntax.md) — **Accepted** `@error_node(Kind, Token)` EBNF syntax for error recovery (#605, PR #663)
 - [decisions/2026-07-29-markdown-delimiter-run-ownership.md](decisions/2026-07-29-markdown-delimiter-run-ownership.md) — **Accepted** parser-owned CommonMark delimiter resolution with semantic-only MarkdownIR origins and a caller-topology-driven re-audit of #772 (#332, #396, #483)

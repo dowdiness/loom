@@ -158,3 +158,65 @@ test "resolve group considers suffix before hardline" {
     ),
   )
 }
+
+///|
+test "resolve uses measured text width for the current column" {
+  let doc : Layout[Unit] = text_with_width("界", 2) +
+    group(text("a") + line() + text("b"))
+  debug_inspect(
+    resolve(4, doc),
+    content="[CText(\"界\"), CText(\"a\"), CNewline(0), CText(\"b\")]",
+  )
+}
+
+///|
+test "resolve uses measured text width for a group suffix" {
+  let doc : Layout[Unit] = group(text("a") + line() + text("b")) +
+    text_with_width("界", 2)
+  debug_inspect(
+    resolve(4, doc),
+    content="[CText(\"a\"), CNewline(0), CText(\"b\"), CText(\"界\")]",
+  )
+}
+
+///|
+test "measured text group fits exactly and breaks one column narrower" {
+  let doc : Layout[Unit] = group(text_with_width("界", 2) + line() + text("x"))
+  debug_inspect(
+    resolve(4, doc),
+    content="[CText(\"界\"), CText(\" \"), CText(\"x\")]",
+  )
+  debug_inspect(
+    resolve(3, doc),
+    content="[CText(\"界\"), CNewline(0), CText(\"x\")]",
+  )
+}
+
+///|
+test "prefix_flat_width uses measured text before a hardline" {
+  let suffix : Layout[Unit] = text_with_width("界", 2) + hardline()
+  inspect(prefix_flat_width(suffix), content="2")
+  let doc = group(text("a") + line() + text("b")) + suffix
+  debug_inspect(
+    resolve(4, doc),
+    content="[CText(\"a\"), CNewline(0), CText(\"b\"), CText(\"界\"), CNewline(0)]",
+  )
+}
+
+///|
+test "resolve does not carry an outer suffix across a hardline" {
+  let first : Layout[Unit] = group(text("a") + line() + text("b"))
+  let doc = first + hardline() + text("long suffix")
+  debug_inspect(
+    resolve(3, doc),
+    content=(
+      #|[
+      #|  CText("a"),
+      #|  CText(" "),
+      #|  CText("b"),
+      #|  CNewline(0),
+      #|  CText("long suffix"),
+      #|]
+    ),
+  )
+}

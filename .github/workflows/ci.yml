@@ -422,8 +422,12 @@ jobs:
             path: diagnostic
           - name: diagnostic-moji
             path: diagnostic-moji
+          - name: diagnostic-pretty
+            path: diagnostic-pretty
           - name: diagnostic-consumer-fixture
             path: fixtures/diagnostic_consumer
+          - name: diagnostic-pretty-consumer-fixture
+            path: fixtures/diagnostic_pretty_consumer
           - name: loom
             path: loom
           - name: text-change
@@ -535,9 +539,15 @@ jobs:
           - name: diagnostic-moji
             path: diagnostic-moji
             module: dowdiness/diagnostic_moji
+          - name: diagnostic-pretty
+            path: diagnostic-pretty
+            module: dowdiness/diagnostic_pretty
           - name: diagnostic-consumer-fixture
             path: fixtures/diagnostic_consumer
             module: dowdiness/diagnostic-consumer-fixture
+          - name: diagnostic-pretty-consumer-fixture
+            path: fixtures/diagnostic_pretty_consumer
+            module: dowdiness/diagnostic-pretty-consumer-fixture
           - name: loom
             path: loom
             module: dowdiness/loom

@@ -10,7 +10,8 @@
 pub enum Layout[A] {
   /// Identity for Concat — produces no output. fw=0.
   Empty(Int)
-  /// Literal text — rendered as-is. Must not contain newlines. fw = s.length().
+  /// Literal text — rendered as-is. Must not contain newlines. The cached
+  /// width is either s.length() or an explicit measured layout-column width.
   Text(String, Int)
   /// Soft break: space in Flat mode, newline + indent in Break mode. fw=1.
   Line(Int)

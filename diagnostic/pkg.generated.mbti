@@ -126,6 +126,10 @@ pub struct SourceSnapshot {
   // private fields
 }
 pub fn SourceSnapshot::SourceSnapshot(String, String, LineIndex) -> Self
+pub fn SourceSnapshot::line_index(Self) -> LineIndex
+pub fn SourceSnapshot::name(Self) -> String
+pub fn SourceSnapshot::text(Self) -> String
+pub fn SourceSnapshot::validate_for_source(Self, SourceId) -> Unit raise DiagnosticRenderError
 
 pub struct SourceSpan {
   // private fields

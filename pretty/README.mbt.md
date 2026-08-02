@@ -32,6 +32,7 @@ To use combinators without the `@pretty.` prefix, add a `using` declaration in y
 ///|
 using @pretty {
   text,
+  text_with_width,
   char,
   line,
   hardline,
@@ -55,6 +56,7 @@ using @pretty {
   type Cmd,
   type SyntaxCategory,
   type Span,
+  type PrettyBuildError,
   Keyword,
   Identifier,
   Number,
@@ -405,6 +407,7 @@ test "end-to-end Expr pretty-print break" {
 | Function | Description |
 |----------|-------------|
 | `text(s)` | Literal text (must not contain newlines) |
+| `text_with_width(s, width)` | Literal text with an explicit non-negative layout-column width; raises `NegativeTextWidth` for invalid input |
 | `char(c)` | Single character |
 | `line()` | Space when flat, newline + indent when broken |
 | `hardline()` | Always newline; forces enclosing group to break |

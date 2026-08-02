@@ -97,3 +97,34 @@ test "external consumer converts renders and fixes a domain error" {
   }
   inspect(fixed, content="let main = 1")
 }
+
+///|
+test "external consumer reads and validates an atomic source snapshot" {
+  let source_id = @diagnostic.SourceId("memory://snapshot")
+  let snapshot = @diagnostic.SourceSnapshot(
+    "snapshot.mbt",
+    "a\nb",
+    @diagnostic.LineIndex::new("a\nb"),
+  )
+  inspect(snapshot.name(), content="snapshot.mbt")
+  inspect(snapshot.text(), content="a\nb")
+  let second_line = snapshot.line_index().line_col(2)
+  inspect(second_line.line, content="1")
+  inspect(second_line.column, content="0")
+  snapshot.validate_for_source(source_id)
+  let stale = @diagnostic.SourceSnapshot(
+    "stale.mbt",
+    "x",
+    @diagnostic.LineIndex::new("y\n"),
+  )
+  let result : Result[Unit, @diagnostic.DiagnosticRenderError] = Ok(
+    stale.validate_for_source(source_id),
+  ) catch {
+    error => Err(error)
+  }
+  match result {
+    Err(@diagnostic.MismatchedLineIndex(actual)) =>
+      inspect(actual == source_id, content="true")
+    _ => abort("expected a mismatched line index")
+  }
+}
