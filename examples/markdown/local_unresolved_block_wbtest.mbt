@@ -25,6 +25,8 @@ fn first_local_unresolved_test_block(
 
 ///|
 fn is_local_unresolved_flow_block(node : @seam.SyntaxNode) -> Bool {
+  // Keep this test-only document filter aligned with the accepted kinds in
+  // lower_container_child_with_diags.
   let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match kind {
     HeadingNode
@@ -181,11 +183,18 @@ test "local unresolved block: unresolved and bounded labels match direct lowerin
 ///|
 test "local unresolved block: malformed block takes exact contextual fallback" {
   let source_id = @core.SourceId("markdown-local-unresolved-contextual")
-  let source = "# prefix\n\n[unclosed\n"
+  let prefix = "# prefix\n\n"
+  let recovery = "[unclosed\n"
+  let source = prefix + recovery
+  let recovery_start = prefix.length()
   let (syntax, _) = local_unresolved_test_syntax(source_id, source)
   let diagnostics = @core.DiagnosticSet::single(
     @core.lexer_diagnostic_at(
-      source_id, "synthetic local recovery diagnostic", 10, 11, "synthetic-local-recovery",
+      source_id,
+      "synthetic local recovery diagnostic",
+      recovery_start,
+      recovery_start + 1,
+      "synthetic-local-recovery",
     ),
   )
   let root = syntax_root(syntax)
@@ -205,7 +214,7 @@ test "local unresolved block: malformed block takes exact contextual fallback" {
   )
   let actual = place_resolved_local_block(
     resolve_local_block(plan, label => definitions.lookup(label)),
-    block.start(),
+    0,
   )
   let expected = experimental_markdown_ir_from_syntax_with_diagnostics(
       source_id, syntax, diagnostics,
@@ -266,6 +275,7 @@ test "local unresolved block: position shifts and block families match direct lo
     "# heading [ref]\n\n[ref]: /url\n", "prep\n\n# heading [ref]\n\n[ref]: /url\n",
     "> quote [ref]\n\n- list [ref]\n\n[ref]: /url\n", "```mbt\nlet x = 1\n```\n\n<div>html</div>\n\n---\n",
     "before marker\n\nafter [ref]\n\n[ref]: /url\n", "before Marker\n\nafter [ref]\n\n[ref]: /url\n",
+    "prep\n\nsee <https://example.com/> soft\nbreak and hard  \nbreak [ref]\n\n[ref]: /url\n",
   ]
   for source in fixtures {
     assert_local_unresolved_blocks_match_direct(source)

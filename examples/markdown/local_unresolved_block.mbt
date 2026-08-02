@@ -47,31 +47,6 @@ fn find_local_reference_candidate(
 }
 
 ///|
-fn hide_local_nested_link_opener(
-  atoms : Array[MarkdownIR],
-) -> Array[MarkdownIR] {
-  match atoms {
-    [first, second, ..] =>
-      match (first.node, second.node) {
-        (Text("["), Text(prefix)) if first.origin().end() ==
-          second.origin().start() => {
-          atoms[0] = MarkdownIR::text(
-            "[" + prefix,
-            MarkdownIROrigin(
-              start=first.origin().start(),
-              end=second.origin().end(),
-            ),
-          )
-          ignore(atoms.remove(1))
-        }
-        _ => ()
-      }
-    _ => ()
-  }
-  atoms
-}
-
-///|
 const LOCAL_NESTED_LINK_OPENER = "private local nested-link opener"
 
 ///|
@@ -284,7 +259,7 @@ fn resolve_local_markdown_ir(
               }
               if contains_nested_link && !becomes_image {
                 for
-                  literal in hide_local_nested_link_opener(
+                  literal in hide_nested_link_opener(
                     resolve_sequence(candidate.literal),
                   ) {
                   resolved.push(literal)
@@ -422,7 +397,6 @@ fn lower_local_unresolved_block(
     source,
     reference_definition_lookup: _ => None,
     diagnostics_in_origin: _ => [],
-    defer_reference_resolution: true,
     deferred_reference_candidates: Some(reference_candidates),
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
@@ -468,7 +442,6 @@ fn lower_contextual_local_block(
     source,
     reference_definition_lookup: lookup,
     diagnostics_in_origin: diagnostics_in_block,
-    defer_reference_resolution: false,
     deferred_reference_candidates: None,
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
@@ -489,6 +462,8 @@ fn resolve_local_block(
   plan : LocalBlockPlan,
   lookup : (String) -> LinkReferenceDefinition?,
 ) -> ResolvedLocalBlock {
+  // A contextual plan is already resolved at absolute document positions, so
+  // its lookup is intentionally unused.
   if plan.placement is ContextualAbsoluteBlock {
     return { ir: plan.unresolved, placement: ContextualAbsoluteBlock }
   }
@@ -504,7 +479,6 @@ fn resolve_local_block(
     source: plan.source,
     reference_definition_lookup: lookup,
     diagnostics_in_origin: _ => [],
-    defer_reference_resolution: false,
     deferred_reference_candidates: None,
   }
   {
@@ -672,6 +646,7 @@ fn place_resolved_local_block(
       }
       place_local_markdown_ir(block.ir, base)
     }
+    // Contextual blocks already own absolute origins, so base is ignored.
     ContextualAbsoluteBlock => block.ir
   }
 }

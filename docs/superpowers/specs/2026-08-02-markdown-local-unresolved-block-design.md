@@ -65,6 +65,7 @@ operations:
 
 ```moonbit nocheck
 priv fn lower_local_unresolved_block(
+  source_id : @core.SourceId,
   cst : @seam.CstNode,
 ) -> LocalBlockPlan
 
@@ -78,6 +79,9 @@ priv fn place_resolved_local_block(
   base : Int,
 ) -> MarkdownIR
 ```
+
+`source_id` is propagated into the lowering context so recovery diagnostics
+retain their source identity across this private seam.
 
 The exact private representation is implementation-owned. Callers do not
 inspect reference candidates or walk fallback atoms. The deletion test is
@@ -272,9 +276,9 @@ gate requires A/A calibration after the production harness stabilizes.
 - Delete production copies of prototype helpers; retain the throwaway branch as
   primary-source evidence.
 
-#332 remains blocked until #843, #846, and #847 close. It is the real production
-consumer; this train does not create an otherwise-unused public MarkdownIR
-attachment.
+Issue `#332` remains blocked until #843, #846, and #847 close. It is the real
+production consumer; this train does not create an otherwise-unused public
+MarkdownIR attachment.
 
 ## Stop and escalate if
 

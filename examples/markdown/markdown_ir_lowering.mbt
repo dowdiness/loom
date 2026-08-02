@@ -205,7 +205,6 @@ priv struct MarkdownIRLoweringContext {
   source : String
   reference_definition_lookup : (String) -> LinkReferenceDefinition?
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic]
-  defer_reference_resolution : Bool
   deferred_reference_candidates : Array[LocalReferenceCandidate]?
 }
 
@@ -366,7 +365,7 @@ fn finalize_inline_reference_children(
     context.source,
     context.diagnostics_in_origin,
   )
-  if context.defer_reference_resolution {
+  if context.deferred_reference_candidates is Some(_) {
     mark_local_deferred_inline_finalize(normalized)
   } else {
     resolve_normalized_inline_reference_children(normalized, context)
@@ -932,6 +931,32 @@ fn markdown_ir_contains_link(node : MarkdownIR) -> Bool {
 }
 
 ///|
+/// Hide an outer literal link opener from shortcut-reference resolution by
+/// joining it to its contiguous label prefix. Both direct and deferred local
+/// lowering use this rule so nested-link precedence cannot drift.
+fn hide_nested_link_opener(atoms : Array[MarkdownIR]) -> Array[MarkdownIR] {
+  match atoms {
+    [first, second, ..] =>
+      match (first.node, second.node) {
+        (Text("["), Text(prefix)) if first.origin().end() ==
+          second.origin().start() => {
+          atoms[0] = MarkdownIR::text(
+            "[" + prefix,
+            MarkdownIROrigin(
+              start=first.origin().start(),
+              end=second.origin().end(),
+            ),
+          )
+          ignore(atoms.remove(1))
+        }
+        _ => ()
+      }
+    _ => ()
+  }
+  atoms
+}
+
+///|
 fn lower_literal_link_node_atoms(
   node : @seam.SyntaxNode,
   context : MarkdownIRLoweringContext,
@@ -1015,26 +1040,10 @@ fn lower_literal_link_node_atoms(
   // pass by joining it to the contiguous label prefix; any suffix `[ref]`
   // remains a separate exact bracket atom and can resolve normally.
   if contains_nested_link {
-    match atoms {
-      [first, second, ..] =>
-        match (first.node, second.node) {
-          (Text("["), Text(prefix)) if first.origin().end() ==
-            second.origin().start() => {
-            atoms[0] = MarkdownIR::text(
-              "[" + prefix,
-              MarkdownIROrigin(
-                start=first.origin().start(),
-                end=second.origin().end(),
-              ),
-            )
-            ignore(atoms.remove(1))
-          }
-          _ => ()
-        }
-      _ => ()
-    }
+    hide_nested_link_opener(atoms)
+  } else {
+    atoms
   }
-  atoms
 }
 
 ///|
@@ -1309,39 +1318,39 @@ fn lower_link_node_atoms_with_diags(
       }
       match reference_candidate {
         Some((lookup_origin, form, reference_label_origin)) =>
-          if context.defer_reference_resolution {
-            let candidates = context.deferred_reference_candidates.unwrap()
-            [
-              register_local_reference_candidate(
-                candidates,
-                bounded_link_reference_label(context, lookup_origin),
-                normalized_display,
-                lower_literal_link_node_atoms(node, context, None, None),
-                form,
-                origin_from_node(node),
-                label_origin,
-                reference_label_origin,
-              ),
-            ]
-          } else {
-            match
-              lookup_bounded_link_reference_definition(context, lookup_origin) {
-              Some(definition) =>
-                [
-                  MarkdownIR::link_with_metadata(
-                    normalized_display,
-                    definition.destination_value,
-                    definition.title_value,
-                    form,
-                    origin_from_node(node),
-                    label_origin,
-                    reference_label_origin,
-                    Some(definition.destination_value_origin),
-                    definition.title_value_origin,
-                  ),
-                ]
-              None => lower_literal_link_node_atoms(node, context, None, None)
-            }
+          match context.deferred_reference_candidates {
+            Some(candidates) =>
+              [
+                register_local_reference_candidate(
+                  candidates,
+                  bounded_link_reference_label(context, lookup_origin),
+                  normalized_display,
+                  lower_literal_link_node_atoms(node, context, None, None),
+                  form,
+                  origin_from_node(node),
+                  label_origin,
+                  reference_label_origin,
+                ),
+              ]
+            None =>
+              match
+                lookup_bounded_link_reference_definition(context, lookup_origin) {
+                Some(definition) =>
+                  [
+                    MarkdownIR::link_with_metadata(
+                      normalized_display,
+                      definition.destination_value,
+                      definition.title_value,
+                      form,
+                      origin_from_node(node),
+                      label_origin,
+                      reference_label_origin,
+                      Some(definition.destination_value_origin),
+                      definition.title_value_origin,
+                    ),
+                  ]
+                None => lower_literal_link_node_atoms(node, context, None, None)
+              }
           }
         None => lower_literal_link_node_atoms(node, context, None, None)
       }
@@ -2333,7 +2342,6 @@ pub fn experimental_markdown_ir_from_syntax(
     source: document_root.text(),
     reference_definition_lookup: label => reference_definitions.lookup(label),
     diagnostics_in_origin: _ => [],
-    defer_reference_resolution: false,
     deferred_reference_candidates: None,
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
@@ -2357,7 +2365,6 @@ pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
     diagnostics_in_origin: origin => {
       diagnostics_in_origin(source_id, diagnostics, origin)
     },
-    defer_reference_resolution: false,
     deferred_reference_candidates: None,
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
