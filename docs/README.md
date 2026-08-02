@@ -90,6 +90,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-08-03-markdown-full-parse-performance-contract.md](decisions/2026-08-03-markdown-full-parse-performance-contract.md) — **Accepted** stage-isolated cold-parse measurement, persistent wasm-gc regression detection, JavaScript objectives, and correctness boundaries
 - [decisions/2026-08-01-standalone-structured-diagnostics.md](decisions/2026-08-01-standalone-structured-diagnostics.md) — **Accepted** portable diagnostic values/rendering/fixes stay core-only while optional Unicode plain and pretty-layout adapters own presentation dependencies (#830, #848)
 - [decisions/2026-08-01-commonmark-completion-contract.md](decisions/2026-08-01-commonmark-completion-contract.md) — **Accepted** 652/652 clean-pipeline contract, explicit raw HTML policy, private block-container core, two-pass reference resolution, and incremental matrix (#800, #801, #803)
 - [decisions/2026-07-30-error-node-ebnf-syntax.md](decisions/2026-07-30-error-node-ebnf-syntax.md) — **Accepted** `@error_node(Kind, Token)` EBNF syntax for error recovery (#605, PR #663)
@@ -188,6 +189,7 @@ Point-in-time diagnoses. Dated snapshots — verify against current code before 
 
 ## Performance
 
+- [performance/markdown-full-parse-contract.md](performance/markdown-full-parse-contract.md) — active Markdown cold-path stage definitions, deployment objectives, mixed-corpus acceptance rows, regression policy, and correctness boundary
 - [performance/PERFORMANCE_ANALYSIS.md](performance/PERFORMANCE_ANALYSIS.md) — benchmarks and analysis
 - [performance/benchmark_history.md](performance/benchmark_history.md) — historical benchmark log
 - [performance/bench-baseline.tsv](performance/bench-baseline.tsv) — machine-readable baseline for `bench-check.sh`
@@ -255,6 +257,7 @@ _Shipped: Canonical companion trait shipped 2026-05-17 (see [ADR](decisions/2026
 > **Do not read files in this section unless you need historical context.** These documents describe past design iterations, completed work, and point-in-time analyses. The code is the source of truth; where archive material and current docs disagree, trust the code and the current docs.
 
 - [archive/completed-phases/](archive/completed-phases/) — completed phase plans and implementation notes (SyntaxNode-first layer, NodeInterner, docs hierarchy, dead-code audit, loom extraction, parser API simplification, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, multi-expression files, step-lexing redesign, flat grammar unification, error recovery, ambiguity resilience, memoized CST fold, grammar extensions, block reparse, JSON parser, Egglog typechecker, EGraph evaluator, StringView threading, unified `Parser[Ast]`, line-index source locations, structured parser diagnostics, post-112 follow-ups, lambda rename consumer, callers `visible_from`, and more)
+- [archive/completed-phases/2026-08-03-markdown-full-parse-performance-contract.md](archive/completed-phases/2026-08-03-markdown-full-parse-performance-contract.md) — **Complete** stage benchmarks, parity guards, detector registration, and performance-contract documentation
 - [archive/completed-phases/2026-07-26-remove-parser-context-lex-mode-api.md](archive/completed-phases/2026-07-26-remove-parser-context-lex-mode-api.md) — **Complete** accepted breaking-boundary removal; retain private checkpoint state and migrate users to supported lexical mechanisms.
 - [archive/completed-phases/2026-07-26-remove-private-parser-context-lex-mode-state.md](archive/completed-phases/2026-07-26-remove-private-parser-context-lex-mode-state.md) — **Complete** follow-up removal of dead private checkpoint state; public checkpoint APIs and supported lexical mechanisms remain unchanged.
 - [archive/](archive/) — research notes and retired design snapshots:

@@ -5,3 +5,11 @@ layer2: scope create and dispose (empty)	informational	high-variance empty-scope
 fixpoint: one iteration, single fact delta (identity rule)	informational	high-variance single-delta benchmark
 bench: node_count hand-written	informational	unclassifiable measurement
 bench: node_count via closure transform_fold	informational	unclassifiable measurement
+perf envelope: tokenize 500 paragraphs	gated	Markdown full-parse contract lexer stage
+perf envelope: token buffer build 500 paragraphs	gated	Markdown full-parse contract owned-token stage
+perf envelope: pretokenized CST 500 paragraphs	gated	Markdown full-parse contract grammar-and-CST stage
+perf envelope: CST 500 paragraphs	gated	Markdown full-parse contract production syntax path
+perf envelope: isolated AST fold 500 paragraphs	gated	Markdown full-parse contract semantic lowering stage
+perf envelope: CST plus AST 500 paragraphs	gated	Markdown full-parse contract end-to-end paragraph corpus
+perf residual: mixed 2k CST plus AST	gated	Markdown full-parse contract representative mixed corpus
+perf residual: mixed 10k CST	gated	Markdown full-parse contract large syntax-only corpus

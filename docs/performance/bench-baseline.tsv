@@ -296,6 +296,14 @@ markdown: realistic doc - lowering SyntaxNode -> Block	68870.00
 markdown: realistic doc - lowering SyntaxNode -> MarkdownIR -> Block	69220.00
 markdown: 50x doc - lowering SyntaxNode -> Block	6320000.00
 markdown: 50x doc - lowering SyntaxNode -> MarkdownIR -> Block	6120000.00
+perf envelope: tokenize 500 paragraphs	2520000.00
+perf envelope: token buffer build 500 paragraphs	2670000.00
+perf envelope: pretokenized CST 500 paragraphs	7530000.00
+perf envelope: CST 500 paragraphs	12380000.00
+perf envelope: isolated AST fold 500 paragraphs	2040000.00
+perf envelope: CST plus AST 500 paragraphs	14770000.00
+perf residual: mixed 2k CST plus AST	78960000.00
+perf residual: mixed 10k CST	73380000.00
 markdown: realistic doc - incremental (edit paragraph)	201490.00
 markdown: realistic doc - incremental (edit heading)	179140.00
 markdown: realistic doc - incremental (edit list item)	194370.00
