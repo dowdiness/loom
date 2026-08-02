@@ -106,8 +106,14 @@ seam.
 - already-lowered display/alt content;
 - exact literal fallback atoms for the unresolved case;
 - inline destination/title data for non-reference links;
-- reference labels used by nested candidates; and
-- whether exact recovery diagnostics require a contextual fallback.
+- reference labels used by nested candidates.
+
+`LocalBlockPlan` represents only the reusable context-free relative path. If a
+resolved relative block contains recovery output that requires live source or
+diagnostics, contextual lowering returns a `ResolvedLocalBlock` directly. It
+does not manufacture an already-resolved `LocalBlockPlan` and pass it through a
+no-op resolution branch. This keeps contextual state out of the keyed plan map
+and removes an otherwise representable but invalid plan state.
 
 The implementation must preserve the existing ordering of escaped recovery,
 shortcut resolution, image resolution, and literalization. It must not model
@@ -152,9 +158,10 @@ imperative shell:
 
 ```text
 live syntax
-  ├─ document layout: [(CstNode, current start)]
-  ├─ definition index
-  │    └─ DerivedMap<normalized label, definition?>
+  ├─ current document root CstNode
+  │    ├─ document layout: [{ CstNode, current start, document child index }]
+  │    └─ definition index
+  │         └─ DerivedMap<normalized label, definition?>
   └─ DerivedMap<CstNode, LocalBlockPlan>
          └─ DerivedMap<CstNode, ResolvedLocalBlock>
                 └─ place from live layout → complete MarkdownIR
@@ -171,15 +178,120 @@ full MarkdownIR value must contain current absolute origins. Reuse avoids
 repeating syntax interpretation and unrelated reference resolution; it does not
 claim sublinear full-value materialization.
 
+The shell is one private deep module. Its production-facing interface is limited
+to construction from an existing `@loom.SyntaxParser`, reading the watched final
+`MarkdownIR`, collecting stale keyed entries, and disposal. Counter and cache
+snapshots are private white-box test instrumentation, not additional production
+interfaces. The shell shares `parser.runtime()` and reads parser views with
+tracked `get_or_abort()` calls; it never constructs another parser or runtime.
+
+### Definition equality and per-label backdating
+
+The definition index is an immutable, normalized first-definition-wins value.
+`LinkReferenceDefinition` equality is semantic and includes its normalized
+label, destination and title values, definition origin, label-value origin,
+destination-value origin, and optional title-value origin.
+
+The index implements exact map-content equality over those definitions. Equality
+must not depend on object identity, hash equality alone, or hash-map iteration
+order. Source order affects index construction only through first-definition-wins;
+once constructed, indexes with the same normalized label-to-definition mapping
+are equal.
+
+The definition index is an equality-backdating `Derived`. The per-label map
+returns exactly `LinkReferenceDefinition?`. A definition-index change may
+recompute the accessed label projections, but exact option equality backdates an
+unchanged label before its dependent resolved blocks execute. Definition origins
+remain part of equality: a position shift of a definition must invalidate blocks
+that copy that absolute origin even when its destination and title are unchanged.
+
+### Layout and contextual recovery handle
+
+`@seam.SyntaxNode` equality is deliberately structure-only: it excludes absolute
+offset and parent. It is therefore not a valid document-layout value even though
+it implements `Eq`. Each rendered top-level slot contains only the structural
+`CstNode` key, its current absolute start, and its unfiltered child index in the
+current document root. The layout also contains the current document origin. All
+of these fields participate in exact layout equality.
+
+The terminal document derived normally needs only the layout and resolved block
+map. If a resolved block requires contextual recovery, that branch dynamically
+reads the current document-root `CstNode`, source, and diagnostics, reconstructs
+the current document `SyntaxNode`, and selects the parent-linked child by the
+recorded document child index. It then calls the existing contextual lowering
+path. A detached `SyntaxNode::from_cst(block, offset=start)` is not sufficient
+for this fallback because it discards the live parent context.
+
+The shell keeps the parser's coherent snapshot derived alive with an auxiliary
+scope-owned watch. Valid-document assembly does not read that snapshot, so it
+does not gain a broad dependency on source or diagnostics. The anchor exists so
+runtime GC cannot dispose the optional contextual input during a long run of
+valid documents; the fallback branch still acquires its dependencies only when
+it actually executes. This is a root for an existing parser view, not a second
+snapshot owner.
+
+One private rendered-flow predicate owns the accepted top-level kinds. Layout
+collection, final assembly, and differential test helpers reuse that predicate;
+they must not maintain separate kind lists. Definition blocks remain in the
+unfiltered document-child indexing space but remain absent from rendered slots.
+
+Placement is intentionally not another keyed cache. Absolute positions make a
+placed value generation-specific, and a complete observed `MarkdownIR` must
+visit every rendered slot anyway.
+
+### Instrumentation contract
+
+The private shell owns non-reactive counters for exactly five events:
+
+- local lowering: increment only when a `LocalBlockPlan` map computation body
+  executes;
+- label projection: increment only when a per-label definition map computation
+  body executes, including a revalidation that later backdates equal;
+- block resolution: increment only when a `ResolvedLocalBlock` map computation
+  body executes;
+- placement: increment once for each rendered slot visited by final assembly;
+  and
+- contextual fallback: increment once for each rendered slot lowered through
+  the live contextual path.
+
+Counters never participate in a reactive value, equality, dependency, or
+decision. The ordinary attachment leaves counter mutation disabled; a separate
+private instrumented attachment is used only by deterministic white-box tests.
+`Scope::watch(final_document)` performs the initial prime; tests take or reset a
+counter snapshot after that prime and assert deltas for subsequent edits.
+Production wall-clock benchmarks use the ordinary attachment. A paired
+instrumented run may be retained as calibration evidence, but is not the
+reported production result.
+
 ### Lifecycle
 
-Both keyed maps are scope-owned. The shell runs the existing runtime GC at the
-same editor lifecycle points used by other long-lived reactive consumers, then
-calls `DerivedMap::sweep_cache` to remove disposed entries. No new eviction
-policy is introduced.
+All three keyed maps—per-label definitions, local plans, and resolved
+blocks—are owned by the shell scope. The terminal document is rooted with
+`Scope::watch`, which also performs the priming read. The same scope retains the
+auxiliary parser-snapshot watch required by the optional contextual branch.
+
+Stale collection has one fixed operation order:
+
+1. read the terminal watch to establish the dependency set for the current
+   parser revision;
+2. run `parser.runtime().gc()`; and
+3. call `sweep_cache()` downstream-to-upstream on the resolved-block, local-plan,
+   and per-label definition maps.
+
+Sweeping before the current read is incorrect because the watched terminal may
+still retain the previous revision's dependency set. Calling `sweep_cache()`
+before runtime GC cannot retire live wrappers. The private collection operation
+encapsulates the complete sequence and returns per-map before/removed/after
+counts for deterministic tests. No new eviction policy is introduced.
 
 Deterministic tests inspect computation counts and `cache_len` around GC and
 sweep. Wall-clock timing is not the lifecycle correctness oracle.
+
+This slice fixes the collection operation but not its scheduling policy. The
+editor integration in #332 must make the attachment lifecycle owner responsible
+for disposal and for invoking collection at an explicit safe point. General
+projection consumers must not learn or reproduce the terminal-read, runtime-GC,
+and sweep ordering.
 
 ## Correctness matrix
 
@@ -214,6 +326,10 @@ Instrumented white-box tests must prove:
    placement still observes every output block.
 6. Repeated edit/delete cycles followed by runtime GC and cache sweep do not
    retain dead keys without bound.
+7. Counter snapshots are taken after watch priming; counter deltas correspond to
+   computation-body executions, not merely dirty or demanded cells.
+8. Stale collection reads the current terminal value before GC and sweeps all
+   three maps, leaving every current key readable and retiring dead generations.
 
 These counts are merge gates. Wall time supplements them but cannot weaken
 them.
@@ -261,7 +377,13 @@ gate requires A/A calibration after the production harness stabilizes.
 
 - Add document layout, per-CST local/resolved maps, and per-label definition
   projections using existing `incr` interfaces.
+- Give the definition index exact semantic equality and make the layout carry a
+  document child index rather than a structure-only-equality `SyntaxNode`.
+- Reconstruct a parent-linked current node only in the contextual fallback
+  branch.
 - Add deterministic invalidation counters and GC/sweep lifecycle tests.
+- Encapsulate the fixed `read -> runtime GC -> sweep all three maps` collection
+  order.
 - Preserve the direct one-shot and existing Block paths.
 - Keep the new path private and opt-in for benchmark/test consumers.
 
@@ -295,6 +417,8 @@ MarkdownIR attachment.
 
 ## Decision record
 
-Update the existing MarkdownIR performance ADR. No new ADR is needed because
-this design materially qualifies that existing memoization policy rather than
-establishing an unrelated project-wide rule.
+The existing
+[MarkdownIR performance policy](../../decisions/2026-06-16-markdown-ir-performance-policy.md)
+owns this keyed-lowering qualification. No new ADR is needed: these refinements
+fix private equality, recovery-handle, lifecycle-order, and instrumentation
+contracts without changing that accepted lazy memoization policy.

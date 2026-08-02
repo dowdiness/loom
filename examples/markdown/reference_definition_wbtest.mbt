@@ -40,6 +40,32 @@ fn reference_definition_node_texts(source : String) -> Array[String] {
 }
 
 ///|
+fn reference_definition_equality_fixture(
+  normalized_label? : String = "foo",
+  destination_value? : String = "/url",
+  title_value? : String? = Some("title"),
+  definition_origin? : MarkdownIROrigin = MarkdownIROrigin(start=0, end=20),
+  label_value_origin? : MarkdownIROrigin = MarkdownIROrigin(start=1, end=4),
+  destination_value_origin? : MarkdownIROrigin = MarkdownIROrigin(
+    start=7,
+    end=11,
+  ),
+  title_value_origin? : MarkdownIROrigin? = Some(
+    MarkdownIROrigin(start=12, end=19),
+  ),
+) -> LinkReferenceDefinition {
+  {
+    normalized_label,
+    destination_value,
+    title_value,
+    definition_origin,
+    label_value_origin,
+    destination_value_origin,
+    title_value_origin,
+  }
+}
+
+///|
 test "reference definition: complete block is omitted from semantic flow" {
   let ir = reference_definition_ir_from_source("[foo]: /url\n")
   inspect(ir.kind_tag(), content="Document")
@@ -124,6 +150,71 @@ test "reference definition table normalizes labels and keeps the first definitio
     }
     None => fail("normalized first definition must be collected")
   }
+}
+
+///|
+test "reference definition equality contains values and every owned origin" {
+  let base = reference_definition_equality_fixture()
+  assert_false(
+    base == reference_definition_equality_fixture(normalized_label="bar"),
+  )
+  assert_false(
+    base == reference_definition_equality_fixture(destination_value="/alt"),
+  )
+  assert_false(
+    base == reference_definition_equality_fixture(title_value=Some("other")),
+  )
+  assert_false(
+    base ==
+    reference_definition_equality_fixture(
+      definition_origin=MarkdownIROrigin(start=0, end=21),
+    ),
+  )
+  assert_false(
+    base ==
+    reference_definition_equality_fixture(
+      label_value_origin=MarkdownIROrigin(start=2, end=4),
+    ),
+  )
+  assert_false(
+    base ==
+    reference_definition_equality_fixture(
+      destination_value_origin=MarkdownIROrigin(start=8, end=11),
+    ),
+  )
+  assert_false(
+    base ==
+    reference_definition_equality_fixture(
+      title_value_origin=Some(MarkdownIROrigin(start=13, end=19)),
+    ),
+  )
+}
+
+///|
+test "reference definition table equality ignores map construction order" {
+  let definitions = collect_link_reference_definitions(
+    reference_definition_syntax_from_source("[a]: /a\n[b]: /b\n"),
+  )
+  let a = definitions.lookup("a").unwrap()
+  let b = definitions.lookup("b").unwrap()
+  let left = LinkReferenceDefinitionTable::empty()
+    .insert_first(a)
+    .insert_first(b)
+  let right = LinkReferenceDefinitionTable::empty()
+    .insert_first(b)
+    .insert_first(a)
+  assert_true(left == right)
+}
+
+///|
+test "reference definition table equality ignores normalized duplicates after the first" {
+  let left = collect_link_reference_definitions(
+    reference_definition_syntax_from_source("[FOO]: /first\n[foo]: /ignored\n"),
+  )
+  let right = collect_link_reference_definitions(
+    reference_definition_syntax_from_source("[foo]: /first\n[FOO]: /another\n"),
+  )
+  assert_true(left == right)
 }
 
 ///|

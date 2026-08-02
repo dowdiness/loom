@@ -19,12 +19,12 @@ priv struct LinkReferenceDefinition {
   label_value_origin : MarkdownIROrigin
   destination_value_origin : MarkdownIROrigin
   title_value_origin : MarkdownIROrigin?
-}
+} derive(Eq)
 
 ///|
 priv struct LinkReferenceDefinitionTable {
   entries : @hashmap.HashMap[String, LinkReferenceDefinition]
-}
+} derive(Eq)
 
 ///|
 fn LinkReferenceDefinitionTable::empty() -> LinkReferenceDefinitionTable {

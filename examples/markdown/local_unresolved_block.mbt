@@ -196,7 +196,6 @@ priv struct LocalBlockPlan {
   source : String
   unresolved : MarkdownIR
   reference_candidates : Array[LocalReferenceCandidate]
-  placement : LocalBlockPlacement
 } derive(Eq)
 
 ///|
@@ -402,13 +401,7 @@ fn lower_local_unresolved_block(
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
     experimental_markdown_ir_fold_node_with_diags(node, lower, context)
   }
-  {
-    source_id,
-    source,
-    unresolved: lower(root),
-    reference_candidates,
-    placement: RelativeLocalBlock,
-  }
+  { source_id, source, unresolved: lower(root), reference_candidates }
 }
 
 ///|
@@ -430,13 +423,13 @@ fn resolved_local_block_requires_context(block : ResolvedLocalBlock) -> Bool {
 
 ///|
 #warnings("-unused_value")
-fn lower_contextual_local_block(
+fn lower_contextual_resolved_block(
   source_id : @core.SourceId,
   block : @seam.SyntaxNode,
   source : String,
   lookup : (String) -> LinkReferenceDefinition?,
   diagnostics_in_block : (MarkdownIROrigin) -> Array[@core.Diagnostic],
-) -> LocalBlockPlan {
+) -> ResolvedLocalBlock {
   let context : MarkdownIRLoweringContext = {
     source_id,
     source,
@@ -448,10 +441,7 @@ fn lower_contextual_local_block(
     experimental_markdown_ir_fold_node_with_diags(node, lower, context)
   }
   {
-    source_id,
-    source,
-    unresolved: decode_markdown_ir_text_entities(lower(block), source),
-    reference_candidates: [],
+    ir: decode_markdown_ir_text_entities(lower(block), source),
     placement: ContextualAbsoluteBlock,
   }
 }
@@ -462,11 +452,6 @@ fn resolve_local_block(
   plan : LocalBlockPlan,
   lookup : (String) -> LinkReferenceDefinition?,
 ) -> ResolvedLocalBlock {
-  // A contextual plan is already resolved at absolute document positions, so
-  // its lookup is intentionally unused.
-  if plan.placement is ContextualAbsoluteBlock {
-    return { ir: plan.unresolved, placement: ContextualAbsoluteBlock }
-  }
   let mut reference_candidate_indices : @hashmap.HashMap[String, Int] = @hashmap.HashMap::new()
   for index, candidate in plan.reference_candidates {
     reference_candidate_indices = reference_candidate_indices.add(
