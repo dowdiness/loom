@@ -130,14 +130,21 @@ pub fn[T] TokenBuffer::new_from_lex(
   mode_relex? : ModeRelexState[T]? = None,
 ) -> TokenBuffer[T] {
   let result = lex_fn(source)
+  // Mode-aware updates may patch equal-cardinality replacements in place.
+  // Take ownership at the constructor boundary so arrays retained by a lexer
+  // cannot observe later buffer mutation.
+  let (tokens, starts) = match mode_relex {
+    Some(_) => (result.tokens.copy(), result.starts.copy())
+    None => (result.tokens, result.starts)
+  }
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => lex_fn(s)
   {
     source_id,
     retokenize_full,
     incremental_relex_enabled,
     eof_token,
-    tokens: result.tokens,
-    starts: result.starts,
+    tokens,
+    starts,
     diagnostics: result.diagnostics,
     mode_relex,
     source,
@@ -292,8 +299,8 @@ pub fn[T] TokenBuffer::new_with_mode_relex(
 ) -> TokenBuffer[T] {
   let mode_tokenize = mode_relex.tokenize
   let initial = LexResult::with_starts(
-    tokens,
-    starts,
+    tokens.copy(),
+    starts.copy(),
     diagnostics=DiagnosticSet::empty(),
   )
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
@@ -545,39 +552,55 @@ pub fn[T : Eq] TokenBuffer::update(
       let replacement_starts = checked_relex.starts
       let replacement_diagnostics = checked_relex.diagnostics
       let converged_right = relexed.converged_at_old_token
-      let new_tokens : Array[TokenInfo[T]] = []
-      let new_starts : Array[Int] = []
-      // Prefix (unchanged)
-      for i = 0; i < left_tok_idx; i = i + 1 {
-        new_tokens.push(old_tokens[i])
-        new_starts.push(old_starts[i])
-      }
-      // Replacement tokens with explicit starts. Recoverable mode lexers may
-      // report an error after a valid prefix, so starts are not necessarily a
-      // prefix sum from left_clamped.
-      let mut rep_offset = left_clamped
-      for i = 0; i < replacement_tokens.length(); i = i + 1 {
-        new_tokens.push(replacement_tokens[i])
-        let start = if i < replacement_starts.length() {
-          replacement_starts[i]
-        } else {
-          rep_offset
+      let old_relex_start = old_starts[left_tok_idx]
+      let replacement_count = replacement_tokens.length()
+      let can_patch_in_place = delta == 0 &&
+        new_source.length() == self.source.length() &&
+        replacement_count == converged_right - left_tok_idx &&
+        replacement_starts.length() == replacement_count
+      // Constructor boundaries give the buffer exclusive array ownership.
+      // With unchanged source length and token cardinality, all suffix values
+      // and indices remain valid; only the converged damage slice changes.
+      if can_patch_in_place {
+        for i = 0; i < replacement_count; i = i + 1 {
+          old_tokens[left_tok_idx + i] = replacement_tokens[i]
+          old_starts[left_tok_idx + i] = replacement_starts[i]
         }
-        new_starts.push(start)
-        rep_offset = start + replacement_tokens[i].len
+      } else {
+        let new_tokens : Array[TokenInfo[T]] = []
+        let new_starts : Array[Int] = []
+        // Prefix (unchanged)
+        for i = 0; i < left_tok_idx; i = i + 1 {
+          new_tokens.push(old_tokens[i])
+          new_starts.push(old_starts[i])
+        }
+        // Replacement tokens with explicit starts. Recoverable mode lexers
+        // may report an error after a valid prefix, so starts are not
+        // necessarily a prefix sum from left_clamped.
+        let mut rep_offset = left_clamped
+        for i = 0; i < replacement_count; i = i + 1 {
+          new_tokens.push(replacement_tokens[i])
+          let start = if i < replacement_starts.length() {
+            replacement_starts[i]
+          } else {
+            rep_offset
+          }
+          new_starts.push(start)
+          rep_offset = start + replacement_tokens[i].len
+        }
+        // Suffix (shifted by edit delta)
+        let new_len = new_source.length()
+        for i = converged_right; i < eof_index; i = i + 1 {
+          new_tokens.push(old_tokens[i])
+          new_starts.push(clamp_offset(old_starts[i] + delta, new_len))
+        }
+        // EOF sentinel
+        new_tokens.push(TokenInfo::new(self.eof_token, 0))
+        new_starts.push(new_len)
+        self.tokens = new_tokens
+        self.starts = new_starts
       }
-      // Suffix (shifted by edit delta)
-      let new_len = new_source.length()
-      for i = converged_right; i < eof_index; i = i + 1 {
-        new_tokens.push(old_tokens[i])
-        new_starts.push(clamp_offset(old_starts[i] + delta, new_len))
-      }
-      // EOF sentinel
-      new_tokens.push(TokenInfo::new(self.eof_token, 0))
-      new_starts.push(new_len)
       // relex_from already spliced the modes array internally.
-      self.tokens = new_tokens
-      self.starts = new_starts
       let old_relex_end = if converged_right < old_starts.length() {
         old_starts[converged_right]
       } else {
@@ -587,9 +610,9 @@ pub fn[T : Eq] TokenBuffer::update(
         SourceEdit(
           self.source_id,
           Edit::new(
-            old_starts[left_tok_idx],
-            old_relex_end - old_starts[left_tok_idx],
-            old_relex_end - old_starts[left_tok_idx] + delta,
+            old_relex_start,
+            old_relex_end - old_relex_start,
+            old_relex_end - old_relex_start + delta,
           ),
         ),
         failure_context="incremental relex",
