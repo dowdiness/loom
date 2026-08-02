@@ -262,3 +262,27 @@ test "incremental reference definitions: official angle, title, and indentation 
     "<pre><code>[foo]: /url &quot;title&quot;\n</code></pre>\n",
   )
 }
+
+///|
+test "incremental reference definitions: multiline labels and consecutive candidates match fresh" {
+  let label_prefix = "[\nfoo\n]: /"
+  assert_reference_definition_incremental_parity(
+    "multiline-label-edit",
+    label_prefix + "one\n",
+    @core.Edit::new(label_prefix.length(), "one".length(), "two".length()),
+    label_prefix + "two\n",
+    Some("foo"),
+    Some("/two"),
+    "",
+  )
+  let consecutive_prefix = "[foo]: /one\n[bar]: /"
+  assert_reference_definition_incremental_parity(
+    "consecutive-definition-edit",
+    consecutive_prefix + "two\n",
+    @core.Edit::new(consecutive_prefix.length(), "two".length(), "dos".length()),
+    consecutive_prefix + "dos\n",
+    Some("bar"),
+    Some("/dos"),
+    "",
+  )
+}
