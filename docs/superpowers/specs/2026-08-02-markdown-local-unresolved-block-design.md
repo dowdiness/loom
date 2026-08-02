@@ -152,9 +152,10 @@ imperative shell:
 
 ```text
 live syntax
-  ├─ document layout: [(CstNode, current start)]
-  ├─ definition index
-  │    └─ DerivedMap<normalized label, definition?>
+  ├─ current document root CstNode
+  │    ├─ document layout: [{ CstNode, current start, document child index }]
+  │    └─ definition index
+  │         └─ DerivedMap<normalized label, definition?>
   └─ DerivedMap<CstNode, LocalBlockPlan>
          └─ DerivedMap<CstNode, ResolvedLocalBlock>
                 └─ place from live layout → complete MarkdownIR
@@ -171,12 +172,98 @@ full MarkdownIR value must contain current absolute origins. Reuse avoids
 repeating syntax interpretation and unrelated reference resolution; it does not
 claim sublinear full-value materialization.
 
+The shell is one private deep module. Its production-facing interface is limited
+to construction from an existing `@loom.SyntaxParser`, reading the watched final
+`MarkdownIR`, collecting stale keyed entries, and disposal. Counter and cache
+snapshots are private white-box test instrumentation, not additional production
+interfaces. The shell shares `parser.runtime()` and reads parser views with
+tracked `get_or_abort()` calls; it never constructs another parser or runtime.
+
+### Definition equality and per-label backdating
+
+The definition index is an immutable, normalized first-definition-wins value.
+`LinkReferenceDefinition` equality is semantic and includes its normalized
+label, destination and title values, definition origin, label-value origin,
+destination-value origin, and optional title-value origin.
+
+The index implements exact map-content equality over those definitions. Equality
+must not depend on object identity, hash equality alone, or hash-map iteration
+order. Source order affects index construction only through first-definition-wins;
+once constructed, indexes with the same normalized label-to-definition mapping
+are equal.
+
+The definition index is an equality-backdating `Derived`. The per-label map
+returns exactly `LinkReferenceDefinition?`. A definition-index change may
+recompute the accessed label projections, but exact option equality backdates an
+unchanged label before its dependent resolved blocks execute. Definition origins
+remain part of equality: a position shift of a definition must invalidate blocks
+that copy that absolute origin even when its destination and title are unchanged.
+
+### Layout and contextual recovery handle
+
+`@seam.SyntaxNode` is not an equality-bearing cache value, so the document layout
+does not retain it. Each rendered top-level slot contains only the structural
+`CstNode` key, its current absolute start, and its unfiltered child index in the
+current document root. The layout also contains the current document origin. All
+of these fields participate in exact equality.
+
+The terminal document derived normally needs only the layout and resolved block
+map. If a resolved block requires contextual recovery, that branch dynamically
+reads the current document-root `CstNode`, source, and diagnostics, reconstructs
+the current document `SyntaxNode`, and selects the parent-linked child by the
+recorded document child index. It then calls the existing contextual lowering
+path. A detached `SyntaxNode::from_cst(block, offset=start)` is not sufficient
+for this fallback because it discards the live parent context.
+
+One private rendered-flow predicate owns the accepted top-level kinds. Layout
+collection, final assembly, and differential test helpers reuse that predicate;
+they must not maintain separate kind lists. Definition blocks remain in the
+unfiltered document-child indexing space but remain absent from rendered slots.
+
+Placement is intentionally not another keyed cache. Absolute positions make a
+placed value generation-specific, and a complete observed `MarkdownIR` must
+visit every rendered slot anyway.
+
+### Instrumentation contract
+
+The private shell owns non-reactive counters for exactly five events:
+
+- local lowering: increment only when a `LocalBlockPlan` map computation body
+  executes;
+- label projection: increment only when a per-label definition map computation
+  body executes, including a revalidation that later backdates equal;
+- block resolution: increment only when a `ResolvedLocalBlock` map computation
+  body executes;
+- placement: increment once for each rendered slot visited by final assembly;
+  and
+- contextual fallback: increment once for each rendered slot lowered through
+  the live contextual path.
+
+Counters never participate in a reactive value, equality, dependency, or
+decision. `Scope::watch(final_document)` performs the initial prime; tests take
+or reset a counter snapshot after that prime and assert deltas for subsequent
+edits. Wall-clock benchmarks must not reuse the instrumented counter mutation in
+their measured body unless an A/A run proves it negligible.
+
 ### Lifecycle
 
-Both keyed maps are scope-owned. The shell runs the existing runtime GC at the
-same editor lifecycle points used by other long-lived reactive consumers, then
-calls `DerivedMap::sweep_cache` to remove disposed entries. No new eviction
-policy is introduced.
+All three keyed maps—per-label definitions, local plans, and resolved
+blocks—are owned by the shell scope. The terminal document is rooted with
+`Scope::watch`, which also performs the priming read.
+
+Stale collection has one fixed operation order:
+
+1. read the terminal watch to establish the dependency set for the current
+   parser revision;
+2. run `parser.runtime().gc()`; and
+3. call `sweep_cache()` downstream-to-upstream on the resolved-block, local-plan,
+   and per-label definition maps.
+
+Sweeping before the current read is incorrect because the watched terminal may
+still retain the previous revision's dependency set. Calling `sweep_cache()`
+before runtime GC cannot retire live wrappers. The private collection operation
+encapsulates the complete sequence and returns per-map before/removed/after
+counts for deterministic tests. No new eviction policy is introduced.
 
 Deterministic tests inspect computation counts and `cache_len` around GC and
 sweep. Wall-clock timing is not the lifecycle correctness oracle.
@@ -214,6 +301,10 @@ Instrumented white-box tests must prove:
    placement still observes every output block.
 6. Repeated edit/delete cycles followed by runtime GC and cache sweep do not
    retain dead keys without bound.
+7. Counter snapshots are taken after watch priming; counter deltas correspond to
+   computation-body executions, not merely dirty or demanded cells.
+8. Stale collection reads the current terminal value before GC and sweeps all
+   three maps, leaving every current key readable and retiring dead generations.
 
 These counts are merge gates. Wall time supplements them but cannot weaken
 them.
@@ -261,7 +352,13 @@ gate requires A/A calibration after the production harness stabilizes.
 
 - Add document layout, per-CST local/resolved maps, and per-label definition
   projections using existing `incr` interfaces.
+- Give the definition index exact semantic equality and make the layout carry a
+  document child index rather than a non-`Eq` `SyntaxNode`.
+- Reconstruct a parent-linked current node only in the contextual fallback
+  branch.
 - Add deterministic invalidation counters and GC/sweep lifecycle tests.
+- Encapsulate the fixed `read -> runtime GC -> sweep all three maps` collection
+  order.
 - Preserve the direct one-shot and existing Block paths.
 - Keep the new path private and opt-in for benchmark/test consumers.
 
@@ -295,6 +392,8 @@ MarkdownIR attachment.
 
 ## Decision record
 
-Update the existing MarkdownIR performance ADR. No new ADR is needed because
-this design materially qualifies that existing memoization policy rather than
-establishing an unrelated project-wide rule.
+The existing
+[MarkdownIR performance policy](../../decisions/2026-06-16-markdown-ir-performance-policy.md)
+owns this keyed-lowering qualification. No new ADR is needed: these refinements
+fix private equality, recovery-handle, lifecycle-order, and instrumentation
+contracts without changing that accepted lazy memoization policy.
