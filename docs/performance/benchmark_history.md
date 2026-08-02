@@ -2,6 +2,119 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-08-02 (Markdown 10,000-line residual envelope)
+
+- Issue: [#838](https://github.com/dowdiness/loom/issues/838)
+- Implementation under test: `99727e8b939dfeeb7d67e3c9a73a5824ff676e83`
+- Benchmark harness: `b490e04`
+- Environment: local WSL2, Linux 6.6.114.1, x86_64
+- Toolchain: MoonBit `0.10.4+2cc641edf` (2026-07-15), Moon
+  `0.1.20260713`
+- Commands:
+  - `rtk moon bench --release --target js -p dowdiness/markdown -f performance_residual_benchmark_test.mbt`
+  - `rtk moon bench --release --target wasm-gc -p dowdiness/markdown -f performance_residual_benchmark_test.mbt`
+  - `rtk moon bench --release --target js -p dowdiness/markdown -f inline_analysis_performance_wbtest.mbt`
+  - `rtk moon bench --release --target wasm-gc -p dowdiness/markdown -f inline_analysis_performance_wbtest.mbt`
+  - `rtk moon test examples/markdown/performance_residual_benchmark_test.mbt`
+  - `rtk moon test examples/markdown/inline_analysis_performance_wbtest.mbt`
+
+Every benchmark row reports ten samples as `mean ± σ`. The mixed corpus has
+9,999 lines; its 2,005-line control uses the same section shape. The real
+corpus is a checked-in snapshot of the Markdown package README rather than a
+generated approximation.
+
+### Ten-thousand-line parse and edit envelope
+
+| Operation | wasm-gc mean ± σ | JavaScript mean ± σ |
+|---|---:|---:|
+| mixed tokenize | 12.67 ms ± 1.16 ms | 10.68 ms ± 0.77 ms |
+| mixed CST | 71.48 ms ± 4.96 ms | 90.24 ms ± 7.49 ms |
+| mixed CST + AST | 2.14 s ± 0.21 s | 2.43 s ± 0.36 s |
+| heading edit + restore near start | 3.08 ms ± 0.12 ms | 6.34 ms ± 0.21 ms |
+| list edit + restore in first third | 3.38 ms ± 0.10 ms | 6.64 ms ± 0.40 ms |
+| paragraph edit + restore near middle | 3.61 ms ± 0.11 ms | 6.43 ms ± 0.18 ms |
+| fenced-code edit + restore near end | 4.06 ms ± 0.17 ms | 6.59 ms ± 0.43 ms |
+
+The syntax-only incremental path remains within a narrow band across position
+and block kind. It is more than an order of magnitude faster than a fresh CST
+parse and hundreds of times faster than CST + AST on this code-heavy corpus.
+Fresh parsing, incremental syntax publication, and downstream AST construction
+therefore have distinct budgets; a single end-to-end number would hide the
+actual bottleneck.
+
+### CST and lowering attribution by syntax family
+
+| Stage / family | wasm-gc 2k → 10k | JavaScript 2k → 10k | 5× scale ratio |
+|---|---:|---:|---:|
+| CST / headings | 6.66 → 37.33 ms | 9.25 → 54.18 ms | 5.6–5.9× |
+| CST / paragraphs | 28.89 → 160.66 ms | 40.80 → 209.40 ms | 5.1–5.6× |
+| CST / list items | 33.34 → 171.96 ms | 45.25 → 242.12 ms | 5.2–5.4× |
+| CST / fenced code | 1.15 → 11.18 ms | 2.45 → 12.68 ms | 5.2–9.7× |
+| recursive Block / headings | 1.51 → 9.46 ms | 2.16 → 10.51 ms | 4.9–6.3× |
+| recursive Block / paragraphs | 3.21 → 22.69 ms | 3.80 → 24.92 ms | 6.6–7.1× |
+| recursive Block / list items | 4.87 → 26.53 ms | 5.80 → 29.73 ms | 5.1–5.4× |
+| recursive Block / fenced code | 68.15 ms → 2.49 s | 99.40 ms → 2.48 s | 25.0–36.5× |
+
+Fenced-code lowering is the reproduced superlinear seam. Both cached
+`CstFold` and cache-free recursive Block lowering show the same shape, so
+structural hashing is not the cause. `code_block_value` reconstructs
+`syntax_root(node).text()` for every fenced block even though fenced content
+does not need document-wide indentation context. Repeating that full-document
+string allocation once per fenced block explains both the syntax-family result
+and the mixed-document end-to-end curve. This is isolated enough for a separate
+optimization issue, [#843](https://github.com/dowdiness/loom/issues/843); #838
+itself remains benchmark-only.
+
+MarkdownIR construction is affected by the same code-value helper. On the
+mixed 2k → 10k corpus, construction grows from 64.62 ms to 1.76 s on wasm-gc
+and from 74.38 ms to 2.41 s on JavaScript. By contrast, adapting an already
+built MarkdownIR to Block grows from 269.72 µs to 1.99 ms and from 336.67 µs to
+3.46 ms respectively. The lazy MarkdownIR policy remains current: construction
+must not become an unconditional parser snapshot cost.
+
+### Real-document and inline-analysis controls
+
+| Real README snapshot | wasm-gc mean ± σ | JavaScript mean ± σ |
+|---|---:|---:|
+| CST | 223.19 µs ± 2.33 µs | 341.43 µs ± 3.86 µs |
+| CST + AST | 322.23 µs ± 3.49 µs | 490.00 µs ± 22.20 µs |
+| direct Block lowering | 75.18 µs ± 0.45 µs | 98.91 µs ± 0.98 µs |
+| MarkdownIR → Block | 148.12 µs ± 1.65 µs | 211.78 µs ± 7.17 µs |
+
+The representative project document remains comfortably inside an interactive
+envelope. Large fenced-code multiplicity, not ordinary README-shaped Markdown,
+is the reproduced scaling risk.
+
+The private inline-analysis bank holds tokenization and CST emission outside
+the timed region. A 4× motif increase (512 → 2,048) produced complete-pipeline
+means of 1.78 → 11.81 ms on wasm-gc and 2.50 → 12.29 ms on JavaScript. Component
+rows separately cover code-span indexing, link recognition, and delimiter
+planning. Their deterministic resolver work signatures scale exactly 4×;
+wall-time ratios remain informational because map and GC costs are not exposed
+as stable operation counts.
+
+### Supported scale and regression budget
+
+- CST construction and syntax-only incremental editing are supported through
+  the measured 10,000-line envelope on both deployment targets.
+- AST-producing full parses of code-heavy 10,000-line documents are outside
+  the desired envelope until the fenced-code whole-document reconstruction is
+  removed. This is an attributed implementation cost, not a parser-wide limit.
+- Keep the exact FoldStats, delimiter, inline-analysis, and reference-definition
+  work signatures as blocking guards. Do not introduce a local-machine
+  wall-clock gate for these new rows.
+- Retain the existing A/A-calibrated PR policy: a subject raw and normalized
+  slowdown over 50%, a 100% raw hard ceiling, and persistence across all three
+  trials. Calibrate any future 10,000-line CI threshold on the same runner
+  before making it blocking.
+- Moon Bench exposes neither allocation counts nor GC pause attribution for
+  these JS and wasm-gc runs. The repeated document-string allocation is proven
+  structurally and by syntax-family timing, but numeric allocation volume
+  remains an explicit tooling gap.
+- #732 remains inconclusive as a historical absolute-baseline alert. PR #735
+  was measured against an older main and must not be merged as a baseline
+  refresh without a new same-runner comparison.
+
 ## 2026-08-02 (Markdown stage envelope and incremental bottleneck isolation)
 
 - Issue: [#838](https://github.com/dowdiness/loom/issues/838)
