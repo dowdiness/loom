@@ -367,19 +367,27 @@ fn[T, M : Eq] new_mode_relex_session(
     let chunk = internal.chunk
     let old_idx = chunk.converged_at_old_token
     let delete_count = old_idx - start_tok_idx
-    let result : Array[M] = Array::new(
-      capacity=old_modes.length() - delete_count + internal.modes.length(),
-    )
-    for i = 0; i < start_tok_idx; i = i + 1 {
-      result.push(old_modes[i])
+    // This session exclusively owns old_modes. Equal-cardinality replacement
+    // preserves every suffix index, so only the converged damage slice changes.
+    if internal.modes.length() == delete_count {
+      for i = 0; i < internal.modes.length(); i = i + 1 {
+        old_modes[start_tok_idx + i] = internal.modes[i]
+      }
+    } else {
+      let result : Array[M] = Array::new(
+        capacity=old_modes.length() - delete_count + internal.modes.length(),
+      )
+      for i = 0; i < start_tok_idx; i = i + 1 {
+        result.push(old_modes[i])
+      }
+      for i = 0; i < internal.modes.length(); i = i + 1 {
+        result.push(internal.modes[i])
+      }
+      for i = old_idx; i < old_modes.length(); i = i + 1 {
+        result.push(old_modes[i])
+      }
+      modes_ref.val = result
     }
-    for i = 0; i < internal.modes.length(); i = i + 1 {
-      result.push(internal.modes[i])
-    }
-    for i = old_idx; i < old_modes.length(); i = i + 1 {
-      result.push(old_modes[i])
-    }
-    modes_ref.val = result
     chunk
   }
   { tokenize, relex_from }

@@ -116,6 +116,88 @@ test "mode relex: edit inside normal region converges immediately" {
 }
 
 ///|
+test "mode relex: in-place patch does not mutate constructor inputs" {
+  let lexer : ModeLexer[MockToken, MockMode] = {
+    lex_step: mock_lex_step,
+    initial_mode: Normal,
+  }
+  let factory = erase_mode_lexer(
+    lexer,
+    MockToken::EOF,
+    error_token=Error("error"),
+    error_token_from_message=Some(msg => Error(msg)),
+  )
+  let source_id = SourceId("mode-relex-owned-arrays-source")
+  let source = "hello\"world\"end"
+  let state = (factory.new_session)(source_id)
+  let initial = (state.tokenize)(source)
+  let retained_tokens = initial.tokens()
+  let retained_starts = initial.starts()
+  let buffer = TokenBuffer::new_with_mode_relex(
+    source_id,
+    source,
+    retained_tokens,
+    retained_starts,
+    MockToken::EOF,
+    state,
+  )
+  buffer.update(Edit::replace(4, 2, 2), "hell\"oworld\"end")
+  inspect(buffer.get_token(0), content="Text(\"hell\")")
+  inspect(buffer.get_start(1), content="4")
+  inspect(retained_tokens[0].token, content="Text(\"hello\")")
+  inspect(retained_starts[1], content="5")
+}
+
+///|
+test "mode relex: new_from_lex owns arrays before in-place patch" {
+  let lexer : ModeLexer[MockToken, MockMode] = {
+    lex_step: mock_lex_step,
+    initial_mode: Normal,
+  }
+  let factory = erase_mode_lexer(
+    lexer,
+    MockToken::EOF,
+    error_token=Error("error"),
+    error_token_from_message=Some(msg => Error(msg)),
+  )
+  let source_id = SourceId("mode-relex-owned-lex-result-source")
+  let source = "hello\"world\"end"
+  let state = (factory.new_session)(source_id)
+  let initial = (state.tokenize)(source)
+  let retained_tokens = initial.tokens()
+  let retained_starts = initial.starts()
+  let retained_result = LexResult::with_starts(
+    retained_tokens,
+    retained_starts,
+    diagnostics=DiagnosticSet::empty(),
+  )
+  let buffer = TokenBuffer::new_from_lex(
+    source_id,
+    source,
+    lex_fn=_ => retained_result,
+    eof_token=MockToken::EOF,
+    mode_relex=Some(state),
+  )
+  buffer.update(Edit::replace(4, 2, 2), "hell\"oworld\"end")
+  inspect(buffer.get_token(0), content="Text(\"hell\")")
+  inspect(buffer.get_start(1), content="4")
+  inspect(retained_tokens[0].token, content="Text(\"hello\")")
+  inspect(retained_starts[1], content="5")
+}
+
+///|
+test "mode relex: same-length cardinality change rebuilds storage" {
+  let buffer = create_mock_buffer("hello world")
+  buffer.update(Edit::replace(5, 1, 1), "hello\"world")
+  inspect(buffer.token_count(), content="4")
+  inspect(buffer.get_token(0), content="Text(\"hello\")")
+  inspect(buffer.get_token(1), content="Quote")
+  inspect(buffer.get_token(2), content="StringContent(\"world\")")
+  inspect(buffer.get_token(3), content="EOF")
+  debug_inspect(buffer.get_starts(), content="[0, 5, 6, 11]")
+}
+
+///|
 test "mode relex: insert quote changes mode — propagates" {
   let buffer = create_mock_buffer("hello world")
   // tokens: Text("hello world"), EOF
