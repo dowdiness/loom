@@ -293,6 +293,12 @@ New MarkdownIR surfaces:
 - First IR lowering, parser, export, render, rewrite, or formatter entry points
   must be additive and explicitly labeled experimental or stable in docs and
   generated interfaces.
+- External adapters inspect semantic variants through the exhaustive typed
+  `MarkdownIR::view()` seam. Children, whole-node origins, content origins, and
+  diagnostics remain uniform read operations rather than repeated variant
+  payloads. The private storage enum remains an implementation detail; existing
+  kind tags and optional accessors stay compatible during the experimental
+  migration.
 - Compatibility tests must pin the existing source-aware `parse` /
   `parse_markdown` / `parse_cst` / `markdown_grammar` behavior, including the
   LexError-raising signatures for `parse_markdown` and `parse_cst`, before any

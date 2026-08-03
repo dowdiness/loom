@@ -215,7 +215,7 @@ fn classify_email_autolink_at(input : String, start : Int) -> InlineAngleMatch? 
   if labels > 0 &&
     cursor < input.length() &&
     input.code_unit_at(cursor).to_int() == 0x3E {
-    Some({ kind: EmailAutolink, end: cursor + 1 })
+    Some({ kind: InlineAngleKind::EmailAutolink, end: cursor + 1 })
   } else {
     None
   }
@@ -542,7 +542,7 @@ fn classify_uri_autolink_at(input : String, start : Int) -> InlineAngleMatch? {
     cursor = cursor + 1
   }
   if cursor < input.length() && input.code_unit_at(cursor).to_int() == 0x3E {
-    Some({ kind: UriAutolink, end: cursor + 1 })
+    Some({ kind: InlineAngleKind::UriAutolink, end: cursor + 1 })
   } else {
     None
   }

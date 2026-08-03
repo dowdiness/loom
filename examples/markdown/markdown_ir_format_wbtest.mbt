@@ -231,7 +231,7 @@ test "checked canonical semantic comparison covers every supported payload class
     MarkdownIR::link([text_b], "/a", origin, None, None),
   )
   assert_markdown_ir_canonical_semantic_distinct(
-    MarkdownIR::hard_break(TrailingSpaces(2), origin),
+    MarkdownIR::hard_break(HardBreakSurface::TrailingSpaces(2), origin),
     MarkdownIR::text("  \n", origin),
   )
   assert_markdown_ir_canonical_semantic_distinct(

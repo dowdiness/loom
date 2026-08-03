@@ -28,7 +28,14 @@ test "line breaks: MarkdownIR owns typed soft and hard surfaces with origins" {
         _ => fail("expected an explicit soft break")
       }
       match spaces_paragraph.children() {
-        [_, { node: HardBreak(TrailingSpaces(2), Some(origin)), .. }, _] =>
+        [
+          _,
+          {
+            node: HardBreak(HardBreakSurface::TrailingSpaces(2), Some(origin)),
+            ..,
+          },
+          _,
+        ] =>
           inspect(
             source[origin.start():origin.end()].to_owned(),
             content="  \n",
@@ -36,7 +43,11 @@ test "line breaks: MarkdownIR owns typed soft and hard surfaces with origins" {
         _ => fail("expected a trailing-space hard break")
       }
       match slash_paragraph.children() {
-        [_, { node: HardBreak(Backslash, Some(origin)), .. }, _] =>
+        [
+          _,
+          { node: HardBreak(HardBreakSurface::Backslash, Some(origin)), .. },
+          _,
+        ] =>
           inspect(
             source[origin.start():origin.end()].to_owned(),
             content="\\\n",
@@ -97,7 +108,7 @@ test "line breaks: odd backslash runs own the break marker only" {
       match odd_paragraph.children() {
         [
           { node: Text("odd\\"), .. },
-          { node: HardBreak(Backslash, _), .. },
+          { node: HardBreak(HardBreakSurface::Backslash, _), .. },
           { node: Text("break"), .. },
         ] => ()
         _ => fail("expected an odd backslash run to own one hard-break marker")

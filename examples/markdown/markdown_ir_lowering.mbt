@@ -52,7 +52,7 @@ fn flush_pending_inline_newline(
   if hard_break_spaces >= 2 {
     children.push(
       MarkdownIR::hard_break(
-        TrailingSpaces(hard_break_spaces),
+        HardBreakSurface::TrailingSpaces(hard_break_spaces),
         MarkdownIROrigin(
           start=origin.start() - hard_break_spaces,
           end=origin.end(),
@@ -63,7 +63,7 @@ fn flush_pending_inline_newline(
     trim_inline_backslash_end_before_newline(children)
     children.push(
       MarkdownIR::hard_break(
-        Backslash,
+        HardBreakSurface::Backslash,
         MarkdownIROrigin(start=origin.start() - 1, end=origin.end()),
       ),
     )
@@ -152,7 +152,7 @@ fn append_inline_text_ir(
 fn lower_inline_text_token(token : @seam.SyntaxToken) -> MarkdownIR {
   let origin = origin_from_token(token)
   match classify_inline_angle_text(token.text()) {
-    Some({ kind: UriAutolink, .. }) => {
+    Some({ kind: InlineAngleKind::UriAutolink, .. }) => {
       let value = token.text()[1:token.text().length() - 1].to_owned()
       let value_origin = MarkdownIROrigin(
         start=origin.start() + 1,
@@ -167,7 +167,7 @@ fn lower_inline_text_token(token : @seam.SyntaxToken) -> MarkdownIR {
         Some(value_origin),
       )
     }
-    Some({ kind: EmailAutolink, .. }) => {
+    Some({ kind: InlineAngleKind::EmailAutolink, .. }) => {
       let value = token.text()[1:token.text().length() - 1].to_owned()
       MarkdownIR::autolink(
         EmailAutolinkKind,
@@ -1252,7 +1252,7 @@ fn lower_link_node_atoms_with_diags(
               normalized_display,
               target.destination,
               target.title,
-              InlineLinkForm,
+              LinkReferenceForm::InlineLinkForm,
               origin_from_node(node),
               label_origin,
               None,
@@ -1297,9 +1297,9 @@ fn lower_link_node_atoms_with_diags(
             (
               MarkdownIROrigin(start=lookup_start, end=lookup_end),
               if collapsed {
-                CollapsedReferenceLinkForm
+                LinkReferenceForm::CollapsedReferenceLinkForm
               } else {
-                FullReferenceLinkForm
+                LinkReferenceForm::FullReferenceLinkForm
               },
               Some(MarkdownIROrigin(start=reference_start, end=reference_end)),
             ),
@@ -1310,7 +1310,7 @@ fn lower_link_node_atoms_with_diags(
           Some(
             (
               MarkdownIROrigin(start=label_start, end=label_end),
-              ShortcutReferenceLinkForm,
+              LinkReferenceForm::ShortcutReferenceLinkForm,
               None,
             ),
           )

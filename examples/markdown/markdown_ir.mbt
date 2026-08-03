@@ -29,6 +29,89 @@ pub fn MarkdownIROrigin::end(self : MarkdownIROrigin) -> Int {
 }
 
 ///|
+/// Experimental semantic form retained by a Markdown link or image.
+pub(all) enum MarkdownIRLinkReferenceForm {
+  InlineLinkForm
+  FullReferenceLinkForm
+  CollapsedReferenceLinkForm
+  ShortcutReferenceLinkForm
+} derive(Eq, Debug)
+
+///|
+/// Experimental source-aware surface metadata for a Markdown link or image.
+///
+/// These origins identify semantic source regions. Exact punctuation and
+/// trivia remain the responsibility of the CST and source text.
+pub(all) struct MarkdownIRLinkSurface {
+  form : MarkdownIRLinkReferenceForm
+  label_origin : MarkdownIROrigin?
+  reference_label_origin : MarkdownIROrigin?
+  destination_origin : MarkdownIROrigin?
+  title_origin : MarkdownIROrigin?
+} derive(Eq, Debug)
+
+///|
+/// Experimental semantic kind of an autolink.
+pub(all) enum MarkdownIRAutolinkKind {
+  UriAutolink
+  EmailAutolink
+} derive(Eq, Debug)
+
+///|
+/// Experimental source form retained for a hard line break.
+pub(all) enum MarkdownIRHardBreakSurface {
+  TrailingSpaces(Int)
+  Backslash
+} derive(Eq, Debug)
+
+///|
+/// Experimental exhaustive read view of one MarkdownIR node.
+///
+/// Child nodes, whole-node origins, content origins, and diagnostics remain
+/// available through their common `MarkdownIR` accessors instead of being
+/// repeated in every variant.
+pub(all) enum MarkdownIRView {
+  Document
+  Heading(depth~ : Int)
+  Paragraph
+  BlockQuote
+  UnorderedList(spread~ : Bool, marker~ : UnorderedListMarker?)
+  OrderedList(spread~ : Bool, marker~ : OrderedListMarker?)
+  ListItem(spread~ : Bool, marker~ : UnorderedListMarker?)
+  OrderedListItem(spread~ : Bool, marker~ : OrderedListMarker?)
+  CodeBlock(info~ : String, value~ : String)
+  HtmlBlock(value~ : String)
+  ThematicBreak
+  Text(value~ : String)
+  Bold
+  Italic
+  InlineCode(value~ : String)
+  Link(
+    destination~ : String,
+    title~ : String?,
+    surface~ : MarkdownIRLinkSurface
+  )
+  Image(
+    destination~ : String,
+    title~ : String?,
+    surface~ : MarkdownIRLinkSurface
+  )
+  Autolink(
+    kind~ : MarkdownIRAutolinkKind,
+    display~ : String,
+    destination~ : String,
+    label_origin~ : MarkdownIROrigin?,
+    destination_origin~ : MarkdownIROrigin?
+  )
+  InlineHtml(value~ : String)
+  SoftBreak
+  HardBreak(surface~ : MarkdownIRHardBreakSurface)
+  Unsupported(message~ : String)
+  Raw(value~ : String)
+  Recovered(message~ : String)
+} derive(Eq, Debug)
+
+///|
 fn MarkdownIROrigin::contains(
   self : MarkdownIROrigin,
   other : MarkdownIROrigin,
@@ -71,8 +154,8 @@ priv struct LinkSurface {
 ///|
 fn hard_break_surface_text(surface : HardBreakSurface) -> String {
   match surface {
-    TrailingSpaces(count) => " ".repeat(count) + "\n"
-    Backslash => "\\\n"
+    HardBreakSurface::TrailingSpaces(count) => " ".repeat(count) + "\n"
+    HardBreakSurface::Backslash => "\\\n"
   }
 }
 
@@ -269,7 +352,7 @@ fn MarkdownIR::link(
     children,
     destination,
     None,
-    InlineLinkForm,
+    LinkReferenceForm::InlineLinkForm,
     origin,
     label_origin,
     None,
@@ -351,7 +434,7 @@ fn MarkdownIR::hard_break(
   origin : MarkdownIROrigin,
 ) -> MarkdownIR {
   match surface {
-    TrailingSpaces(count) if count < 2 =>
+    HardBreakSurface::TrailingSpaces(count) if count < 2 =>
       abort("trailing-space hard break requires at least two spaces")
     _ => ()
   }
@@ -408,6 +491,100 @@ fn MarkdownIR::recovered(
 ///|
 pub fn MarkdownIR::origin(self : MarkdownIR) -> MarkdownIROrigin {
   self.origin
+}
+
+///|
+fn LinkReferenceForm::public_view(
+  self : LinkReferenceForm,
+) -> MarkdownIRLinkReferenceForm {
+  match self {
+    LinkReferenceForm::InlineLinkForm =>
+      MarkdownIRLinkReferenceForm::InlineLinkForm
+    LinkReferenceForm::FullReferenceLinkForm =>
+      MarkdownIRLinkReferenceForm::FullReferenceLinkForm
+    LinkReferenceForm::CollapsedReferenceLinkForm =>
+      MarkdownIRLinkReferenceForm::CollapsedReferenceLinkForm
+    LinkReferenceForm::ShortcutReferenceLinkForm =>
+      MarkdownIRLinkReferenceForm::ShortcutReferenceLinkForm
+  }
+}
+
+///|
+fn LinkSurface::public_view(self : LinkSurface) -> MarkdownIRLinkSurface {
+  {
+    form: self.form.public_view(),
+    label_origin: self.label_origin,
+    reference_label_origin: self.reference_label_origin,
+    destination_origin: self.destination_origin,
+    title_origin: self.title_origin,
+  }
+}
+
+///|
+fn AutolinkKind::public_view(self : AutolinkKind) -> MarkdownIRAutolinkKind {
+  match self {
+    UriAutolinkKind => MarkdownIRAutolinkKind::UriAutolink
+    EmailAutolinkKind => MarkdownIRAutolinkKind::EmailAutolink
+  }
+}
+
+///|
+fn HardBreakSurface::public_view(
+  self : HardBreakSurface,
+) -> MarkdownIRHardBreakSurface {
+  match self {
+    HardBreakSurface::TrailingSpaces(count) =>
+      MarkdownIRHardBreakSurface::TrailingSpaces(count)
+    HardBreakSurface::Backslash => MarkdownIRHardBreakSurface::Backslash
+  }
+}
+
+///|
+/// Return an exhaustive typed read view of this semantic node.
+///
+/// The view contains only meaning-bearing scalar and surface metadata. Use
+/// `children`, `origin`, `content_origin`, and `diagnostics` for common tree
+/// and source-attachment facts.
+pub fn MarkdownIR::view(self : MarkdownIR) -> MarkdownIRView {
+  match self.node {
+    Document(_) => MarkdownIRView::Document
+    Heading(depth, _, _) => MarkdownIRView::Heading(depth~)
+    Paragraph(_, _) => MarkdownIRView::Paragraph
+    BlockQuote(_) => MarkdownIRView::BlockQuote
+    UnorderedList(_, spread, marker) =>
+      MarkdownIRView::UnorderedList(spread~, marker~)
+    OrderedList(_, spread, marker) =>
+      MarkdownIRView::OrderedList(spread~, marker~)
+    ListItem(_, spread, _, marker) => MarkdownIRView::ListItem(spread~, marker~)
+    OrderedListItem(_, spread, _, marker) =>
+      MarkdownIRView::OrderedListItem(spread~, marker~)
+    CodeBlock(info, value, _) => MarkdownIRView::CodeBlock(info~, value~)
+    HtmlBlock(value, _) => MarkdownIRView::HtmlBlock(value~)
+    ThematicBreak => MarkdownIRView::ThematicBreak
+    Text(value) => MarkdownIRView::Text(value~)
+    Bold(_, _) => MarkdownIRView::Bold
+    Italic(_, _) => MarkdownIRView::Italic
+    InlineCode(value, _) => MarkdownIRView::InlineCode(value~)
+    Link(_, destination, title, surface) =>
+      MarkdownIRView::Link(destination~, title~, surface=surface.public_view())
+    Image(_, destination, title, surface) =>
+      MarkdownIRView::Image(destination~, title~, surface=surface.public_view())
+    Autolink(kind, display, destination, label_origin, destination_origin) =>
+      MarkdownIRView::Autolink(
+        kind=kind.public_view(),
+        display~,
+        destination~,
+        label_origin~,
+        destination_origin~,
+      )
+    InlineHtml(value, _) => MarkdownIRView::InlineHtml(value~)
+    SoftBreak(_) => MarkdownIRView::SoftBreak
+    HardBreak(surface, _) =>
+      MarkdownIRView::HardBreak(surface=surface.public_view())
+    Unsupported(message) => MarkdownIRView::Unsupported(message~)
+    Raw(value, _) => MarkdownIRView::Raw(value~)
+    Recovered(message, _) => MarkdownIRView::Recovered(message~)
+  }
 }
 
 ///|
