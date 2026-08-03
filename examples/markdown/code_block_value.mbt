@@ -134,9 +134,33 @@ fn trim_code_boundary_newlines(value : String, fenced~ : Bool) -> String {
 }
 
 ///|
-fn code_block_value(node : @seam.SyntaxNode) -> String {
-  let source = syntax_root(node).text()
-  let buf = StringBuilder::new()
+fn fenced_code_block_value(node : @seam.SyntaxNode) -> String {
+  let buf = StringBuilder::StringBuilder()
+  let mut in_code = false
+  for element in node.all_children() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        match token_kind {
+          CodeFenceOpenToken => in_code = true
+          CodeFenceCloseToken => in_code = false
+          CodeTextToken if in_code => buf.write_string(token.text())
+          NewlineToken | BlankLineToken if in_code => buf.write_string("\n")
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  trim_code_boundary_newlines(buf.to_string(), fenced=true)
+}
+
+///|
+fn indented_code_block_value(
+  node : @seam.SyntaxNode,
+  source : String,
+) -> String {
+  let buf = StringBuilder::StringBuilder()
   let line_parts : Array[String] = []
   let mut first_indented_token : @seam.SyntaxToken? = None
   let mut in_code = false
@@ -157,12 +181,6 @@ fn code_block_value(node : @seam.SyntaxNode) -> String {
       @seam.SyntaxElement::Token(token) => {
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
         match token_kind {
-          CodeFenceOpenToken => in_code = true
-          CodeFenceCloseToken => {
-            flush_indented_line()
-            in_code = false
-          }
-          CodeTextToken if in_code => buf.write_string(token.text())
           IndentationToken => {
             in_code = true
             if first_indented_token is None {
@@ -182,8 +200,67 @@ fn code_block_value(node : @seam.SyntaxNode) -> String {
     }
   }
   flush_indented_line()
-  trim_code_boundary_newlines(
-    buf.to_string(),
-    fenced=node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_),
-  )
+  trim_code_boundary_newlines(buf.to_string(), fenced=false)
+}
+
+///|
+fn code_block_value_with_source(
+  node : @seam.SyntaxNode,
+  source : String,
+) -> String {
+  if node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_) {
+    fenced_code_block_value(node)
+  } else {
+    indented_code_block_value(node, source)
+  }
+}
+
+///|
+/// Demand-driven compatibility boundary for callers that only own a syntax
+/// node. Fenced blocks never invoke `load_source`; indented blocks invoke it
+/// exactly once. Top-level lowering paths should prefer
+/// `code_block_value_with_source` and supply their existing source snapshot.
+fn code_block_value_with_source_loader(
+  node : @seam.SyntaxNode,
+  load_source : () -> String,
+) -> String {
+  if node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_) {
+    fenced_code_block_value(node)
+  } else {
+    indented_code_block_value(node, load_source())
+  }
+}
+
+///|
+/// Obtain the current owning source from an already source-backed CST token.
+///
+/// This compatibility boundary is intentionally the only Markdown lowering
+/// site that reaches through `unsafe_backing_source`. Generic parser reuse
+/// rebases source-backed tokens onto the current source before folding, so an
+/// indented block can reuse that owning string without reconstructing the
+/// complete syntax root. Synthetic token-only trees retain the explicit
+/// reconstruction fallback.
+fn code_block_source_with_fallback(
+  node : @seam.SyntaxNode,
+  reconstruct_source : () -> String,
+) -> String {
+  match (node.cst_node().first_token(_ => false), node.first_token()) {
+    (Some(raw), Some(positioned)) if raw.is_source_backed() => {
+      let source = raw.unsafe_backing_source()
+      if raw.start_offset() == positioned.start() &&
+        raw.end_offset() == positioned.end() &&
+        source.length() >= syntax_root(node).end() {
+        return source
+      }
+    }
+    _ => ()
+  }
+  reconstruct_source()
+}
+
+///|
+fn code_block_value(node : @seam.SyntaxNode) -> String {
+  code_block_value_with_source_loader(node, fn() {
+    code_block_source_with_fallback(node, fn() { syntax_root(node).text() })
+  })
 }

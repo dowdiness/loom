@@ -52,6 +52,56 @@ artifact produced by GitHub Actions
 at head `f4bf7c0a`. Only these newly registered rows were adopted from the full
 refresh, leaving unrelated benchmark baselines unchanged.
 
+## 2026-08-03 (Markdown code-block source ownership closure)
+
+- Issue: [#843](https://github.com/dowdiness/loom/issues/843)
+- Indented compatibility base: `a2e815d05711b4518e482fabe6bec6beccf9fd19`
+- Head implementation and harness:
+  `05fb175002585145708a24f4e12e477b615cdf4c`
+- Environment: local WSL2, Linux 6.6.114.1, x86_64
+- Toolchain: MoonBit `0.10.4+2cc641edf`, Moon `0.1.20260713`
+- Targets: release JavaScript and wasm-gc
+- Commands:
+  - `rtk moon bench --frozen --release --target <target> -p dowdiness/markdown -f performance_indented_source_benchmark_wbtest.mbt`
+  - `rtk moon bench --frozen --release --target <target> -p dowdiness/markdown -f performance_residual_benchmark_test.mbt -i 4-14`
+  - `rtk moon bench --frozen --release --target <target> -p dowdiness/markdown -f performance_residual_benchmark_test.mbt -i 30-32`
+
+The rebased #843 implementation removed document reconstruction for fenced
+blocks, but its compatibility algebra still rebuilt `syntax_root(node).text()`
+for every indented block. The new control alternates one indented block with one
+paragraph so 2,001 lines contain 500 distinct code blocks and 10,001 lines
+contain 2,500. Every value below reports ten samples as `mean ± σ`; base and
+head are separate-process observations and are not subtracted.
+
+| Target / compatibility fold | Base | Head | Head explicit-source control |
+|---|---:|---:|---:|
+| JS / 2k | 244.31 ms ± 35.99 ms | 2.54 ms ± 0.28 ms | 2.50 ms ± 0.09 ms |
+| JS / 10k | 5.57 s ± 0.69 s | 15.69 ms ± 2.94 ms | 17.44 ms ± 3.47 ms |
+| wasm-gc / 2k | 102.61 ms ± 4.18 ms | 1.81 ms ± 0.15 ms | 1.77 ms ± 0.16 ms |
+| wasm-gc / 10k | 4.09 s ± 0.44 s | 11.02 ms ± 0.35 ms | 11.69 ms ± 0.92 ms |
+
+The compatibility path now reuses the current source string already owned by a
+validated source-backed CST token. It accepts that string only when the raw and
+positioned token spans agree and the backing string covers the live syntax
+root; token-free and token-local hand-built CSTs retain reconstruction fallback.
+The normal-test guard proves that 500 parsed indented blocks request zero
+reconstructions. No mutable cache or public API was added.
+
+The same head was rechecked against the original residual matrix:
+
+| Head workload | JavaScript mean ± σ | wasm-gc mean ± σ |
+|---|---:|---:|
+| mixed 2k source → AST | 18.76 ms ± 2.54 ms | 15.41 ms ± 2.24 ms |
+| mixed 10k source → AST | 94.73 ms ± 3.72 ms | 78.79 ms ± 3.87 ms |
+| mixed 2k cold Block fold | 2.95 ms ± 0.42 ms | 2.15 ms ± 0.11 ms |
+| mixed 10k cold Block fold | 16.45 ms ± 0.74 ms | 16.56 ms ± 1.08 ms |
+| fenced 2k recursive Block | 525.01 µs ± 46.23 µs | 471.20 µs ± 5.66 µs |
+| fenced 10k recursive Block | 2.57 ms ± 0.11 ms | 2.55 ms ± 0.05 ms |
+
+Both fenced and indented families return to the expected approximately linear
+2k-to-10k band. The mixed full-parse result is now governed by CST construction
+rather than repeated document-string allocation during AST lowering.
+
 ## 2026-08-02 (Markdown keyed local-lowering design probe)
 
 - Evidence commit:
@@ -114,6 +164,57 @@ syntax-local unresolved block plans and resolves references later through
 per-label dependencies. Recovery diagnostics, cache retirement, and A/A
 calibration remain gates in the
 [production design](../superpowers/specs/2026-08-02-markdown-local-unresolved-block-design.md).
+
+## 2026-08-02 (Markdown fenced-code source reconstruction removal)
+
+- Issue: [#843](https://github.com/dowdiness/loom/issues/843)
+- Base implementation and harness:
+  `262941db2e90810daf1a3c31ab09b0f1dbf531c5`
+- Head implementation: `ce67b797492081bba08709086f2ff27098fabd8b`
+- Environment: local WSL2, Linux 6.6.114.1, x86_64
+- Toolchain: MoonBit `0.10.4+2cc641edf` (2026-07-15), Moon
+  `0.1.20260713`
+- Commands, run at both commits:
+  - `rtk moon bench --release --frozen --target js -p dowdiness/markdown -f performance_residual_benchmark_test.mbt -i 29-31`
+  - `rtk moon bench --release --frozen --target wasm-gc -p dowdiness/markdown -f performance_residual_benchmark_test.mbt -i 29-31`
+  - `rtk moon bench --release --frozen --target js -p dowdiness/markdown -f performance_residual_benchmark_test.mbt -i 3-13`
+  - `rtk moon bench --release --frozen --target wasm-gc -p dowdiness/markdown -f performance_residual_benchmark_test.mbt -i 3-13`
+
+Every row reports ten samples as `mean ± σ`. Base and head were measured in
+separate runs on the same machine. The deterministic guard separately proves
+that 128 fenced blocks request zero owning-source reconstructions.
+
+### Isolated fenced-code recursive Block lowering
+
+| Target / corpus | Base mean ± σ | Head mean ± σ | Head 2k → 10k ratio |
+|---|---:|---:|---:|
+| JS / 2k | 126.32 ms ± 18.33 ms | 478.97 µs ± 21.15 µs | — |
+| JS / 10k | 3.60 s ± 1.22 s | 2.41 ms ± 59.26 µs | 5.03× |
+| wasm-gc / 2k | 104.94 ms ± 22.87 ms | 497.03 µs ± 9.71 µs | — |
+| wasm-gc / 10k | 3.57 s ± 609.44 ms | 2.60 ms ± 42.06 µs | 5.23× |
+
+The 5× line increase returns to the expected linear scale band instead of the
+previous 28.5× on JS and 34.0× on wasm-gc in this same-machine comparison.
+The 10k isolated operation is approximately 1,490× faster on JS and 1,370×
+faster on wasm-gc.
+
+### Mixed corpus lowering attribution
+
+| Target / operation | Base 2k → 10k | Head 2k → 10k |
+|---|---:|---:|
+| JS / direct Block | 67.06 ms ± 0.75 ms → 1.82 s ± 65.46 ms | 2.83 ms ± 0.14 ms → 15.57 ms ± 0.56 ms |
+| JS / recursive Block | 65.59 ms ± 2.84 ms → 1.76 s ± 41.79 ms | 1.63 ms ± 0.06 ms → 9.80 ms ± 0.61 ms |
+| JS / MarkdownIR construction | 70.66 ms ± 1.75 ms → 1.82 s ± 81.59 ms | 6.13 ms ± 0.26 ms → 37.05 ms ± 1.16 ms |
+| wasm-gc / direct Block | 61.33 ms ± 1.96 ms → 1.68 s ± 89.07 ms | 2.09 ms ± 0.06 ms → 14.98 ms ± 0.60 ms |
+| wasm-gc / recursive Block | 53.21 ms ± 1.28 ms → 1.76 s ± 75.12 ms | 1.28 ms ± 0.05 ms → 9.16 ms ± 0.24 ms |
+| wasm-gc / MarkdownIR construction | 64.78 ms ± 1.18 ms → 1.94 s ± 74.06 ms | 5.94 ms ± 0.13 ms → 34.45 ms ± 2.50 ms |
+
+Fenced code now lowers from local CST token text without requesting the owning
+document string. Indented code retains the existing visual-column semantics and
+receives one explicit source snapshot from the direct Block and MarkdownIR
+top-level lowering contexts. The compatibility algebra keeps source loading
+demand-driven for syntax-only callers. No public parser API, CST shape,
+MarkdownIR shape, or rendering behavior changes.
 
 ## 2026-08-02 (Markdown 10,000-line residual envelope)
 
