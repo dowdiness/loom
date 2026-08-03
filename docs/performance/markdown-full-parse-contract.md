@@ -14,13 +14,20 @@ both objectives on the benchmark runner used to record a result:
 
 | Corpus | Product operation | Objective | Current 2026-08-03 observation |
 |---|---|---:|---:|
-| `paragraph-v1`: 500 paragraphs, 51,410 bytes | source to `Block` | <= 10 ms | 12.94-19.38 ms across clean and noisy local runs |
-| `mixed-v1`: 2,005 lines, 34,884 bytes | source to `Block` | <= 50 ms | 117.77 ms |
+| `paragraph-v1`: 500 paragraphs, 51,410 bytes | source to `Block` | <= 10 ms | 11.76 ms on merged `main`; objective remains narrowly unmet |
+| `mixed-v1`: 2,005 lines, 34,884 bytes | source to `Block` | <= 50 ms | 18.76 ms after #855; 35.32 ms in the merged-main recheck |
 
 These are optimization objectives, not PR wall-clock gates. Shared runners are
 too noisy for absolute JavaScript latency to block a change. A performance PR
 must record same-runner base/head JavaScript and wasm-gc results instead of
 claiming success from one absolute run.
+
+The mixed objective is now met in two same-machine post-#855 observations. It
+remains a directional objective rather than a portable latency guarantee. The
+paragraph objective is close but still unmet; its merged-main stage matrix
+attributes most cold work to pretokenized grammar, event, and CST construction.
+That stage requires a smaller causal benchmark before another optimization is
+designed.
 
 ## Stage attribution
 

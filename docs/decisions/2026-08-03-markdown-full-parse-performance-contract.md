@@ -34,9 +34,11 @@ the deployment-target optimization objective and require same-runner base/head
 evidence for performance PRs rather than an absolute PR timing gate.
 
 Set directional JavaScript objectives of 10 ms for the 51,410-byte paragraph
-full parse and 50 ms for the 2,005-line mixed full parse. The objectives are
-deliberately unmet today: they define the next optimization frontier without
-misrepresenting current performance.
+full parse and 50 ms for the 2,005-line mixed full parse. At adoption both were
+deliberately unmet, defining an optimization frontier without misrepresenting
+current performance. After #855 removed repeated whole-document reconstruction,
+merged-main observations place the mixed corpus inside its objective while the
+paragraph corpus remains narrowly outside its objective.
 
 Preserve CST fidelity, AST/diagnostic behavior, direct/incremental parity, and
 the pinned CommonMark conformance contract as hard correctness boundaries.
@@ -57,7 +59,8 @@ it is simpler and more maintainable than adding another timing framework.
   workflow.
 - JavaScript improvements require recorded base/head measurements before a
   speedup claim is accepted.
-- The 10 ms and 50 ms objectives remain visible as unmet work rather than being
-  weakened to match today's implementation.
+- The objectives remain fixed rather than being weakened to match an
+  implementation. The mixed 50 ms objective is currently met in local
+  post-#855 observations; the paragraph 10 ms objective remains narrowly unmet.
 - Any future output-contract change requires an ADR update before benchmark rows
   are redefined.
