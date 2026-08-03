@@ -68,6 +68,15 @@ fn reactive_keyed_markdown_ir_benchmark_direct_read(
 }
 
 ///|
+fn reactive_keyed_markdown_ir_benchmark_direct_block_read(
+  parser : @loom.SyntaxParser,
+) -> Block {
+  experimental_markdown_ir_to_block(
+    reactive_keyed_markdown_ir_benchmark_direct_read(parser),
+  )
+}
+
+///|
 fn benchmark_reactive_keyed_markdown_ir_direct(
   b : @bench.T,
   block_count : Int,
@@ -114,6 +123,67 @@ fn benchmark_reactive_keyed_markdown_ir_shell(
 }
 
 ///|
+fn benchmark_reactive_keyed_markdown_direct_block(
+  b : @bench.T,
+  block_count : Int,
+) -> Unit {
+  let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
+  let parser = @loom.new_syntax_parser(
+    @core.SourceId("markdown-reactive-keyed-benchmark-direct-block"),
+    input.source,
+    markdown_grammar.to_syntax_grammar(),
+  )
+  ignore(reactive_keyed_markdown_ir_benchmark_direct_block_read(parser))
+  b.bench(() => {
+    parser.apply_edit(input.edit, input.edited)
+    b.keep(reactive_keyed_markdown_ir_benchmark_direct_block_read(parser))
+    parser.apply_edit(input.edit, input.source)
+    b.keep(reactive_keyed_markdown_ir_benchmark_direct_block_read(parser))
+  })
+}
+
+///|
+fn benchmark_markdown_projection_attachment(
+  b : @bench.T,
+  block_count : Int,
+) -> Unit {
+  let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
+  let parser = @loom.new_syntax_parser(
+    @core.SourceId("markdown-projection-attachment-benchmark"),
+    input.source,
+    markdown_grammar.to_syntax_grammar(),
+  )
+  let attachment = attach_markdown_projection(parser)
+  b.bench(() => {
+    parser.apply_edit(input.edit, input.edited)
+    b.keep(attachment.projection())
+    parser.apply_edit(input.edit, input.source)
+    b.keep(attachment.projection())
+  })
+  attachment.dispose()
+}
+
+///|
+fn benchmark_markdown_compatibility_block_parser(
+  b : @bench.T,
+  block_count : Int,
+) -> Unit {
+  let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
+  let parser = @loom.new_parser(
+    @core.SourceId("markdown-compatibility-block-benchmark"),
+    input.source,
+    markdown_grammar,
+  )
+  ignore(parser.ast().read_or_abort())
+  b.bench(() => {
+    parser.apply_edit(input.edit, input.edited)
+    b.keep(parser.ast().read_or_abort())
+    parser.apply_edit(input.edit, input.source)
+    b.keep(parser.ast().read_or_abort())
+  })
+}
+
+///|
 test "reactive keyed MarkdownIR: direct full cycle 2500 blocks" (b : @bench.T) {
   benchmark_reactive_keyed_markdown_ir_direct(b, 2500)
 }
@@ -128,4 +198,25 @@ test "reactive keyed MarkdownIR: instrumented shell calibration 2500 blocks" (
   b : @bench.T,
 ) {
   benchmark_reactive_keyed_markdown_ir_shell(b, 2500, true)
+}
+
+///|
+test "Markdown projection: direct IR to Block full cycle 2500 blocks" (
+  b : @bench.T,
+) {
+  benchmark_reactive_keyed_markdown_direct_block(b, 2500)
+}
+
+///|
+test "Markdown projection: keyed attachment full cycle 2500 blocks" (
+  b : @bench.T,
+) {
+  benchmark_markdown_projection_attachment(b, 2500)
+}
+
+///|
+test "Markdown projection: compatibility Block parser full cycle 2500 blocks" (
+  b : @bench.T,
+) {
+  benchmark_markdown_compatibility_block_parser(b, 2500)
 }

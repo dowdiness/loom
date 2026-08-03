@@ -27,7 +27,8 @@ The order protects two boundaries:
    MarkdownIR/editor projection identity policy.
 2. [#332](https://github.com/dowdiness/loom/issues/332) derives `Block` /
    `Inline` from MarkdownIR while preserving editor, source-map, and edit
-   behavior.
+   behavior. Loom provides the keyed Block-facing attachment; its separate
+   Canopy integration owns the editor commit safe point and teardown.
 3. [#425](https://github.com/dowdiness/loom/issues/425) decides the
    editor-facing thematic-break projection after both #341 and #332.
 

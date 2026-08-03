@@ -2,6 +2,36 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-08-03 (Markdown keyed editor projection attachment)
+
+- Base revision: `d3f29967`; head branch: `feat/332-markdown-projection-integration`
+- Environment: local WSL2, Linux 6.18.33.2, x86_64
+- Toolchain: MoonBit/Moon `0.1.20260713`
+- Targets: release JavaScript and wasm-gc
+- Command: `rtk moon bench --release --target <target> -p dowdiness/markdown -f reactive_keyed_markdown_ir_benchmark_wbtest.mbt`
+
+Each iteration edits one middle paragraph in a 2,500-block document, observes
+the complete result, reverses the edit, and observes again. Parser construction,
+attachment construction, watch priming, and corpus construction are outside the
+timer. The attachment row includes keyed MarkdownIR-to-Block projection and the
+defensive copy returned to the editor owner.
+
+| Full edit-and-restore observation | JavaScript mean ± σ | wasm-gc mean ± σ |
+|---|---:|---:|
+| direct whole-document MarkdownIR | 88.22 ms ± 13.22 ms | 76.82 ms ± 6.91 ms |
+| keyed MarkdownIR shell | 22.70 ms ± 0.45 ms | 22.83 ms ± 2.61 ms |
+| direct MarkdownIR → Block | 91.23 ms ± 0.98 ms | 79.80 ms ± 2.86 ms |
+| keyed projection attachment → detached Block | 25.93 ms ± 2.44 ms | 20.92 ms ± 2.06 ms |
+| compatibility `Parser[Block]` | 526.78 µs ± 7.18 µs | 798.70 µs ± 14.73 µs |
+
+The production attachment retains a material improvement over the direct
+MarkdownIR projection: 3.52× on JavaScript and 3.81× on wasm-gc. The
+compatibility parser control is still roughly 49× and 26× faster respectively.
+The Loom attachment is therefore safe as an opt-in ownership boundary, but the
+separate Canopy PR must not silently enable it without an explicit product-level
+performance decision or further optimization. Deterministic invalidation and
+cache-retirement tests remain the primary correctness gates.
+
 ## 2026-08-03 (Markdown full-parse performance contract)
 
 - Base revision: `441916bb`

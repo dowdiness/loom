@@ -61,11 +61,13 @@ priv struct ReactiveKeyedMarkdownIRCacheSweep {
 ///|
 priv struct ReactiveKeyedMarkdownIR {
   scope : @incr.Scope
-  runtime : @incr.Runtime
+  source_id : @core.SourceId
+  snapshot_view : @incr.Derived[@loom.SyntaxSnapshot]
+  document_layout : @incr.Derived[ReactiveMarkdownDocumentLayout]
   plan_by_cst : @incr.DerivedMap[@seam.CstNode, LocalBlockPlan]
   definition_by_label : @incr.DerivedMap[String, LinkReferenceDefinition?]
   resolved_by_cst : @incr.DerivedMap[@seam.CstNode, ResolvedLocalBlock]
-  watch : @incr.Watch[MarkdownIR]
+  watch : @incr.Watch[MarkdownIR]?
   counters : ReactiveKeyedMarkdownIRCounters
 }
 
@@ -120,10 +122,39 @@ fn reactive_markdown_document_layout(
 }
 
 ///|
+fn reactive_markdown_contextual_block(
+  source_id : @core.SourceId,
+  snapshot_view : @incr.Derived[@loom.SyntaxSnapshot],
+  definition_by_label : @incr.DerivedMap[String, LinkReferenceDefinition?],
+  slot : ReactiveMarkdownBlockSlot,
+) -> ResolvedLocalBlock {
+  let snapshot = snapshot_view.get_or_abort()
+  let current_root = reactive_markdown_syntax_root(
+    reactive_markdown_document_root(snapshot.syntax),
+  )
+  let current_children = current_root.children()
+  guard slot.document_child_index < current_children.length() else {
+    abort("reactive Markdown layout child index is stale")
+  }
+  let current_block = current_children[slot.document_child_index]
+  guard current_block.cst_node() == slot.cst else {
+    abort("reactive Markdown child does not match its CST key")
+  }
+  lower_contextual_resolved_block(
+    source_id,
+    current_block,
+    snapshot.source,
+    label => definition_by_label.get_or_abort(label),
+    origin => diagnostics_in_origin(source_id, snapshot.diagnostics, origin),
+  )
+}
+
+///|
 #warnings("-unused_value")
 fn attach_reactive_keyed_markdown_ir_with_counters(
   parser : @loom.SyntaxParser,
   counters_enabled : Bool,
+  root_document : Bool,
 ) -> ReactiveKeyedMarkdownIR {
   let source_id = parser.source_id()
   let runtime = parser.runtime()
@@ -196,26 +227,8 @@ fn attach_reactive_keyed_markdown_ir_with_counters(
           if counters.enabled {
             counters.contextual_fallback += 1
           }
-          let snapshot = snapshot_view.get_or_abort()
-          let current_root = reactive_markdown_syntax_root(
-            reactive_markdown_document_root(snapshot.syntax),
-          )
-          let current_children = current_root.children()
-          guard slot.document_child_index < current_children.length() else {
-            abort("reactive MarkdownIR layout child index is stale")
-          }
-          let current_block = current_children[slot.document_child_index]
-          guard current_block.cst_node() == slot.cst else {
-            abort("reactive MarkdownIR layout child does not match its CST key")
-          }
-          lower_contextual_resolved_block(
-            source_id,
-            current_block,
-            snapshot.source,
-            label => definition_by_label.get_or_abort(label),
-            origin => {
-              diagnostics_in_origin(source_id, snapshot.diagnostics, origin)
-            },
+          reactive_markdown_contextual_block(
+            source_id, snapshot_view, definition_by_label, slot,
           )
         } else {
           local_result
@@ -229,10 +242,12 @@ fn attach_reactive_keyed_markdown_ir_with_counters(
     },
     label="markdown_ir_reactive_keyed_document",
   )
-  let watch = scope.watch(document)
+  let watch = if root_document { Some(scope.watch(document)) } else { None }
   {
     scope,
-    runtime,
+    source_id,
+    snapshot_view,
+    document_layout,
     plan_by_cst,
     definition_by_label,
     resolved_by_cst,
@@ -246,7 +261,17 @@ fn attach_reactive_keyed_markdown_ir_with_counters(
 fn attach_reactive_keyed_markdown_ir(
   parser : @loom.SyntaxParser,
 ) -> ReactiveKeyedMarkdownIR {
-  attach_reactive_keyed_markdown_ir_with_counters(parser, false)
+  attach_reactive_keyed_markdown_ir_with_counters(parser, false, true)
+}
+
+///|
+fn attach_reactive_keyed_markdown_ir_for_projection(
+  parser : @loom.SyntaxParser,
+) -> ReactiveKeyedMarkdownIR {
+  // The Block projection installs its own terminal Watch before returning.
+  // Leaving the full positioned MarkdownIR unrooted prevents its stale
+  // dependency set from retaining the previous editor revision at collection.
+  attach_reactive_keyed_markdown_ir_with_counters(parser, false, false)
 }
 
 ///|
@@ -254,13 +279,16 @@ fn attach_reactive_keyed_markdown_ir(
 fn attach_instrumented_reactive_keyed_markdown_ir(
   parser : @loom.SyntaxParser,
 ) -> ReactiveKeyedMarkdownIR {
-  attach_reactive_keyed_markdown_ir_with_counters(parser, true)
+  attach_reactive_keyed_markdown_ir_with_counters(parser, true, true)
 }
 
 ///|
 #warnings("-unused_value")
 fn ReactiveKeyedMarkdownIR::read(self : ReactiveKeyedMarkdownIR) -> MarkdownIR {
-  self.watch.read_or_abort()
+  match self.watch {
+    Some(watch) => watch.read_or_abort()
+    None => abort("reactive MarkdownIR has no terminal document watch")
+  }
 }
 
 ///|
@@ -294,29 +322,29 @@ fn ReactiveKeyedMarkdownIR::reset_counters(
 fn ReactiveKeyedMarkdownIR::collect_stale(
   self : ReactiveKeyedMarkdownIR,
 ) -> ReactiveKeyedMarkdownIRCacheSweep {
-  ignore(self.watch.read_or_abort())
+  ignore(self.read())
   let resolved_before = self.resolved_by_cst.cache_len()
   let plan_before = self.plan_by_cst.cache_len()
   let definition_before = self.definition_by_label.cache_len()
-  self.runtime.gc()
-  let resolved_removed = self.resolved_by_cst.sweep_cache()
-  let plan_removed = self.plan_by_cst.sweep_cache()
-  let definition_removed = self.definition_by_label.sweep_cache()
+  self.scope.collect()
+  let resolved_after = self.resolved_by_cst.cache_len()
+  let plan_after = self.plan_by_cst.cache_len()
+  let definition_after = self.definition_by_label.cache_len()
   {
     resolved: {
       before: resolved_before,
-      removed: resolved_removed,
-      after: self.resolved_by_cst.cache_len(),
+      removed: resolved_before - resolved_after,
+      after: resolved_after,
     },
     plan: {
       before: plan_before,
-      removed: plan_removed,
-      after: self.plan_by_cst.cache_len(),
+      removed: plan_before - plan_after,
+      after: plan_after,
     },
     definition: {
       before: definition_before,
-      removed: definition_removed,
-      after: self.definition_by_label.cache_len(),
+      removed: definition_before - definition_after,
+      after: definition_after,
     },
   }
 }

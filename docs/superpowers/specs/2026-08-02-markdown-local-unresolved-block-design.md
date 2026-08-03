@@ -284,6 +284,12 @@ before runtime GC cannot retire live wrappers. The private collection operation
 encapsulates the complete sequence and returns per-map before/removed/after
 counts for deterministic tests. No new eviction policy is introduced.
 
+As of #332 and Incr 0.15.0, the production shell performs the terminal read and
+delegates steps 2–3 to `Scope::collect()`. Incr owns runtime GC plus retirement
+of every scope-owned `DerivedMap`; Markdown consumers no longer coordinate or
+observe individual sweeps. The private count-returning helper remains only as a
+deterministic white-box test seam for the original three IR maps.
+
 Deterministic tests inspect computation counts and `cache_len` around GC and
 sweep. Wall-clock timing is not the lifecycle correctness oracle.
 
@@ -389,8 +395,10 @@ gate requires A/A calibration after the production harness stabilizes.
 
 ### PR 3 — Existing editor integration and gates (#332)
 
-- Route the existing editor projection through the keyed path without making
-  parser snapshots eager.
+- Expose a narrow Block-facing attachment over the keyed path without making
+  parser snapshots eager; the separate Canopy PR owns editor enablement.
+- Root only the terminal value used by each attachment so collection does not
+  retain a prior revision through an unread sibling watch.
 - Run the complete correctness/performance matrix on wasm-gc and JavaScript.
 - Add an A/A-calibrated regression gate only if stable.
 - Update the MarkdownIR performance ADR, architecture documentation, and

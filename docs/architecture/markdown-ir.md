@@ -54,7 +54,8 @@ Current public surfaces stay valid while MarkdownIR is introduced:
 - `markdown_fold_node` may remain the direct `SyntaxNode -> Block` algebra until
   the `SyntaxNode -> MarkdownIR -> Block/Inline` adapter is proven.
 - Canopy's Markdown projection memos currently consume `@markdown.Block`; the
-  target migration is additive:
+  Loom-side target is available as an additive
+  `MarkdownProjectionAttachment`, while Canopy migration remains separate:
 
   ```text
   current: SyntaxNode -> Block/Inline -> ProjNode[Block] -> SourceMap/edit ops
@@ -298,10 +299,14 @@ New MarkdownIR surfaces:
   migration changes those surfaces.
 - Canopy integration stays `SyncEditor[@markdown.Block]` through
   `lang/markdown/companion` and `ProjNode[@markdown.Block]` / `SourceMap`
-  projection memos until a compatibility PR deliberately changes that contract.
+  projection memos until its compatibility PR deliberately changes that contract.
   The target migration is an internal pipeline swap from
   `SyntaxNode -> Block/Inline` to `SyntaxNode -> MarkdownIR -> Block/Inline`,
   not a requirement that editor code consume MarkdownIR directly.
+- Long-lived Loom consumers use `attach_markdown_projection(SyntaxParser)` and
+  receive detached `Block` values. The attachment owns retained keyed work;
+  its owner calls `collect()` only after a successful commit and calls
+  `dispose()` at teardown. Direct lowering remains the one-shot path.
 - Public API PRs must run `moon info` and review `.mbti` diffs for signatures,
   visibility, constructors, trait bounds, and adapter leakage. A docs-only PR or
   a PR with no public MoonBit changes should say that no generated-interface

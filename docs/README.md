@@ -90,6 +90,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-08-03-markdown-projection-attachment-boundary.md](decisions/2026-08-03-markdown-projection-attachment-boundary.md) — **Accepted** Loom owns the keyed Markdown projection attachment, Incr owns collection mechanics, and Canopy owns commit-time collection and disposal (#332)
 - [decisions/2026-08-03-markdown-full-parse-performance-contract.md](decisions/2026-08-03-markdown-full-parse-performance-contract.md) — **Accepted** stage-isolated cold-parse measurement, persistent wasm-gc regression detection, JavaScript objectives, and correctness boundaries
 - [decisions/2026-08-01-standalone-structured-diagnostics.md](decisions/2026-08-01-standalone-structured-diagnostics.md) — **Accepted** portable diagnostic values/rendering/fixes stay core-only while optional Unicode plain and pretty-layout adapters own presentation dependencies (#830, #848)
 - [decisions/2026-08-01-commonmark-completion-contract.md](decisions/2026-08-01-commonmark-completion-contract.md) — **Accepted** 652/652 clean-pipeline contract, explicit raw HTML policy, private block-container core, two-pass reference resolution, and incremental matrix (#800, #801, #803)

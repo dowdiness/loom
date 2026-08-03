@@ -35,6 +35,10 @@ pub fn project_markdown_roles(@seam.SyntaxNode) -> Array[MarkdownRoleSpan]
 pub fn export_markdown_role_spans(Array[MarkdownRoleSpan]) -> Json
 pub fn attach_markdown_role_spans(@loom.SyntaxParser) -> MarkdownRoleSpansAttachment
 
+// ── Parser-backed editor Block projection ────────────────────────────────────
+
+pub fn attach_markdown_projection(@loom.SyntaxParser) -> MarkdownProjectionAttachment
+
 // ── Experimental MarkdownIR M1 slice ──────────────────────────────────────────
 
 pub fn experimental_markdown_ir_from_syntax(
@@ -135,8 +139,25 @@ remains escaped under every policy. mdast export is independent of rendering
 policy and continues to preserve valid HTML as an `html` node. The
 position-aware mdast export must receive the exact source string that produced
 the IR. The established parser surfaces (`parse`, `parse_markdown`, `parse_cst`,
-`markdown_grammar`, and `markdown_fold_node`) remain the compatibility path for
-the editor-facing `Block` / `Inline` model.
+`markdown_grammar`, and `markdown_fold_node`) remain the one-shot and
+`Parser[Block]` compatibility path. Long-lived editor integrations can attach
+the keyed path with `attach_markdown_projection` while continuing to consume
+the same `Block` / `Inline` model.
+
+### Keyed editor projection attachment
+
+`MarkdownProjectionAttachment` owns the retained keyed MarkdownIR computation,
+adapts it through `experimental_markdown_ir_to_block`, and returns a detached
+current `Block` from `projection()`. The parser remains caller-owned. After an
+editor has atomically committed the returned projection, call `collect()` at
+that safe point; it reads the terminal projection and delegates GC plus all
+keyed-map retirement to the attachment's Incr scope. Call `dispose()` when the
+editor closes. Consumers never call runtime GC or individual map sweeps.
+
+Direct `experimental_markdown_ir_from_syntax*` calls stay one-shot and allocate
+no keyed caches. MarkdownIR origins remain semantic attachment; exact editable
+roles still come from CST-backed role spans and the editor's current source
+map. The attachment deliberately exposes neither representation as the other.
 
 ### Checked canonical formatting
 
