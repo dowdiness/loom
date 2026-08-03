@@ -24,6 +24,18 @@ priv struct ReactiveMarkdownDocumentLayout {
 } derive(Eq)
 
 ///|
+/// Coherent parser input consumed by the keyed MarkdownIR shell.
+///
+/// Both parser facades normalize their complete snapshot into this private
+/// value so source, syntax, and diagnostics cannot come from different parser
+/// revisions.
+priv struct ReactiveMarkdownSnapshot {
+  source : String
+  syntax : @seam.SyntaxNode
+  diagnostics : @core.DiagnosticSet
+} derive(Eq)
+
+///|
 priv struct ReactiveKeyedMarkdownIRCounters {
   enabled : Bool
   mut local_lowering : Int
@@ -62,7 +74,7 @@ priv struct ReactiveKeyedMarkdownIRCacheSweep {
 priv struct ReactiveKeyedMarkdownIR {
   scope : @incr.Scope
   source_id : @core.SourceId
-  snapshot_view : @incr.Derived[@loom.SyntaxSnapshot]
+  snapshot_view : @incr.Derived[ReactiveMarkdownSnapshot]
   document_layout : @incr.Derived[ReactiveMarkdownDocumentLayout]
   plan_by_cst : @incr.DerivedMap[@seam.CstNode, LocalBlockPlan]
   definition_by_label : @incr.DerivedMap[String, LinkReferenceDefinition?]
@@ -124,7 +136,7 @@ fn reactive_markdown_document_layout(
 ///|
 fn reactive_markdown_contextual_block(
   source_id : @core.SourceId,
-  snapshot_view : @incr.Derived[@loom.SyntaxSnapshot],
+  snapshot_view : @incr.Derived[ReactiveMarkdownSnapshot],
   definition_by_label : @incr.DerivedMap[String, LinkReferenceDefinition?],
   slot : ReactiveMarkdownBlockSlot,
 ) -> ResolvedLocalBlock {
@@ -152,7 +164,7 @@ fn reactive_markdown_contextual_block(
 ///|
 fn reactive_markdown_resolve_slot(
   source_id : @core.SourceId,
-  snapshot_view : @incr.Derived[@loom.SyntaxSnapshot],
+  snapshot_view : @incr.Derived[ReactiveMarkdownSnapshot],
   definition_by_label : @incr.DerivedMap[String, LinkReferenceDefinition?],
   resolved_by_cst : @incr.DerivedMap[@seam.CstNode, ResolvedLocalBlock],
   counters : ReactiveKeyedMarkdownIRCounters,
@@ -172,14 +184,13 @@ fn reactive_markdown_resolve_slot(
 
 ///|
 #warnings("-unused_value")
-fn attach_reactive_keyed_markdown_ir_with_counters(
-  parser : @loom.SyntaxParser,
+fn attach_reactive_keyed_markdown_ir_from_snapshot(
+  source_id : @core.SourceId,
+  scope : @incr.Scope,
+  snapshot_view : @incr.Derived[ReactiveMarkdownSnapshot],
   counters_enabled : Bool,
   root_document : Bool,
 ) -> ReactiveKeyedMarkdownIR {
-  let source_id = parser.source_id()
-  let runtime = parser.runtime()
-  let scope = @incr.Scope::new(runtime)
   let counters : ReactiveKeyedMarkdownIRCounters = {
     enabled: counters_enabled,
     local_lowering: 0,
@@ -188,13 +199,11 @@ fn attach_reactive_keyed_markdown_ir_with_counters(
     placement: 0,
     contextual_fallback: 0,
   }
-  let snapshot_view = parser.snapshot()
-  let syntax_view = parser.syntax_tree()
   // Contextual recovery is a dynamic branch. Keep its coherent parser input
   // alive even while valid documents do not depend on it.
   ignore(scope.watch(snapshot_view))
   let document_root = scope.derived(
-    () => reactive_markdown_document_root(syntax_view.get_or_abort()),
+    () => reactive_markdown_document_root(snapshot_view.get_or_abort().syntax),
     label="markdown_ir_document_root",
   )
   let document_layout = scope.derived(
@@ -209,6 +218,10 @@ fn attach_reactive_keyed_markdown_ir_with_counters(
     },
     label="markdown_ir_definition_index",
   )
+  // A document revision with no reference users does not read the definition
+  // index. Keep the lazy branch alive so a later revision can create its first
+  // definition-map entry after an intervening collection.
+  ignore(scope.watch(definition_index))
   let definition_by_label = scope.derived_map(
     label => {
       if counters.enabled {
@@ -268,6 +281,60 @@ fn attach_reactive_keyed_markdown_ir_with_counters(
     watch,
     counters,
   }
+}
+
+///|
+fn attach_reactive_keyed_markdown_ir_with_counters(
+  parser : @loom.SyntaxParser,
+  counters_enabled : Bool,
+  root_document : Bool,
+) -> ReactiveKeyedMarkdownIR {
+  let scope = @incr.Scope::new(parser.runtime())
+  let parser_snapshot = parser.snapshot()
+  let snapshot_view = scope.derived(
+    () => {
+      let snapshot = parser_snapshot.get_or_abort()
+      {
+        source: snapshot.source,
+        syntax: snapshot.syntax,
+        diagnostics: snapshot.diagnostics,
+      }
+    },
+    label="markdown_ir_coherent_syntax_snapshot",
+  )
+  attach_reactive_keyed_markdown_ir_from_snapshot(
+    parser.source_id(),
+    scope,
+    snapshot_view,
+    counters_enabled,
+    root_document,
+  )
+}
+
+///|
+fn attach_reactive_keyed_markdown_ir_from_block_parser(
+  parser : @loom.Parser[Block],
+) -> ReactiveKeyedMarkdownIR {
+  let scope = @incr.Scope::new(parser.runtime())
+  let parser_snapshot = parser.snapshot()
+  let snapshot_view = scope.derived(
+    () => {
+      let snapshot = parser_snapshot.get_or_abort()
+      {
+        source: snapshot.source,
+        syntax: snapshot.syntax,
+        diagnostics: snapshot.diagnostics,
+      }
+    },
+    label="markdown_ir_coherent_parser_snapshot",
+  )
+  attach_reactive_keyed_markdown_ir_from_snapshot(
+    parser.source_id(),
+    scope,
+    snapshot_view,
+    false,
+    true,
+  )
 }
 
 ///|

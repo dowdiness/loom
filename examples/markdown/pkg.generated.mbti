@@ -231,6 +231,13 @@ pub struct MarkdownRoleSpansAttachment {
 pub fn MarkdownRoleSpansAttachment::dispose(Self) -> Unit
 pub fn MarkdownRoleSpansAttachment::spans(Self) -> Array[MarkdownRoleSpan]
 
+pub struct MarkdownSemanticAttachment {
+  // private fields
+}
+pub fn MarkdownSemanticAttachment::MarkdownSemanticAttachment(@pipeline.Parser[Block]) -> Self
+pub fn MarkdownSemanticAttachment::dispose(Self) -> Unit
+pub fn MarkdownSemanticAttachment::document(Self) -> MarkdownIR
+
 pub(all) enum OrderedListDelimiter {
   Period
   Paren
