@@ -74,3 +74,57 @@ test "code block value: compatibility loader is demand-driven" {
   assert_eq(value, "code")
   assert_eq(source_reconstructions, 1)
 }
+
+///|
+test "code block value: source-backed indented corpus performs zero reconstructions" {
+  let source = "    first\n\nparagraph\n\n    second\n"
+  let syntax = code_block_value_test_syntax(source)
+  let code_blocks : Array[@seam.SyntaxNode] = []
+  collect_code_block_nodes(syntax, code_blocks)
+  let mut source_reconstructions = 0
+  let values : Array[String] = []
+  for code_block in code_blocks {
+    let owning_source = code_block_source_with_fallback(code_block, fn() {
+      source_reconstructions = source_reconstructions + 1
+      syntax.text()
+    })
+    values.push(code_block_value_with_source(code_block, owning_source))
+  }
+  assert_eq(values, ["first", "second"])
+  assert_eq(source_reconstructions, 0)
+}
+
+///|
+test "code block value: token-free compatibility tree uses reconstruction fallback" {
+  let empty = @seam.SyntaxNode::from_cst(
+    @seam.CstNode::new(CodeBlockNode.to_raw(), []),
+  )
+  let mut source_reconstructions = 0
+  let source = code_block_source_with_fallback(empty, fn() {
+    source_reconstructions = source_reconstructions + 1
+    "fallback"
+  })
+  assert_eq(source, "fallback")
+  assert_eq(source_reconstructions, 1)
+}
+
+///|
+test "code block value: token-local backing string uses reconstruction fallback" {
+  let token_local = @seam.SyntaxNode::from_cst(
+    @seam.CstNode::new(CodeBlockNode.to_raw(), [
+      @seam.CstElement::Token(
+        @seam.CstToken::CstToken(IndentationToken.to_raw(), "    "),
+      ),
+      @seam.CstElement::Token(
+        @seam.CstToken::CstToken(CodeTextToken.to_raw(), "code"),
+      ),
+    ]),
+  )
+  let mut source_reconstructions = 0
+  let source = code_block_source_with_fallback(token_local, fn() {
+    source_reconstructions = source_reconstructions + 1
+    "    code"
+  })
+  assert_eq(source, "    code")
+  assert_eq(source_reconstructions, 1)
+}

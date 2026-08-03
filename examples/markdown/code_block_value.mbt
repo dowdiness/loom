@@ -232,6 +232,35 @@ fn code_block_value_with_source_loader(
 }
 
 ///|
+/// Obtain the current owning source from an already source-backed CST token.
+///
+/// This compatibility boundary is intentionally the only Markdown lowering
+/// site that reaches through `unsafe_backing_source`. Generic parser reuse
+/// rebases source-backed tokens onto the current source before folding, so an
+/// indented block can reuse that owning string without reconstructing the
+/// complete syntax root. Synthetic token-only trees retain the explicit
+/// reconstruction fallback.
+fn code_block_source_with_fallback(
+  node : @seam.SyntaxNode,
+  reconstruct_source : () -> String,
+) -> String {
+  match (node.cst_node().first_token(_ => false), node.first_token()) {
+    (Some(raw), Some(positioned)) if raw.is_source_backed() => {
+      let source = raw.unsafe_backing_source()
+      if raw.start_offset() == positioned.start() &&
+        raw.end_offset() == positioned.end() &&
+        source.length() >= syntax_root(node).end() {
+        return source
+      }
+    }
+    _ => ()
+  }
+  reconstruct_source()
+}
+
+///|
 fn code_block_value(node : @seam.SyntaxNode) -> String {
-  code_block_value_with_source_loader(node, fn() { syntax_root(node).text() })
+  code_block_value_with_source_loader(node, fn() {
+    code_block_source_with_fallback(node, fn() { syntax_root(node).text() })
+  })
 }
