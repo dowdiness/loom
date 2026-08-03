@@ -52,6 +52,56 @@ artifact produced by GitHub Actions
 at head `f4bf7c0a`. Only these newly registered rows were adopted from the full
 refresh, leaving unrelated benchmark baselines unchanged.
 
+## 2026-08-03 (Markdown code-block source ownership closure)
+
+- Issue: [#843](https://github.com/dowdiness/loom/issues/843)
+- Indented compatibility base: `a2e815d05711b4518e482fabe6bec6beccf9fd19`
+- Head implementation and harness:
+  `05fb175002585145708a24f4e12e477b615cdf4c`
+- Environment: local WSL2, Linux 6.6.114.1, x86_64
+- Toolchain: MoonBit `0.10.4+2cc641edf`, Moon `0.1.20260713`
+- Targets: release JavaScript and wasm-gc
+- Commands:
+  - `rtk moon bench --frozen --release --target <target> -p dowdiness/markdown -f performance_indented_source_benchmark_wbtest.mbt`
+  - `rtk moon bench --frozen --release --target <target> -p dowdiness/markdown -f performance_residual_benchmark_test.mbt -i 4-14`
+  - `rtk moon bench --frozen --release --target <target> -p dowdiness/markdown -f performance_residual_benchmark_test.mbt -i 30-32`
+
+The rebased #843 implementation removed document reconstruction for fenced
+blocks, but its compatibility algebra still rebuilt `syntax_root(node).text()`
+for every indented block. The new control alternates one indented block with one
+paragraph so 2,001 lines contain 500 distinct code blocks and 10,001 lines
+contain 2,500. Every value below reports ten samples as `mean ± σ`; base and
+head are separate-process observations and are not subtracted.
+
+| Target / compatibility fold | Base | Head | Head explicit-source control |
+|---|---:|---:|---:|
+| JS / 2k | 244.31 ms ± 35.99 ms | 2.54 ms ± 0.28 ms | 2.50 ms ± 0.09 ms |
+| JS / 10k | 5.57 s ± 0.69 s | 15.69 ms ± 2.94 ms | 17.44 ms ± 3.47 ms |
+| wasm-gc / 2k | 102.61 ms ± 4.18 ms | 1.81 ms ± 0.15 ms | 1.77 ms ± 0.16 ms |
+| wasm-gc / 10k | 4.09 s ± 0.44 s | 11.02 ms ± 0.35 ms | 11.69 ms ± 0.92 ms |
+
+The compatibility path now reuses the current source string already owned by a
+validated source-backed CST token. It accepts that string only when the raw and
+positioned token spans agree and the backing string covers the live syntax
+root; token-free and token-local hand-built CSTs retain reconstruction fallback.
+The normal-test guard proves that 500 parsed indented blocks request zero
+reconstructions. No mutable cache or public API was added.
+
+The same head was rechecked against the original residual matrix:
+
+| Head workload | JavaScript mean ± σ | wasm-gc mean ± σ |
+|---|---:|---:|
+| mixed 2k source → AST | 18.76 ms ± 2.54 ms | 15.41 ms ± 2.24 ms |
+| mixed 10k source → AST | 94.73 ms ± 3.72 ms | 78.79 ms ± 3.87 ms |
+| mixed 2k cold Block fold | 2.95 ms ± 0.42 ms | 2.15 ms ± 0.11 ms |
+| mixed 10k cold Block fold | 16.45 ms ± 0.74 ms | 16.56 ms ± 1.08 ms |
+| fenced 2k recursive Block | 525.01 µs ± 46.23 µs | 471.20 µs ± 5.66 µs |
+| fenced 10k recursive Block | 2.57 ms ± 0.11 ms | 2.55 ms ± 0.05 ms |
+
+Both fenced and indented families return to the expected approximately linear
+2k-to-10k band. The mixed full-parse result is now governed by CST construction
+rather than repeated document-string allocation during AST lowering.
+
 ## 2026-08-02 (Markdown keyed local-lowering design probe)
 
 - Evidence commit:

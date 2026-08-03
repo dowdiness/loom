@@ -129,6 +129,15 @@ construction falls from 1.82 s to 37.05 ms on JavaScript and from 1.94 s to
 linear band. Full base/head evidence and commands remain in
 [`docs/performance/benchmark_history.md`](../performance/benchmark_history.md).
 
+The compatibility `markdown_fold_node` path also remains source-linear for
+indented code. It reuses the current owning string only when a source-backed
+CST token's raw span matches its positioned span and the string covers the live
+root; synthetic or token-local CSTs fall back to explicit reconstruction. This
+keeps the optimization deterministic and cache-free while avoiding a new
+public source-ownership API. A 500-block normal-test guard fixes zero fallback
+reconstructions for parsed indented input, and 2k/10k JS and wasm-gc controls
+track the compatibility path beside explicit-source lowering.
+
 A correctness-first keyed-lowering prototype then tested the memoization driver
 that the residual matrix did not cover. A top-level block result with relative
 owned origins can be placed downstream to reproduce complete MarkdownIR exactly
