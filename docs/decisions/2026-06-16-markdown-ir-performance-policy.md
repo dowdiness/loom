@@ -4,7 +4,8 @@
 **Status:** Accepted
 **Issue:** [#339](https://github.com/dowdiness/loom/issues/339)
 **Updated by:** [#777](https://github.com/dowdiness/loom/issues/777),
-[#845](https://github.com/dowdiness/loom/issues/845)
+[#845](https://github.com/dowdiness/loom/issues/845),
+[#332](https://github.com/dowdiness/loom/issues/332)
 **Implementation plan:** N/A — issue-scoped benchmark and policy note.
 
 ## Context
@@ -163,6 +164,16 @@ lazy policy, direct one-shot path, and Block `CstFold` remain unchanged. See the
 and the throwaway evidence commit
 [`4f743f7`](https://github.com/dowdiness/loom/commit/4f743f78ee3e61aec94f1b8c9b19ef9d7587cdca).
 
+The production #332 attachment keeps that unresolved/resolved split private and
+adds a keyed Block projection over resolved local IR. `Scope::collect()` from
+Incr 0.15.0 now owns runtime GC and retirement of every scope-owned map after
+the attachment reads its terminal Block watch. The 2,500-block edit-and-restore
+measurement includes the authoritative IR-to-Block adapter and the defensive
+copy returned to the consumer: 25.93 ms versus 91.23 ms for direct IR-to-Block
+on JavaScript, and 20.92 ms versus 79.80 ms on wasm-gc. Full evidence and the
+much faster remaining `Parser[Block]` compatibility control are recorded in
+[`docs/performance/benchmark_history.md`](../performance/benchmark_history.md).
+
 ### Checked canonical formatter policy
 
 Issue #777 adds a separate cost boundary for checked canonical formatting. Its
@@ -213,13 +224,13 @@ output.
 
 Memory overhead is bounded because MarkdownIR nodes are small: origins are
 two-integer spans, and IR nodes carry validated semantic payloads rather than
-token arrays. There is no persistent IR cache, so memory is reclaimed with the
-returned value once consumers finish with it.
+token arrays. One-shot calls retain no cache. A live editor attachment retains
+only scope-owned keyed local work and retires stale generations through
+`Scope::collect()` at the editor's safe point.
 
-## Future work
+## Production keyed implementation
 
-MarkdownIR lowering is now a measured bottleneck on large, locally edited
-documents, but the accepted production implementation remains gated. It must:
+The production implementation satisfies the following constraints:
 
 - cache only position-independent block-local semantic data keyed by structural
   CST identity;
@@ -230,10 +241,10 @@ documents, but the accepted production implementation remains gated. It must:
 - preserve recovery diagnostics exactly; and
 - define stale-key retirement for long-lived editor sessions.
 
-Keying by absolute source range is no longer preferred because it discards the
-prepend/move reuse proven by the relative-origin prototype. No generic `incr`
-interface change is justified: existing `DerivedMap`, runtime GC, and cache
-sweeping provide the required shell mechanisms.
+Keying by absolute source range is rejected because it discards the prepend/move
+reuse proven by the relative-origin prototype. Incr 0.15.0's
+`Scope::collect()` is the generic maintenance boundary; Markdown consumers do
+not coordinate runtime GC or individual map sweeps.
 
 ## Consequences
 
@@ -242,9 +253,8 @@ sweeping provide the required shell mechanisms.
 - The fold algebra `experimental_markdown_ir_fold_node` stays package-private.
 - One-shot/export consumers continue to use `experimental_markdown_ir_from_syntax`
   directly.
-- Editor integrations that need MarkdownIR should attach a `@incr.Derived` over
-  `parser.syntax_tree()` and call `experimental_markdown_ir_from_syntax` inside
-  the derived closure. The reactive graph handles memoization at the snapshot
-  level, while origins are always derived from the current `SyntaxNode`.
+- Long-lived editor integrations use `attach_markdown_projection` over a
+  `SyntaxParser`; the attachment owns keyed reuse, collection, and disposal.
+  One-shot consumers continue to call direct lowering and create no attachment.
 - The M1 exit criterion "eager/lazy and memoization policy is stated with an
   initial benchmark" is satisfied.

@@ -11,6 +11,8 @@ import {
 }
 
 // Values
+pub fn attach_markdown_projection(@pipeline.SyntaxParser) -> MarkdownProjectionAttachment
+
 pub fn attach_markdown_role_spans(@pipeline.SyntaxParser) -> MarkdownRoleSpansAttachment
 
 pub fn experimental_markdown_ir_canonical_format(@diagnostic.SourceId, MarkdownIR) -> String
@@ -138,6 +140,13 @@ pub(all) enum MarkdownLexMode {
   HtmlBlockUntil(String)
   HtmlBlockEndLine
 } derive(Eq, @debug.Debug)
+
+pub struct MarkdownProjectionAttachment {
+  // private fields
+}
+pub fn MarkdownProjectionAttachment::collect(Self) -> Unit
+pub fn MarkdownProjectionAttachment::dispose(Self) -> Unit
+pub fn MarkdownProjectionAttachment::projection(Self) -> Block
 
 pub(all) enum MarkdownRole {
   HeadingMarker
