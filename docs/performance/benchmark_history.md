@@ -2,6 +2,56 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-08-03 (Markdown full-parse performance contract)
+
+- Base revision: `441916bb`
+- Environment: local WSL2, Linux 6.6.114.1, x86_64
+- Toolchain: MoonBit `0.10.4+2cc641edf`, Moon `0.1.20260713`
+- Targets: release JavaScript and wasm-gc
+- Contract: [Markdown full-parse performance contract](markdown-full-parse-contract.md)
+- Commands:
+  - `moon bench --release --target <target> -p dowdiness/markdown -f performance_envelope_benchmark_test.mbt`
+  - `moon bench --release --target <target> -p dowdiness/markdown -f performance_envelope_benchmark_wbtest.mbt`
+  - focused mixed-corpus rows from `performance_residual_benchmark_test.mbt`
+
+The stable paragraph corpus has 500 independent paragraphs and 51,410 bytes.
+The new white-box rows prepare the token buffer outside the pretokenized-CST
+timer, separating production-equivalent token ownership from grammar execution,
+event construction, CST construction, and parser diagnostics.
+
+| 500-paragraph stage | JavaScript mean ± σ | wasm-gc mean ± σ |
+|---|---:|---:|
+| tokenize | 3.20 ms ± 1.09 | 2.52 ms ± 0.25 |
+| token buffer build | 1.98 ms ± 0.11 | 2.67 ms ± 0.80 |
+| pretokenized CST | 8.17 ms ± 0.33 | 7.53 ms ± 0.55 |
+| production CST | 24.40 ms ± 5.89 | 12.38 ms ± 0.48 |
+| isolated AST fold | 2.98 ms ± 0.26 | 2.04 ms ± 0.16 |
+| source to CST + AST | 19.38 ms ± 5.38 | 14.77 ms ± 1.66 |
+
+The JavaScript production-CST and end-to-end rows were visibly noisy and even
+invert in one run, so independent stage means must not be subtracted. The
+controlled stage rows still reproduce the important ordering on both targets:
+pretokenized grammar+CST work is larger than token-buffer construction and AST
+folding. The next causal investigation therefore starts inside grammar/event/CST
+construction rather than incremental publication or AST folding.
+
+| Mixed-corpus acceptance row | JavaScript mean ± σ | wasm-gc mean ± σ |
+|---|---:|---:|
+| 2,005 lines / 34,884 bytes, source to CST + AST | 117.77 ms ± 16.74 | 78.96 ms ± 6.60 |
+| 9,999 lines, source to CST | 100.89 ms ± 16.60 | 73.38 ms ± 9.44 |
+
+These local WSL2 observations are baseline-only investigation evidence; they
+must not seed the scheduled detector because that detector runs on GitHub's
+Ubuntu runner. The machine-readable wasm-gc baseline is calibrated separately
+on that runner. JavaScript remains the deployment-target optimization objective
+and requires same-runner base/head evidence for optimization claims.
+
+The eight contract rows in `bench-baseline.tsv` come from the `bench-baseline`
+artifact produced by GitHub Actions
+[run 30759285784](https://github.com/dowdiness/loom/actions/runs/30759285784)
+at head `f4bf7c0a`. Only these newly registered rows were adopted from the full
+refresh, leaving unrelated benchmark baselines unchanged.
+
 ## 2026-08-02 (Markdown keyed local-lowering design probe)
 
 - Evidence commit:

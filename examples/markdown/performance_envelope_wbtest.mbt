@@ -34,6 +34,33 @@ fn perf_work_middle_edit(source : String) -> (String, @core.Edit) {
 }
 
 ///|
+test "perf envelope: paragraph corpus byte sizes stay stable" {
+  inspect(perf_work_paragraph_doc(10).length(), content="1029")
+  inspect(perf_work_paragraph_doc(100).length(), content="10210")
+  inspect(perf_work_paragraph_doc(500).length(), content="51410")
+}
+
+///|
+test "perf envelope: isolated full-parse stages preserve the production result" {
+  let source_id = @core.SourceId("markdown-perf-stage-parity")
+  let source = perf_work_paragraph_doc(10)
+  let (production_cst, production_diagnostics) = parse_cst(source_id, source) catch {
+    _ => abort("production parse failed")
+  }
+  let buffer = perf_new_markdown_buffer(source)
+  let (staged_cst, staged_diagnostics, reuse_count) = perf_parse_buffer(
+    source_id, source, buffer,
+  )
+  assert_eq(staged_cst, production_cst)
+  assert_eq(buffer.get_diagnostics(), @core.DiagnosticSet::empty())
+  assert_eq(staged_diagnostics, production_diagnostics)
+  assert_eq(reuse_count, 0)
+  let fold = @core.CstFold::new(markdown_fold_node)
+  let staged_ast = fold.fold(@seam.SyntaxNode::from_cst(staged_cst))
+  assert_eq(staged_ast, parse(source_id, source))
+}
+
+///|
 fn perf_local_edit_work(count : Int) -> (Int, Int, Int, Int) {
   let source = perf_work_paragraph_doc(count)
   let (edited, edit) = perf_work_middle_edit(source)

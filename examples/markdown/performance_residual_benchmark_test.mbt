@@ -341,7 +341,9 @@ fn bench_perf_residual_syntax_cycle(
 
 ///|
 test "perf residual: corpus dimensions stay explicit" {
-  assert_eq(perf_residual_line_count(perf_residual_mixed_doc(143)), 2005)
+  let mixed_2k = perf_residual_mixed_doc(143)
+  assert_eq(perf_residual_line_count(mixed_2k), 2005)
+  assert_eq(mixed_2k.length(), 34884)
   assert_eq(perf_residual_line_count(perf_residual_mixed_doc(714)), 9999)
   for family in [HeadingFamily, ParagraphFamily, ListFamily, FencedCodeFamily] {
     assert_eq(
@@ -400,6 +402,11 @@ test "perf residual: mixed 10k tokenize" (b : @bench.T) {
 ///|
 test "perf residual: mixed 10k CST" (b : @bench.T) {
   bench_perf_residual_cst(b, perf_residual_mixed_doc(714))
+}
+
+///|
+test "perf residual: mixed 2k CST plus AST" (b : @bench.T) {
+  bench_perf_residual_ast(b, perf_residual_mixed_doc(143))
 }
 
 ///|

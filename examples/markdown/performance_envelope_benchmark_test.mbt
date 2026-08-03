@@ -198,6 +198,11 @@ test "perf envelope: CST plus AST 500 paragraphs" (b : @bench.T) {
 }
 
 ///|
+test "perf envelope: isolated AST fold 10 paragraphs" (b : @bench.T) {
+  bench_perf_fold(b, 10)
+}
+
+///|
 test "perf envelope: isolated AST fold 100 paragraphs" (b : @bench.T) {
   bench_perf_fold(b, 100)
 }
