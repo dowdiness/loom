@@ -101,6 +101,7 @@ test "markdown projection attachment disposal is idempotent" {
   ignore(attachment.projection())
   attachment.dispose()
   attachment.dispose()
+  ignore(direct_block_from_syntax_parser(parser))
 }
 
 ///|

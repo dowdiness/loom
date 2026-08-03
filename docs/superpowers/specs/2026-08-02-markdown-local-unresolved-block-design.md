@@ -406,9 +406,9 @@ gate requires A/A calibration after the production harness stabilizes.
 - Delete production copies of prototype helpers; retain the throwaway branch as
   primary-source evidence.
 
-Issue `#332` remains blocked until #843, #846, and #847 close. It is the real
-production consumer; this train does not create an otherwise-unused public
-MarkdownIR attachment.
+Issues #843, #846, and #847 are complete. PR 3 exposes the public Block-facing
+attachment required by #332, but the editor migration remains incomplete until
+the separate Canopy integration owns its commit-time collection and teardown.
 
 ## Stop and escalate if
 

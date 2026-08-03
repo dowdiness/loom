@@ -123,17 +123,18 @@ pub fn attach_markdown_projection(
       let layout = shell.document_layout.get_or_abort()
       let blocks : Array[Block] = []
       for slot in layout.blocks {
-        let local_result = shell.resolved_by_cst.get_or_abort(slot.cst)
-        if resolved_local_block_requires_context(local_result) {
-          let contextual = reactive_markdown_contextual_block(
-            shell.source_id,
-            shell.snapshot_view,
-            shell.definition_by_label,
-            slot,
-          )
-          blocks.push(experimental_markdown_ir_to_block(contextual.ir))
-        } else {
-          blocks.push(block_by_cst.get_or_abort(slot.cst))
+        let resolved = reactive_markdown_resolve_slot(
+          shell.source_id,
+          shell.snapshot_view,
+          shell.definition_by_label,
+          shell.resolved_by_cst,
+          shell.counters,
+          slot,
+        )
+        match resolved.placement {
+          ContextualAbsoluteBlock =>
+            blocks.push(experimental_markdown_ir_to_block(resolved.ir))
+          RelativeLocalBlock => blocks.push(block_by_cst.get_or_abort(slot.cst))
         }
       }
       Block::Document(blocks)

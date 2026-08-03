@@ -150,6 +150,27 @@ fn reactive_markdown_contextual_block(
 }
 
 ///|
+fn reactive_markdown_resolve_slot(
+  source_id : @core.SourceId,
+  snapshot_view : @incr.Derived[@loom.SyntaxSnapshot],
+  definition_by_label : @incr.DerivedMap[String, LinkReferenceDefinition?],
+  resolved_by_cst : @incr.DerivedMap[@seam.CstNode, ResolvedLocalBlock],
+  counters : ReactiveKeyedMarkdownIRCounters,
+  slot : ReactiveMarkdownBlockSlot,
+) -> ResolvedLocalBlock {
+  let local_result = resolved_by_cst.get_or_abort(slot.cst)
+  guard resolved_local_block_requires_context(local_result) else {
+    return local_result
+  }
+  if counters.enabled {
+    counters.contextual_fallback += 1
+  }
+  reactive_markdown_contextual_block(
+    source_id, snapshot_view, definition_by_label, slot,
+  )
+}
+
+///|
 #warnings("-unused_value")
 fn attach_reactive_keyed_markdown_ir_with_counters(
   parser : @loom.SyntaxParser,
@@ -222,17 +243,10 @@ fn attach_reactive_keyed_markdown_ir_with_counters(
       let layout = document_layout.get_or_abort()
       let children : Array[MarkdownIR] = []
       for slot in layout.blocks {
-        let local_result = resolved_by_cst.get_or_abort(slot.cst)
-        let resolved = if resolved_local_block_requires_context(local_result) {
-          if counters.enabled {
-            counters.contextual_fallback += 1
-          }
-          reactive_markdown_contextual_block(
-            source_id, snapshot_view, definition_by_label, slot,
-          )
-        } else {
-          local_result
-        }
+        let resolved = reactive_markdown_resolve_slot(
+          source_id, snapshot_view, definition_by_label, resolved_by_cst, counters,
+          slot,
+        )
         if counters.enabled {
           counters.placement += 1
         }
@@ -319,6 +333,11 @@ fn ReactiveKeyedMarkdownIR::reset_counters(
 
 ///|
 #warnings("-unused_value")
+/// White-box stale collection for a rooted MarkdownIR shell.
+///
+/// This helper calls `read()` and therefore requires construction with a
+/// terminal document watch. Projection attachments use their Block watch and
+/// `Scope::collect()` directly instead.
 fn ReactiveKeyedMarkdownIR::collect_stale(
   self : ReactiveKeyedMarkdownIR,
 ) -> ReactiveKeyedMarkdownIRCacheSweep {
