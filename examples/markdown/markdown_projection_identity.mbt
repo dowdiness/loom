@@ -38,7 +38,7 @@ priv struct MarkdownProjectionIdentityTracker {
 #warnings("-unused_value")
 fn MarkdownProjectionIdentityTracker::new() -> MarkdownProjectionIdentityTracker {
   {
-    tracker: @projection.ProjectionIdentityTracker::new(),
+    tracker: @projection.ProjectionIdentityTracker(),
     next_id: 0,
     last_good_candidates: None,
     preview_candidates: None,

@@ -86,7 +86,7 @@ The implementation must not assume any loom/lambda symbol outside this list. If 
 - `pub fn[T, K] ParserContext::too_many_errors(Self[T, K], Int) -> Bool`
 - `pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::try_reuse_repeat_group(Self[T, K]) -> Bool`
 - `pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::flush_trivia(Self[T, K]) -> Unit`
-- `pub fn[Id] ProjectionIdentityTracker::new() -> Self[Id]`
+- `pub fn[Id] ProjectionIdentityTracker::ProjectionIdentityTracker() -> Self[Id]`
 - `pub fn[Id] ProjectionIdentityTracker::from_baseline(ProjectionIdentityBaseline[Id]) -> Self[Id]`
 - `pub fn[Id] ProjectionIdentityTracker::realign_success(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableProjectionLeaf[Id]]`
 - `pub fn[Id] ProjectionIdentityTracker::commit_success(Self[Id], String, Array[StableProjectionLeaf[Id]]) -> Unit`
@@ -425,7 +425,7 @@ pub fn normalized_syntax_grammar(
 - Consumes `pub fn SyntaxParser::snapshot(Self) -> @cells.Derived[SyntaxSnapshot]`.
 - Consumes `pub fn[T, K] SyntaxGrammar::parse_cst(Self[T, K], String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError`.
 - Consumes `pub fn @core.tree_diff(@seam.CstNode, @seam.CstNode) -> Array[@core.Edit]` (from `@core`, NOT `@loom`).
-- Consumes `pub fn[Id] ProjectionIdentityTracker::new() -> Self[Id]`.
+- Consumes `pub fn[Id] ProjectionIdentityTracker::ProjectionIdentityTracker() -> Self[Id]`.
 - Consumes `pub fn[Id] ProjectionIdentityTracker::realign_success(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableProjectionLeaf[Id]]`.
 - Consumes `pub fn[Id] ProjectionIdentityTracker::commit_success(Self[Id], String, Array[StableProjectionLeaf[Id]]) -> Unit`.
 - Consumes `pub fn[Id] ProjectionIdentityTracker::record_failed_input(Self[Id], String, source_before_edit? : String, edit? : Edit) -> Unit`.
