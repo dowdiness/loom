@@ -2,6 +2,47 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-08-03 (Merged-main full-parse contract recheck)
+
+- Revision: `9edd23c2c98618607495f33fb9657401c9119cb6`
+- Environment: local WSL2, Linux 6.6.114.1, x86_64
+- Toolchain: MoonBit `0.10.4+2cc641edf`, Moon `0.1.20260713`
+- Targets: release JavaScript and wasm-gc
+- Commands:
+  - `rtk moon bench --frozen --release --target <target> -p dowdiness/markdown -f performance_envelope_benchmark_test.mbt`
+  - `rtk moon bench --frozen --release --target <target> -p dowdiness/markdown -f performance_envelope_benchmark_wbtest.mbt`
+  - `rtk moon bench --frozen --release --target <target> -p dowdiness/markdown -f performance_residual_benchmark_test.mbt -i 4-14`
+
+The canonical paragraph matrix was rerun after #855 merged, before #332 editor
+projection work began. Every value reports ten samples as `mean ± σ`.
+Independent stage means are attribution evidence and are not subtracted.
+
+| `paragraph-v1`, 500 paragraphs | JavaScript mean ± σ | wasm-gc mean ± σ |
+|---|---:|---:|
+| tokenize | 1.94 ms ± 0.26 ms | 1.66 ms ± 0.09 ms |
+| token buffer build | 1.80 ms ± 0.22 ms | 1.72 ms ± 0.04 ms |
+| pretokenized CST | 8.28 ms ± 0.57 ms | 6.59 ms ± 0.27 ms |
+| production CST | 9.56 ms ± 0.22 ms | 9.16 ms ± 0.72 ms |
+| isolated AST fold | 2.39 ms ± 0.46 ms | 1.34 ms ± 0.02 ms |
+| source to CST + AST | 11.76 ms ± 0.32 ms | 10.12 ms ± 0.25 ms |
+
+The JavaScript end-to-end result is within 1.76 ms of the directional 10 ms
+objective. The pretokenized grammar/event/CST stage remains the largest isolated
+stage; no further optimization is authorized without a smaller causal benchmark
+inside it.
+
+| `mixed-v1` acceptance row | JavaScript mean ± σ | wasm-gc mean ± σ |
+|---|---:|---:|
+| 2,005 lines, source to CST + AST | 35.32 ms ± 13.95 ms | 22.73 ms ± 6.27 ms |
+| 9,999 lines, source to CST + AST | 102.43 ms ± 8.27 ms | 87.14 ms ± 4.14 ms |
+
+The 2,005-line JavaScript row remains noisy but is below the 50 ms directional
+objective. Together with the cleaner 18.76 ms ± 2.54 ms observation recorded
+for #855 below, this closes repeated code-block document reconstruction as the
+mixed-corpus bottleneck. Additional low-level tuning stops here; the next
+measured Markdown performance step is integrating the already-proved keyed
+MarkdownIR shell through #332.
+
 ## 2026-08-03 (Markdown full-parse performance contract)
 
 - Base revision: `441916bb`
