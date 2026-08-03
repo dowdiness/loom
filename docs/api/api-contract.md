@@ -295,7 +295,7 @@ code chooses the projected leaves, public ID type, and allocator.
 | `ProjectionIdentityBaseline::leaves(Self[Id]) -> Array[StableProjectionLeaf[Id]]` | Stable | Returns a copy of the stable leaves |
 | `ProjectionIdentityBaseline::advance(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Self[Id]` | Stable | Realign leaves and return a new committed baseline |
 | `ProjectionIdentityBaseline::advance_with_optional_edit(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, Edit?) -> Self[Id]` | Stable | Value-shaped optional-edit counterpart |
-| `ProjectionIdentityTracker::new() -> Self[Id]` | Stable | Empty tracker for integrations whose first valid projection may arrive later |
+| `ProjectionIdentityTracker() -> Self[Id]` | Stable | Empty tracker for integrations whose first valid projection may arrive later; `ProjectionIdentityTracker::new()` is a deprecated compatibility alias |
 | `ProjectionIdentityTracker::from_baseline(ProjectionIdentityBaseline[Id]) -> Self[Id]` | Stable | Seed tracker from an existing last-good identity baseline |
 | `ProjectionIdentityTracker::baseline(Self[Id]) -> ProjectionIdentityBaseline[Id]?` | Stable | Inspect current committed identity baseline |
 | `ProjectionIdentityTracker::record_failed_input(Self[Id], String, source_before_edit? : String, edit? : Edit) -> Unit` | Stable | Retain a baseline-relative failed-input edit when valid, compose later malformed-source edits when exact, otherwise use source-diff fallback |

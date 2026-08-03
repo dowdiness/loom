@@ -84,7 +84,7 @@ pub fn GraphAttachment::GraphAttachment(
     parser,
     scope,
     watch,
-    tracker: @loom.ProjectionIdentityTracker::new(),
+    tracker: @loom.ProjectionIdentityTracker(),
     current_source: initial_source,
     state: ParserBlocked,
     diagnostics: [],

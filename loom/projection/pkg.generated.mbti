@@ -30,10 +30,11 @@ pub fn[Id] ProjectionIdentityBaseline::source(Self[Id]) -> String
 pub struct ProjectionIdentityTracker[Id] {
   // private fields
 }
+#alias(new, deprecated)
+pub fn[Id] ProjectionIdentityTracker::ProjectionIdentityTracker() -> Self[Id]
 pub fn[Id] ProjectionIdentityTracker::baseline(Self[Id]) -> ProjectionIdentityBaseline[Id]?
 pub fn[Id] ProjectionIdentityTracker::commit_success(Self[Id], String, Array[StableProjectionLeaf[Id]]) -> Unit
 pub fn[Id] ProjectionIdentityTracker::from_baseline(ProjectionIdentityBaseline[Id]) -> Self[Id]
-pub fn[Id] ProjectionIdentityTracker::new() -> Self[Id]
 pub fn[Id] ProjectionIdentityTracker::realign_success(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[StableProjectionLeaf[Id]]
 pub fn[Id] ProjectionIdentityTracker::realign_success_with_optional_edit(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, @core.Edit?) -> Array[StableProjectionLeaf[Id]]
 pub fn[Id] ProjectionIdentityTracker::record_failed_input(Self[Id], String, source_before_edit? : String, edit? : @core.Edit) -> Unit

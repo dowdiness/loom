@@ -156,8 +156,11 @@ pub struct ProjectionIdentityTracker[Id] {
 }
 
 ///|
-/// Create an empty projection identity tracker.
-pub fn[Id] ProjectionIdentityTracker::new() -> ProjectionIdentityTracker[Id] {
+/// Construct an empty projection identity tracker.
+#alias(new, deprecated="Use ProjectionIdentityTracker() instead")
+pub fn[Id] ProjectionIdentityTracker::ProjectionIdentityTracker() -> ProjectionIdentityTracker[
+  Id,
+] {
   { baseline: None, pending: NoProjectionIdentityChange }
 }
 

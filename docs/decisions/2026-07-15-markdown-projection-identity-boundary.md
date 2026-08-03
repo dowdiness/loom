@@ -51,3 +51,6 @@ from becoming an authoring-identity change.
 - A future Canopy integration must add its own behavior test proving a stable
   Markdown ID can point to a rebuilt, differently pathed current view node.
 - Loom's existing `Block` / `Inline` and parser APIs remain unchanged.
+- `ProjectionIdentityTracker()` is the canonical constructor;
+  `ProjectionIdentityTracker::new()` remains only as a deprecated compatibility
+  alias.

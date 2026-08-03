@@ -1,6 +1,6 @@
 ///|
 test "projection identity tracker: first success without baseline allocates all ids" {
-  let tracker : ProjectionIdentityTracker[String] = ProjectionIdentityTracker::new()
+  let tracker : ProjectionIdentityTracker[String] = ProjectionIdentityTracker()
   let next = [test_leaf(0, 2, "sound:aa"), test_leaf(3, 5, "sound:bb")]
   let stable = tracker.realign_success("aa bb", next, test_allocate("fresh:"))
   debug_inspect(

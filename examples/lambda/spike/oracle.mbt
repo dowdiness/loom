@@ -122,8 +122,8 @@ pub fn run_oracle_fixture(
   let b_parser = @loom.new_syntax_parser(source_id, initial, b)
 
   // Projection identity trackers — INDEPENDENT instances for A and B.
-  let a_tracker : @loom.ProjectionIdentityTracker[String] = @loom.ProjectionIdentityTracker::new()
-  let b_tracker : @loom.ProjectionIdentityTracker[String] = @loom.ProjectionIdentityTracker::new()
+  let a_tracker : @loom.ProjectionIdentityTracker[String] = @loom.ProjectionIdentityTracker()
+  let b_tracker : @loom.ProjectionIdentityTracker[String] = @loom.ProjectionIdentityTracker()
   let a_alloc = @loom.ProjectionStringIdAllocator::new((key, count) => {
     key + ":" + count.to_string()
   })

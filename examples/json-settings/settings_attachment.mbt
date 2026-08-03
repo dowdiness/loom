@@ -106,7 +106,7 @@ pub fn SettingsAttachment::SettingsAttachment(
     parser,
     scope,
     watch,
-    tracker: @loom.ProjectionIdentityTracker::new(),
+    tracker: @loom.ProjectionIdentityTracker(),
     current_source: initial_source,
     state: ParserBlocked,
     current: Err("not yet settled"),
