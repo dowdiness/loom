@@ -101,7 +101,7 @@ fn assert_link_reference_has_no_opaque(node : MarkdownIR) -> Unit raise {
 test "link resolution retains form, title, and source origins" {
   assert_link_surface(
     "[foo](/url \"title\")\n",
-    InlineLinkForm,
+    LinkReferenceForm::InlineLinkForm,
     MarkdownIROrigin(start=0, end=19),
     MarkdownIROrigin(start=1, end=4),
     None,
@@ -110,7 +110,7 @@ test "link resolution retains form, title, and source origins" {
   )
   assert_link_surface(
     "[foo][ref]\n\n[ref]: /url \"title\"\n",
-    FullReferenceLinkForm,
+    LinkReferenceForm::FullReferenceLinkForm,
     MarkdownIROrigin(start=0, end=10),
     MarkdownIROrigin(start=1, end=4),
     Some(MarkdownIROrigin(start=6, end=9)),
@@ -119,7 +119,7 @@ test "link resolution retains form, title, and source origins" {
   )
   assert_link_surface(
     "[foo][]\n\n[foo]: /url \"title\"\n",
-    CollapsedReferenceLinkForm,
+    LinkReferenceForm::CollapsedReferenceLinkForm,
     MarkdownIROrigin(start=0, end=7),
     MarkdownIROrigin(start=1, end=4),
     Some(MarkdownIROrigin(start=6, end=6)),
@@ -128,7 +128,7 @@ test "link resolution retains form, title, and source origins" {
   )
   assert_link_surface(
     "[foo]\n\n[foo]: /url \"title\"\n",
-    ShortcutReferenceLinkForm,
+    LinkReferenceForm::ShortcutReferenceLinkForm,
     MarkdownIROrigin(start=0, end=5),
     MarkdownIROrigin(start=1, end=4),
     None,
@@ -147,7 +147,7 @@ test "image resolution remains distinct and retains link reference surface" {
       assert_eq(destination, "/url")
       assert_eq(title, Some("title"))
       assert_eq(inline.origin, MarkdownIROrigin(start=0, end=11))
-      assert_eq(surface.form, FullReferenceLinkForm)
+      assert_eq(surface.form, LinkReferenceForm::FullReferenceLinkForm)
       assert_eq(surface.label_origin, Some(MarkdownIROrigin(start=2, end=5)))
       assert_eq(
         surface.reference_label_origin,
@@ -200,7 +200,7 @@ fn assert_inline_image_surface(
       assert_eq(image.origin, expected_origin)
       assert_eq(destination, expected_destination)
       assert_eq(title, None)
-      assert_eq(surface.form, InlineLinkForm)
+      assert_eq(surface.form, LinkReferenceForm::InlineLinkForm)
       assert_eq(surface.label_origin, Some(expected_label_origin))
       assert_eq(surface.reference_label_origin, None)
       assert_eq(surface.destination_origin, Some(expected_destination_origin))
@@ -286,7 +286,7 @@ test "CommonMark images 574 and 575 retain typed nested label semantics" {
                   assert_eq(markdown_ir_plain_text(nested_children), "bar")
                   assert_eq(destination, "/url")
                   assert_eq(title, None)
-                  assert_eq(surface.form, InlineLinkForm)
+                  assert_eq(surface.form, LinkReferenceForm::InlineLinkForm)
                   assert_eq(surface.label_origin, Some(nested_label_origin))
                   assert_eq(surface.reference_label_origin, None)
                   assert_eq(
@@ -552,8 +552,14 @@ test "final lowering counts CRLF as one reference label character" {
   )
   let definition = "[" + normalized_label + "]: /url\n"
   let cases : Array[(String, LinkReferenceForm)] = [
-    ("[" + valid_label + "]\n\n" + definition, ShortcutReferenceLinkForm),
-    ("[text][" + valid_label + "]\n\n" + definition, FullReferenceLinkForm),
+    (
+      "[" + valid_label + "]\n\n" + definition,
+      LinkReferenceForm::ShortcutReferenceLinkForm,
+    ),
+    (
+      "[text][" + valid_label + "]\n\n" + definition,
+      LinkReferenceForm::FullReferenceLinkForm,
+    ),
   ]
   for link_case in cases {
     let (source, expected_form) = link_case

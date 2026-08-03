@@ -107,6 +107,12 @@ pub fn MarkdownIR::list_marker(Self) -> UnorderedListMarker?
 pub fn MarkdownIR::origin(Self) -> MarkdownIROrigin
 pub fn MarkdownIR::spread(Self) -> Bool?
 pub fn MarkdownIR::text_value(Self) -> String?
+pub fn MarkdownIR::view(Self) -> MarkdownIRView
+
+pub(all) enum MarkdownIRAutolinkKind {
+  UriAutolink
+  EmailAutolink
+} derive(Eq, @debug.Debug)
 
 pub(all) enum MarkdownIRCanonicalFormatFailure {
   ExpectedDocument
@@ -121,8 +127,28 @@ pub(all) enum MarkdownIRCanonicalOpaqueKind {
   Unsupported
 } derive(Eq, @debug.Debug)
 
+pub(all) enum MarkdownIRHardBreakSurface {
+  TrailingSpaces(Int)
+  Backslash
+} derive(Eq, @debug.Debug)
+
 pub(all) enum MarkdownIRHtmlRenderError {
   RawHtmlRejected(RawHtmlSurface, MarkdownIROrigin)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum MarkdownIRLinkReferenceForm {
+  InlineLinkForm
+  FullReferenceLinkForm
+  CollapsedReferenceLinkForm
+  ShortcutReferenceLinkForm
+} derive(Eq, @debug.Debug)
+
+pub(all) struct MarkdownIRLinkSurface {
+  form : MarkdownIRLinkReferenceForm
+  label_origin : MarkdownIROrigin?
+  reference_label_origin : MarkdownIROrigin?
+  destination_origin : MarkdownIROrigin?
+  title_origin : MarkdownIROrigin?
 } derive(Eq, @debug.Debug)
 
 pub struct MarkdownIROrigin {
@@ -130,6 +156,33 @@ pub struct MarkdownIROrigin {
 } derive(Eq, @debug.Debug)
 pub fn MarkdownIROrigin::end(Self) -> Int
 pub fn MarkdownIROrigin::start(Self) -> Int
+
+pub(all) enum MarkdownIRView {
+  Document
+  Heading(depth~ : Int)
+  Paragraph
+  BlockQuote
+  UnorderedList(spread~ : Bool, marker~ : UnorderedListMarker?)
+  OrderedList(spread~ : Bool, marker~ : OrderedListMarker?)
+  ListItem(spread~ : Bool, marker~ : UnorderedListMarker?)
+  OrderedListItem(spread~ : Bool, marker~ : OrderedListMarker?)
+  CodeBlock(info~ : String, value~ : String)
+  HtmlBlock(value~ : String)
+  ThematicBreak
+  Text(value~ : String)
+  Bold
+  Italic
+  InlineCode(value~ : String)
+  Link(destination~ : String, title~ : String?, surface~ : MarkdownIRLinkSurface)
+  Image(destination~ : String, title~ : String?, surface~ : MarkdownIRLinkSurface)
+  Autolink(kind~ : MarkdownIRAutolinkKind, display~ : String, destination~ : String, label_origin~ : MarkdownIROrigin?, destination_origin~ : MarkdownIROrigin?)
+  InlineHtml(value~ : String)
+  SoftBreak
+  HardBreak(surface~ : MarkdownIRHardBreakSurface)
+  Unsupported(message~ : String)
+  Raw(value~ : String)
+  Recovered(message~ : String)
+} derive(Eq, @debug.Debug)
 
 pub(all) enum MarkdownLexMode {
   LineStart

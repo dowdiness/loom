@@ -498,7 +498,8 @@ fn shift_optional_local_origin(
 
 ///|
 fn place_local_link_surface(surface : LinkSurface, base : Int) -> LinkSurface {
-  let destination_is_block_owned = surface.form is InlineLinkForm
+  let destination_is_block_owned = surface.form
+    is LinkReferenceForm::InlineLinkForm
   {
     form: surface.form,
     label_origin: shift_optional_local_origin(surface.label_origin, base),

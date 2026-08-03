@@ -121,6 +121,14 @@ text, bold, italic, inline code, and link nodes with UTF-16 source origins.
 Unsupported Markdown constructs lower to explicit `Unsupported` IR nodes rather
 than token/trivia arrays.
 
+External adapters should match `MarkdownIR::view()` to inspect semantic node
+kinds and their meaning-bearing fields exhaustively. Use `children()`,
+`origin()`, `content_origin()`, and `diagnostics()` for the common tree and
+source-attachment facts; returned child and diagnostic arrays are defensive
+copies. The older kind tag, optional field accessors, and opaque-node predicates
+remain compatible during the experimental migration, but they are not the
+preferred surface for a new exhaustive adapter.
+
 Use `experimental_markdown_ir_from_syntax` after `parse_cst` when you need the
 IR, then adapt with `experimental_markdown_ir_to_block`, export with
 `experimental_markdown_ir_to_mdast_json` or
