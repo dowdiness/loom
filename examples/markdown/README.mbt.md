@@ -150,7 +150,9 @@ the IR. The established parser surfaces (`parse`, `parse_markdown`, `parse_cst`,
 `markdown_grammar`, and `markdown_fold_node`) remain the one-shot and
 `Parser[Block]` compatibility path. Long-lived editor integrations can attach
 the keyed path with `attach_markdown_projection` while continuing to consume
-the same `Block` / `Inline` model.
+the same `Block` / `Inline` model. Source-aware integrations over an existing
+`Parser[Block]` can instead construct `MarkdownSemanticAttachment(parser)` and
+consume the complete owning MarkdownIR document through `document()`.
 
 ### Keyed editor projection attachment
 
@@ -166,6 +168,21 @@ Direct `experimental_markdown_ir_from_syntax*` calls stay one-shot and allocate
 no keyed caches. MarkdownIR origins remain semantic attachment; exact editable
 roles still come from CST-backed role spans and the editor's current source
 map. The attachment deliberately exposes neither representation as the other.
+
+### Source-aware semantic attachment
+
+`MarkdownSemanticAttachment` joins an existing caller-owned `Parser[Block]`
+runtime. Its custom constructor creates no second parser and exposes only
+`document()` and idempotent `dispose()`. `document()` observes one complete
+parser snapshot, obtains the current owning MarkdownIR value, and performs
+scope-owned stale-work collection before returning it. A retained document
+remains valid after later parser edits, later reads, collection, and disposal.
+
+The attachment does not provide revisions, deltas, acknowledgements, watches,
+scopes, cache keys, or collection operations. Reading after disposal is a
+contract violation. The legacy `MarkdownProjectionAttachment` remains the
+smaller `Block` path and retains its caller-selected post-commit `collect()`
+boundary.
 
 ### Checked canonical formatting
 

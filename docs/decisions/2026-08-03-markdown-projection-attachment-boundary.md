@@ -2,6 +2,7 @@
 
 **Date:** 2026-08-03
 **Status:** Accepted
+**Qualified by:** [Markdown semantic attachment boundary](2026-08-04-markdown-semantic-attachment-boundary.md)
 **Issue:** [#332](https://github.com/dowdiness/loom/issues/332)
 **Related:** [MarkdownIR performance policy](2026-06-16-markdown-ir-performance-policy.md),
 [Markdown projection identity boundary](2026-07-15-markdown-projection-identity-boundary.md),
@@ -59,6 +60,11 @@ Direct one-shot MarkdownIR lowering remains stateless. `Parser[Block]`,
 `Block` / `Inline`, parser snapshots, semantic identity tracking, source-map
 construction, editable CST roles, and view identity remain separate contracts.
 The attachment exposes none of its IR, keys, counters, watches, or semantic IDs.
+
+The later `MarkdownSemanticAttachment` adds a separate owning MarkdownIR read
+path whose `document()` operation performs collection internally. That path
+does not change this projection attachment's caller-selected post-commit
+collection boundary or its legacy `Block` contract.
 
 ## Rationale
 

@@ -68,6 +68,18 @@ fn reactive_keyed_markdown_ir_benchmark_direct_read(
 }
 
 ///|
+fn markdown_semantic_benchmark_direct_read(
+  parser : @loom.Parser[Block],
+) -> MarkdownIR {
+  let snapshot = parser.snapshot().read_or_abort()
+  experimental_markdown_ir_from_syntax_with_diagnostics(
+    parser.source_id(),
+    snapshot.syntax,
+    snapshot.diagnostics,
+  )
+}
+
+///|
 fn reactive_keyed_markdown_ir_benchmark_direct_block_read(
   parser : @loom.SyntaxParser,
 ) -> Block {
@@ -164,6 +176,113 @@ fn benchmark_markdown_projection_attachment(
 }
 
 ///|
+fn benchmark_markdown_semantic_attachment(
+  b : @bench.T,
+  block_count : Int,
+) -> Unit {
+  let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
+  let parser = @loom.new_parser(
+    @core.SourceId("markdown-semantic-attachment-benchmark"),
+    input.source,
+    markdown_grammar,
+  )
+  let attachment = MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+    parser,
+  )
+  ignore(attachment.document())
+  b.bench(() => {
+    parser.apply_edit(input.edit, input.edited)
+    b.keep(attachment.document())
+    parser.apply_edit(input.edit, input.source)
+    b.keep(attachment.document())
+  })
+  attachment.dispose()
+}
+
+///|
+fn benchmark_markdown_semantic_direct(b : @bench.T, block_count : Int) -> Unit {
+  let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
+  let parser = @loom.new_parser(
+    @core.SourceId("markdown-semantic-direct-benchmark"),
+    input.source,
+    markdown_grammar,
+  )
+  ignore(markdown_semantic_benchmark_direct_read(parser))
+  b.bench(() => {
+    parser.apply_edit(input.edit, input.edited)
+    b.keep(markdown_semantic_benchmark_direct_read(parser))
+    parser.apply_edit(input.edit, input.source)
+    b.keep(markdown_semantic_benchmark_direct_read(parser))
+  })
+}
+
+///|
+fn benchmark_markdown_direct_initial_read(
+  b : @bench.T,
+  block_count : Int,
+) -> Unit {
+  let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
+  let parser = @loom.new_parser(
+    @core.SourceId("markdown-direct-initial-read-benchmark"),
+    input.source,
+    markdown_grammar,
+  )
+  b.bench(() => b.keep(markdown_semantic_benchmark_direct_read(parser)))
+}
+
+///|
+fn benchmark_markdown_syntax_direct_initial_read(
+  b : @bench.T,
+  block_count : Int,
+) -> Unit {
+  let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
+  let parser = @loom.new_syntax_parser(
+    @core.SourceId("markdown-syntax-direct-initial-read-benchmark"),
+    input.source,
+    markdown_grammar.to_syntax_grammar(),
+  )
+  b.bench(() => b.keep(reactive_keyed_markdown_ir_benchmark_direct_read(parser)))
+}
+
+///|
+fn benchmark_markdown_semantic_initial_read(
+  b : @bench.T,
+  block_count : Int,
+) -> Unit {
+  let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
+  let parser = @loom.new_parser(
+    @core.SourceId("markdown-semantic-initial-read-benchmark"),
+    input.source,
+    markdown_grammar,
+  )
+  b.bench(() => {
+    let attachment = MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+      parser,
+    )
+    b.keep(attachment.document())
+    attachment.dispose()
+  })
+}
+
+///|
+fn benchmark_markdown_projection_initial_read(
+  b : @bench.T,
+  block_count : Int,
+) -> Unit {
+  let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
+  let parser = @loom.new_syntax_parser(
+    @core.SourceId("markdown-projection-initial-read-benchmark"),
+    input.source,
+    markdown_grammar.to_syntax_grammar(),
+  )
+  b.bench(() => {
+    let attachment = attach_markdown_projection(parser)
+    b.keep(attachment.projection())
+    attachment.dispose()
+  })
+}
+
+///|
 fn benchmark_markdown_compatibility_block_parser(
   b : @bench.T,
   block_count : Int,
@@ -219,4 +338,38 @@ test "Markdown projection: compatibility Block parser full cycle 2500 blocks" (
   b : @bench.T,
 ) {
   benchmark_markdown_compatibility_block_parser(b, 2500)
+}
+
+///|
+test "Markdown semantic: keyed attachment full cycle 2500 blocks" (b : @bench.T) {
+  benchmark_markdown_semantic_attachment(b, 2500)
+}
+
+///|
+test "Markdown semantic: direct Parser Block full cycle 2500 blocks" (
+  b : @bench.T,
+) {
+  benchmark_markdown_semantic_direct(b, 2500)
+}
+
+///|
+test "Markdown semantic: direct initial read 2500 blocks" (b : @bench.T) {
+  benchmark_markdown_direct_initial_read(b, 2500)
+}
+
+///|
+test "Markdown semantic: syntax-only direct initial read 2500 blocks" (
+  b : @bench.T,
+) {
+  benchmark_markdown_syntax_direct_initial_read(b, 2500)
+}
+
+///|
+test "Markdown semantic: attachment initial read 2500 blocks" (b : @bench.T) {
+  benchmark_markdown_semantic_initial_read(b, 2500)
+}
+
+///|
+test "Markdown semantic: projection initial read 2500 blocks" (b : @bench.T) {
+  benchmark_markdown_projection_initial_read(b, 2500)
 }

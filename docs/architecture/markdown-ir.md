@@ -313,6 +313,11 @@ New MarkdownIR surfaces:
   receive detached `Block` values. The attachment owns retained keyed work;
   its owner calls `collect()` only after a successful commit and calls
   `dispose()` at teardown. Direct lowering remains the one-shot path.
+- Source-aware long-lived consumers construct
+  `MarkdownSemanticAttachment(Parser[Block])` and receive owning MarkdownIR
+  documents. Each `document()` reads one coherent parser snapshot and performs
+  stale-work collection internally before returning; consumers receive no
+  revision, cache, scope, watch, or collection protocol.
 - Public API PRs must run `moon info` and review `.mbti` diffs for signatures,
   visibility, constructors, trait bounds, and adapter leakage. A docs-only PR or
   a PR with no public MoonBit changes should say that no generated-interface
