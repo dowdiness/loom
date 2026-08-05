@@ -423,10 +423,13 @@ fn[T : @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_reused(
     let owns_right_boundary = error_spans
       .iter()
       .any(s => s.start == node_end && s.end == node_end)
-    if !self.replay_reused_diagnostics(
-        node_start, node_end, owns_right_boundary, allow_eof_boundary,
-      ) {
-      self.synthesize_reused_diagnostics(error_spans)
+    match self.reuse_diagnostics {
+      Some(_) => {
+        let _ = self.replay_reused_diagnostics(
+          node_start, node_end, owns_right_boundary, allow_eof_boundary,
+        )
+      }
+      None => self.synthesize_reused_diagnostics(error_spans)
     }
   } else {
     // Fast path: healthy node — skip error span collection entirely.

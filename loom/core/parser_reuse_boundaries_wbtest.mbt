@@ -631,6 +631,48 @@ test "ParserContext reuse: replays prior diagnostics for reused error subtree" {
 }
 
 ///|
+test "ParserContext reuse: preserves available empty diagnostics for reused error subtree" {
+  fn grammar_with_error(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.emit_token(KPlus)
+      ctx.error("expected number after +")
+      ctx.emit_error_placeholder()
+    })
+  }
+
+  let src = "1 +"
+  let source_id = SourceId("parser-context-source")
+  let (toks, starts) = test_tokenize_with_starts(src)
+  let (old_tree, _) = parse_with(
+    source_id, src, test_spec, test_tokenize, grammar_with_error,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.set_reuse_diagnostics(DiagnosticSet::empty())
+  ctx.node(KExpr, fn() {
+    ctx.emit_token(KNum)
+    ctx.emit_token(KPlus)
+    ctx.error("expected number after +")
+    ctx.emit_error_placeholder()
+  })
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.diagnostics.length(), content="0")
+}
+
+///|
 test "ParserContext reuse: synthesizes diagnostics when prior list is unavailable" {
   fn grammar_with_error(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     ctx.node(KExpr, fn() {
