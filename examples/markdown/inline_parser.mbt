@@ -1024,18 +1024,13 @@ fn parse_indexed_inline_container_with_continue_line(
   policy : InlineParsePolicy,
   continue_line : () -> Bool,
 ) -> Unit {
-  let analysis_tokens = markdown_event_attribution_lookahead(
-    ctx,
-    InlineAnalysisLookahead,
-    () => collect_inline_analysis_tokens(ctx, policy, continue_line),
-  )
+  let analysis_tokens = ctx.lookahead(() => {
+    collect_inline_analysis_tokens(ctx, policy, continue_line)
+  })
   let delimiters = build_code_span_delimiter_index(analysis_tokens)
   let links = index_inline_links(analysis_tokens, delimiters)
   let delimiter_plan = build_inline_delimiter_plan(
     analysis_tokens, delimiters, links,
-  )
-  record_markdown_inline_analysis(
-    analysis_tokens, delimiters, links, delimiter_plan,
   )
   let delimiter_cursor : InlineDelimiterPlanCursor = {
     events: delimiter_plan.events,
