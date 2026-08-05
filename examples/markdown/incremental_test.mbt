@@ -46,6 +46,24 @@ test "incremental: paragraph text edit matches full parse" {
 }
 
 ///|
+test "incremental: reused recovery CST preserves available empty diagnostics" {
+  let old_source = "![[foo]]\n\n[foo]: /url \"title\"\n"
+  let definition_start = "![[foo]]\n\n".length()
+  let new_source = "![[foo]]\n\n[[foo]]: /url \"title\"\n"
+  assert_markdown_incremental_edit_matches_full_parse(
+    @core.SourceId("markdown-reused-recovery-empty-diagnostics"),
+    "reused recovery CST with available empty diagnostics",
+    old_source,
+    @core.Edit::replace(
+      definition_start,
+      definition_start + "[foo]".length(),
+      definition_start + "[[foo]]".length(),
+    ),
+    new_source,
+  )
+}
+
+///|
 test "incremental: backslash escape boundary edits match full parse" {
   let slash = "\\"
   let escaped_opener = slash + "*em*\n"
