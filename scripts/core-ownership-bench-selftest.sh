@@ -193,6 +193,39 @@ if core_ownership_stability_report \
 fi
 grep -F $'UNSTABLE\tpkg::parse' "$fixture/stability-bad.tsv" >/dev/null
 
+observed_baseline=(9660 10040 9780 9810 10160)
+observed_candidate=(10010 10040 10630 10360 10480)
+for run in 1 2 3 4 5; do
+  index=$((run - 1))
+  cat > "$fixture/paired-baseline-$run.tsv" <<EOF
+pkg::copy	100.00
+pkg::micro	500.00
+pkg::parse	${observed_baseline[$index]}.00
+EOF
+  cat > "$fixture/paired-candidate-$run.tsv" <<EOF
+pkg::copy	100.00
+pkg::micro	500.00
+pkg::parse	${observed_candidate[$index]}.00
+EOF
+  core_ownership_pair_samples \
+    "$fixture/paired-baseline-$run.tsv" \
+    "$fixture/paired-candidate-$run.tsv" \
+    > "$fixture/pair-$run.tsv"
+done
+core_ownership_medians 5 "$fixture"/paired-baseline-*.tsv \
+  > "$fixture/paired-baseline-medians.tsv"
+core_ownership_medians 5 "$fixture"/paired-candidate-*.tsv \
+  > "$fixture/paired-candidate-medians.tsv"
+core_ownership_paired_medians 5 "$fixture"/pair-*.tsv \
+  > "$fixture/paired-medians.tsv"
+grep -F $'pkg::parse\t350.00\t3.62' "$fixture/paired-medians.tsv" >/dev/null
+core_ownership_compare_paired \
+  "$fixture/policy.tsv" \
+  "$fixture/paired-baseline-medians.tsv" \
+  "$fixture/paired-candidate-medians.tsv" \
+  "$fixture/paired-medians.tsv" > "$fixture/paired-comparison.tsv"
+grep -F $'OK\tpkg::parse' "$fixture/paired-comparison.tsv" >/dev/null
+
 if core_ownership_medians 5 "$fixture"/run-{1,2,3,4}.tsv >/dev/null 2>&1; then
   printf 'SELFTEST FAIL: incomplete sample set accepted\n' >&2
   exit 1
@@ -226,8 +259,14 @@ pkg::copy	200.00
 pkg::micro	540.00
 pkg::parse	1040.00
 EOF
-core_ownership_compare_medians "$fixture/policy.tsv" \
-  "$fixture/baseline.tsv" "$fixture/within-absolute.tsv" > "$fixture/comparison-ok.tsv"
+cat > "$fixture/within-absolute-paired.tsv" <<'EOF'
+pkg::copy	100.00	100.00
+pkg::micro	40.00	8.00
+pkg::parse	40.00	4.00
+EOF
+core_ownership_compare_paired "$fixture/policy.tsv" \
+  "$fixture/baseline.tsv" "$fixture/within-absolute.tsv" \
+  "$fixture/within-absolute-paired.tsv" > "$fixture/comparison-ok.tsv"
 grep -F $'OK\tpkg::micro' "$fixture/comparison-ok.tsv" >/dev/null
 grep -F $'INFO\tpkg::copy' "$fixture/comparison-ok.tsv" >/dev/null
 
@@ -236,8 +275,14 @@ pkg::copy	200.00
 pkg::micro	560.00
 pkg::parse	1060.00
 EOF
-if core_ownership_compare_medians "$fixture/policy.tsv" \
-  "$fixture/baseline.tsv" "$fixture/regression.tsv" > "$fixture/comparison-bad.tsv"; then
+cat > "$fixture/regression-paired.tsv" <<'EOF'
+pkg::copy	100.00	100.00
+pkg::micro	60.00	12.00
+pkg::parse	60.00	6.00
+EOF
+if core_ownership_compare_paired "$fixture/policy.tsv" \
+  "$fixture/baseline.tsv" "$fixture/regression.tsv" \
+  "$fixture/regression-paired.tsv" > "$fixture/comparison-bad.tsv"; then
   printf 'SELFTEST FAIL: gated regression accepted\n' >&2
   exit 1
 fi

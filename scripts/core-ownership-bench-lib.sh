@@ -204,6 +204,160 @@ core_ownership_stability_report() {
   ' "$@" | sort -t $'\t' -k2,2
 }
 
+core_ownership_pair_samples() {
+  local baseline_file="$1" candidate_file="$2"
+  awk -F '\t' '
+    NR == FNR {
+      baseline[$1] = $2 + 0
+      next
+    }
+    {
+      name = $1
+      seen[name] = 1
+      if (!(name in baseline)) {
+        printf "pair: candidate row missing from baseline: %s\n", name > "/dev/stderr"
+        bad = 1
+        next
+      }
+      base = baseline[name]
+      current = $2 + 0
+      delta = current - base
+      percent = base > 0 ? delta / base * 100 : 0
+      printf "%s\t%.2f\t%.2f\t%+.2f\t%+.6f\n",
+        name, base, current, delta, percent
+    }
+    END {
+      for (name in baseline) {
+        if (!(name in seen)) {
+          printf "pair: baseline row missing from candidate: %s\n", name > "/dev/stderr"
+          bad = 1
+        }
+      }
+      exit bad
+    }
+  ' "$baseline_file" "$candidate_file" | sort
+}
+
+core_ownership_paired_medians() {
+  local expected_runs="$1"
+  shift
+  awk -F '\t' -v expected="$expected_runs" '
+    NF != 5 || $1 == "" ||
+      $2 !~ /^[0-9]+([.][0-9]+)?$/ ||
+      $3 !~ /^[0-9]+([.][0-9]+)?$/ ||
+      $4 !~ /^[+-]?[0-9]+([.][0-9]+)?$/ ||
+      $5 !~ /^[+-]?[0-9]+([.][0-9]+)?$/ {
+      print "paired median: malformed row: " $0 > "/dev/stderr"
+      bad = 1
+      next
+    }
+    {
+      count[$1]++
+      delta[$1, count[$1]] = $4 + 0
+      percent[$1, count[$1]] = $5 + 0
+    }
+    END {
+      for (name in count) {
+        if (count[name] != expected) {
+          printf "paired median: %s has %d samples, expected %d\n", name, count[name], expected > "/dev/stderr"
+          bad = 1
+          continue
+        }
+        for (i = 1; i <= count[name]; i++) {
+          sorted_delta[i] = delta[name, i]
+          sorted_percent[i] = percent[name, i]
+        }
+        for (i = 2; i <= count[name]; i++) {
+          current_delta = sorted_delta[i]
+          current_percent = sorted_percent[i]
+          j = i - 1
+          while (j >= 1 && sorted_delta[j] > current_delta) {
+            sorted_delta[j + 1] = sorted_delta[j]
+            j--
+          }
+          sorted_delta[j + 1] = current_delta
+          j = i - 1
+          while (j >= 1 && sorted_percent[j] > current_percent) {
+            sorted_percent[j + 1] = sorted_percent[j]
+            j--
+          }
+          sorted_percent[j + 1] = current_percent
+        }
+        middle = (expected + 1) / 2
+        printf "%s\t%.2f\t%.2f\n",
+          name, sorted_delta[middle], sorted_percent[middle]
+        for (i = 1; i <= count[name]; i++) {
+          delete sorted_delta[i]
+          delete sorted_percent[i]
+        }
+      }
+      exit bad
+    }
+  ' "$@" | sort
+}
+
+core_ownership_compare_paired() {
+  local policy_file="$1" baseline_file="$2" candidate_file="$3" paired_file="$4"
+  awk -F '\t' \
+    -v policy_file="$policy_file" \
+    -v baseline_file="$baseline_file" \
+    -v candidate_file="$candidate_file" '
+    BEGIN {
+      while ((getline line < policy_file) > 0) {
+        if (line ~ /^[[:space:]]*#/ || line ~ /^[[:space:]]*$/) continue
+        split(line, field, "\t")
+        relative[field[1]] = field[2] + 0
+        absolute[field[1]] = field[3] + 0
+        required[field[1]] = field[4]
+        mode[field[1]] = field[5]
+        reason[field[1]] = field[6]
+      }
+      close(policy_file)
+      while ((getline line < baseline_file) > 0) {
+        split(line, field, "\t")
+        baseline[field[1]] = field[2] + 0
+      }
+      close(baseline_file)
+      while ((getline line < candidate_file) > 0) {
+        split(line, field, "\t")
+        candidate[field[1]] = field[2] + 0
+      }
+      close(candidate_file)
+    }
+    {
+      name = $1
+      if (!(name in relative)) next
+      seen[name] = 1
+      if (!(name in baseline) || !(name in candidate)) {
+        printf "MISSING_MEDIAN\t%s\n", name
+        bad = 1
+        next
+      }
+      delta = $2 + 0
+      percent = $3 + 0
+      status = "OK"
+      if (mode[name] == "informational") {
+        status = "INFO"
+      } else if (percent > relative[name] && delta > absolute[name]) {
+        status = "REGRESSION"
+        bad = 1
+      }
+      printf "%s\t%s\t%.2f\t%.2f\t%+.2f\t%+.2f%%\t%.2f%%\t%.2f\t%s\t%s\n",
+        status, name, baseline[name], candidate[name], delta, percent,
+        relative[name], absolute[name], mode[name], reason[name]
+    }
+    END {
+      for (name in required) {
+        if (required[name] == "required" && !(name in seen)) {
+          printf "MISSING_PAIR\t%s\n", name
+          bad = 1
+        }
+      }
+      exit bad
+    }
+  ' "$paired_file"
+}
+
 core_ownership_medians() {
   local expected_runs="$1"
   shift
@@ -245,61 +399,6 @@ core_ownership_medians() {
       exit bad
     }
   ' "$@" | sort
-}
-
-core_ownership_compare_medians() {
-  local policy_file="$1" baseline_file="$2" candidate_file="$3"
-  awk -F '\t' -v policy_file="$policy_file" '
-    BEGIN {
-      while ((getline line < policy_file) > 0) {
-        if (line ~ /^[[:space:]]*#/ || line ~ /^[[:space:]]*$/) continue
-        split(line, field, "\t")
-        relative[field[1]] = field[2] + 0
-        absolute[field[1]] = field[3] + 0
-        required[field[1]] = field[4]
-        mode[field[1]] = field[5]
-        reason[field[1]] = field[6]
-      }
-      close(policy_file)
-    }
-    NR == FNR {
-      baseline[$1] = $2 + 0
-      next
-    }
-    {
-      candidate[$1] = $2 + 0
-      name = $1
-      if (!(name in relative)) next
-      seen[name] = 1
-      if (!(name in baseline)) {
-        printf "MISSING_BASELINE\t%s\n", name
-        bad = 1
-        next
-      }
-      base = baseline[name]
-      current = candidate[name]
-      delta = current - base
-      percent = base > 0 ? delta / base * 100 : 0
-      status = "OK"
-      if (mode[name] == "informational") {
-        status = "INFO"
-      } else if (percent > relative[name] && delta > absolute[name]) {
-        status = "REGRESSION"
-        bad = 1
-      }
-      printf "%s\t%s\t%.2f\t%.2f\t%+.2f\t%+.2f%%\t%.2f%%\t%.2f\t%s\t%s\n",
-        status, name, base, current, delta, percent, relative[name], absolute[name], mode[name], reason[name]
-    }
-    END {
-      for (name in required) {
-        if (required[name] == "required" && !(name in seen)) {
-          printf "MISSING_CANDIDATE\t%s\n", name
-          bad = 1
-        }
-      }
-      exit bad
-    }
-  ' "$baseline_file" "$candidate_file"
 }
 
 core_ownership_environment_matches() {

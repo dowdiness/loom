@@ -113,11 +113,13 @@ required rows, duplicate or malformed output, incomplete sample sets, and
 environment mismatches abort without a performance verdict. Before comparing
 medians, each required row must stay within the policy's 5% relative median
 absolute deviation limit on both sides; unstable samples produce a report and
-no performance verdict. Gated rows regress only when both their relative and
-absolute thresholds are exceeded; the 50 ns absolute threshold prevents
-percentage-only failures for selected sub-microsecond rows. The 10,000-token
-public `LexResult` construction row is informational, while representative
-end-to-end parse rows remain gated at 5%.
+no performance verdict. The performance verdict uses the median of the five
+within-pair deltas and percentages, so the balanced schedule cancels temporal
+drift instead of comparing two unrelated medians. Gated rows regress only when
+both their relative and absolute thresholds are exceeded; the 50 ns absolute
+threshold prevents percentage-only failures for selected sub-microsecond rows.
+The 10,000-token public `LexResult` construction row is informational, while
+representative end-to-end parse rows remain gated at 5%.
 
 Run `scripts/bench-check-selftest.sh` after changing either profile. Its profile
 coverage includes unit parsing, policy and duplicate validation, required-row

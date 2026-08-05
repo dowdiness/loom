@@ -253,10 +253,25 @@ core_ownership_medians "$runs" "${candidate_samples[@]}" > "$artifact_dir/candid
 core_ownership_validate_required_rows "$policy_file" "$artifact_dir/baseline-medians.tsv" "baseline medians"
 core_ownership_validate_required_rows "$policy_file" "$artifact_dir/candidate-medians.tsv" "candidate medians"
 
+paired_samples=()
+for ((run = 1; run <= runs; run++)); do
+  paired_sample="$artifact_dir/paired-run-${run}.tsv"
+  core_ownership_pair_samples \
+    "$artifact_dir/baseline-run-${run}.tsv" \
+    "$artifact_dir/candidate-run-${run}.tsv" > "$paired_sample"
+  paired_samples+=("$paired_sample")
+done
+paired_medians="$artifact_dir/paired-medians.tsv"
+core_ownership_paired_medians "$runs" "${paired_samples[@]}" \
+  > "$paired_medians"
+core_ownership_validate_required_rows \
+  "$policy_file" "$paired_medians" "paired medians"
+
 comparison="$artifact_dir/comparison.tsv"
-if ! core_ownership_compare_medians "$policy_file" \
+if ! core_ownership_compare_paired "$policy_file" \
   "$artifact_dir/baseline-medians.tsv" \
-  "$artifact_dir/candidate-medians.tsv" > "$comparison"; then
+  "$artifact_dir/candidate-medians.tsv" \
+  "$paired_medians" > "$comparison"; then
   cat "$comparison"
   printf 'core-ownership regression detected; artifacts: %s\n' "$artifact_dir" >&2
   exit 1
