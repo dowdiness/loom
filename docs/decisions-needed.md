@@ -2,6 +2,13 @@
 
 Items the triage agent flagged as `needs-human-review` — mixed signals or insufficient evidence to classify automatically. Each entry has a **Source**, **Context**, **Blocks**, and **Evidence** section. Add human notes under any item to preserve across future triage runs.
 
+## Core collection ownership boundary (issue #783) — proposed
+**Source:** GitHub issue #783 — "Seal mutable collection aliases at validated result boundaries"
+**Context:** The proposed ADR stores immutable CST metadata policy on every node, includes mode re-lex callbacks/results in the lexer ownership boundary, gives plain and mode-aware token buffers separate constructors so one buffer cannot have two lexing authorities, and keeps public raw-array construction defensive. It rejects the earlier required-but-not-stored policy design after independent review found that it cannot detect mixed-policy subtrees.
+**Blocks:** Breaking implementation work for `CstNode`, `LexResult`, `ModeRelexState`, `ModeRelexResult`, `LanguageSpec`, and `DamageTracker`.
+**Evidence:** `seam/cst_traverse.mbt` documents mixed-policy metadata corruption; `loom/core/token_buffer.mbt` passes buffer-owned starts to a callback before an in-place patch; remote throwaway [prototype d35c5e14](https://github.com/dowdiness/loom/commit/d35c5e1429a3a04b213a31cee6048ce0ad6e2a05) illustrates a simplified single-factory reset state model but is not conformance evidence for the target API; [the proposed ADR](decisions/2026-08-05-core-collection-ownership-boundary.md) and [migration plan](plans/2026-08-05-core-collection-ownership-migration.md) record the proposed boundary and implementation-owned acceptance gates.
+**Added:** 2026-08-05
+
 ## Zero-copy lexing (issue #61) — resolved
 **Source:** GitHub issue #61 — "Explore token text as source spans (zero-copy lexing)"
 **Context:** `CstToken` now stores `(source, start, end)` spans and exposes `text() -> StringView`. The generic parser builds non-interned span-backed CSTs and emits parser-owned reuse events that rebase unchanged token spans onto the current source buffer.
