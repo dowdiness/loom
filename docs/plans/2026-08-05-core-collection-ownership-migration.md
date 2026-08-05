@@ -248,12 +248,12 @@ the audit gate.
 - [x] Create the measurement-preparation issue and bounded implementation
   issues for Phases 1-5. Do not combine the entire migration into one review
   unit.
-- [ ] Before any ownership implementation commit, land one measurement-only
+- [x] Before any ownership implementation commit, land one measurement-only
   preparation commit that adds the `core-ownership` profile, its policy file,
   parser/comparator self-tests, `BENCHMARKS.md` workflow, and every required
   benchmark row using the current interfaces. The commit must contain no
   ownership implementation change.
-- [ ] Run the prepared profile for five samples on that clean commit, store its
+- [x] Run the prepared profile for five samples on that clean commit, store its
   raw outputs, and record the commit as `CORE_OWNERSHIP_BASELINE_SHA` in the
   implementing issues and benchmark history. Base every Phase 1-4 branch on
   that exact revision.
