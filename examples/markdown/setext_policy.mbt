@@ -58,7 +58,7 @@ fn setext_underline_depth_after_newline(
   allow_list_marker~ : Bool,
   min_indent~ : Int,
 ) -> Int? {
-  ctx.lookahead(() => {
+  markdown_event_attribution_lookahead(ctx, ParagraphContinuationLookahead, () => {
     ctx.emit_token(NewlineToken)
     match ctx.peek() {
       Indentation(_) => {
@@ -88,7 +88,7 @@ fn setext_underline_depth_after_newline(
 fn quoted_setext_underline_depth_after_newline(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Int? {
-  ctx.lookahead(() => {
+  markdown_event_attribution_lookahead(ctx, ParagraphContinuationLookahead, () => {
     ctx.emit_token(NewlineToken)
     match ctx.peek() {
       BlockQuoteMarker => {

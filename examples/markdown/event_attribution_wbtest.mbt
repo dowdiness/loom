@@ -41,9 +41,12 @@ priv struct EventAttributionSnapshot {
   end_reads : Array[Int]
   cst_tokens : Int
   cst_branches : Int
+  error_tokens : Int
+  error_branches : Int
   event_count : Int
   cst_shape_event_estimate : Int
   payload : EventAttributionPayloadStats
+  probe : MarkdownEventAttributionProbe
 }
 
 ///|
@@ -55,8 +58,7 @@ fn event_attribution_corpus_matrix(
   let mixed_section = "## Section\n\nParagraph with **bold**, *italic*, `code`, and [link](/url).\n" +
     "Continuation line.\n\n- first item\n- second item\n\n" +
     "```moonbit\nfn item() -> Int { 1 }\n```\n\n"
-  let recovery_case = "case: \\*literal* \\*\\*literal** \\\\*em* \\*😈* " +
-    "\\* literal *unclosed\n[\\*literal*](/) \\*a \\*b***\n\n"
+  let recovery_case = "] ) [unclosed\nright ] paren ) and [another unclosed\n\n"
   let html_block = "<div data-row=\"x\">\nraw <span>payload</span>\n</div>\n\n"
   let fenced_block = "```moonbit\nfn item() -> Int {\n  1\n}\n```\n"
   [
@@ -147,23 +149,29 @@ fn event_attribution_snapshot(
   let token_reads = Array::make(token_count, 0)
   let start_reads = Array::make(token_count, 0)
   let end_reads = Array::make(token_count, 0)
-  let (events, diagnostics, reuse_count) = @core.prototype_parse_tokens_to_events(
-    source_id,
-    corpus.source,
-    token_count,
-    index => {
-      token_reads[index] += 1
-      buffer.get_token(index)
+  let probe = new_markdown_event_attribution_probe()
+  let (events, diagnostics, reuse_count) = with_markdown_event_attribution_probe(
+    probe,
+    () => {
+      @core.prototype_parse_tokens_to_events(
+        source_id,
+        corpus.source,
+        token_count,
+        index => {
+          token_reads[index] += 1
+          buffer.get_token(index)
+        },
+        index => {
+          start_reads[index] += 1
+          buffer.get_start(index)
+        },
+        index => {
+          end_reads[index] += 1
+          buffer.get_end(index)
+        },
+        markdown_spec,
+      )
     },
-    index => {
-      start_reads[index] += 1
-      buffer.get_start(index)
-    },
-    index => {
-      end_reads[index] += 1
-      buffer.get_end(index)
-    },
-    markdown_spec,
   )
   guard reuse_count == 0 else {
     abort("fresh event-attribution parse unexpectedly reused a CST node")
@@ -171,10 +179,22 @@ fn event_attribution_snapshot(
   let cst = @core.prototype_build_event_buffer(events, markdown_spec)
   let mut cst_tokens = 0
   let mut cst_branches = 0
+  let mut error_tokens = 0
+  let mut error_branches = 0
   for element in @seam.CstElement::Node(cst).iter() {
     match element {
-      Node(_) => cst_branches += 1
-      Token(_) => cst_tokens += 1
+      Node(node) => {
+        cst_branches += 1
+        if node.kind() == ErrorNode.to_raw() {
+          error_branches += 1
+        }
+      }
+      Token(token) => {
+        cst_tokens += 1
+        if token.kind == ErrorToken.to_raw() {
+          error_tokens += 1
+        }
+      }
     }
   }
   {
@@ -186,9 +206,12 @@ fn event_attribution_snapshot(
     end_reads,
     cst_tokens,
     cst_branches,
+    error_tokens,
+    error_branches,
     event_count: events.length(),
     cst_shape_event_estimate: cst_tokens + (cst_branches - 1) * 2,
     payload: event_attribution_payload_stats(buffer),
+    probe,
   }
 }
 
@@ -226,8 +249,12 @@ fn event_attribution_transcript(scale : Int) -> String {
     out.write_object(snapshot.event_count)
     out.write_string("/")
     out.write_object(snapshot.cst_shape_event_estimate)
-    out.write_string("|diagnostics=")
+    out.write_string("|recovery=")
     out.write_object(snapshot.diagnostics.length())
+    out.write_string("/")
+    out.write_object(snapshot.error_branches)
+    out.write_string("/")
+    out.write_object(snapshot.error_tokens)
     out.write_string("|payload=")
     out.write_object(snapshot.payload.copies)
     out.write_string("/")
@@ -246,6 +273,40 @@ fn event_attribution_transcript(scale : Int) -> String {
     out.write_object(snapshot.payload.error_units)
     out.write_string("|backticks=")
     out.write_object(snapshot.payload.backtick_tokens)
+    out.write_string("|block=")
+    out.write_object(snapshot.probe.block_dispatches)
+    out.write_string("/")
+    out.write_object(snapshot.probe.root_paragraph_continuations)
+    out.write_string("/")
+    out.write_object(snapshot.probe.block_quote_paragraph_continuations)
+    out.write_string("/")
+    out.write_object(snapshot.probe.list_item_paragraph_continuations)
+    out.write_string("/")
+    out.write_object(snapshot.probe.setext_continuations)
+    out.write_string("|lookahead=")
+    out.write_object(snapshot.probe.block_dispatch_lookaheads)
+    out.write_string("/")
+    out.write_object(snapshot.probe.paragraph_continuation_lookaheads)
+    out.write_string("/")
+    out.write_object(snapshot.probe.container_continuation_lookaheads)
+    out.write_string("/")
+    out.write_object(snapshot.probe.inline_analysis_lookaheads)
+    out.write_string("|inline=")
+    out.write_object(snapshot.probe.inline_containers)
+    out.write_string("/")
+    out.write_object(snapshot.probe.inline_analysis_tokens)
+    out.write_string("/")
+    out.write_object(snapshot.probe.code_eligible_openers)
+    out.write_string("/")
+    out.write_object(snapshot.probe.code_successors)
+    out.write_string("/")
+    out.write_object(snapshot.probe.link_candidates)
+    out.write_string("/")
+    out.write_object(snapshot.probe.delimiter_runs)
+    out.write_string("/")
+    out.write_object(snapshot.probe.delimiter_opener_checks)
+    out.write_string("/")
+    out.write_object(snapshot.probe.delimiter_plan_events)
     out.write_string("\n")
   }
   out.to_string()
@@ -271,26 +332,26 @@ test "event attribution: deterministic transcript remains stable" {
   inspect(
     event_attribution_transcript(4),
     content=(
-      #|paragraph|source=422|tokens=57|reads=1733/513/508|token-max=41|events=82/82|diagnostics=0|payload=21/386|payload-units=386/0/0/0/0/0|backticks=0
-      #|mixed|source=640|tokens=173|reads=5126/1400/1376|token-max=76|events=252/252|diagnostics=0|payload=64/492|payload-units=376/0/88/0/28/0|backticks=8
-      #|delimiter-heavy|source=520|tokens=293|reads=9584/3215/3214|token-max=41|events=418/418|diagnostics=0|payload=111/339|payload-units=339/0/0/0/0/0|backticks=8
-      #|recovery-heavy|source=372|tokens=113|reads=3862/1208/1204|token-max=52|events=144/144|diagnostics=0|payload=40/300|payload-units=300/0/0/0/0/0|backticks=0
-      #|html|source=208|tokens=29|reads=182/36/32|token-max=11|events=36/36|diagnostics=0|payload=12/192|payload-units=0/192/0/0/0/0|backticks=0
-      #|fenced-code|source=160|tokens=37|reads=222/40/36|token-max=10|events=44/44|diagnostics=0|payload=16/116|payload-units=0/0/88/0/28/0|backticks=0
-      #|nested-container|source=104|tokens=41|reads=806/163/130|token-max=104|events=106/106|diagnostics=0|payload=4/36|payload-units=36/0/0/0/0/0|backticks=0
+      #|paragraph|source=422|tokens=57|reads=1733/513/508|token-max=41|events=82/82|recovery=0/0/0|payload=21/386|payload-units=386/0/0/0/0/0|backticks=0|block=10/8/0/0/8|lookahead=8/12/0/9|inline=9/89/0/0/0/32/16/32
+      #|mixed|source=640|tokens=173|reads=5126/1400/1376|token-max=76|events=252/252|recovery=0/0/0|payload=64/492|payload-units=376/0/88/0/28/0|backticks=8|block=28/16/0/16/32|lookahead=16/76/44/28|inline=28/212/16/8/8/32/16/32
+      #|delimiter-heavy|source=520|tokens=293|reads=9584/3215/3214|token-max=41|events=418/418|recovery=0/0/0|payload=111/339|payload-units=339/0/0/0/0/0|backticks=8|block=1/2/0/0/2|lookahead=2/3/0/2|inline=2/582/16/14/8/200/132/240
+      #|recovery-heavy|source=212|tokens=65|reads=2038/520/516|token-max=46|events=88/88|recovery=0/8/0|payload=28/176|payload-units=176/0/0/0/0/0|backticks=0|block=8/16/0/0/16|lookahead=16/20/0/8|inline=8/112/0/0/0/0/0/0
+      #|html|source=208|tokens=29|reads=182/36/32|token-max=11|events=36/36|recovery=0/0/0|payload=12/192|payload-units=0/192/0/0/0/0|backticks=0|block=8/0/0/0/0|lookahead=0/0/0/0|inline=0/0/0/0/0/0/0/0
+      #|fenced-code|source=160|tokens=37|reads=222/40/36|token-max=10|events=44/44|recovery=0/0/0|payload=16/116|payload-units=0/0/88/0/28/0|backticks=0|block=4/0/0/0/0|lookahead=0/0/0/0|inline=0/0/0/0/0/0/0/0
+      #|nested-container|source=104|tokens=41|reads=806/163/130|token-max=104|events=106/106|recovery=0/0/0|payload=4/36|payload-units=36/0/0/0/0/0|backticks=0|block=1/0/8/0/8|lookahead=0/12/0/8|inline=8/8/0/0/0/0/0/0
       #|
     ),
   )
   inspect(
     event_attribution_transcript(64),
     content=(
-      #|paragraph|source=6537|tokens=837|reads=27113/8073/8008|token-max=41|events=1222/1284|diagnostics=0|payload=321/6021|payload-units=6021/0/0/0/0/0|backticks=0
-      #|mixed|source=10240|tokens=2753|reads=81986/22400/22016|token-max=76|events=4032/4032|diagnostics=0|payload=1024/7872|payload-units=6016/0/1408/0/448/0|backticks=128
-      #|delimiter-heavy|source=8320|tokens=4673|reads=152864/51455/51454|token-max=41|events=6658/6658|diagnostics=0|payload=1791/5439|payload-units=5439/0/0/0/0/0|backticks=128
-      #|recovery-heavy|source=5952|tokens=1793|reads=61762/19328/19264|token-max=52|events=2304/2366|diagnostics=0|payload=640/4800|payload-units=4800/0/0/0/0/0|backticks=0
-      #|html|source=3328|tokens=449|reads=2882/576/512|token-max=11|events=576/638|diagnostics=0|payload=192/3072|payload-units=0/3072/0/0/0/0|backticks=0
-      #|fenced-code|source=2560|tokens=577|reads=3522/640/576|token-max=10|events=704/734|diagnostics=0|payload=256/1856|payload-units=0/0/1408/0/448/0|backticks=0
-      #|nested-container|source=1718|tokens=641|reads=13166/2623/2110|token-max=1364|events=1666/1666|diagnostics=0|payload=64/630|payload-units=630/0/0/0/0/0|backticks=0
+      #|paragraph|source=6537|tokens=837|reads=27113/8073/8008|token-max=41|events=1222/1284|recovery=0/0/0|payload=321/6021|payload-units=6021/0/0/0/0/0|backticks=0|block=130/128/0/0/128|lookahead=128/192/0/129|inline=129/1409/0/0/0/512/256/512
+      #|mixed|source=10240|tokens=2753|reads=81986/22400/22016|token-max=76|events=4032/4032|recovery=0/0/0|payload=1024/7872|payload-units=6016/0/1408/0/448/0|backticks=128|block=448/256/0/256/512|lookahead=256/1216/704/448|inline=448/3392/256/128/128/512/256/512
+      #|delimiter-heavy|source=8320|tokens=4673|reads=152864/51455/51454|token-max=41|events=6658/6658|recovery=0/0/0|payload=1791/5439|payload-units=5439/0/0/0/0/0|backticks=128|block=1/2/0/0/2|lookahead=2/3/0/2|inline=2/9342/256/254/128/3200/2112/3840
+      #|recovery-heavy|source=3392|tokens=1025|reads=32578/8320/8256|token-max=46|events=1408/1470|recovery=0/128/0|payload=448/2816|payload-units=2816/0/0/0/0/0|backticks=0|block=128/256/0/0/256|lookahead=256/320/0/128|inline=128/1792/0/0/0/0/0/0
+      #|html|source=3328|tokens=449|reads=2882/576/512|token-max=11|events=576/638|recovery=0/0/0|payload=192/3072|payload-units=0/3072/0/0/0/0|backticks=0|block=128/0/0/0/0|lookahead=0/0/0/0|inline=0/0/0/0/0/0/0/0
+      #|fenced-code|source=2560|tokens=577|reads=3522/640/576|token-max=10|events=704/734|recovery=0/0/0|payload=256/1856|payload-units=0/0/1408/0/448/0|backticks=0|block=64/0/0/0/0|lookahead=0/0/0/0|inline=0/0/0/0/0/0/0/0
+      #|nested-container|source=1718|tokens=641|reads=13166/2623/2110|token-max=1364|events=1666/1666|recovery=0/0/0|payload=64/630|payload-units=630/0/0/0/0/0|backticks=0|block=1/0/128/0/128|lookahead=0/192/0/128|inline=128/128/0/0/0/0/0/0
       #|
     ),
   )
@@ -319,6 +380,8 @@ test "event attribution: deterministic work matrix covers representative and str
       )
       assert_true(snapshot.cst_tokens > 0)
       assert_true(snapshot.cst_branches > 0)
+      assert_true(snapshot.error_tokens >= 0)
+      assert_true(snapshot.error_branches >= 0)
       assert_eq(
         snapshot.cst_shape_event_estimate,
         snapshot.cst_tokens + (snapshot.cst_branches - 1) * 2,
@@ -334,6 +397,23 @@ test "event attribution: deterministic work matrix covers representative and str
         snapshot.payload.fence_info_units +
         snapshot.payload.error_units,
       )
+      assert_true(snapshot.probe.block_dispatches > 0)
+      assert_true(snapshot.probe.inline_containers >= 0)
+      assert_true(snapshot.probe.inline_analysis_tokens >= 0)
+      assert_true(snapshot.probe.code_eligible_openers >= 0)
+      assert_true(snapshot.probe.code_successors >= 0)
+      assert_true(snapshot.probe.link_candidates >= 0)
+      assert_true(snapshot.probe.delimiter_runs >= 0)
+      assert_true(snapshot.probe.delimiter_opener_checks >= 0)
+      assert_true(snapshot.probe.delimiter_plan_events >= 0)
+      assert_true(snapshot.probe.block_dispatch_lookaheads >= 0)
+      assert_true(snapshot.probe.paragraph_continuation_lookaheads >= 0)
+      assert_true(snapshot.probe.container_continuation_lookaheads >= 0)
+      assert_true(snapshot.probe.inline_analysis_lookaheads >= 0)
+      assert_true(snapshot.probe.root_paragraph_continuations >= 0)
+      assert_true(snapshot.probe.block_quote_paragraph_continuations >= 0)
+      assert_true(snapshot.probe.list_item_paragraph_continuations >= 0)
+      assert_true(snapshot.probe.setext_continuations >= 0)
       saw_backtick_control = saw_backtick_control ||
         snapshot.payload.backtick_tokens > 0
       saw_html_payload = saw_html_payload || snapshot.payload.html_units > 0

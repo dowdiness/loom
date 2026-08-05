@@ -25,7 +25,7 @@ fn prefixed_root_block_starts(
     Indentation(_) if current_token_leading_indent(ctx) <= 3 =>
       match ctx.peek_nth(1) {
         ListMarker | OrderedListMarker(_) =>
-          ctx.lookahead(() => {
+          markdown_event_attribution_lookahead(ctx, BlockDispatchLookahead, () => {
             ctx.emit_token(IndentationToken)
             token_breaks_paragraph_after_newline(ctx.peek()) &&
             !setext_list_marker_line_ends_after_marker(ctx)
@@ -45,7 +45,7 @@ fn prefixed_root_block_starts(
 fn next_prefix_requires_root_block_dispatch(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Bool {
-  ctx.lookahead(() => {
+  markdown_event_attribution_lookahead(ctx, BlockDispatchLookahead, () => {
     ctx.emit_token(NewlineToken)
     prefixed_root_block_starts(ctx)
   })
@@ -400,10 +400,14 @@ fn next_token_after_newline_is_lone_list_marker(
 ) -> Bool {
   match ctx.peek_nth(1) {
     ListMarker | OrderedListMarker(_) =>
-      ctx.lookahead(() => {
-        ctx.emit_token(NewlineToken)
-        setext_list_marker_line_ends_after_marker(ctx)
-      })
+      markdown_event_attribution_lookahead(
+        ctx,
+        ParagraphContinuationLookahead,
+        () => {
+          ctx.emit_token(NewlineToken)
+          setext_list_marker_line_ends_after_marker(ctx)
+        },
+      )
     _ => false
   }
 }
@@ -619,7 +623,7 @@ fn block_quote_list_continuation_columns(
   ctx : @core.ParserContext[Token, SyntaxKind],
   matches_marker : (@core.ParserContext[Token, SyntaxKind], Int, Int) -> Bool,
 ) -> (Int, Int)? {
-  ctx.lookahead(() => {
+  markdown_event_attribution_lookahead(ctx, ContainerContinuationLookahead, () => {
     consume_quoted_list_item_separator_if_matching(ctx, matches_marker)
   })
 }
@@ -665,16 +669,20 @@ fn current_block_quote_list_marker_indent(
       Some(marker_column - content_column)
     }
     Indentation(text) =>
-      ctx.lookahead(() => {
-        let marker_column = marker_end_column +
-          leading_indent_columns_from(text, marker_end_column)
-        ctx.emit_token(IndentationToken)
-        match ctx.peek() {
-          ListMarker | OrderedListMarker(_) =>
-            Some(marker_column - content_column)
-          _ => None
-        }
-      })
+      markdown_event_attribution_lookahead(
+        ctx,
+        ContainerContinuationLookahead,
+        () => {
+          let marker_column = marker_end_column +
+            leading_indent_columns_from(text, marker_end_column)
+          ctx.emit_token(IndentationToken)
+          match ctx.peek() {
+            ListMarker | OrderedListMarker(_) =>
+              Some(marker_column - content_column)
+            _ => None
+          }
+        },
+      )
     _ => None
   }
 }
@@ -1023,7 +1031,7 @@ fn parse_nested_list_at_current_marker(
 fn next_list_marker_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Int? {
-  ctx.lookahead(() => {
+  markdown_event_attribution_lookahead(ctx, ContainerContinuationLookahead, () => {
     ctx.emit_token(NewlineToken)
     match ctx.peek() {
       ListMarker | OrderedListMarker(_) | Indentation(_) =>
@@ -1292,7 +1300,7 @@ fn next_prefix_requires_list_item_block_dispatch(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_indent : Int,
 ) -> Bool {
-  ctx.lookahead(() => {
+  markdown_event_attribution_lookahead(ctx, ParagraphContinuationLookahead, () => {
     ctx.emit_token(NewlineToken)
     match ctx.peek() {
       Indentation(_) if current_line_is_link_reference_definition(ctx) => false
@@ -1589,7 +1597,7 @@ fn current_indented_text_reaches_column(
 fn next_indented_text_indent_after_newline(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Int? {
-  ctx.lookahead(() => {
+  markdown_event_attribution_lookahead(ctx, ContainerContinuationLookahead, () => {
     ctx.emit_token(NewlineToken)
     match ctx.peek() {
       Indentation(_) => Some(current_token_leading_indent(ctx))

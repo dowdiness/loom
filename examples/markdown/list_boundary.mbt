@@ -15,10 +15,14 @@ fn current_unordered_list_marker(
     ListMarker =>
       unordered_list_marker_from_text(ctx.current_token_text().to_owned())
     Indentation(_) =>
-      ctx.lookahead(() => {
-        ctx.emit_token(IndentationToken)
-        current_unordered_list_marker(ctx)
-      })
+      markdown_event_attribution_lookahead(
+        ctx,
+        ContainerContinuationLookahead,
+        () => {
+          ctx.emit_token(IndentationToken)
+          current_unordered_list_marker(ctx)
+        },
+      )
     _ => None
   }
 }
@@ -70,10 +74,14 @@ fn current_ordered_list_marker(
   match ctx.peek() {
     OrderedListMarker(marker) => Some(marker)
     Indentation(_) =>
-      ctx.lookahead(() => {
-        ctx.emit_token(IndentationToken)
-        current_ordered_list_marker(ctx)
-      })
+      markdown_event_attribution_lookahead(
+        ctx,
+        ContainerContinuationLookahead,
+        () => {
+          ctx.emit_token(IndentationToken)
+          current_ordered_list_marker(ctx)
+        },
+      )
     _ => None
   }
 }
@@ -107,7 +115,7 @@ fn blank_line_run_is_followed_by_marker_matching(
   matches_marker : (@core.ParserContext[Token, SyntaxKind]) -> Bool,
 ) -> Bool {
   guard ctx.peek() is BlankLine else { return false }
-  ctx.lookahead(() => {
+  markdown_event_attribution_lookahead(ctx, ContainerContinuationLookahead, () => {
     while ctx.peek() is BlankLine {
       ctx.emit_token(BlankLineToken)
     }

@@ -396,6 +396,7 @@ fn decide_block_container(
   state : BlockContainerState,
   facts : BlockLineFacts,
 ) -> BlockTransition {
+  record_markdown_block_decision(state, facts)
   match (state.frame, facts) {
     (RootFrame, BlockStart(start)) => decide_root_block_start(state, start)
     (RootFrame, RootContinuation(line)) => decide_root_continuation(state, line)
