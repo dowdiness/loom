@@ -86,7 +86,10 @@ fn[Ast] CstFold::compact_reachable(
       @seam.CstElement::Node(cst) => {
         let hash = cst.hash
         match self.cache.get(hash) {
-          Some(entry) if entry.cst == cst => retained[hash] = entry
+          Some(entry) if entry.cst == cst =>
+            // Keep the folded result, but refresh the collision witness so an
+            // unchanged subtree cannot pin an older backing source.
+            retained[hash] = { cst, result: entry.result }
           _ => ()
         }
       }

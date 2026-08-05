@@ -149,6 +149,48 @@ test "CstFold: compaction releases a historical source-backed root" {
 }
 
 ///|
+test "CstFold: compaction refreshes reachable CST source backing" {
+  let historical_source = "old:stable"
+  let current_source = "new:stable"
+  let historical = @seam.CstNode::new(@seam.RawKind(10), [
+    @seam.CstElement::Token(
+      @seam.CstToken::CstToken(
+        @seam.RawKind(1),
+        historical_source.view(start_offset=4, end_offset=10),
+      ),
+    ),
+  ])
+  let current = @seam.CstNode::new(@seam.RawKind(10), [
+    @seam.CstElement::Token(
+      @seam.CstToken::CstToken(
+        @seam.RawKind(1),
+        current_source.view(start_offset=4, end_offset=10),
+      ),
+    ),
+  ])
+  inspect(historical == current, content="true")
+  let fold : CstFold[String] = CstFold::new(test_algebra)
+  let _ = fold.fold(@seam.SyntaxNode::from_cst(historical))
+  for generation = 1
+      generation < cst_fold_compaction_interval
+      generation = generation + 1 {
+    let _ = fold.fold(@seam.SyntaxNode::from_cst(current))
+  }
+  match fold.cache.get(current.hash) {
+    Some(entry) =>
+      match entry.cst.first_token(fn(_kind) { false }) {
+        Some(token) =>
+          inspect(
+            physical_equal(token.unsafe_backing_source(), current_source),
+            content="true",
+          )
+        None => abort("expected cached source-backed token")
+      }
+    None => abort("expected reachable cache entry")
+  }
+}
+
+///|
 test "CstFold: root-hit compaction preserves deep adjacent reuse" {
   let grandchild = @seam.CstNode::new(@seam.RawKind(30), [tok(3, "stable")])
   let child = @seam.CstNode::new(@seam.RawKind(20), [
@@ -166,6 +208,10 @@ test "CstFold: root-hit compaction preserves deep adjacent reuse" {
       generation = generation + 1 {
     let _ = fold.fold(syntax)
   }
+  let _ = fold.fold(syntax)
+  let root_hit_stats = fold.get_stats()
+  inspect(root_hit_stats.reused, content="1")
+  inspect(root_hit_stats.recomputed, content="0")
   let edited_child = @seam.CstNode::new(@seam.RawKind(20), [
     tok(2, "after"),
     @seam.CstElement::Node(grandchild),
