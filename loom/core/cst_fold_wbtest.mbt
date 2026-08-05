@@ -13,6 +13,12 @@ fn nd(kind_val : Int, children : Array[@seam.CstElement]) -> @seam.CstElement {
 }
 
 ///|
+/// White-box retention signal. This intentionally stays out of the public API.
+fn[Ast] CstFold::cache_entry_count(self : CstFold[Ast]) -> Int {
+  self.cache.keys().count()
+}
+
+///|
 /// Trivial algebra: returns "kind:<n>" for leaves, "kind:<n>(<child1>,<child2>,...)" for nodes.
 fn test_algebra(
   node : @seam.SyntaxNode,
@@ -25,6 +31,14 @@ fn test_algebra(
   } else {
     "kind:" + k.to_string() + "(" + child_strs.join(",") + ")"
   }
+}
+
+///|
+fn source_text_algebra(
+  node : @seam.SyntaxNode,
+  _recurse : (@seam.SyntaxNode) -> String,
+) -> String {
+  node.text()
 }
 
 ///|
@@ -99,4 +113,82 @@ test "CstFold: unvisited children are cache-warmed" {
   // Root recomputed, child unvisited but cache-warmed
   inspect(stats.recomputed, content="2")
   inspect(stats.unvisited, content="1")
+}
+
+///|
+test "CstFold: cache retention stays bounded across distinct roots" {
+  let fold : CstFold[String] = CstFold::new(source_text_algebra)
+  let edit_generations = cst_fold_compaction_interval * 4 + 7
+  for i = 0; i < edit_generations; i = i + 1 {
+    let source = "value-" + i.to_string()
+    let root = @seam.CstNode::new(@seam.RawKind(10), [tok(1, source)])
+    let result = fold.fold(@seam.SyntaxNode::from_cst(root))
+    assert_eq(result, source)
+  }
+  inspect(
+    fold.cache_entry_count() <= cst_fold_compaction_interval,
+    content="true",
+  )
+}
+
+///|
+test "CstFold: compaction releases a historical source-backed root" {
+  let fold : CstFold[String] = CstFold::new(test_algebra)
+  let historical = @seam.CstNode::new(@seam.RawKind(10), [
+    tok(1, "historical-source"),
+  ])
+  let _ = fold.fold(@seam.SyntaxNode::from_cst(historical))
+  inspect(fold.cache.contains(historical.hash), content="true")
+  for i = 1; i < cst_fold_compaction_interval; i = i + 1 {
+    let current = @seam.CstNode::new(@seam.RawKind(10), [
+      tok(1, "current-" + i.to_string()),
+    ])
+    let _ = fold.fold(@seam.SyntaxNode::from_cst(current))
+  }
+  inspect(fold.cache.contains(historical.hash), content="false")
+}
+
+///|
+test "CstFold: root-hit compaction preserves deep adjacent reuse" {
+  let grandchild = @seam.CstNode::new(@seam.RawKind(30), [tok(3, "stable")])
+  let child = @seam.CstNode::new(@seam.RawKind(20), [
+    tok(2, "before"),
+    @seam.CstElement::Node(grandchild),
+  ])
+  let root = @seam.CstNode::new(@seam.RawKind(10), [
+    @seam.CstElement::Node(child),
+  ])
+  let syntax = @seam.SyntaxNode::from_cst(root)
+  let fold : CstFold[String] = CstFold::new(test_algebra)
+  let _ = fold.fold(syntax)
+  for generation = 1
+      generation < cst_fold_compaction_interval
+      generation = generation + 1 {
+    let _ = fold.fold(syntax)
+  }
+  let edited_child = @seam.CstNode::new(@seam.RawKind(20), [
+    tok(2, "after"),
+    @seam.CstElement::Node(grandchild),
+  ])
+  let edited_root = @seam.CstNode::new(@seam.RawKind(10), [
+    @seam.CstElement::Node(edited_child),
+  ])
+  let _ = fold.fold(@seam.SyntaxNode::from_cst(edited_root))
+  let stats = fold.get_stats()
+  inspect(stats.reused, content="1")
+  inspect(stats.recomputed, content="2")
+}
+
+///|
+test "CstFold: hash collision still requires structural equality" {
+  let first = @seam.CstNode::new(@seam.RawKind(10), [tok(1, "first")])
+  let actual_second = @seam.CstNode::new(@seam.RawKind(10), [tok(1, "second")])
+  let forced_collision = @seam.CstNode::{ ..actual_second, hash: first.hash }
+  inspect(first == forced_collision, content="false")
+  let fold : CstFold[String] = CstFold::new(test_algebra)
+  let _ = fold.fold(@seam.SyntaxNode::from_cst(first))
+  let _ = fold.fold(@seam.SyntaxNode::from_cst(forced_collision))
+  let stats = fold.get_stats()
+  inspect(stats.reused, content="0")
+  inspect(stats.recomputed, content="1")
 }

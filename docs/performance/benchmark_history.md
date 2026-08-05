@@ -2,6 +2,38 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-08-05 (bounded `CstFold` cache retention)
+
+- Issue: [#782](https://github.com/dowdiness/loom/issues/782)
+- Base revision: `1506e0d8`; head: working tree implementation
+- Environment: local WSL2, Linux 6.18.33.2, x86_64
+- Toolchain: Moon `0.1.20260713`
+- Targets: release wasm-gc and JavaScript
+- Command: `rtk moon bench --release --target <target> -p dowdiness/lambda/benchmarks -f fold_benchmark.mbt`
+
+The controlled wasm-gc comparison uses the same implementation on both sides.
+The control sets the private compaction interval high enough that compaction
+cannot run during the benchmark; the bounded side uses the production interval
+of 64 folds. This compares the bounded and effectively unbounded cache policies
+without unrelated parser or code-generation changes; the result includes both
+the amortized reachability walk and the effect of keeping a smaller cache.
+
+| Fold workload | Compaction disabled | Bounded at 64 folds | Difference |
+|---|---:|---:|---:|
+| 80 lets, cold parse + fold | 269.22 µs ± 22.92 µs | 256.65 µs ± 6.52 µs | noise |
+| 80 lets, adjacent edit fold | 218.52 µs ± 5.74 µs | 222.40 µs ± 6.25 µs | +1.8% |
+| 320 lets, cold parse + fold | 1.13 ms ± 65.76 µs | 1.08 ms ± 11.70 µs | noise |
+| 320 lets, adjacent edit fold | 932.82 µs ± 31.15 µs | 958.84 µs ± 36.82 µs | +2.8% |
+
+Cold rows construct a fresh fold per timed iteration and never reach the
+compaction interval, so their differences are process noise. The adjacent-edit
+rows keep one fold alive and include periodic compaction. The bounded policy
+therefore adds less than 3% in this focused run while limiting stale entries to
+one finite fold-generation window. The production JavaScript sanity run measured
+267.21 µs for 80-let adjacent edits and 1.10 ms for 320-let adjacent edits; it
+completed without a target-specific failure. No public cache-control API or
+benchmark-baseline update was needed.
+
 ## 2026-08-03 (Markdown keyed editor projection attachment)
 
 - Base revision: `d3f29967`; head branch: `feat/332-markdown-projection-integration`
