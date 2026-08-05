@@ -103,8 +103,8 @@ module-qualified parsed sample, both median and stability tables, the copied
 policy, run metadata, and the comparison report. The command creates these
 files locally; it does not upload them. Set
 `CORE_OWNERSHIP_ARTIFACT_DIR=/absolute/path` when a CI or PR workflow needs a
-known upload location, and upload the complete directory as a PR or release
-artifact before marking the measurement issue complete.
+known location. Preserve the complete directory as a checked-in archive in the
+Phase 0 PR before marking the measurement issue complete.
 
 `docs/performance/core-ownership-bench-policy.tsv` is fail-closed. Every row has
 a module-qualified key, relative threshold, absolute threshold, required or

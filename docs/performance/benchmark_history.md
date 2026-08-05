@@ -19,10 +19,10 @@ Historical snapshots from project benchmark runs (full suite and focused runs).
 - Evidence inventory: the accepted baseline control, final hardened-runner
   verification, and three rejected controls, including every raw Moon output,
   parsed sample, environment record, policy, metadata file, and available
-  stability/paired report (1.5 MiB total). Local archive
-  `/tmp/loom-core-ownership-pr884-evidence-031200eb.tar.gz` has SHA-256
-  `bd0a6a85992b8746fe148e268eb18d96f34707a7f29c488aea7ce5b0b2d60e6b`
-  and remains pending durable PR or release upload.
+  stability/paired report (1.5 MiB unpacked). The checked-in
+  [evidence archive](evidence/loom-core-ownership-pr884-evidence-031200eb.tar.gz)
+  is 122 KiB and has SHA-256
+  `bd0a6a85992b8746fe148e268eb18d96f34707a7f29c488aea7ce5b0b2d60e6b`.
 
 All ten required policy rows were present exactly once in every sample. Runner,
 baseline, and candidate SHAs were identical, and the runner recorded a clean
