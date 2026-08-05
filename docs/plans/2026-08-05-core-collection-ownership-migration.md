@@ -33,6 +33,9 @@ accepted. Do not implement the breaking API while the ADR remains Proposed.
 - A mode-aware `TokenBuffer` must have one lexing authority. Keep
   `new_from_lex` plain-only, use a distinct `new_from_mode_relex` constructor,
   and derive detached/full/reset tokenization from the same factory.
+- Preserve `incremental_relex_enabled=false` as the facade-level mode-path
+  opt-out: construct a plain buffer from the ordinary lexer and do not invoke
+  an optional mode factory. Cover the existing HTML and JSX configurations.
 - Public raw lexer-result constructors must return a valid opaque value or
   raise `LexResultError`; they must never return malformed arrays plus a
   diagnostic. User-text recovery remains a complete result plus diagnostics.
@@ -100,7 +103,8 @@ files:
 - `loom/core/diagnostics.mbt`, `loom/core/mode_lexer.mbt`,
   `loom/core/token_buffer.mbt`, and `loom/core/parser_context_access.mbt`
 - `loom/factories.mbt`, `loom/grammar.mbt`, and `loom/loom.mbt`
-- `examples/graph-dsl/lexer.mbt`, `examples/html/lexer.mbt`,
+- `examples/graph-dsl/lexer.mbt`, `examples/html/grammar.mbt`,
+  `examples/html/lexer.mbt`,
   `examples/json/lexer.mbt`, `examples/jsx/grammar.mbt`,
   `examples/jsx/lexer.mbt`, `examples/lambda/callers/callers.mbt`,
   `examples/lambda/lexer/lexer.mbt`, `examples/markdown/grammar.mbt`,
@@ -224,13 +228,18 @@ the audit gate.
 ## Phase 0: acceptance and repeat audit
 
 - [ ] Accept the linked ADR and record maintainer approval date.
-- [ ] Repeat `moon ide find-references` for `CstNode::new`,
+- [ ] Repeat `moon ide find-references` for the existing symbols
+  `CstNode::new`,
   `CstNode::with_replaced_child`, all `build_tree*` methods,
   `CstElement::map`, `LexResult::LexResult`, `LexResult::with_starts`,
-  `ModeRelexResult::new`, `ModeRelexState::new`, `ModeRelexFactory::new`,
-  `TokenBuffer::new_from_lex`,
+  `LexResult::from_located_tokens`,
+  `ModeRelexFactory::new_session_with_initial`, `erase_mode_lexer`,
+  `erase_mode_lexer_factory`, `TokenBuffer::new_from_lex`,
   `TokenBuffer::new_with_mode_relex`, `LanguageSpec::new`, and
-  `DamageTracker::new`.
+  `DamageTracker::new`. The proposed `ModeRelexResult::new`,
+  `ModeRelexState::new`, and `ModeRelexFactory::new` have no pre-migration
+  symbols; audit their current struct literals and direct field access through
+  the type searches instead of recording a misleading zero-reference result.
 - [ ] Search direct field access for every affected type in Loom, Canopy,
   js_engine, indexed public GitHub code, and published module metadata where
   reverse-dependency evidence exists.
@@ -254,7 +263,7 @@ Record at least these local audit outputs in the implementing issues:
 ```bash
 rg -l 'CstNode::new|with_replaced_child|build_tree|CstElement::map' \
   seam loom examples fixtures --glob '*.mbt'
-rg -l 'ModeRelex(State|Result|Factory)|LexResult::|TokenBuffer::new_(from_lex|from_mode_relex|with_mode_relex)' \
+rg -l 'ModeRelex(State|Result|Factory)|LexResult::|erase_mode_lexer|TokenBuffer::new_(from_lex|from_mode_relex|with_mode_relex)' \
   loom examples fixtures --glob '*.mbt'
 rg -l 'LanguageSpec::new|spec\.(eof_token|reuse_size_threshold|trivia_kinds_raw)' \
   loom examples fixtures --glob '*.mbt'
@@ -302,11 +311,20 @@ invalid partial result.
   public `TokenBuffer::new_with_mode_relex`. Migrate mode-aware callers to the
   dedicated constructor. Keep any initialized state/result fast path
   package-private and pair it with the same factory-derived reset capability.
+- [ ] Preserve the facade selection rule: when
+  `incremental_relex_enabled=false`, call plain `new_from_lex` and never create
+  or invoke the optional mode factory; otherwise select
+  `new_from_mode_relex` when a factory is present. Retain the existing opt-out
+  test and cover both `examples/html/grammar.mbt` and
+  `examples/jsx/grammar.mbt`.
 - [ ] Change public `ModeRelexFactory::new` to accept only a fresh-session
   constructor. Implement `ModeRelexFactory::tokenize` through a fresh session;
   keep the combined session/result initializer package-private for built-in
-  adapters. Do not retain a caller-supplied detached tokenizer as a second
-  authority.
+  adapters. Migrate `ModeRelexFactory::new_session_with_initial`,
+  `erase_mode_lexer`, and `erase_mode_lexer_factory` and their callers. Have
+  public `TokenBuffer::new_from_mode_relex` absorb the package-private combined
+  initializer so the cross-package facade does not need private access. Do not
+  retain a caller-supplied detached tokenizer as a second authority.
 - [ ] Store the current session as a private `Ready(ModeRelexState[T])` or
   `ResetRequired` state. Permit partial re-lex only from `Ready`.
 - [ ] Put session-state and commit-eligibility decisions in a deterministic
@@ -402,6 +420,15 @@ constructors after return cannot alter the validated value or parser behavior.
   Built-in total lexers must use validated internal construction or handle the
   typed error before installing their callbacks; external migration examples
   must distinguish adapter-contract failure from user-text diagnostics.
+- [ ] Keep grammar lexer callbacks total. Add an adapter fixture and migration
+  example that catches `LexResultError` inside the installed closure and either
+  returns a structurally valid language-specific recovery result plus
+  diagnostics or explicitly aborts for the adapter defect. Do not add a generic
+  fallback token to Loom core.
+- [ ] Preserve `LexResult::from_located_tokens` as a total repair adapter: copy
+  its positioned input, diagnose and clamp invalid spans, and finish through
+  validated package-private owned construction. Retain black-box tests proving
+  that repaired spans produce valid arrays and that no `LexResultError` escapes.
 - [ ] Add `length`, `token_at`, `start_at`, and paired read-only iteration.
 - [ ] Add package-private owned construction and migrate arrays produced wholly
   inside `loom/core`.

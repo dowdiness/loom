@@ -126,9 +126,23 @@ validate and transfer arrays only from audited producers inside `loom/core`.
 `LexResultError` is an adapter-contract error, not a user-text diagnostic. It
 covers token/start cardinality, negative token lengths or starts, decreasing or
 overlapping starts, and negative mode convergence. Lexer recovery for malformed
-source still returns a complete `LexResult` plus structured diagnostics. A raw
-adapter that cannot construct a valid result must handle `LexResultError` before
-installing its total lexer callback on a grammar.
+source still returns a complete `LexResult` plus structured diagnostics.
+
+`Grammar::new` continues to accept a total lexer callback. An adapter that calls
+a raising raw-result constructor inside that callback catches `LexResultError`
+inside the installed closure. It must either construct a structurally valid,
+language-specific recovery result plus diagnostics or abort explicitly for the
+adapter defect; Loom cannot synthesize an arbitrary fallback token of type `T`.
+The typed construction error does not escape through the total grammar callback,
+and the callback never returns a malformed result.
+
+`LexResult::from_located_tokens` remains a total repair adapter. It copies
+positioned input into new arrays, diagnoses and clamps invalid external spans,
+and returns a structurally valid result. That diagnostic describes repaired
+adapter input; it does not permit malformed parallel arrays inside the returned
+value. The implementation completes through the validated package-private owned
+constructor, so the public `with_starts` error effect does not escape this total
+helper.
 
 Indexed access and read-only iteration serve callers that do not need owning
 copies. Package-private constructors transfer arrays created inside `loom/core`
@@ -214,6 +228,13 @@ combined session/result initializer, but cannot install a second token or
 diagnostic producer. A grammar that carries both its ordinary lexer and an
 optional mode factory treats the factory as authoritative whenever the mode
 path is selected; the ordinary lexer is not a fallback for that buffer.
+
+`Grammar::incremental_relex_enabled=false` remains the authoritative mode-path
+opt-out. In that case the facade constructs a plain buffer from the ordinary
+lexer and does not create, initialize, or invoke the optional mode factory. When
+incremental re-lex is enabled and a factory is present, the facade selects
+`new_from_mode_relex`. This preserves the existing HTML and JSX behavior while
+ensuring that every constructed buffer still has exactly one lexing authority.
 
 Both `new_from_lex` and `new_from_mode_relex` validate the complete initial
 result before exposing the buffer. An invalid initial
