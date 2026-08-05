@@ -110,3 +110,12 @@ test "perf envelope: isolated mode relex cycle 100 paragraphs" (b : @bench.T) {
 test "perf envelope: isolated mode relex cycle 500 paragraphs" (b : @bench.T) {
   bench_perf_mode_relex_cycle(b, 500)
 }
+
+///|
+test "core ownership: equal-cardinality mode relex cycle 500 paragraphs" (
+  b : @bench.T,
+) {
+  // `perf_work_middle_edit` replaces one code unit with one code unit. Keep
+  // this row as the direct old-offset handoff baseline for Phase 1.
+  bench_perf_mode_relex_cycle(b, 500)
+}

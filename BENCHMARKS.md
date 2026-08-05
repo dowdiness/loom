@@ -66,6 +66,49 @@ report and must be fixed rather than accepted as a baseline update. Policy
 changes require a reason in the TSV and coverage in
 `scripts/bench-check-selftest.sh`.
 
+### Core ownership release profile
+
+The collection-ownership migration uses a separate, opt-in release profile.
+It does not change the default 15% detector or its scheduled persistence
+workflow. Validate the profile policy without benchmarking with:
+
+```bash
+bash bench-check.sh --profile core-ownership --validate
+```
+
+After the Phase 0 measurement commit is recorded, compare a committed candidate
+against it with five clean samples per revision:
+
+```bash
+bash bench-check.sh --profile core-ownership \
+  --baseline-ref <CORE_OWNERSHIP_BASELINE_SHA> --runs 5
+```
+
+The runner requires the baseline to be an ancestor of the candidate, checks out
+both revisions into clean detached worktrees, initializes their pinned
+submodules, and runs explicit `wasm-gc` release benchmarks. It records the Moon
+version, target, machine, host, and CPU governor and rejects an environment
+mismatch. The artifact directory printed at the end contains every raw Moon
+output, module-qualified parsed sample, both median tables, the copied policy,
+run metadata, and the comparison report. Set
+`CORE_OWNERSHIP_ARTIFACT_DIR=/absolute/path` when a CI or PR workflow needs a
+known upload location.
+
+`docs/performance/core-ownership-bench-policy.tsv` is fail-closed. Every row has
+a module-qualified key, relative threshold, absolute threshold, required or
+optional disposition, gated or informational mode, and a reason. Missing
+required rows, duplicate or malformed output, incomplete sample sets, and
+environment mismatches abort without a performance verdict. Gated rows regress
+only when both their relative and absolute thresholds are exceeded; the 50 ns
+absolute threshold prevents percentage-only failures for selected
+sub-microsecond rows. The 10,000-token public `LexResult` construction row is
+informational, while representative end-to-end parse rows remain gated at 5%.
+
+Run `scripts/bench-check-selftest.sh` after changing either profile. Its profile
+coverage includes unit parsing, policy and duplicate validation, required-row
+failure, incomplete samples, median selection, dual-threshold comparison,
+informational rows, and environment mismatch.
+
 `--update` refuses to overwrite a baseline when any existing benchmark name is
 absent from the current run, even if replacement `NEW` rows keep the count
 similar. If a benchmark is intentionally retired, remove its baseline row as a
