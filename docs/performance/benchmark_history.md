@@ -2,6 +2,53 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-08-05 (core collection ownership Phase 0 baseline)
+
+- Issue: [#877](https://github.com/dowdiness/loom/issues/877)
+- `CORE_OWNERSHIP_BASELINE_SHA`:
+  `031200eb552db96351f6ff84dfc9c414ec8b5dde`
+- Comparison: the same committed revision in separate clean baseline and
+  candidate worktrees, five samples per side, balanced interleaved order, and
+  median of like-for-like rows
+- Environment: WSL2, Linux 6.18.33.2, x86_64, host `A6`; CPU governor was not
+  exposed by the environment
+- Toolchain: Moon `0.1.20260713 (75c7e1f 2026-07-13)`
+- Target: release wasm-gc
+- Command: `bash bench-check.sh --profile core-ownership --baseline-ref
+  031200eb552db96351f6ff84dfc9c414ec8b5dde --runs 5`
+- Artifact inventory: ten raw Moon outputs, ten module-qualified parsed TSVs,
+  baseline/candidate environment and median TSVs, policy, run metadata, and
+  comparison TSV (280 KiB total); local archive
+  `/tmp/loom-core-ownership-baseline-031200eb.tar.gz` is prepared for upload
+  when the Phase 0 PR is opened
+
+All ten required policy rows were present exactly once in every sample. Runner,
+baseline, and candidate SHAs were identical, and the runner recorded a clean
+checkout. The accepted control passed every gated row; the largest positive
+median difference was 1.51% on package-owned CST construction. Two earlier
+control attempts—one on the immediately preceding measurement-only runner
+commit and one on this SHA—were rejected by the gate under unstable host load
+and were not used as the baseline.
+
+| Qualified row | Baseline median | Clean-worktree control | Difference |
+|---|---:|---:|---:|
+| JSON full parse, 100-member object | 226.07 µs | 224.68 µs | -0.61% |
+| JSON incremental edit cycle | 219.39 µs | 219.09 µs | -0.14% |
+| Lambda full parse, complex | 11.77 µs | 11.64 µs | -1.10% |
+| Lambda incremental multiple edits | 10.11 µs | 9.95 µs | -1.58% |
+| `LexResult::with_starts`, 10,000 tokens | 46.94 µs | 46.93 µs | -0.02% (INFO) |
+| Markdown equal-cardinality mode relex | 526.94 ns | 517.35 ns | -1.82% |
+| Markdown CST plus AST, 100 paragraphs | 1.90 ms | 1.80 ms | -5.26% |
+| Markdown imperative AST edit cycle | 39.61 µs | 39.36 µs | -0.63% |
+| CST package-owned construction, 32 children | 167.14 ns | 169.66 ns | +1.51% |
+| CST public construction, 32 children | 168.19 ns | 170.42 ns | +1.33% |
+
+This is a measurement-only baseline. It changes no ownership, visibility,
+copying, or parser behavior. Phase 1-4 implementation branches must descend
+from the exact SHA above; the baseline must not be moved to accept a later
+regression. The Phase 0 PR must preserve this commit with a merge commit, or a
+replacement baseline must be measured after merge.
+
 ## 2026-08-05 (bounded `CstFold` cache retention)
 
 - Issue: [#782](https://github.com/dowdiness/loom/issues/782)
