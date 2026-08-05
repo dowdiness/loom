@@ -382,11 +382,15 @@ fn lex_line_start(
   input : String,
   pos : Int,
   delimiter_index : InlineAngleDelimiterIndex?,
+  line_end_hint : Int?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, LineStart)
   }
-  let line_end = find_line_end(input, pos)
+  let line_end = match line_end_hint {
+    Some(cached) => cached
+    None => find_line_end(input, pos)
+  }
   let starts_with_indentation = match char_at(input, pos) {
     Some(' ') | Some('\t') => true
     _ => false
@@ -545,10 +549,11 @@ fn lex_block_quote_line_start(
   input : String,
   pos : Int,
   delimiter_index : InlineAngleDelimiterIndex?,
+  line_end_hint : Int?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   match input.view(start_offset=pos) {
     ['`', ..] => lex_inline(input, pos, delimiter_index)
-    _ => lex_line_start(input, pos, delimiter_index)
+    _ => lex_line_start(input, pos, delimiter_index, line_end_hint)
   }
 }
 
@@ -760,9 +765,9 @@ fn lex_html_block_end_line(
 fn emit_html_text_line(
   input : String,
   pos : Int,
+  line_end : Int,
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
-  let line_end = find_line_end(input, pos)
   let text : StringView = input[pos:line_end]
   (
     Produced(
@@ -814,8 +819,8 @@ fn lex_html_block_raw(
         lex_html_block_raw_newline_mode(input, rest.start_offset()),
       )
     _ if line_is_blank(input, pos, line_end) =>
-      lex_line_start(input, pos, delimiter_index)
-    _ => emit_html_text_line(input, pos, HtmlBlockRaw)
+      lex_line_start(input, pos, delimiter_index, Some(line_end))
+    _ => emit_html_text_line(input, pos, line_end, HtmlBlockRaw)
   }
 }
 
@@ -857,14 +862,15 @@ fn markdown_lex_step_with_angle_index(
   pos : Int,
   mode : MarkdownLexMode,
   delimiter_index : InlineAngleDelimiterIndex?,
+  line_end_hint : Int?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, mode)
   }
   match mode {
-    LineStart => lex_line_start(input, pos, delimiter_index)
+    LineStart => lex_line_start(input, pos, delimiter_index, line_end_hint)
     BlockQuoteLineStart =>
-      lex_block_quote_line_start(input, pos, delimiter_index)
+      lex_block_quote_line_start(input, pos, delimiter_index, line_end_hint)
     Inline => lex_inline(input, pos, delimiter_index)
     CodeBlock(n, fence_character) =>
       lex_code_block(input, pos, n, fence_character)
@@ -881,7 +887,7 @@ pub fn markdown_lex_step(
   pos : Int,
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
-  markdown_lex_step_with_angle_index(input, pos, mode, None)
+  markdown_lex_step_with_angle_index(input, pos, mode, None, None)
 }
 
 ///|
@@ -894,6 +900,8 @@ pub fn markdown_lex_step(
 fn new_indexed_markdown_mode_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] {
   let source_ref : Ref[String?] = Ref(None)
   let delimiter_index_ref : Ref[InlineAngleDelimiterIndex?] = Ref(None)
+  let line_end_cache_start_ref : Ref[Int] = Ref(-1)
+  let line_end_cache_end_ref : Ref[Int] = Ref(-1)
   let lex_step = fn(input : String, pos : Int, mode : MarkdownLexMode) {
     let same_source = match source_ref.val {
       Some(source) => physical_equal(source, input)
@@ -902,15 +910,38 @@ fn new_indexed_markdown_mode_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] 
     if !same_source {
       source_ref.val = Some(input)
       delimiter_index_ref.val = None
+      line_end_cache_start_ref.val = -1
+      line_end_cache_end_ref.val = -1
     }
     if delimiter_index_ref.val is None && char_at(input, pos) == Some('<') {
       delimiter_index_ref.val = Some(build_inline_angle_delimiter_index(input))
+    }
+    let should_cache_line_end = pos < input.length() &&
+      (match mode {
+        LineStart => char_at(input, pos) == Some('>')
+        BlockQuoteLineStart => true
+        _ => false
+      })
+    let line_end_hint = if should_cache_line_end {
+      let cached_start = line_end_cache_start_ref.val
+      let cached_end = line_end_cache_end_ref.val
+      if pos >= cached_start && pos <= cached_end {
+        Some(cached_end)
+      } else {
+        let line_end = find_line_end(input, pos)
+        line_end_cache_start_ref.val = pos
+        line_end_cache_end_ref.val = line_end
+        Some(line_end)
+      }
+    } else {
+      None
     }
     markdown_lex_step_with_angle_index(
       input,
       pos,
       mode,
       delimiter_index_ref.val,
+      line_end_hint,
     )
   }
   { lex_step, initial_mode: LineStart }
