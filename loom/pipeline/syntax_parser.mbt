@@ -35,20 +35,33 @@ fn syntax_snapshot_from_parse(
 }
 
 ///|
+/// Derive the syntax-only adapter view directly from `Parser`'s canonical
+/// snapshot input. Keeping this projection package-private avoids exposing the
+/// mutable input while also avoiding the extra Derived and defensive copy used
+/// by the public `Parser::snapshot` interface.
+fn Parser::derive_syntax_snapshot(
+  self : Parser[Unit],
+) -> @incr.Derived[SyntaxSnapshot] {
+  @incr.Derived(
+    self.rt,
+    () => syntax_snapshot_from_parse(self.snapshot_input.get()),
+    label="syntax_parser_snapshot_view",
+  )
+}
+
+///|
 /// Reactive syntax-only parser handle.
 ///
-/// `SyntaxParser` wraps an `ImperativeParser[Unit]` and publishes coherent
-/// source, syntax tree, diagnostics, and reuse-count views without requiring an
-/// AST type or AST equality. Use this for lexer/parser integrations whose AST
-/// is unavailable, expensive to fold, or not naturally `Eq`.
+/// `SyntaxParser` adapts `Parser[Unit]` into a syntax-only interface. The
+/// underlying parser owns engine advancement, coherent reactive publication,
+/// runtime ownership, and source-update semantics; this adapter only removes
+/// the meaningless `Unit` AST from the public snapshot.
+///
+/// Use this for lexer/parser integrations whose AST is unavailable, expensive
+/// to fold, or not naturally `Eq`.
 pub struct SyntaxParser {
-  priv engine : @incremental.ImperativeParser[Unit]
-  priv rt : @incr.Runtime
-  priv snapshot_input : @incr.Input[SyntaxSnapshot]
+  priv parser : Parser[Unit]
   priv snapshot_view : @incr.Derived[SyntaxSnapshot]
-  priv source_view : @incr.Derived[String]
-  priv syntax_view : @incr.Derived[@seam.SyntaxNode]
-  priv diagnostics_view : @incr.Derived[@core.DiagnosticSet]
 }
 
 ///|
@@ -64,60 +77,16 @@ pub fn SyntaxParser::new(
   lang : @incremental.ImperativeLanguage[Unit],
   runtime? : @incr.Runtime,
 ) -> SyntaxParser {
-  let engine = @incremental.ImperativeParser::new(source_id, source, lang)
-  let initial_snapshot = syntax_snapshot_from_parse(engine.parse())
-  let rt = match runtime {
-    Some(r) => r
-    None => @incr.Runtime()
-  }
-  let snapshot_input = @incr.Input(
-    rt,
-    initial_snapshot,
-    label="syntax_parser_snapshot",
-  )
-  let snapshot_view = @incr.Derived(
-    rt,
-    () => snapshot_input.get().copy(),
-    label="syntax_parser_snapshot_view",
-  )
-  let source_view = @incr.Derived(
-    rt,
-    () => snapshot_input.get().source,
-    label="syntax_parser_source_view",
-  )
-  let syntax_view = @incr.Derived(
-    rt,
-    () => snapshot_input.get().syntax,
-    label="syntax_parser_syntax_view",
-  )
-  let diagnostics_view = @incr.Derived(
-    rt,
-    () => snapshot_input.get().diagnostics.copy(),
-    label="syntax_parser_diagnostics_view",
-  )
-  {
-    engine,
-    rt,
-    snapshot_input,
-    snapshot_view,
-    source_view,
-    syntax_view,
-    diagnostics_view,
-  }
+  let parser = Parser::new(source_id, source, lang, runtime?)
+  let snapshot_view = parser.derive_syntax_snapshot()
+  { parser, snapshot_view }
 }
 
 ///|
 /// Replace the source text, discarding incremental state. Identical source is
 /// a no-op, matching `Parser::set_source`.
 pub fn SyntaxParser::set_source(self : SyntaxParser, source : String) -> Unit {
-  if source == self.engine.get_source() {
-    return
-  }
-  self.rt.batch(() => {
-    self.snapshot_input.set(
-      syntax_snapshot_from_parse(self.engine.reset(source)),
-    )
-  })
+  self.parser.set_source(source)
 }
 
 ///|
@@ -128,16 +97,12 @@ pub fn SyntaxParser::apply_edit(
   edit : @core.Edit,
   new_source : String,
 ) -> Unit {
-  self.rt.batch(() => {
-    self.snapshot_input.set(
-      syntax_snapshot_from_parse(self.engine.edit(edit, new_source)),
-    )
-  })
+  self.parser.apply_edit(edit, new_source)
 }
 
 ///|
 pub fn SyntaxParser::source_id(self : SyntaxParser) -> @core.SourceId {
-  self.engine.get_source_id()
+  self.parser.source_id()
 }
 
 ///|
@@ -151,7 +116,7 @@ pub fn SyntaxParser::snapshot(
 ///|
 /// Reactive view of the current source text.
 pub fn SyntaxParser::source(self : SyntaxParser) -> @incr.Derived[String] {
-  self.source_view
+  self.parser.source()
 }
 
 ///|
@@ -159,7 +124,7 @@ pub fn SyntaxParser::source(self : SyntaxParser) -> @incr.Derived[String] {
 pub fn SyntaxParser::syntax_tree(
   self : SyntaxParser,
 ) -> @incr.Derived[@seam.SyntaxNode] {
-  self.syntax_view
+  self.parser.syntax_tree()
 }
 
 ///|
@@ -167,7 +132,7 @@ pub fn SyntaxParser::syntax_tree(
 pub fn SyntaxParser::diagnostics(
   self : SyntaxParser,
 ) -> @incr.Derived[@core.DiagnosticSet] {
-  self.diagnostics_view
+  self.parser.diagnostics()
 }
 
 ///|
@@ -176,5 +141,5 @@ pub fn SyntaxParser::diagnostics(
 /// should own their own `Scope` / `Watch` lifecycle and dispose that scope
 /// separately from the parser.
 pub fn SyntaxParser::runtime(self : SyntaxParser) -> @incr.Runtime {
-  self.rt
+  self.parser.runtime()
 }
