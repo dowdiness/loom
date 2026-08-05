@@ -44,12 +44,34 @@ core_ownership_validate_runner_provenance() {
   fi
 }
 
+core_ownership_snapshot_file() {
+  local repo_root="$1" commit="$2" path="$3" output="$4"
+  local expected_blob actual_blob
+  expected_blob=$(git -C "$repo_root" rev-parse "${commit}:${path}")
+  git -C "$repo_root" show "${commit}:${path}" > "$output"
+  actual_blob=$(git hash-object "$output")
+  if [[ "$actual_blob" != "$expected_blob" ]]; then
+    printf 'core-ownership snapshot mismatch for %s: expected %s, got %s\n' \
+      "$path" "$expected_blob" "$actual_blob" >&2
+    return 1
+  fi
+  printf '%s\n' "$expected_blob"
+}
+
 core_ownership_validate_policy() {
   local policy_file="$1"
   awk -F '\t' '
     /^[[:space:]]*#/ {
       if ($0 == "# policy_version=1") {
         version_count++
+      } else if ($0 ~ /^# max_relative_mad_percent=/) {
+        split($0, setting, "=")
+        if (setting[2] !~ /^[0-9]+([.][0-9]+)?$/ || setting[2] + 0 <= 0) {
+          print "policy: invalid max_relative_mad_percent: " $0 > "/dev/stderr"
+          bad = 1
+        } else {
+          stability_count++
+        }
       } else if ($0 ~ /^[[:space:]]*# policy_version=/) {
         print "policy: unsupported version: " $0 > "/dev/stderr"
         bad = 1
@@ -79,6 +101,10 @@ core_ownership_validate_policy() {
         print "policy: exactly one # policy_version=1 declaration required" > "/dev/stderr"
         bad = 1
       }
+      if (stability_count != 1) {
+        print "policy: exactly one # max_relative_mad_percent=<positive number> declaration required" > "/dev/stderr"
+        bad = 1
+      }
       exit bad
     }
   ' "$policy_file"
@@ -104,6 +130,78 @@ core_ownership_validate_required_rows() {
       exit bad
     }
   ' "$policy_file" "$sample_file"
+}
+
+core_ownership_stability_report() {
+  local policy_file="$1"
+  shift
+  awk -F '\t' -v policy_file="$policy_file" '
+    BEGIN {
+      while ((getline line < policy_file) > 0) {
+        if (line ~ /^# max_relative_mad_percent=/) {
+          split(line, setting, "=")
+          threshold = setting[2] + 0
+          continue
+        }
+        if (line ~ /^[[:space:]]*#/ || line ~ /^[[:space:]]*$/) continue
+        split(line, field, "\t")
+        if (field[4] == "required") required[field[1]] = 1
+      }
+      close(policy_file)
+      expected = ARGC - 1
+    }
+    $1 in required {
+      count[$1]++
+      value[$1, count[$1]] = $2 + 0
+    }
+    END {
+      for (name in required) {
+        if (count[name] != expected) {
+          printf "stability: %s has %d samples, expected %d\n", name, count[name], expected > "/dev/stderr"
+          bad = 1
+          continue
+        }
+        for (i = 1; i <= count[name]; i++) sorted[i] = value[name, i]
+        for (i = 2; i <= count[name]; i++) {
+          current = sorted[i]
+          j = i - 1
+          while (j >= 1 && sorted[j] > current) {
+            sorted[j + 1] = sorted[j]
+            j--
+          }
+          sorted[j + 1] = current
+        }
+        median = sorted[(count[name] + 1) / 2]
+        for (i = 1; i <= count[name]; i++) {
+          delta = sorted[i] - median
+          deviation[i] = delta < 0 ? -delta : delta
+        }
+        for (i = 2; i <= count[name]; i++) {
+          current = deviation[i]
+          j = i - 1
+          while (j >= 1 && deviation[j] > current) {
+            deviation[j + 1] = deviation[j]
+            j--
+          }
+          deviation[j + 1] = current
+        }
+        mad = deviation[(count[name] + 1) / 2]
+        relative_mad = median > 0 ? mad / median * 100 : (mad > 0 ? 1e99 : 0)
+        status = "OK"
+        if (relative_mad > threshold) {
+          status = "UNSTABLE"
+          bad = 1
+        }
+        printf "%s\t%s\t%.2f\t%.2f\t%.2f%%\t%.2f%%\n",
+          status, name, median, mad, relative_mad, threshold
+        for (i = 1; i <= count[name]; i++) {
+          delete sorted[i]
+          delete deviation[i]
+        }
+      }
+      exit bad
+    }
+  ' "$@" | sort -t $'\t' -k2,2
 }
 
 core_ownership_medians() {

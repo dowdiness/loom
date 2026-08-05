@@ -92,13 +92,16 @@ checks out both revisions into clean detached worktrees, initializes their
 pinned submodules, and runs explicit `wasm-gc` release benchmarks in interleaved
 order. Pair order alternates (`baseline 1`, `candidate 1`, `candidate 2`,
 `baseline 2`, and so on) to balance which revision runs first. It records the
-runner SHA, Moon version, target, machine, host, and CPU governor and rejects a
+runner SHA and the exact Git blob IDs of the checker, policy, profile, and core
+library. Checker and policy reads use commit snapshots rather than the live
+checkout, and provenance is checked again after sampling. The runner also
+records the Moon version, target, machine, host, and CPU governor and rejects a
 provenance or environment mismatch.
 
 The artifact directory printed at the end contains every raw Moon output,
-module-qualified parsed sample, both median tables, the copied policy, run
-metadata, and the comparison report. The command creates these files locally;
-it does not upload them. Set
+module-qualified parsed sample, both median and stability tables, the copied
+policy, run metadata, and the comparison report. The command creates these
+files locally; it does not upload them. Set
 `CORE_OWNERSHIP_ARTIFACT_DIR=/absolute/path` when a CI or PR workflow needs a
 known upload location, and upload the complete directory as a PR or release
 artifact before marking the measurement issue complete.
@@ -107,16 +110,20 @@ artifact before marking the measurement issue complete.
 a module-qualified key, relative threshold, absolute threshold, required or
 optional disposition, gated or informational mode, and a reason. Missing
 required rows, duplicate or malformed output, incomplete sample sets, and
-environment mismatches abort without a performance verdict. Gated rows regress
-only when both their relative and absolute thresholds are exceeded; the 50 ns
-absolute threshold prevents percentage-only failures for selected
-sub-microsecond rows. The 10,000-token public `LexResult` construction row is
-informational, while representative end-to-end parse rows remain gated at 5%.
+environment mismatches abort without a performance verdict. Before comparing
+medians, each required row must stay within the policy's 5% relative median
+absolute deviation limit on both sides; unstable samples produce a report and
+no performance verdict. Gated rows regress only when both their relative and
+absolute thresholds are exceeded; the 50 ns absolute threshold prevents
+percentage-only failures for selected sub-microsecond rows. The 10,000-token
+public `LexResult` construction row is informational, while representative
+end-to-end parse rows remain gated at 5%.
 
 Run `scripts/bench-check-selftest.sh` after changing either profile. Its profile
 coverage includes unit parsing, policy and duplicate validation, required-row
 failure, incomplete samples, median selection, dual-threshold comparison,
-informational rows, and environment mismatch.
+informational rows, commit snapshots, sample stability, and environment
+mismatch.
 
 The Phase 0 PR must preserve the recorded baseline commit as an ancestor of
 later implementation commits. Do not squash or rebase-merge that PR; use a merge

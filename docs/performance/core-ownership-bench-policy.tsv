@@ -1,4 +1,5 @@
 # policy_version=1
+# max_relative_mad_percent=5
 # qualified_key	relative_percent	absolute_ns	required	mode	reason
 dowdiness/seam::core ownership: CST public construction from 32 children	5	50	required	gated	Public copy boundary; dual gate avoids percentage-only sub-microsecond noise.
 dowdiness/seam::core ownership: CST package-owned construction from 32 children	5	0	required	gated	Owned-child hot path must not regress by more than five percent.

@@ -44,6 +44,17 @@ git -C "$fixture/runner-repo" commit -qm initial
 runner_sha=$(git -C "$fixture/runner-repo" rev-parse HEAD)
 core_ownership_validate_runner_provenance "$fixture/runner-repo" "$runner_sha"
 
+mkdir -p "$fixture/runner-snapshot"
+core_ownership_snapshot_file \
+  "$fixture/runner-repo" "$runner_sha" runner.txt \
+  "$fixture/runner-snapshot/runner.txt" >/dev/null
+printf 'changed after snapshot\n' > "$fixture/runner-repo/runner.txt"
+grep -Fx 'committed' "$fixture/runner-snapshot/runner.txt" >/dev/null || {
+  printf 'SELFTEST FAIL: runner snapshot changed with the checkout\n' >&2
+  exit 1
+}
+git -C "$fixture/runner-repo" restore runner.txt
+
 printf 'dirty\n' >> "$fixture/runner-repo/runner.txt"
 if core_ownership_validate_runner_provenance \
   "$fixture/runner-repo" "$runner_sha" 2>/dev/null; then
@@ -113,14 +124,26 @@ grep -F 'does not match candidate' "$fixture/cli-head.stderr" >/dev/null || {
 
 cat > "$fixture/policy.tsv" <<'EOF'
 # policy_version=1
+# max_relative_mad_percent=5
 pkg::micro	5	50	required	gated	dual gate
 pkg::parse	5	0	required	gated	parse gate
 pkg::copy	5	0	required	informational	copy signal
 EOF
 core_ownership_validate_policy "$fixture/policy.tsv"
 
+cat > "$fixture/missing-stability-policy.tsv" <<'EOF'
+# policy_version=1
+pkg::micro	5	50	required	gated	missing stability policy
+EOF
+if core_ownership_validate_policy \
+  "$fixture/missing-stability-policy.tsv" 2>/dev/null; then
+  printf 'SELFTEST FAIL: policy without a stability limit accepted\n' >&2
+  exit 1
+fi
+
 cat > "$fixture/bad-policy.tsv" <<'EOF'
 # policy_version=1
+# max_relative_mad_percent=5
 pkg::micro	five	50	required	gated	bad threshold
 EOF
 if core_ownership_validate_policy "$fixture/bad-policy.tsv" 2>/dev/null; then
@@ -130,6 +153,7 @@ fi
 
 cat > "$fixture/duplicate-policy.tsv" <<'EOF'
 # policy_version=1
+# max_relative_mad_percent=5
 pkg::micro	5	50	required	gated	first
 pkg::micro	5	50	required	gated	second
 EOF
@@ -150,6 +174,24 @@ done
 
 core_ownership_medians 5 "$fixture"/run-*.tsv > "$fixture/medians.tsv"
 grep -F $'pkg::micro\t510.00' "$fixture/medians.tsv" >/dev/null
+core_ownership_stability_report \
+  "$fixture/policy.tsv" "$fixture"/run-*.tsv > "$fixture/stability-ok.tsv"
+grep -F $'OK\tpkg::micro' "$fixture/stability-ok.tsv" >/dev/null
+
+for run in 1 2 3 4 5; do
+  cat > "$fixture/unstable-$run.tsv" <<EOF
+pkg::copy	100.00
+pkg::micro	500.00
+pkg::parse	$((run * 1000)).00
+EOF
+done
+if core_ownership_stability_report \
+  "$fixture/policy.tsv" "$fixture"/unstable-*.tsv \
+  > "$fixture/stability-bad.tsv"; then
+  printf 'SELFTEST FAIL: unstable required samples accepted\n' >&2
+  exit 1
+fi
+grep -F $'UNSTABLE\tpkg::parse' "$fixture/stability-bad.tsv" >/dev/null
 
 if core_ownership_medians 5 "$fixture"/run-{1,2,3,4}.tsv >/dev/null 2>&1; then
   printf 'SELFTEST FAIL: incomplete sample set accepted\n' >&2

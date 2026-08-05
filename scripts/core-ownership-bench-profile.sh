@@ -10,6 +10,26 @@ candidate_ref="HEAD"
 runs=5
 validate_only=false
 artifact_dir="${CORE_OWNERSHIP_ARTIFACT_DIR:-}"
+runner_snapshot=""
+worktree_parent=""
+baseline_tree=""
+candidate_tree=""
+
+cleanup() {
+  if [[ -n "$baseline_tree" && -d "$baseline_tree" ]]; then
+    git -C "$repo_root" worktree remove --force "$baseline_tree" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$candidate_tree" && -d "$candidate_tree" ]]; then
+    git -C "$repo_root" worktree remove --force "$candidate_tree" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$runner_snapshot" && -d "$runner_snapshot" ]]; then
+    rm -rf "$runner_snapshot"
+  fi
+  if [[ -n "$worktree_parent" && -d "$worktree_parent" ]]; then
+    rmdir "$worktree_parent" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
 
 # Resolved relative to the checked-in runner root.
 # shellcheck disable=SC1091
@@ -75,6 +95,21 @@ fi
 core_ownership_validate_runner_provenance "$repo_root" "$candidate_sha"
 runner_sha=$(git -C "$repo_root" rev-parse HEAD)
 
+runner_snapshot=$(mktemp -d "${TMPDIR:-/tmp}/loom-core-ownership-runner.XXXXXX")
+checker_blob=$(core_ownership_snapshot_file \
+  "$repo_root" "$candidate_sha" bench-check.sh \
+  "$runner_snapshot/bench-check.sh")
+policy_blob=$(core_ownership_snapshot_file \
+  "$repo_root" "$candidate_sha" docs/performance/core-ownership-bench-policy.tsv \
+  "$runner_snapshot/policy.tsv")
+profile_blob=$(git -C "$repo_root" rev-parse \
+  "$candidate_sha:scripts/core-ownership-bench-profile.sh")
+library_blob=$(git -C "$repo_root" rev-parse \
+  "$candidate_sha:scripts/core-ownership-bench-lib.sh")
+checker="$runner_snapshot/bench-check.sh"
+policy_file="$runner_snapshot/policy.tsv"
+core_ownership_validate_policy "$policy_file"
+
 if [[ -z "$artifact_dir" ]]; then
   artifact_dir=$(mktemp -d "${TMPDIR:-/tmp}/loom-core-ownership-artifacts.XXXXXX")
 else
@@ -85,17 +120,6 @@ fi
 worktree_parent=$(mktemp -d "${TMPDIR:-/tmp}/loom-core-ownership-worktrees.XXXXXX")
 baseline_tree="$worktree_parent/baseline"
 candidate_tree="$worktree_parent/candidate"
-
-cleanup() {
-  if [[ -d "$baseline_tree" ]]; then
-    git -C "$repo_root" worktree remove --force "$baseline_tree" >/dev/null 2>&1 || true
-  fi
-  if [[ -d "$candidate_tree" ]]; then
-    git -C "$repo_root" worktree remove --force "$candidate_tree" >/dev/null 2>&1 || true
-  fi
-  rmdir "$worktree_parent" >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
 
 git -C "$repo_root" worktree add --detach "$baseline_tree" "$baseline_sha" >/dev/null
 git -C "$repo_root" worktree add --detach "$candidate_tree" "$candidate_sha" >/dev/null
@@ -134,6 +158,10 @@ cp "$policy_file" "$artifact_dir/policy.tsv"
   printf 'candidate_sha\t%s\n' "$candidate_sha"
   printf 'runner_sha\t%s\n' "$runner_sha"
   printf 'runner_status\tclean\n'
+  printf 'checker_blob\t%s\n' "$checker_blob"
+  printf 'policy_blob\t%s\n' "$policy_blob"
+  printf 'profile_blob\t%s\n' "$profile_blob"
+  printf 'library_blob\t%s\n' "$library_blob"
   printf 'runs\t%s\n' "$runs"
   printf 'target\t%s\n' "$target"
 } > "$artifact_dir/run-metadata.tsv"
@@ -191,12 +219,34 @@ while IFS=$'\t' read -r side run; do
   run_suite "$tree" "$side" "$run"
 done < <(core_ownership_schedule "$runs")
 
+# The parser and policy above came from immutable candidate blobs. Rechecking
+# the live checkout also makes concurrent edits visible instead of publishing a
+# misleading `runner_status=clean` verdict.
+core_ownership_validate_runner_provenance "$repo_root" "$candidate_sha"
+
 baseline_samples=()
 candidate_samples=()
 for ((run = 1; run <= runs; run++)); do
   baseline_samples+=("$artifact_dir/baseline-run-${run}.tsv")
   candidate_samples+=("$artifact_dir/candidate-run-${run}.tsv")
 done
+
+baseline_stability="$artifact_dir/baseline-stability.tsv"
+if ! core_ownership_stability_report \
+  "$policy_file" "${baseline_samples[@]}" > "$baseline_stability"; then
+  cat "$baseline_stability"
+  printf 'core-ownership baseline samples are unstable; artifacts: %s\n' \
+    "$artifact_dir" >&2
+  exit 1
+fi
+candidate_stability="$artifact_dir/candidate-stability.tsv"
+if ! core_ownership_stability_report \
+  "$policy_file" "${candidate_samples[@]}" > "$candidate_stability"; then
+  cat "$candidate_stability"
+  printf 'core-ownership candidate samples are unstable; artifacts: %s\n' \
+    "$artifact_dir" >&2
+  exit 1
+fi
 
 core_ownership_medians "$runs" "${baseline_samples[@]}" > "$artifact_dir/baseline-medians.tsv"
 core_ownership_medians "$runs" "${candidate_samples[@]}" > "$artifact_dir/candidate-medians.tsv"
