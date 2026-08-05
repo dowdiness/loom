@@ -26,16 +26,23 @@ priv struct CacheEntry[Ast] {
 }
 
 ///|
+/// Rebuild the cache often enough to bound stale edit-generation retention,
+/// while amortizing the O(current tree) reachability walk across folds.
+let cst_fold_compaction_interval : Int = 64
+
+///|
 /// Memoized catamorphism over CstNode.
 ///
 /// Cache key: CstNode.hash (structural content hash, position-independent).
 /// Cache entries store the CstNode for collision verification via Eq.
 /// The cache persists across folds — unchanged subtrees are O(1) on cache hit.
-/// Stale entries from deleted subtrees remain until the CstFold is dropped;
-/// this trades bounded memory overhead for O(1) reuse without tree walks.
+/// Every 64 folds, the cache is rebuilt from entries reachable from the current
+/// tree. Stale entries can therefore retain source-backed CSTs for at most one
+/// bounded compaction window rather than for the lifetime of the CstFold.
 pub struct CstFold[Ast] {
   algebra : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
-  priv cache : Map[Int, CacheEntry[Ast]]
+  priv mut cache : Map[Int, CacheEntry[Ast]]
+  priv mut folds_since_compaction : Int
   mut stats : FoldStats
 }
 
@@ -43,7 +50,12 @@ pub struct CstFold[Ast] {
 pub fn[Ast] CstFold::new(
   algebra : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast,
 ) -> CstFold[Ast] {
-  { algebra, cache: Map([]), stats: FoldStats::zero() }
+  {
+    algebra,
+    cache: Map([]),
+    folds_since_compaction: 0,
+    stats: FoldStats::zero(),
+  }
 }
 
 ///|
@@ -51,7 +63,40 @@ pub fn[Ast] CstFold::new(
 /// Resets stats but preserves the cache for incremental reuse.
 pub fn[Ast] CstFold::fold(self : CstFold[Ast], root : @seam.SyntaxNode) -> Ast {
   self.stats = FoldStats::zero()
-  self.fold_node(root)
+  let result = self.fold_node(root)
+  self.folds_since_compaction = self.folds_since_compaction + 1
+  if self.folds_since_compaction >= cst_fold_compaction_interval {
+    self.compact_reachable(root)
+    self.folds_since_compaction = 0
+  }
+  result
+}
+
+///|
+/// Retain only cache entries structurally reachable from the current tree.
+/// Traversing the tree, rather than retaining entries touched by the fold, is
+/// necessary because a root cache hit skips every descendant.
+fn[Ast] CstFold::compact_reachable(
+  self : CstFold[Ast],
+  root : @seam.SyntaxNode,
+) -> Unit {
+  let retained : Map[Int, CacheEntry[Ast]] = Map([])
+  for element in @seam.CstElement::Node(root.cst_node()).iter() {
+    match element {
+      @seam.CstElement::Node(cst) => {
+        let hash = cst.hash
+        match self.cache.get(hash) {
+          Some(entry) if entry.cst == cst =>
+            // Keep the folded result, but refresh the collision witness so an
+            // unchanged subtree cannot pin an older backing source.
+            retained[hash] = { cst, result: entry.result }
+          _ => ()
+        }
+      }
+      @seam.CstElement::Token(_) => ()
+    }
+  }
+  self.cache = retained
 }
 
 ///|

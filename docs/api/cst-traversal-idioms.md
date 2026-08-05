@@ -52,6 +52,13 @@ let cst_fold = CstFold::new(grammar.fold_node)   // algebra: (SyntaxNode, recurs
 let ast = cst_fold.fold(syntax_root)
 ```
 
+The cache is lifetime-bounded without a public tuning surface. After every 64
+folds, Loom rebuilds it from entries reachable through the current raw CST.
+Entries for deleted historical subtrees are then released, while reachable
+descendant entries remain warm even when a root cache hit skipped their
+algebras. Between compactions, the cache contains the current tree plus a
+finite window of recent fold generations.
+
 > **Caveat — a cache hit returns the prior `Ast` verbatim, with no offset
 > adjustment.** The key is `CstNode.hash` (position-independent), and on a hit
 > `fold_node` returns the previously computed result unchanged. So your algebra's

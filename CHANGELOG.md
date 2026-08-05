@@ -126,6 +126,12 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Fixed
 
+- **`dowdiness/loom/core` — bounded long-lived `CstFold` cache retention
+  ([#782](https://github.com/dowdiness/loom/issues/782)):** the memoized CST→AST
+  fold now compacts its private cache every 64 folds, retaining entries
+  reachable from the current CST and releasing deleted historical subtrees.
+  Structural collision verification and descendant warming remain unchanged.
+
 - **`examples/html` — infinite loop on a stray close tag; native `moon test` no longer hangs (#646):**
   `parse_html_root`'s fallthrough recovery called `skip_until(is_sync_point)`,
   which consumes nothing when the current token is already a sync point. A
