@@ -31,6 +31,27 @@ test "line-end cache preserves deep-prefix tokenization" {
 }
 
 ///|
+test "line-end cache preserves quote forms and line terminators" {
+  for
+    source in [
+      "> payload\n", ">payload\r\n", "  > payload\r", "\t> payload\n", "> > payload",
+      ">\n", "> \r\n", "> first\n>second\r\n  > third\r> > fourth",
+    ] {
+    let cached = tokenize(source) catch {
+      _ => abort("cached quote-form tokenization failed")
+    }
+    let (uncached, _) = @core.tokenize_with_modes(
+      markdown_mode_lexer,
+      source,
+      EOF,
+    ) catch {
+      _ => abort("uncached quote-form tokenization failed")
+    }
+    assert_eq(cached, uncached)
+  }
+}
+
+///|
 test "line-end cache resets before earlier incremental relex" {
   let source_id = @core.SourceId("markdown-line-end-cache-relex")
   let source = line_end_cache_nested_quote_doc(128, 100)
