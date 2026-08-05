@@ -85,6 +85,41 @@ git -C "$fixture/cli-repo" add .
 git -C "$fixture/cli-repo" commit -qm initial
 cli_sha=$(git -C "$fixture/cli-repo" rev-parse HEAD)
 
+cat > "$fixture/cli-repo/docs/performance/core-ownership-bench-policy.tsv" <<'EOF'
+# policy_version=1
+# max_relative_mad_percent=5
+EOF
+if (cd "$fixture/cli-repo" && bash ./bench-check.sh --profile core-ownership \
+  --validate) > "$fixture/cli-empty-policy.stdout" \
+  2> "$fixture/cli-empty-policy.stderr"; then
+  printf 'SELFTEST FAIL: public CLI accepted a policy without required benchmarks\n' >&2
+  exit 1
+fi
+grep -F 'at least one required benchmark is required' \
+  "$fixture/cli-empty-policy.stderr" >/dev/null || {
+  cat "$fixture/cli-empty-policy.stderr" >&2
+  exit 1
+}
+git -C "$fixture/cli-repo" restore docs/performance/core-ownership-bench-policy.tsv
+
+cat > "$fixture/cli-repo/docs/performance/core-ownership-bench-policy.tsv" <<'EOF'
+# policy_version=1
+# max_relative_mad_percent=5
+pkg::copy	5	0	required	informational	copy signal
+EOF
+if (cd "$fixture/cli-repo" && bash ./bench-check.sh --profile core-ownership \
+  --validate) > "$fixture/cli-no-gate-policy.stdout" \
+  2> "$fixture/cli-no-gate-policy.stderr"; then
+  printf 'SELFTEST FAIL: public CLI accepted a policy without a required gate\n' >&2
+  exit 1
+fi
+grep -F 'at least one required gated benchmark is required' \
+  "$fixture/cli-no-gate-policy.stderr" >/dev/null || {
+  cat "$fixture/cli-no-gate-policy.stderr" >&2
+  exit 1
+}
+git -C "$fixture/cli-repo" restore docs/performance/core-ownership-bench-policy.tsv
+
 if (cd "$fixture/cli-repo" && bash ./bench-check.sh --profile core-ownership \
   --baseline-ref "$cli_sha" --runs 1) \
   > "$fixture/cli-runs.stdout" 2> "$fixture/cli-runs.stderr"; then

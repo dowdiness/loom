@@ -90,6 +90,10 @@ core_ownership_validate_policy() {
       next
     }
     {
+      if ($4 == "required") {
+        required_count++
+        if ($5 == "gated") required_gated_count++
+      }
       if ($1 in seen) {
         print "policy: duplicate benchmark: " $1 > "/dev/stderr"
         bad = 1
@@ -103,6 +107,14 @@ core_ownership_validate_policy() {
       }
       if (stability_count != 1) {
         print "policy: exactly one # max_relative_mad_percent=<positive number> declaration required" > "/dev/stderr"
+        bad = 1
+      }
+      if (required_count == 0) {
+        print "policy: at least one required benchmark is required" > "/dev/stderr"
+        bad = 1
+      }
+      if (required_gated_count == 0) {
+        print "policy: at least one required gated benchmark is required" > "/dev/stderr"
         bad = 1
       }
       exit bad
