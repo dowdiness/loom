@@ -104,10 +104,22 @@ boundary and bounded-stack fix. Issue
 [#883](https://github.com/dowdiness/loom/issues/883) owns the bounded
 delimiter-plan cost-reduction prototype.
 
-## Deterministic Work, Scale 64
+## Deterministic work, scale 64
+
+This table preserves the exact transcript from temporary probe commit
+`8ea482e3`. “Retained events” is the measured `EventBuffer::length()` from that
+probe, not a value reconstructed from the final CST. The temporary split API
+was removed at investigation HEAD.
+
+The checked-in `event_attribution_wbtest.mbt` separately pins production
+CST/diagnostic parity and its final token-read and payload transcript. It does
+not infer event counts from CST shape, because green-tree balancing can add
+`RepeatGroup` nodes that had no corresponding parser events. Its final recovery
+fixture is also broader than the historical probe fixture, so those transcript
+rows are not expected to match numerically.
 
 Format: source units; tokens; token/start/end reads; max reads at one token
-index; retained parse events; payload copies/units.
+index; exact retained events; payload copies/units.
 
 | Corpus | Source (units) | Tokens | Token reads | Start reads | End reads | Max reads | Retained events | Payload copies | Payload units |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -196,9 +208,9 @@ planning first and link indexing second, but the evidence is adversarial and
 does not yet justify a production optimization without representative-corpus
 control measurements for a concrete candidate.
 
-## Payload Materialization
+## Payload materialization
 
-Handwritten lexer payload/source ratios at scale 64:
+Total materialized token-payload/source ratios at scale 64:
 
 | Corpus | Ratio |
 |---|---:|
@@ -207,9 +219,10 @@ Handwritten lexer payload/source ratios at scale 64:
 | HTML | 92% |
 | fenced code | 73% |
 
-Backtick tokens carry no handwritten payload; fenced info strings copied by
-generated payload lexer code remain a negative control for handwritten copy
-elimination.
+These totals combine handwritten Markdown token payloads with fenced info
+strings copied by generated payload lexer code. The deterministic table reports
+fence-info units separately. Backtick tokens carry no handwritten payload and
+remain a negative control for handwritten copy elimination.
 
 ### Copy-Elision Lower Bound at 500 Groups
 
