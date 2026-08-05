@@ -11,7 +11,8 @@ runs=5
 validate_only=false
 artifact_dir="${CORE_OWNERSHIP_ARTIFACT_DIR:-}"
 
-# shellcheck source=core-ownership-bench-lib.sh
+# Resolved relative to the checked-in runner root.
+# shellcheck disable=SC1091
 source "$repo_root/scripts/core-ownership-bench-lib.sh"
 
 usage() {
@@ -63,10 +64,7 @@ if [[ -z "$baseline_ref" ]]; then
   printf '%s\n' '--baseline-ref is required for the core-ownership profile' >&2
   exit 2
 fi
-if [[ ! "$runs" =~ ^[1-9][0-9]*$ ]]; then
-  printf 'Invalid --runs value: %s\n' "$runs" >&2
-  exit 2
-fi
+core_ownership_validate_release_runs "$runs"
 
 baseline_sha=$(git -C "$repo_root" rev-parse --verify "${baseline_ref}^{commit}")
 candidate_sha=$(git -C "$repo_root" rev-parse --verify "${candidate_ref}^{commit}")
@@ -74,6 +72,8 @@ if ! git -C "$repo_root" merge-base --is-ancestor "$baseline_sha" "$candidate_sh
   printf 'Baseline %s is not an ancestor of candidate %s\n' "$baseline_sha" "$candidate_sha" >&2
   exit 1
 fi
+core_ownership_validate_runner_provenance "$repo_root" "$candidate_sha"
+runner_sha=$(git -C "$repo_root" rev-parse HEAD)
 
 if [[ -z "$artifact_dir" ]]; then
   artifact_dir=$(mktemp -d "${TMPDIR:-/tmp}/loom-core-ownership-artifacts.XXXXXX")
@@ -132,6 +132,8 @@ cp "$policy_file" "$artifact_dir/policy.tsv"
 {
   printf 'baseline_sha\t%s\n' "$baseline_sha"
   printf 'candidate_sha\t%s\n' "$candidate_sha"
+  printf 'runner_sha\t%s\n' "$runner_sha"
+  printf 'runner_status\tclean\n'
   printf 'runs\t%s\n' "$runs"
   printf 'target\t%s\n' "$target"
 } > "$artifact_dir/run-metadata.tsv"
@@ -182,14 +184,12 @@ run_suite() {
   core_ownership_validate_required_rows "$policy_file" "$parsed_file" "$side run $run"
 }
 
-for side in baseline candidate; do
+while IFS=$'\t' read -r side run; do
   tree="$baseline_tree"
   [[ "$side" == "candidate" ]] && tree="$candidate_tree"
-  for ((run = 1; run <= runs; run++)); do
-    printf 'core-ownership: %s sample %d/%d\n' "$side" "$run" "$runs"
-    run_suite "$tree" "$side" "$run"
-  done
-done
+  printf 'core-ownership: %s sample %d/%d\n' "$side" "$run" "$runs"
+  run_suite "$tree" "$side" "$run"
+done < <(core_ownership_schedule "$runs")
 
 baseline_samples=()
 candidate_samples=()

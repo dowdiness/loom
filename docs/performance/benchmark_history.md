@@ -2,47 +2,6 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
-## 2026-08-05 (core collection ownership Phase 0 baseline)
-
-- Issue: [#877](https://github.com/dowdiness/loom/issues/877)
-- `CORE_OWNERSHIP_BASELINE_SHA`:
-  `15af673a9ef27cd7b9ab42cad7b9e3c85ce870ad`
-- Comparison: the same committed revision in separate clean baseline and
-  candidate worktrees, five samples per side, median of like-for-like rows
-- Environment: WSL2, Linux 6.18.33.2, x86_64, host `A6`; CPU governor was not
-  exposed by the environment
-- Toolchain: Moon `0.1.20260713 (75c7e1f 2026-07-13)`
-- Target: release wasm-gc
-- Command: `bash bench-check.sh --profile core-ownership --baseline-ref
-  15af673a9ef27cd7b9ab42cad7b9e3c85ce870ad --runs 5`
-- Artifact inventory: ten raw Moon outputs, ten module-qualified parsed TSVs,
-  baseline/candidate environment and median TSVs, policy, run metadata, and
-  comparison TSV (280 KiB total); captured for the Phase 0 PR artifact
-
-All ten required policy rows were present in every sample. The independent
-clean-worktree control passed: the largest positive median difference was
-2.73% on the Lambda full-parse row, below the 5% gate. The public
-`LexResult::with_starts` row is intentionally informational; the representative
-end-to-end rows remain gated.
-
-| Qualified row | Baseline median | Clean-worktree control | Difference |
-|---|---:|---:|---:|
-| JSON full parse, 100-member object | 217.55 µs | 220.57 µs | +1.39% |
-| JSON incremental edit cycle | 213.17 µs | 216.77 µs | +1.69% |
-| Lambda full parse, complex | 11.36 µs | 11.67 µs | +2.73% |
-| Lambda incremental multiple edits | 9.85 µs | 9.88 µs | +0.30% |
-| `LexResult::with_starts`, 10,000 tokens | 45.76 µs | 46.08 µs | +0.70% (INFO) |
-| Markdown equal-cardinality mode relex | 507.97 ns | 515.69 ns | +1.52% |
-| Markdown CST plus AST, 100 paragraphs | 1.76 ms | 1.78 ms | +1.14% |
-| Markdown imperative AST edit cycle | 38.95 µs | 38.77 µs | -0.46% |
-| CST package-owned construction, 32 children | 165.87 ns | 164.59 ns | -0.77% |
-| CST public construction, 32 children | 161.67 ns | 162.87 ns | +0.74% |
-
-This is a measurement-only baseline. It changes no ownership, visibility,
-copying, or parser behavior. Phase 1-4 implementation branches must descend
-from the exact SHA above; the baseline must not be moved to accept a later
-regression.
-
 ## 2026-08-05 (bounded `CstFold` cache retention)
 
 - Issue: [#782](https://github.com/dowdiness/loom/issues/782)

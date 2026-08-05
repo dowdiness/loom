@@ -3,6 +3,42 @@
 # Deterministic validation and comparison core for the core-ownership profile.
 # Callers own filesystem, Git, Moon, and artifact I/O.
 
+core_ownership_schedule() {
+  local runs="$1"
+  local run
+  for ((run = 1; run <= runs; run++)); do
+    printf 'baseline\t%d\n' "$run"
+    printf 'candidate\t%d\n' "$run"
+  done
+}
+
+core_ownership_validate_release_runs() {
+  local runs="$1"
+  if [[ "$runs" != "5" ]]; then
+    printf 'core-ownership release profile requires exactly 5 samples per revision; received %s\n' \
+      "$runs" >&2
+    return 1
+  fi
+}
+
+core_ownership_validate_runner_provenance() {
+  local repo_root="$1" candidate_sha="$2"
+  local runner_sha status
+  runner_sha=$(git -C "$repo_root" rev-parse HEAD)
+  if [[ "$runner_sha" != "$candidate_sha" ]]; then
+    printf 'core-ownership runner HEAD %s does not match candidate %s\n' \
+      "$runner_sha" "$candidate_sha" >&2
+    return 1
+  fi
+  status=$(git -C "$repo_root" status --porcelain \
+    --untracked-files=all --ignore-submodules=none)
+  if [[ -n "$status" ]]; then
+    printf 'core-ownership runner checkout must be clean; found:\n%s\n' \
+      "$status" >&2
+    return 1
+  fi
+}
+
 core_ownership_validate_policy() {
   local policy_file="$1"
   awk -F '\t' '

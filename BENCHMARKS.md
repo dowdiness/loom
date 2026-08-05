@@ -84,15 +84,23 @@ bash bench-check.sh --profile core-ownership \
   --baseline-ref <CORE_OWNERSHIP_BASELINE_SHA> --runs 5
 ```
 
-The runner requires the baseline to be an ancestor of the candidate, checks out
-both revisions into clean detached worktrees, initializes their pinned
-submodules, and runs explicit `wasm-gc` release benchmarks. It records the Moon
-version, target, machine, host, and CPU governor and rejects an environment
-mismatch. The artifact directory printed at the end contains every raw Moon
-output, module-qualified parsed sample, both median tables, the copied policy,
-run metadata, and the comparison report. Set
+The release profile requires exactly five samples per revision. Its runner
+checkout must be clean and its `HEAD` must equal the resolved candidate commit,
+so the parser, policy, and comparison code are part of the recorded candidate
+revision. The runner requires the baseline to be an ancestor of that candidate,
+checks out both revisions into clean detached worktrees, initializes their
+pinned submodules, and runs explicit `wasm-gc` release benchmarks in interleaved
+order (`baseline 1`, `candidate 1`, through sample 5). It records the runner SHA,
+Moon version, target, machine, host, and CPU governor and rejects a provenance
+or environment mismatch.
+
+The artifact directory printed at the end contains every raw Moon output,
+module-qualified parsed sample, both median tables, the copied policy, run
+metadata, and the comparison report. The command creates these files locally;
+it does not upload them. Set
 `CORE_OWNERSHIP_ARTIFACT_DIR=/absolute/path` when a CI or PR workflow needs a
-known upload location.
+known upload location, and upload the complete directory as a PR or release
+artifact before marking the measurement issue complete.
 
 `docs/performance/core-ownership-bench-policy.tsv` is fail-closed. Every row has
 a module-qualified key, relative threshold, absolute threshold, required or
@@ -108,6 +116,11 @@ Run `scripts/bench-check-selftest.sh` after changing either profile. Its profile
 coverage includes unit parsing, policy and duplicate validation, required-row
 failure, incomplete samples, median selection, dual-threshold comparison,
 informational rows, and environment mismatch.
+
+The Phase 0 PR must preserve the recorded baseline commit as an ancestor of
+later implementation commits. Do not squash or rebase-merge that PR; use a merge
+commit. If the host cannot preserve the commit, measure and record the final
+merged commit as a replacement baseline before any implementation branch starts.
 
 `--update` refuses to overwrite a baseline when any existing benchmark name is
 absent from the current run, even if replacement `NEW` rows keep the count
