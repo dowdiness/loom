@@ -7,8 +7,13 @@ core_ownership_schedule() {
   local runs="$1"
   local run
   for ((run = 1; run <= runs; run++)); do
-    printf 'baseline\t%d\n' "$run"
-    printf 'candidate\t%d\n' "$run"
+    if ((run % 2 == 1)); then
+      printf 'baseline\t%d\n' "$run"
+      printf 'candidate\t%d\n' "$run"
+    else
+      printf 'candidate\t%d\n' "$run"
+      printf 'baseline\t%d\n' "$run"
+    fi
   done
 }
 

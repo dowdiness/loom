@@ -13,12 +13,12 @@ source "$repo_root/scripts/core-ownership-bench-lib.sh"
 cat > "$fixture/expected-schedule.tsv" <<'EOF'
 baseline	1
 candidate	1
-baseline	2
 candidate	2
+baseline	2
 baseline	3
 candidate	3
-baseline	4
 candidate	4
+baseline	4
 baseline	5
 candidate	5
 EOF

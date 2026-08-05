@@ -90,9 +90,10 @@ so the parser, policy, and comparison code are part of the recorded candidate
 revision. The runner requires the baseline to be an ancestor of that candidate,
 checks out both revisions into clean detached worktrees, initializes their
 pinned submodules, and runs explicit `wasm-gc` release benchmarks in interleaved
-order (`baseline 1`, `candidate 1`, through sample 5). It records the runner SHA,
-Moon version, target, machine, host, and CPU governor and rejects a provenance
-or environment mismatch.
+order. Pair order alternates (`baseline 1`, `candidate 1`, `candidate 2`,
+`baseline 2`, and so on) to balance which revision runs first. It records the
+runner SHA, Moon version, target, machine, host, and CPU governor and rejects a
+provenance or environment mismatch.
 
 The artifact directory printed at the end contains every raw Moon output,
 module-qualified parsed sample, both median tables, the copied policy, run
