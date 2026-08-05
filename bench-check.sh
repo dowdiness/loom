@@ -4,6 +4,7 @@
 # Usage:
 #   bash bench-check.sh            # compare current run against baseline (exit 1 on regression)
 #   bash bench-check.sh --update   # run benchmarks and save new baseline
+#   bash bench-check.sh --profile core-ownership --baseline-ref <sha> --runs 5
 #
 # Run from repo root (where README.md lives).
 
@@ -85,6 +86,32 @@ validate_benchmark_tsv() {
     END { exit bad }
   '
 }
+
+# Internal entry points keep the opt-in profile on the same parser and TSV
+# validator as the default scheduled detector.
+if [[ "${1:-}" == "--parse-bench-output" ]]; then
+  parse_bench_output
+  exit 0
+fi
+if [[ "${1:-}" == "--validate-benchmark-tsv" ]]; then
+  label="${2:-benchmark}"
+  data=$(cat)
+  if [[ -z "$data" ]]; then
+    printf '%s: empty benchmark TSV\n' "$label" >&2
+    exit 1
+  fi
+  validate_benchmark_tsv "$label" "$data"
+  exit $?
+fi
+if [[ "${1:-}" == "--profile" ]]; then
+  profile="${2:-}"
+  shift 2 || true
+  if [[ "$profile" != "core-ownership" ]]; then
+    printf 'Unknown benchmark profile: %s\n' "$profile" >&2
+    exit 2
+  fi
+  exec bash scripts/core-ownership-bench-profile.sh "$@"
+fi
 
 # --- validate that --update does not discard baseline benchmark names ---
 validate_update_inventory() {

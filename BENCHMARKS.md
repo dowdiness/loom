@@ -66,6 +66,72 @@ report and must be fixed rather than accepted as a baseline update. Policy
 changes require a reason in the TSV and coverage in
 `scripts/bench-check-selftest.sh`.
 
+### Core ownership release profile
+
+The collection-ownership migration uses a separate, opt-in release profile.
+It does not change the default 15% detector or its scheduled persistence
+workflow. Validate the profile policy without benchmarking with:
+
+```bash
+bash bench-check.sh --profile core-ownership --validate
+```
+
+After the Phase 0 measurement commit is recorded, compare a committed candidate
+against it with five clean samples per revision:
+
+```bash
+bash bench-check.sh --profile core-ownership \
+  --baseline-ref <CORE_OWNERSHIP_BASELINE_SHA> --runs 5
+```
+
+The release profile requires exactly five samples per revision. Its runner
+checkout must be clean and its `HEAD` must equal the resolved candidate commit,
+so the parser, policy, and comparison code are part of the recorded candidate
+revision. The runner requires the baseline to be an ancestor of that candidate,
+checks out both revisions into clean detached worktrees, initializes their
+pinned submodules, and runs explicit `wasm-gc` release benchmarks in interleaved
+order. Pair order alternates (`baseline 1`, `candidate 1`, `candidate 2`,
+`baseline 2`, and so on) to balance which revision runs first. It records the
+runner SHA and the exact Git blob IDs of the checker, policy, profile, and core
+library. Checker and policy reads use commit snapshots rather than the live
+checkout, and provenance is checked again after sampling. The runner also
+records the Moon version, target, machine, host, and CPU governor and rejects a
+provenance or environment mismatch.
+
+The artifact directory printed at the end contains every raw Moon output,
+module-qualified parsed sample, both median and stability tables, the copied
+policy, run metadata, and the comparison report. The command creates these
+files locally; it does not upload them. Set
+`CORE_OWNERSHIP_ARTIFACT_DIR=/absolute/path` when a CI or PR workflow needs a
+known location. Preserve the complete directory as a checked-in archive in the
+Phase 0 PR before marking the measurement issue complete.
+
+`docs/performance/core-ownership-bench-policy.tsv` is fail-closed. Every row has
+a module-qualified key, relative threshold, absolute threshold, required or
+optional disposition, gated or informational mode, and a reason. Missing
+required rows, duplicate or malformed output, incomplete sample sets, and
+environment mismatches abort without a performance verdict. Before comparing
+medians, each required row must stay within the policy's 5% relative median
+absolute deviation limit on both sides; unstable samples produce a report and
+no performance verdict. The performance verdict uses the median of the five
+within-pair deltas and percentages, so the balanced schedule cancels temporal
+drift instead of comparing two unrelated medians. Gated rows regress only when
+both their relative and absolute thresholds are exceeded; the 50 ns absolute
+threshold prevents percentage-only failures for selected sub-microsecond rows.
+The 10,000-token public `LexResult` construction row is informational, while
+representative end-to-end parse rows remain gated at 5%.
+
+Run `scripts/bench-check-selftest.sh` after changing either profile. Its profile
+coverage includes unit parsing, policy and duplicate validation, required-row
+failure, incomplete samples, median selection, dual-threshold comparison,
+informational rows, commit snapshots, sample stability, and environment
+mismatch.
+
+The Phase 0 PR must preserve the recorded baseline commit as an ancestor of
+later implementation commits. Do not squash or rebase-merge that PR; use a merge
+commit. If the host cannot preserve the commit, measure and record the final
+merged commit as a replacement baseline before any implementation branch starts.
+
 `--update` refuses to overwrite a baseline when any existing benchmark name is
 absent from the current run, even if replacement `NEW` rows keep the count
 similar. If a benchmark is intentionally retired, remove its baseline row as a

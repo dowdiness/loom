@@ -228,7 +228,7 @@ the audit gate.
 ## Phase 0: acceptance and repeat audit
 
 - [x] Accept the linked ADR (maintainer-approved 2026-08-05).
-- [ ] Repeat `moon ide find-references` for the existing symbols
+- [x] Repeat `moon ide find-references` for the existing symbols
   `CstNode::new`,
   `CstNode::with_replaced_child`, all `build_tree*` methods,
   `CstElement::map`, `LexResult::LexResult`, `LexResult::with_starts`,
@@ -240,23 +240,24 @@ the audit gate.
   `ModeRelexState::new`, and `ModeRelexFactory::new` have no pre-migration
   symbols; audit their current struct literals and direct field access through
   the type searches instead of recording a misleading zero-reference result.
-- [ ] Search direct field access for every affected type in Loom, Canopy,
+- [x] Search direct field access for every affected type in Loom, Canopy,
   js_engine, indexed public GitHub code, and published module metadata where
   reverse-dependency evidence exists.
-- [ ] Record the exact revisions and classify each hit as production, test,
+- [x] Record the exact revisions and classify each hit as production, test,
   benchmark, generated code, or documentation.
-- [ ] Create the measurement-preparation issue and bounded implementation
+- [x] Create the measurement-preparation issue and bounded implementation
   issues for Phases 1-5. Do not combine the entire migration into one review
   unit.
-- [ ] Before any ownership implementation commit, land one measurement-only
+- [x] Before any ownership implementation commit, land one measurement-only
   preparation commit that adds the `core-ownership` profile, its policy file,
   parser/comparator self-tests, `BENCHMARKS.md` workflow, and every required
   benchmark row using the current interfaces. The commit must contain no
   ownership implementation change.
-- [ ] Run the prepared profile for five samples on that clean commit, store its
-  raw outputs, and record the commit as `CORE_OWNERSHIP_BASELINE_SHA` in the
-  implementing issues and benchmark history. Base every Phase 1-4 branch on
-  that exact revision.
+- [x] Run the prepared profile for five samples on that clean commit, store its
+    raw outputs, and record the commit as `CORE_OWNERSHIP_BASELINE_SHA` in the
+    implementing issues and benchmark history. Base every Phase 1-4 branch on
+    that exact revision. PR #884 stores the complete evidence archive under
+    `docs/performance/evidence/`.
 
 Record at least these local audit outputs in the implementing issues:
 
@@ -289,6 +290,31 @@ its recorded baseline commit.
    owns Phase 4 as a small independent API migration.
 6. `chore(release): verify and document core ownership migration`
    owns Phase 5 after the implementation issues merge.
+
+### Phase 0 audit record (2026-08-05)
+
+- Loom revision: `a3161f25125c8a65ae90df38fdb0e5af18a6b0f2`.
+- Canopy revision: `b1935696d88e5956a0874761319ec8a2ba871791`.
+- js_engine revision: `91b558b2d4a9f25008cd4f68301d0532726bf2d3`.
+- The public GitHub code-search index exposed Loom at `6e8e3de...`; indexed
+  hits were checked separately from the exact local revision audit.
+- Canopy's affected low-level calls are confined to one CST test fixture and
+  the neutral workspace/probe grammar fixture. js_engine has no affected
+  boundary calls.
+- `dowdiness/moondsp` has two unpublished `0.0.0` spec fixtures with local-path
+  Loom dependencies. They are external migration fixtures, not released
+  runtime packages. `dowdiness/seam` is an independent predecessor package,
+  not a Loom reverse dependency.
+- Origin had no Loom tags. No published-version migration matrix was available
+  to add to this audit.
+- Exact semantic-reference counts, unique paths, pre-migration `rg -l`
+  inventories, and consumer classifications are recorded in #877-#881.
+
+The bounded issue split is #877 (measurement), #878 (Phase 1), #879
+(Phase 2), #880 (Phase 3), #881 (Phase 4), and #882 (Phase 5). Phases 1-4
+must descend from `CORE_OWNERSHIP_BASELINE_SHA`
+`031200eb552db96351f6ff84dfc9c414ec8b5dde` and remain blocked until the Phase
+0 PR preserves that commit in main history.
 
 ## Phase 1: close the live mode-relex alias
 

@@ -1,0 +1,13 @@
+# policy_version=1
+# max_relative_mad_percent=5
+# qualified_key	relative_percent	absolute_ns	required	mode	reason
+dowdiness/seam::core ownership: CST public construction from 32 children	5	50	required	gated	Public copy boundary; dual gate avoids percentage-only sub-microsecond noise.
+dowdiness/seam::core ownership: CST package-owned construction from 32 children	5	0	required	gated	Owned-child hot path must not regress by more than five percent.
+dowdiness/loom/core::core ownership: LexResult::with_starts 10000 tokens	5	0	required	informational	Public copy cost is diagnostic unless representative end-to-end rows regress.
+dowdiness/markdown::core ownership: equal-cardinality mode relex cycle 500 paragraphs	5	50	required	gated	Direct offset-handoff row; dual gate avoids percentage-only sub-microsecond noise.
+dowdiness/json::json: 100-member object - full reparse	5	0	required	gated	Representative JSON full parse.
+dowdiness/json::json: 100-member object - incremental (edit inner object)	5	0	required	gated	Fixed equal-length JSON forward-and-restore edit cycle.
+dowdiness/lambda/benchmarks::full parse - complex	5	0	required	gated	Representative Lambda full parse.
+dowdiness/lambda/benchmarks::incremental - multiple edits	5	0	required	gated	Fixed Lambda incremental edit sequence.
+dowdiness/markdown::perf envelope: CST plus AST 100 paragraphs	5	0	required	gated	Representative Markdown full CST and AST parse.
+dowdiness/markdown::perf envelope: imperative AST cycle 100 paragraphs	5	0	required	gated	Fixed Markdown forward-and-restore edit cycle.

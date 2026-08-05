@@ -2,6 +2,64 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-08-05 (core collection ownership Phase 0 baseline)
+
+- Issue: [#877](https://github.com/dowdiness/loom/issues/877)
+- `CORE_OWNERSHIP_BASELINE_SHA`:
+  `031200eb552db96351f6ff84dfc9c414ec8b5dde`
+- Comparison: the same committed revision in separate clean baseline and
+  candidate worktrees, five samples per side, balanced interleaved order, and
+  median of like-for-like rows
+- Environment: WSL2, Linux 6.18.33.2, x86_64, host `A6`; CPU governor was not
+  exposed by the environment
+- Toolchain: Moon `0.1.20260713 (75c7e1f 2026-07-13)`
+- Target: release wasm-gc
+- Command: `bash bench-check.sh --profile core-ownership --baseline-ref
+  031200eb552db96351f6ff84dfc9c414ec8b5dde --runs 5`
+- Evidence inventory: the accepted baseline control, final hardened-runner
+  verification, and three rejected controls, including every raw Moon output,
+  parsed sample, environment record, policy, metadata file, and available
+  stability/paired report (1.5 MiB unpacked). The checked-in
+  [evidence archive](evidence/loom-core-ownership-pr884-evidence-031200eb.tar.gz)
+  is 122 KiB and has SHA-256
+  `bd0a6a85992b8746fe148e268eb18d96f34707a7f29c488aea7ce5b0b2d60e6b`.
+
+All ten required policy rows were present exactly once in every sample. Runner,
+baseline, and candidate SHAs were identical, and the runner recorded a clean
+checkout. The accepted control passed every gated row; the largest positive
+median difference was 1.51% on package-owned CST construction. Two earlier
+controls were rejected rather than selected away: the predecessor runner found
+a 6.10% same-code Markdown deviation, while a same-baseline run had 13–46%
+relative MAD across required candidate rows. Their raw evidence is retained in
+the bundle above.
+
+| Qualified row | Baseline median | Clean-worktree control | Difference |
+|---|---:|---:|---:|
+| JSON full parse, 100-member object | 226.07 µs | 224.68 µs | -0.61% |
+| JSON incremental edit cycle | 219.39 µs | 219.09 µs | -0.14% |
+| Lambda full parse, complex | 11.77 µs | 11.64 µs | -1.10% |
+| Lambda incremental multiple edits | 10.11 µs | 9.95 µs | -1.58% |
+| `LexResult::with_starts`, 10,000 tokens | 46.94 µs | 46.93 µs | -0.02% (INFO) |
+| Markdown equal-cardinality mode relex | 526.94 ns | 517.35 ns | -1.82% |
+| Markdown CST plus AST, 100 paragraphs | 1.90 ms | 1.80 ms | -5.26% |
+| Markdown imperative AST edit cycle | 39.61 µs | 39.36 µs | -0.63% |
+| CST package-owned construction, 32 children | 167.14 ns | 169.66 ns | +1.51% |
+| CST public construction, 32 children | 168.19 ns | 170.42 ns | +1.33% |
+
+This is a measurement-only baseline. It changes no ownership, visibility,
+copying, or parser behavior. Phase 1-4 implementation branches must descend
+from the exact SHA above; the baseline must not be moved to accept a later
+regression. The Phase 0 PR must preserve this commit with a merge commit, or a
+replacement baseline must be measured after merge.
+
+PR #884 review hardening snapshots the checker and policy from verified
+candidate blobs, records all runner blob IDs, rechecks live provenance after
+sampling, and rejects a required row when either side exceeds 5% relative MAD.
+The performance verdict uses median within-pair deltas and percentages, matching
+the balanced interleaved schedule. Final verification against runner commit
+`95db812e0b31194991adadff3ce00778153d04d3` passed all gates; the largest
+positive paired difference was 2.33% on the JSON incremental edit cycle.
+
 ## 2026-08-05 (bounded `CstFold` cache retention)
 
 - Issue: [#782](https://github.com/dowdiness/loom/issues/782)

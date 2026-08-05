@@ -309,4 +309,5 @@ cmp -s "$fixture/expected-updated" "$baseline" || {
 }
 
 
+bash "$repo_root/scripts/core-ownership-bench-selftest.sh"
 printf 'SELFTEST PASS\n'
