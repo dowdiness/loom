@@ -55,6 +55,7 @@ Superseded:
 Understanding how the layers fit together. Principles only — no specific types/fields/lines.
 
 - [architecture/overview.md](architecture/overview.md) — layer diagram, architectural principles
+- [plans/2026-08-05-core-collection-ownership-migration.md](plans/2026-08-05-core-collection-ownership-migration.md) — proposed staged migration that seals CST, lexer-result, mode-relex, language-spec, and damage-tracker collection aliases (#783)
 - [architecture/pipeline.md](architecture/pipeline.md) — parse pipeline step by step
 - [architecture/markdown-ir.md](architecture/markdown-ir.md) — MarkdownIR responsibilities, identity boundary, invariants, anti-CST-cloning rule, extension scope, and M0/M1 exit criteria
 - [superpowers/specs/2026-08-02-markdown-local-unresolved-block-design.md](superpowers/specs/2026-08-02-markdown-local-unresolved-block-design.md) — accepted private unresolved block-lowering seam for relative origins, per-label reference dependencies, and lazy keyed MarkdownIR reuse
@@ -90,6 +91,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-08-05-core-collection-ownership-boundary.md](decisions/2026-08-05-core-collection-ownership-boundary.md) — **Accepted** stored CST metadata policy, opaque validated collection values, single-authority mode re-lexing, and measured internal no-copy construction (#783)
 - [decisions/2026-08-04-markdown-ir-exhaustive-read-view.md](decisions/2026-08-04-markdown-ir-exhaustive-read-view.md) — **Accepted** external adapters inspect every MarkdownIR semantic variant through one exhaustive typed view while private storage and common child/origin/diagnostic accessors remain separate (#862)
 - [decisions/2026-08-04-markdown-semantic-attachment-boundary.md](decisions/2026-08-04-markdown-semantic-attachment-boundary.md) — **Accepted** one opaque attachment reads owning MarkdownIR from a caller-owned `Parser[Block]` and performs stale-work collection internally (#863)
 - [decisions/2026-08-03-markdown-projection-attachment-boundary.md](decisions/2026-08-03-markdown-projection-attachment-boundary.md) — **Accepted** Loom owns the keyed Markdown projection attachment, Incr owns collection mechanics, and Canopy owns commit-time collection and disposal (#332)
