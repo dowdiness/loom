@@ -46,6 +46,8 @@ pub fn[Item, Id, StableItem] realign_projection_items(@projection.ProjectionIden
 
 pub fn[Item, Id, StableItem] realign_projection_items_with_optional_edit(@projection.ProjectionIdentityBaseline[Id], String, Array[Item], (Item) -> @projection.ProjectionLeaf, (Item, Id) -> StableItem, (@projection.ProjectionLeaf) -> Id, @core.Edit?) -> Array[StableItem]
 
+pub fn[R : @diagnostic.SourceResolver, D : @diagnostic.TextDisplay] render_diagnostics_plain_with_display(ArrayView[@diagnostic.Diagnostic], R, D) -> String raise @diagnostic.DiagnosticRenderError
+
 pub fn text_to_delta(String, String) -> Array[@core.TextDelta]
 
 pub fn to_edits(Array[@core.TextDelta]) -> Array[@core.Edit]
@@ -221,6 +223,8 @@ pub using @seam {trait IsTrivia}
 pub using @core {trait Renderable}
 
 pub using @diagnostic {trait SourceResolver}
+
+pub using @diagnostic {trait TextDisplay}
 
 pub using @diagnostic {trait ToDiagnostic}
 

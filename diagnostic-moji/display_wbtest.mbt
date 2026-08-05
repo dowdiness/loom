@@ -89,6 +89,44 @@ test "moji diagnostic renderer aligns CJK and tab markers" {
 }
 
 ///|
+test "moji diagnostic renderer aligns a later marker after an astral prefix" {
+  let source_id = @diagnostic.SourceId("astral-prefix")
+  let source = "𝒜; let ="
+  let resolver = DisplayTestResolver::{
+    id: source_id,
+    snapshot: @diagnostic.SourceSnapshot(
+      "astral.js",
+      source,
+      @diagnostic.LineIndex::new(source),
+    ),
+  }
+  let diagnostic = @diagnostic.Diagnostic(
+    origin=@diagnostic.DiagnosticOrigin("js_engine"),
+    severity=@diagnostic.DiagnosticSeverity::Error,
+    message="expected identifier",
+    labels=[
+      display_test_label(
+        @diagnostic.LabelStyle::Primary,
+        source_id,
+        8,
+        9,
+        "parser stopped here",
+      ),
+    ],
+  )
+  inspect(
+    render_plain(diagnostic, resolver),
+    content=(
+      #|error: expected identifier
+      #|--> astral.js
+      #|primary 1:9-1:10: parser stopped here
+      #|  1 | 𝒜; let =
+      #|    |        ^
+    ),
+  )
+}
+
+///|
 test "moji diagnostic renderer keeps a marker for a zero-width span" {
   let source_id = @diagnostic.SourceId("zero-width")
   let source = "a\u{200B}b"

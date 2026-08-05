@@ -22,6 +22,8 @@ pub using @diagnostic {
   type TextRange,
   type TextReplacement,
   trait SourceResolver,
+  trait TextDisplay,
   trait ToDiagnostic,
   render_diagnostics_plain,
+  render_diagnostics_plain_with_display,
 }
