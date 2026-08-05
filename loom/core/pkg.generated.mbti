@@ -31,10 +31,6 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_i
 
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(@diagnostic.SourceId, String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, DiagnosticSet)
 
-pub fn[T, K : @seam.ToRawKind] prototype_build_event_buffer(@seam.EventBuffer, LanguageSpec[T, K]) -> @seam.CstNode
-
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] prototype_parse_tokens_to_events(@diagnostic.SourceId, String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, LanguageSpec[T, K], cursor? : ReuseCursor[T, K]?, prev_diagnostics? : DiagnosticSet?) -> (@seam.EventBuffer, DiagnosticSet, Int)
-
 pub fn[R : @diagnostic.SourceResolver] render_diagnostics_plain(ArrayView[@diagnostic.Diagnostic], R) -> String raise @diagnostic.DiagnosticRenderError
 
 pub fn[R : @diagnostic.SourceResolver, D : @diagnostic.TextDisplay] render_diagnostics_plain_with_display(ArrayView[@diagnostic.Diagnostic], R, D) -> String raise @diagnostic.DiagnosticRenderError
