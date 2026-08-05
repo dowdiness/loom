@@ -203,6 +203,7 @@ Point-in-time diagnoses. Dated snapshots — verify against current code before 
 - [performance/grammar-design-for-incremental.md](performance/grammar-design-for-incremental.md) — grammar shapes that help/hurt incremental parsing: flat > left-recursive > balanced > right-recursive
 - [performance/2026-03-30-cst-traversal-tiers.md](performance/2026-03-30-cst-traversal-tiers.md) — feasibility report for the three traversal tiers (closures, Folder/TransformFolder, MutVisitor); drove the seam port and motivated removing the original `cst-transform/` sandbox
 - [performance/2026-03-31-map-specialization.md](performance/2026-03-31-map-specialization.md) — closure specialization vs generic map in wasm-gc (narrower types ≠ faster)
+- [performance/2026-08-05-markdown-event-attribution.md](performance/2026-08-05-markdown-event-attribution.md) — completed #872 point-in-time Markdown event attribution: stage isolation, deterministic work counts, inline analysis microbenchmarks, payload materialization, and decisions (#875, #883)
 - [../BENCHMARKS.md](../BENCHMARKS.md) — benchmark results and raw data (root-level)
 - [../bench-check.sh](../bench-check.sh) — regression guard (`--update` to refresh baseline)
 
