@@ -16,19 +16,22 @@ Historical snapshots from project benchmark runs (full suite and focused runs).
 - Target: release wasm-gc
 - Command: `bash bench-check.sh --profile core-ownership --baseline-ref
   031200eb552db96351f6ff84dfc9c414ec8b5dde --runs 5`
-- Artifact inventory: ten raw Moon outputs, ten module-qualified parsed TSVs,
-  baseline/candidate environment and median TSVs, policy, run metadata, and
-  comparison TSV (280 KiB total); local archive
-  `/tmp/loom-core-ownership-baseline-031200eb.tar.gz` is prepared for upload
-  when the Phase 0 PR is opened
+- Evidence inventory: the accepted baseline control, final hardened-runner
+  verification, and three rejected controls, including every raw Moon output,
+  parsed sample, environment record, policy, metadata file, and available
+  stability/paired report (1.5 MiB total). Local archive
+  `/tmp/loom-core-ownership-pr884-evidence-031200eb.tar.gz` has SHA-256
+  `bd0a6a85992b8746fe148e268eb18d96f34707a7f29c488aea7ce5b0b2d60e6b`
+  and remains pending durable PR or release upload.
 
 All ten required policy rows were present exactly once in every sample. Runner,
 baseline, and candidate SHAs were identical, and the runner recorded a clean
 checkout. The accepted control passed every gated row; the largest positive
 median difference was 1.51% on package-owned CST construction. Two earlier
-control attempts—one on the immediately preceding measurement-only runner
-commit and one on this SHA—were rejected by the gate under unstable host load
-and were not used as the baseline.
+controls were rejected rather than selected away: the predecessor runner found
+a 6.10% same-code Markdown deviation, while a same-baseline run had 13–46%
+relative MAD across required candidate rows. Their raw evidence is retained in
+the bundle above.
 
 | Qualified row | Baseline median | Clean-worktree control | Difference |
 |---|---:|---:|---:|
@@ -48,6 +51,14 @@ copying, or parser behavior. Phase 1-4 implementation branches must descend
 from the exact SHA above; the baseline must not be moved to accept a later
 regression. The Phase 0 PR must preserve this commit with a merge commit, or a
 replacement baseline must be measured after merge.
+
+PR #884 review hardening snapshots the checker and policy from verified
+candidate blobs, records all runner blob IDs, rechecks live provenance after
+sampling, and rejects a required row when either side exceeds 5% relative MAD.
+The performance verdict uses median within-pair deltas and percentages, matching
+the balanced interleaved schedule. Final verification against runner commit
+`95db812e0b31194991adadff3ce00778153d04d3` passed all gates; the largest
+positive paired difference was 2.33% on the JSON incremental edit cycle.
 
 ## 2026-08-05 (bounded `CstFold` cache retention)
 

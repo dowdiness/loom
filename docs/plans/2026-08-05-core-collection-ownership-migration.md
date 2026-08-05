@@ -253,10 +253,11 @@ the audit gate.
   parser/comparator self-tests, `BENCHMARKS.md` workflow, and every required
   benchmark row using the current interfaces. The commit must contain no
   ownership implementation change.
-- [x] Run the prepared profile for five samples on that clean commit, store its
-  raw outputs, and record the commit as `CORE_OWNERSHIP_BASELINE_SHA` in the
-  implementing issues and benchmark history. Base every Phase 1-4 branch on
-  that exact revision.
+- [ ] Run the prepared profile for five samples on that clean commit, store its
+    raw outputs, and record the commit as `CORE_OWNERSHIP_BASELINE_SHA` in the
+    implementing issues and benchmark history. Base every Phase 1-4 branch on
+    that exact revision. The run and SHA record are complete; keep this item
+    open until PR #884 links the durable evidence upload.
 
 Record at least these local audit outputs in the implementing issues:
 
