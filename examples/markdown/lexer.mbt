@@ -760,9 +760,9 @@ fn lex_html_block_end_line(
 fn emit_html_text_line(
   input : String,
   pos : Int,
+  line_end : Int,
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
-  let line_end = find_line_end(input, pos)
   let text : StringView = input[pos:line_end]
   (
     Produced(
@@ -815,7 +815,7 @@ fn lex_html_block_raw(
       )
     _ if line_is_blank(input, pos, line_end) =>
       lex_line_start(input, pos, delimiter_index)
-    _ => emit_html_text_line(input, pos, HtmlBlockRaw)
+    _ => emit_html_text_line(input, pos, line_end, HtmlBlockRaw)
   }
 }
 
