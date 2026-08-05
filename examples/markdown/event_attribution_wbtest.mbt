@@ -149,7 +149,7 @@ fn event_attribution_snapshot(
   let token_reads = Array::make(token_count, 0)
   let start_reads = Array::make(token_count, 0)
   let end_reads = Array::make(token_count, 0)
-  let probe = new_markdown_event_attribution_probe()
+  let probe = new_markdown_event_attribution_probe(token_count)
   let (events, diagnostics, reuse_count) = with_markdown_event_attribution_probe(
     probe,
     () => {
@@ -159,6 +159,7 @@ fn event_attribution_snapshot(
         token_count,
         index => {
           token_reads[index] += 1
+          record_markdown_attribution_token_read(index)
           buffer.get_token(index)
         },
         index => {
@@ -310,6 +311,50 @@ fn event_attribution_transcript(scale : Int) -> String {
     out.write_string("\n")
   }
   out.to_string()
+}
+
+///|
+fn event_attribution_read_peak(reads : Array[Int]) -> (Int, Int, Int) {
+  let mut total = 0
+  let mut peak_index = -1
+  let mut peak_count = 0
+  for index, count in reads {
+    total += count
+    if count > peak_count {
+      peak_index = index
+      peak_count = count
+    }
+  }
+  (total, peak_index, peak_count)
+}
+
+///|
+test "event attribution: nested read phases" {
+  let snapshot = event_attribution_snapshot(
+    event_attribution_corpus_matrix(64)[6],
+  )
+  debug_inspect(
+    (
+      event_attribution_read_peak(snapshot.probe.ordinary_token_reads),
+      event_attribution_read_peak(snapshot.probe.block_lookahead_token_reads),
+      event_attribution_read_peak(
+        snapshot.probe.paragraph_lookahead_token_reads,
+      ),
+      event_attribution_read_peak(
+        snapshot.probe.container_lookahead_token_reads,
+      ),
+      event_attribution_read_peak(snapshot.probe.inline_lookahead_token_reads),
+    ),
+    content=(
+      #|(
+      #|  (8706, 640, 1355),
+      #|  (0, -1, 0),
+      #|  (1524, 10, 12),
+      #|  (0, -1, 0),
+      #|  (2936, 8, 18),
+      #|)
+    ),
+  )
 }
 
 ///|

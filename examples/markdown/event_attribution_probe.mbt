@@ -30,11 +30,19 @@ priv struct MarkdownEventAttributionProbe {
   mut delimiter_runs : Int
   mut delimiter_opener_checks : Int
   mut delimiter_plan_events : Int
+  mut current_lookahead : MarkdownEventAttributionLookaheadKind?
+  ordinary_token_reads : Array[Int]
+  block_lookahead_token_reads : Array[Int]
+  paragraph_lookahead_token_reads : Array[Int]
+  container_lookahead_token_reads : Array[Int]
+  inline_lookahead_token_reads : Array[Int]
 }
 
 ///|
 #warnings("-unused_value")
-fn new_markdown_event_attribution_probe() -> MarkdownEventAttributionProbe {
+fn new_markdown_event_attribution_probe(
+  token_count : Int,
+) -> MarkdownEventAttributionProbe {
   {
     block_dispatches: 0,
     root_paragraph_continuations: 0,
@@ -53,6 +61,12 @@ fn new_markdown_event_attribution_probe() -> MarkdownEventAttributionProbe {
     delimiter_runs: 0,
     delimiter_opener_checks: 0,
     delimiter_plan_events: 0,
+    current_lookahead: None,
+    ordinary_token_reads: Array::make(token_count, 0),
+    block_lookahead_token_reads: Array::make(token_count, 0),
+    paragraph_lookahead_token_reads: Array::make(token_count, 0),
+    container_lookahead_token_reads: Array::make(token_count, 0),
+    inline_lookahead_token_reads: Array::make(token_count, 0),
   }
 }
 
@@ -125,14 +139,34 @@ fn record_markdown_inline_analysis(
 }
 
 ///|
+#warnings("-unused_value")
+fn record_markdown_attribution_token_read(index : Int) -> Unit {
+  match markdown_event_attribution_probe_ref.val {
+    None => ()
+    Some(probe) =>
+      match probe.current_lookahead {
+        None => probe.ordinary_token_reads[index] += 1
+        Some(BlockDispatchLookahead) =>
+          probe.block_lookahead_token_reads[index] += 1
+        Some(ParagraphContinuationLookahead) =>
+          probe.paragraph_lookahead_token_reads[index] += 1
+        Some(ContainerContinuationLookahead) =>
+          probe.container_lookahead_token_reads[index] += 1
+        Some(InlineAnalysisLookahead) =>
+          probe.inline_lookahead_token_reads[index] += 1
+      }
+  }
+}
+
+///|
 fn[R] markdown_event_attribution_lookahead(
   ctx : @core.ParserContext[Token, SyntaxKind],
   kind : MarkdownEventAttributionLookaheadKind,
   body : () -> R,
 ) -> R {
   match markdown_event_attribution_probe_ref.val {
-    None => ()
-    Some(probe) =>
+    None => ctx.lookahead(body)
+    Some(probe) => {
       match kind {
         BlockDispatchLookahead => probe.block_dispatch_lookaheads += 1
         ParagraphContinuationLookahead =>
@@ -141,6 +175,11 @@ fn[R] markdown_event_attribution_lookahead(
           probe.container_continuation_lookaheads += 1
         InlineAnalysisLookahead => probe.inline_analysis_lookaheads += 1
       }
+      let previous = probe.current_lookahead
+      probe.current_lookahead = Some(kind)
+      let result = ctx.lookahead(body)
+      probe.current_lookahead = previous
+      result
+    }
   }
-  ctx.lookahead(body)
 }
