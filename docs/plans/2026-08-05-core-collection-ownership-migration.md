@@ -227,7 +227,7 @@ the audit gate.
 
 ## Phase 0: acceptance and repeat audit
 
-- [ ] Accept the linked ADR and record maintainer approval date.
+- [x] Accept the linked ADR (maintainer-approved 2026-08-05).
 - [ ] Repeat `moon ide find-references` for the existing symbols
   `CstNode::new`,
   `CstNode::with_replaced_child`, all `build_tree*` methods,

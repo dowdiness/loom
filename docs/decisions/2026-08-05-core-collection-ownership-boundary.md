@@ -1,7 +1,7 @@
 # ADR: Core collection ownership boundary
 
 **Date:** 2026-08-05
-**Status:** Proposed
+**Status:** Accepted
 **Implementation plan:** [Core collection ownership migration](../plans/2026-08-05-core-collection-ownership-migration.md)
 **Issue:** [#783](https://github.com/dowdiness/loom/issues/783)
 
