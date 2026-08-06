@@ -128,6 +128,67 @@ fn line_end_including_break(input : String, line_end : Int) -> Int {
 }
 
 ///|
+fn multiline_inline_html_setext_boundary(
+  input : String,
+  start : Int,
+  end : Int,
+  delimiter_index : InlineAngleDelimiterIndex?,
+) -> Int? {
+  let mut preceding_line_end = match delimiter_index {
+    Some(index) =>
+      match index.first_line_break_before(start, end) {
+        Some(boundary) => boundary
+        None => return None
+      }
+    None => {
+      let mut line_end = start
+      while line_end < end {
+        let code_unit = input.code_unit_at(line_end).to_int()
+        if code_unit == 0x0A || code_unit == 0x0D {
+          break
+        }
+        line_end = line_end + 1
+      }
+      line_end
+    }
+  }
+  while preceding_line_end < end {
+    let after_break = preceding_line_end + 1
+    let line_start = if input.code_unit_at(preceding_line_end).to_int() == 0x0D &&
+      after_break < end &&
+      input.code_unit_at(after_break).to_int() == 0x0A {
+      after_break + 1
+    } else {
+      after_break
+    }
+    guard line_start < end else { return None }
+    let mut line_end = line_start
+    while line_end < end {
+      let code_unit = input.code_unit_at(line_end).to_int()
+      if code_unit == 0x0A || code_unit == 0x0D {
+        break
+      }
+      line_end = line_end + 1
+    }
+    let mut marker_start = line_start
+    while marker_start < line_end &&
+          marker_start - line_start < 3 &&
+          input.code_unit_at(marker_start).to_int() == 0x20 {
+      marker_start = marker_start + 1
+    }
+    if marker_start < line_end {
+      let marker = input.code_unit_at(marker_start).to_int()
+      if (marker == 0x2D || marker == 0x3D) &&
+        parse_setext_underline_depth(input[line_start:line_end]) is Some(_) {
+        return Some(preceding_line_end)
+      }
+    }
+    preceding_line_end = line_end
+  }
+  None
+}
+
+///|
 fn is_ascii_letter(ch : Char) -> Bool {
   match ch {
     'A'..='Z' | 'a'..='z' => true
@@ -598,11 +659,21 @@ fn lex_inline(
     ['<', ..] =>
       match classify_inline_angle_at_with_index(input, pos, delimiter_index) {
         Some(candidate) => {
-          let text = input[pos:candidate.end].to_owned()
+          let end = match candidate.kind {
+            InlineAngleKind::InlineHtmlAngle =>
+              multiline_inline_html_setext_boundary(
+                input,
+                pos,
+                candidate.end,
+                delimiter_index,
+              ).unwrap_or(candidate.end)
+            _ => candidate.end
+          }
+          let text = input[pos:end].to_owned()
           (
             Produced(
-              @core.TokenInfo::new(Text(text), candidate.end - pos),
-              next_offset=candidate.end,
+              @core.TokenInfo::new(Text(text), end - pos),
+              next_offset=end,
             ),
             Inline,
           )

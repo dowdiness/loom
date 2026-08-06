@@ -51,6 +51,46 @@ fn assert_inline_angle_incremental_parity(
 }
 
 ///|
+fn assert_setext_example_91_parser_matches_fresh(
+  source_id : @core.SourceId,
+  parser : @loom.Parser[Block],
+  source : String,
+  expected_html : String,
+) -> Unit raise {
+  let fresh = @loom.new_parser(source_id, source, markdown_grammar)
+  assert_eq(parser.source().read_or_abort(), source)
+  let syntax = parser.syntax_tree().read_or_abort()
+  let fresh_syntax = fresh.syntax_tree().read_or_abort()
+  let diagnostics = parser.diagnostics().read_or_abort()
+  let fresh_diagnostics = fresh.diagnostics().read_or_abort()
+  assert_eq(syntax, fresh_syntax)
+  assert_eq(diagnostics, fresh_diagnostics)
+  assert_eq(parser.ast().read_or_abort(), fresh.ast().read_or_abort())
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    source_id, syntax, diagnostics,
+  )
+  let fresh_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    source_id, fresh_syntax, fresh_diagnostics,
+  )
+  assert_eq(ir, fresh_ir)
+  assert_eq(
+    project_markdown_roles(syntax),
+    project_markdown_roles(fresh_syntax),
+  )
+  assert_eq(
+    experimental_markdown_ir_to_mdast_json(ir),
+    experimental_markdown_ir_to_mdast_json(fresh_ir),
+  )
+  assert_eq(
+    experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+      ir,
+      Passthrough,
+    ),
+    Ok(expected_html),
+  )
+}
+
+///|
 test "incremental inline angle candidates match fresh parsing at every boundary" {
   let cases : Array[(String, String, @core.Edit, String, String)] = [
     (
@@ -121,6 +161,55 @@ test "incremental inline angle candidates match fresh parsing at every boundary"
       expected_html,
     )
   }
+}
+
+///|
+test "CommonMark example 91 edits and restores match fresh parsing" {
+  let source_id = @core.SourceId("markdown-commonmark-example-91-incremental")
+  let source = "`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>\n"
+  let expected = "<h2>`Foo</h2>\n<p>`</p>\n<h2>&lt;a title=&quot;a lot</h2>\n<p>of dashes&quot;/&gt;</p>\n"
+  let parser = @loom.new_parser(source_id, source, markdown_grammar)
+  assert_setext_example_91_parser_matches_fresh(
+    source_id, parser, source, expected,
+  )
+
+  guard source.find("\n---\nof dashes") is Some(anchor_start) else {
+    fail("expected example 91 underline anchor")
+  }
+  let underline_start = anchor_start + 1
+  let invalid_underline = source[:underline_start].to_owned() +
+    "-x-" +
+    source[underline_start + 3:].to_owned()
+  parser.apply_edit(@core.Edit::new(underline_start, 3, 3), invalid_underline)
+  assert_setext_example_91_parser_matches_fresh(
+    source_id, parser, invalid_underline, "<h2>`Foo</h2>\n<p>`</p>\n<p><a title=\"a lot\n-x-\nof dashes\"/></p>\n",
+  )
+  parser.apply_edit(@core.Edit::new(underline_start, 3, 3), source)
+  assert_setext_example_91_parser_matches_fresh(
+    source_id, parser, source, expected,
+  )
+
+  guard source.find("a lot") is Some(content_start) else {
+    fail("expected example 91 multiline content anchor")
+  }
+  let inserted = "very "
+  let edited_content = source[:content_start].to_owned() +
+    inserted +
+    source[content_start:].to_owned()
+  parser.apply_edit(
+    @core.Edit::insert(content_start, inserted.length()),
+    edited_content,
+  )
+  assert_setext_example_91_parser_matches_fresh(
+    source_id, parser, edited_content, "<h2>`Foo</h2>\n<p>`</p>\n<h2>&lt;a title=&quot;very a lot</h2>\n<p>of dashes&quot;/&gt;</p>\n",
+  )
+  parser.apply_edit(
+    @core.Edit::delete(content_start, content_start + inserted.length()),
+    source,
+  )
+  assert_setext_example_91_parser_matches_fresh(
+    source_id, parser, source, expected,
+  )
 }
 
 ///|

@@ -248,6 +248,28 @@ test "experimental MarkdownIR: CommonMark HTML fixture xfail fixtures" {
 }
 
 ///|
+test "experimental MarkdownIR: example 91 angle boundary supports line endings and EOF" {
+  let cases : Array[(String, String)] = [
+    ("LF", "<a title=\"a lot\n---\nof dashes\"/>\n"),
+    ("CRLF", "<a title=\"a lot\r\n---\r\nof dashes\"/>\r\n"),
+    ("CR", "<a title=\"a lot\r---\rof dashes\"/>\r"),
+    ("EOF", "<a title=\"a lot\n---\nof dashes\"/>"),
+  ]
+  for ending_case in cases {
+    let (label, source) = ending_case
+    let fixture : CommonMarkHtmlFixture = {
+      example: 91,
+      section: "Setext headings",
+      name: "setext angle boundary " + label,
+      source,
+      expected_html: "<h2>&lt;a title=&quot;a lot</h2>\n<p>of dashes&quot;/&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    }
+    fixture.assert_pass()
+  }
+}
+
+///|
 test "experimental MarkdownIR: CommonMark HTML renderer supports setext headings in containers" {
   let source_id = @core.SourceId("markdown-commonmark-html-setext-containers")
   let blockquote = "> Foo\n> ---\n"
