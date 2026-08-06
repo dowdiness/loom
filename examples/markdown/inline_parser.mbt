@@ -721,6 +721,7 @@ fn analysis_delimiter_marker(
 }
 
 ///|
+#warnings("-unused_value")
 fn build_inline_delimiter_events(
   tokens : Array[InlineAnalysisToken],
   code_delimiters : CodeSpanDelimiterIndex,
@@ -821,14 +822,106 @@ fn build_inline_delimiter_events(
 }
 
 ///|
+fn build_inline_delimiter_plan_online(
+  tokens : Array[InlineAnalysisToken],
+  code_delimiters : CodeSpanDelimiterIndex,
+  links : InlineLinkDelimiterIndex,
+) -> DelimiterResolutionPlan {
+  let resolver = OnlineDelimiterResolver::new()
+  let mut previous_char : Char? = None
+  let mut index = 0
+  while index < tokens.length() {
+    match analysis_code_closer_index(tokens, index, code_delimiters) {
+      Some(closer) => {
+        resolver.observe_opaque(
+          DelimiterSourceRange(tokens[index].start, tokens[closer].end),
+        )
+        previous_char = Some('`')
+        index = closer + 1
+      }
+      None =>
+        match inline_link_candidate_for_suffix(links, tokens[index].start) {
+          Some(candidate) => {
+            let suffix_end = candidate.suffix_end
+            let start = tokens[index].start
+            while index < tokens.length() && tokens[index].end < suffix_end {
+              index = index + 1
+            }
+            guard index < tokens.length() && tokens[index].end == suffix_end else {
+              abort("link candidate range points outside its inline container")
+            }
+            resolver.observe_opaque(DelimiterSourceRange(start, suffix_end))
+            previous_char = match candidate.form {
+              InlineTargetForm => Some(')')
+              FullReferenceForm | CollapsedReferenceForm => Some(']')
+            }
+            index = index + 1
+          }
+          None => {
+            if inline_link_candidate_for_opener(links, tokens[index].start)
+              is Some(_) {
+              resolver.push_link_label_scope()
+            }
+            match analysis_delimiter_marker(tokens[index].kind) {
+              Some(marker) => {
+                let start = tokens[index].start
+                let mut end = tokens[index].end
+                let mut next = index + 1
+                while next < tokens.length() &&
+                      analysis_delimiter_marker(tokens[next].kind) ==
+                      Some(marker) &&
+                      tokens[next].start == end {
+                  end = tokens[next].end
+                  next = next + 1
+                }
+                let after = if next < tokens.length() {
+                  tokens[next].first
+                } else {
+                  None
+                }
+                resolver.observe_run(
+                  delimiter_run_fact(
+                    marker,
+                    start,
+                    end - start,
+                    delimiter_neighbor_from_char(previous_char),
+                    delimiter_neighbor_from_char(after),
+                    escaped=false,
+                  ),
+                )
+                previous_char = if marker is AsteriskDelimiter {
+                  Some('*')
+                } else {
+                  Some('_')
+                }
+                index = next
+              }
+              None => {
+                previous_char = tokens[index].last
+                if inline_link_candidate_for_label_closer(
+                    links,
+                    tokens[index].start,
+                  )
+                  is Some(_) {
+                  resolver.resolve_link_label_scope()
+                }
+                index = index + 1
+              }
+            }
+          }
+        }
+    }
+  }
+  build_delimiter_resolution_plan(resolver.finish_state())
+}
+
+///|
 fn build_inline_delimiter_plan(
   tokens : Array[InlineAnalysisToken],
   code_delimiters : CodeSpanDelimiterIndex,
   links : InlineLinkDelimiterIndex,
 ) -> DelimiterResolutionPlan {
-  resolve_delimiter_events(
-    build_inline_delimiter_events(tokens, code_delimiters, links),
-  )
+  build_inline_delimiter_plan_online(tokens, code_delimiters, links)
 }
 
 ///|

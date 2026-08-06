@@ -100,6 +100,87 @@ priv struct DelimiterResolverState {
 }
 
 ///|
+priv struct OnlineDelimiterResolver {
+  state : DelimiterResolverState
+  scope_bottoms : Array[Int]
+  mut previous_event_end : Int
+}
+
+///|
+fn OnlineDelimiterResolver::new() -> OnlineDelimiterResolver {
+  {
+    state: { runs: [], top: -1, opener_checks: 0 },
+    scope_bottoms: [],
+    previous_event_end: 0,
+  }
+}
+
+///|
+fn OnlineDelimiterResolver::observe_run(
+  self : OnlineDelimiterResolver,
+  fact : DelimiterRunFact,
+) -> Unit {
+  guard fact.start >= self.previous_event_end && fact.length > 0 else {
+    abort("delimiter runs must be positive, ordered, and non-overlapping")
+  }
+  self.previous_event_end = fact.start + fact.length
+  self.state.push_run(fact)
+}
+
+///|
+fn OnlineDelimiterResolver::push_link_label_scope(
+  self : OnlineDelimiterResolver,
+) -> Unit {
+  self.scope_bottoms.push(self.state.top)
+}
+
+///|
+fn OnlineDelimiterResolver::resolve_link_label_scope(
+  self : OnlineDelimiterResolver,
+) -> Unit {
+  match self.scope_bottoms.pop() {
+    Some(bottom) => self.state.process_above(bottom)
+    None => abort("delimiter scope end without a matching start")
+  }
+}
+
+///|
+fn OnlineDelimiterResolver::observe_opaque(
+  self : OnlineDelimiterResolver,
+  range : DelimiterSourceRange,
+) -> Unit {
+  let DelimiterSourceRange(start, end) = range
+  guard start >= self.previous_event_end && end > start else {
+    abort("opaque inline ranges must be positive, ordered, and non-overlapping")
+  }
+  self.previous_event_end = end
+}
+
+///|
+fn OnlineDelimiterResolver::observe_event(
+  self : OnlineDelimiterResolver,
+  event : DelimiterResolverEvent,
+) -> Unit {
+  match event {
+    DelimiterRunEvent(fact) => self.observe_run(fact)
+    PushLinkLabelScope => self.push_link_label_scope()
+    ResolveLinkLabelScope => self.resolve_link_label_scope()
+    OpaqueInlineEvent(range) => self.observe_opaque(range)
+  }
+}
+
+///|
+fn OnlineDelimiterResolver::finish_state(
+  self : OnlineDelimiterResolver,
+) -> DelimiterResolverState {
+  guard self.scope_bottoms.length() == 0 else {
+    abort("delimiter scope start without a matching end")
+  }
+  self.state.process_above(-1)
+  self.state
+}
+
+///|
 #warnings("-unused_value")
 // `escaped` represents one marker consumed by a backslash, not a raw marker
 // run. The parser shell emits any immediately adjacent unescaped suffix as a
@@ -357,39 +438,11 @@ fn DelimiterResolverState::process_above(
 fn resolve_delimiter_event_state(
   events : Array[DelimiterResolverEvent],
 ) -> DelimiterResolverState {
-  let state : DelimiterResolverState = { runs: [], top: -1, opener_checks: 0 }
-  let scope_bottoms : Array[Int] = []
-  let mut previous_event_end = 0
+  let resolver = OnlineDelimiterResolver::new()
   for event in events {
-    match event {
-      DelimiterRunEvent(fact) => {
-        guard fact.start >= previous_event_end && fact.length > 0 else {
-          abort("delimiter runs must be positive, ordered, and non-overlapping")
-        }
-        previous_event_end = fact.start + fact.length
-        state.push_run(fact)
-      }
-      PushLinkLabelScope => scope_bottoms.push(state.top)
-      ResolveLinkLabelScope =>
-        match scope_bottoms.pop() {
-          Some(bottom) => state.process_above(bottom)
-          None => abort("delimiter scope end without a matching start")
-        }
-      OpaqueInlineEvent(DelimiterSourceRange(start, end)) => {
-        guard start >= previous_event_end && end > start else {
-          abort(
-            "opaque inline ranges must be positive, ordered, and non-overlapping",
-          )
-        }
-        previous_event_end = end
-      }
-    }
+    resolver.observe_event(event)
   }
-  guard scope_bottoms.length() == 0 else {
-    abort("delimiter scope start without a matching end")
-  }
-  state.process_above(-1)
-  state
+  resolver.finish_state()
 }
 
 ///|
