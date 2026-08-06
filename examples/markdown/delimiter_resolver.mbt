@@ -354,9 +354,10 @@ fn DelimiterResolverState::process_above(
 }
 
 ///|
-fn resolve_delimiter_event_state(
+#warnings("-unused_value")
+fn resolve_delimiter_events(
   events : Array[DelimiterResolverEvent],
-) -> DelimiterResolverState {
+) -> DelimiterResolutionPlan {
   let state : DelimiterResolverState = { runs: [], top: -1, opener_checks: 0 }
   let scope_bottoms : Array[Int] = []
   let mut previous_event_end = 0
@@ -389,13 +390,6 @@ fn resolve_delimiter_event_state(
     abort("delimiter scope start without a matching end")
   }
   state.process_above(-1)
-  state
-}
-
-///|
-fn build_delimiter_resolution_plan(
-  state : DelimiterResolverState,
-) -> DelimiterResolutionPlan {
   let plan_events = build_delimiter_plan_events(state.runs)
   {
     events: ReadOnlyArray::from_array(plan_events),
@@ -404,12 +398,4 @@ fn build_delimiter_resolution_plan(
       opener_checks: state.opener_checks,
     },
   }
-}
-
-///|
-#warnings("-unused_value")
-fn resolve_delimiter_events(
-  events : Array[DelimiterResolverEvent],
-) -> DelimiterResolutionPlan {
-  build_delimiter_resolution_plan(resolve_delimiter_event_state(events))
 }

@@ -721,11 +721,11 @@ fn analysis_delimiter_marker(
 }
 
 ///|
-fn build_inline_delimiter_events(
+fn build_inline_delimiter_plan(
   tokens : Array[InlineAnalysisToken],
   code_delimiters : CodeSpanDelimiterIndex,
   links : InlineLinkDelimiterIndex,
-) -> Array[DelimiterResolverEvent] {
+) -> DelimiterResolutionPlan {
   let events : Array[DelimiterResolverEvent] = []
   let mut previous_char : Char? = None
   let mut index = 0
@@ -817,18 +817,7 @@ fn build_inline_delimiter_events(
         }
     }
   }
-  events
-}
-
-///|
-fn build_inline_delimiter_plan(
-  tokens : Array[InlineAnalysisToken],
-  code_delimiters : CodeSpanDelimiterIndex,
-  links : InlineLinkDelimiterIndex,
-) -> DelimiterResolutionPlan {
-  resolve_delimiter_events(
-    build_inline_delimiter_events(tokens, code_delimiters, links),
-  )
+  resolve_delimiter_events(events)
 }
 
 ///|
