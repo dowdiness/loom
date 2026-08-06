@@ -1,0 +1,7 @@
+import {
+  "dowdiness/markdown",
+}
+
+import {
+  "moonbitlang/core/bench",
+} for "wbtest"
