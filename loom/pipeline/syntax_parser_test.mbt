@@ -5,11 +5,13 @@
 // syntax, diagnostics, and reuse-count views.
 
 ///|
+#warnings("-unused_error_type")
 fn syntax_test_language() -> @incremental.ImperativeLanguage[Unit] {
-  let full_parse = (_source_id : @core.SourceId, s : String) => {
+  let full_parse = fn(_source_id : @core.SourceId, s : String) raise Failure {
     let cst = @seam.build_tree(
       [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
       @seam.RawKind(0),
+      policy=@seam.CstMetadataPolicy::unclassified(),
     ) catch {
       _ => abort("build_tree failed in syntax test language")
     }
@@ -20,12 +22,12 @@ fn syntax_test_language() -> @incremental.ImperativeLanguage[Unit] {
     }
     (@seam.SyntaxNode::from_cst(cst), diagnostics, 0)
   }
-  let incremental_parse = (
+  let incremental_parse = fn(
     source_id : @core.SourceId,
     s : String,
     _old : @seam.SyntaxNode,
     _edit : @core.Edit,
-  ) => {
+  ) raise Failure {
     let (syntax, diagnostics, _) = full_parse(source_id, s)
     (syntax, diagnostics, 1)
   }
@@ -96,14 +98,16 @@ test "SyntaxParser exposes its runtime for downstream derived cells" {
 }
 
 ///|
+#warnings("-unused_error_type")
 fn syntax_test_language_with_counter(
   parse_count : Ref[Int],
 ) -> @incremental.ImperativeLanguage[Unit] {
-  let full_parse = (_source_id : @core.SourceId, s : String) => {
+  let full_parse = fn(_source_id : @core.SourceId, s : String) raise Failure {
     parse_count.val = parse_count.val + 1
     let cst = @seam.build_tree(
       [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
       @seam.RawKind(0),
+      policy=@seam.CstMetadataPolicy::unclassified(),
     ) catch {
       _ => abort("build_tree failed in syntax counter language")
     }
@@ -111,7 +115,9 @@ fn syntax_test_language_with_counter(
   }
   @incremental.ImperativeLanguage::new(
     full_parse~,
-    incremental_parse=(source_id, s, _old, _edit) => full_parse(source_id, s),
+    incremental_parse=fn(source_id, s, _old, _edit) raise Failure {
+      full_parse(source_id, s)
+    },
     to_ast=_syntax => (),
   )
 }

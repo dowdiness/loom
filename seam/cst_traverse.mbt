@@ -185,46 +185,30 @@ pub fn CstElement::iter(self : CstElement) -> Iter[CstElement] {
 /// another `CstElement`.
 ///
 /// Children are recursively mapped first, then `f` is applied to the
-/// reconstructed element. For `Node` elements, a new `CstNode` is built
-/// with `CstNode::new` to ensure metadata consistency.
-///
-/// Pass `trivia_kinds`, `error_kind`, `incomplete_kind` for accurate
-/// `token_count` and `has_any_error` metadata on reconstructed nodes.
-/// Without these, `token_count` counts all leaf tokens (including trivia)
-/// and `has_any_error` defaults to `false` at each reconstructed node.
-///
-/// **Caveat:** If `f` returns a pre-existing subtree (not rebuilt by this
-/// traversal), its cached metadata may reflect different classification
-/// assumptions. `CstNode::new` trusts child `token_count`/`has_any_error`
-/// without re-deriving from leaves, so mixing trees built under different
-/// `trivia_kinds`/`error_kind` rules produces inconsistent metadata.
+/// reconstructed element. Node reconstruction preserves the receiver's
+/// metadata policy. Returning a node from another metadata domain fails,
+/// including when the callback replaces the mapped root.
 pub fn CstElement::map(
   self : CstElement,
   f : (CstElement) -> CstElement,
-  trivia_kinds? : Array[RawKind]? = None,
-  error_kind? : RawKind? = None,
-  incomplete_kind? : RawKind? = None,
-) -> CstElement {
+) -> CstElement raise Failure {
   match self {
     Token(_) => f(self)
     Node(node) => {
       let new_children = Array::new(capacity=node.children.length())
       for child in node.children {
-        new_children.push(
-          child.map(f, trivia_kinds~, error_kind~, incomplete_kind~),
-        )
+        new_children.push(child.map(f))
       }
-      f(
+      let mapped = f(
         CstElement::Node(
-          CstNode::new(
-            node.kind,
-            new_children,
-            trivia_kinds~,
-            error_kind~,
-            incomplete_kind~,
-          ),
+          CstNode::new_owned(node.kind, new_children, policy=node.policy),
         ),
       )
+      match mapped {
+        Node(mapped_node) if !policy_equal(mapped_node.policy, node.policy) =>
+          fail("CstElement::map: root metadata policy mismatch")
+        _ => mapped
+      }
     }
   }
 }

@@ -290,13 +290,14 @@ fn markdown_ir_assistance(ir : @markdown.MarkdownIR) -> MarkdownIRAssistance {
 ///|
 fn CommonMarkSpecExample::assessment(
   self : CommonMarkSpecExample,
-) -> AuditAssessment {
+) -> AuditAssessment raise {
   let source_id = @core.SourceId(
     "markdown-commonmark-html-audit:" + self.example.to_string(),
   )
   let (cst, diagnostics) = @markdown.parse_cst(source_id, self.markdown) catch {
     @core.LexError(_) =>
       return AuditAssessment::{ outcome: LexError, html_matches: false }
+    error => raise error
   }
   let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
@@ -390,7 +391,7 @@ fn flush_section(state : SectionState?) -> Unit {
 }
 
 ///|
-fn audit_examples(examples : Array[CommonMarkSpecExample]) -> AuditCounts {
+fn audit_examples(examples : Array[CommonMarkSpecExample]) -> AuditCounts raise {
   for
     example in examples
     section = (None : SectionState?), total = AuditCounts::empty() {
@@ -453,7 +454,13 @@ fn main {
     "\tpinned=true",
   )
   println("kind\tsection\texample\tcategory\thtml-match")
-  let counts = audit_examples(corpus.examples)
+  let counts = audit_examples(corpus.examples) catch {
+    err => {
+      println("error: " + err.to_string())
+      @sys.exit(1)
+      return
+    }
+  }
   print_counts("total", "all", counts)
   println(
     "completion\tall\tcomplete=" +

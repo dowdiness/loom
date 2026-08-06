@@ -19,6 +19,17 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Changed
 
+- **Breaking CST metadata ownership boundary:** `CstNode` fields are private,
+  public construction copies children, and every node retains an immutable
+  `CstMetadataPolicy`. Reconstruction and event builders require a policy and
+  reject mixed metadata domains with catchable `Failure`; parser facades
+  propagate that failure. Use `CstNode::new_unclassified` or
+  `CstMetadataPolicy::unclassified()` for language-agnostic trees. `CstFold`
+  now keys its cache by `CstNode`, `tree_diff` verifies structural equality,
+  and the private numeric node hash is no longer a persistent identifier.
+  Root reconstruction uses `CstNode::with_replaced_root` to validate the
+  replacement domain without exposing policy state.
+
 - **Breaking mode-relex ownership boundary:** mode-aware token buffers are now
   constructed with `TokenBuffer::new_from_mode_relex` and a retained
   `ModeRelexFactory`. Custom relex callbacks receive opaque `OldTokenStarts`

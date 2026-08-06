@@ -47,7 +47,7 @@ fn[Ast] ImperativeParser::accept_tree(
 ///|
 pub fn[Ast] ImperativeParser::parse(
   self : ImperativeParser[Ast],
-) -> ParseSnapshot[Ast] {
+) -> ParseSnapshot[Ast] raise Failure {
   let (syntax, diagnostics, reuse_count) = (self.lang.full_parse)(
     self.source_id,
     self.source,
@@ -60,7 +60,7 @@ pub fn[Ast] ImperativeParser::edit(
   self : ImperativeParser[Ast],
   edit : @core.Edit,
   new_source : String,
-) -> ParseSnapshot[Ast] {
+) -> ParseSnapshot[Ast] raise Failure {
   self.source = new_source
   if self.snapshot is None {
     return self.parse()
@@ -86,7 +86,7 @@ pub fn[Ast] ImperativeParser::edit(
 pub fn[Ast] ImperativeParser::reset(
   self : ImperativeParser[Ast],
   source : String,
-) -> ParseSnapshot[Ast] {
+) -> ParseSnapshot[Ast] raise Failure {
   self.source = source
   self.snapshot = None
   self.prev_cst = None

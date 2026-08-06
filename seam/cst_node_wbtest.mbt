@@ -56,22 +56,22 @@ test "CstToken text_len" {
 test "CstNode constructor computes text_len and hash" {
   let tok = CstToken::CstToken(RawKind(9), "x")
   let elem = CstElement::Token(tok)
-  let node = CstNode::new(RawKind(20), [elem])
+  let node = CstNode::new_unclassified(RawKind(20), [elem])
   inspect(node.text_len, content="1")
   inspect(node.hash != 0, content="true")
 }
 
 ///|
 test "CstNode Eq: identical nodes are equal" {
-  let a = CstNode::new(RawKind(0), [])
-  let b = CstNode::new(RawKind(0), [])
+  let a = CstNode::new_unclassified(RawKind(0), [])
+  let b = CstNode::new_unclassified(RawKind(0), [])
   inspect(a == b, content="true")
 }
 
 ///|
 test "CstNode Eq: different kind not equal" {
-  let a = CstNode::new(RawKind(0), [])
-  let b = CstNode::new(RawKind(1), [])
+  let a = CstNode::new_unclassified(RawKind(0), [])
+  let b = CstNode::new_unclassified(RawKind(1), [])
   inspect(a == b, content="false")
 }
 
@@ -87,7 +87,7 @@ test "CstElement text_len and kind" {
 test "CstNode token_count: no trivia_kind counts all leaf tokens" {
   let ws_tok = CstToken::CstToken(RawKind(11), " ")
   let id_tok = CstToken::CstToken(RawKind(9), "x")
-  let node = CstNode::new(RawKind(20), [
+  let node = CstNode::new_unclassified(RawKind(20), [
     CstElement::Token(id_tok),
     CstElement::Token(ws_tok),
   ])
@@ -97,12 +97,13 @@ test "CstNode token_count: no trivia_kind counts all leaf tokens" {
 ///|
 test "CstNode token_count: trivia_kind excludes whitespace" {
   let ws_kind = RawKind(11)
+  let policy = CstMetadataPolicy::new([ws_kind])
   let ws_tok = CstToken::CstToken(ws_kind, " ")
   let id_tok = CstToken::CstToken(RawKind(9), "x")
   let node = CstNode::new(
     RawKind(20),
     [CstElement::Token(id_tok), CstElement::Token(ws_tok)],
-    trivia_kinds=Some([ws_kind]),
+    policy~,
   )
   inspect(node.token_count, content="1")
 }
@@ -110,14 +111,11 @@ test "CstNode token_count: trivia_kind excludes whitespace" {
 ///|
 test "CstNode token_count: propagates through sub-nodes" {
   let ws_kind = RawKind(11)
+  let policy = CstMetadataPolicy::new([ws_kind])
   let ws_tok = CstToken::CstToken(ws_kind, " ")
   let id_tok = CstToken::CstToken(RawKind(9), "x")
   let int_tok = CstToken::CstToken(RawKind(10), "1")
-  let inner = CstNode::new(
-    RawKind(19),
-    [CstElement::Token(int_tok)],
-    trivia_kinds=Some([ws_kind]),
-  )
+  let inner = CstNode::new(RawKind(19), [CstElement::Token(int_tok)], policy~)
   let root = CstNode::new(
     RawKind(16),
     [
@@ -125,7 +123,7 @@ test "CstNode token_count: propagates through sub-nodes" {
       CstElement::Token(ws_tok),
       CstElement::Node(inner),
     ],
-    trivia_kinds=Some([ws_kind]),
+    policy~,
   )
   // id_tok (1) + ws_tok (excluded) + inner.token_count (1) = 2
   inspect(root.token_count, content="2")
@@ -135,7 +133,7 @@ test "CstNode token_count: propagates through sub-nodes" {
 test "has_errors detects error node kind" {
   let error_node_kind = RawKind(21)
   let error_token_kind = RawKind(12)
-  let err = CstNode::new(error_node_kind, [])
+  let err = CstNode::new_unclassified(error_node_kind, [])
   inspect(err.has_errors(error_node_kind, error_token_kind), content="true")
 }
 
@@ -143,7 +141,7 @@ test "has_errors detects error node kind" {
 test "has_errors returns false for clean node" {
   let error_node_kind = RawKind(21)
   let error_token_kind = RawKind(12)
-  let clean = CstNode::new(RawKind(22), [])
+  let clean = CstNode::new_unclassified(RawKind(22), [])
   inspect(clean.has_errors(error_node_kind, error_token_kind), content="false")
 }
 
@@ -152,7 +150,7 @@ test "CstNode::first_token: returns first non-trivia token" {
   // ws token (kind 11 = WhitespaceToken), then ident token (kind 9 = IdentToken)
   let ws = CstToken::CstToken(RawKind(11), " ")
   let id = CstToken::CstToken(RawKind(9), "x")
-  let cst = CstNode::new(RawKind(22), [
+  let cst = CstNode::new_unclassified(RawKind(22), [
     CstElement::Token(ws),
     CstElement::Token(id),
   ])
@@ -166,8 +164,8 @@ test "CstNode::first_token: returns first non-trivia token" {
 ///|
 test "CstNode::first_token: descends into child nodes" {
   let id = CstToken::CstToken(RawKind(9), "y")
-  let inner = CstNode::new(RawKind(20), [CstElement::Token(id)])
-  let outer = CstNode::new(RawKind(22), [CstElement::Node(inner)])
+  let inner = CstNode::new_unclassified(RawKind(20), [CstElement::Token(id)])
+  let outer = CstNode::new_unclassified(RawKind(22), [CstElement::Node(inner)])
   let is_trivia = fn(_k : RawKind) { false }
   match outer.first_token(is_trivia) {
     Some(t) => inspect(t.text(), content="y")
@@ -177,7 +175,7 @@ test "CstNode::first_token: descends into child nodes" {
 
 ///|
 test "CstNode::first_token: returns None for empty node" {
-  let cst = CstNode::new(RawKind(22), [])
+  let cst = CstNode::new_unclassified(RawKind(22), [])
   let is_trivia = fn(_k : RawKind) { false }
   inspect(cst.first_token(is_trivia) is None, content="true")
 }
@@ -185,7 +183,7 @@ test "CstNode::first_token: returns None for empty node" {
 ///|
 test "CstNode::first_token: returns None when all tokens are trivia" {
   let ws = CstToken::CstToken(RawKind(11), " ")
-  let cst = CstNode::new(RawKind(22), [CstElement::Token(ws)])
+  let cst = CstNode::new_unclassified(RawKind(22), [CstElement::Token(ws)])
   let is_trivia = fn(k : RawKind) { k == RawKind(11) }
   inspect(cst.first_token(is_trivia) is None, content="true")
 }
@@ -195,7 +193,7 @@ test "with_replaced_child replaces correctly" {
   let tok_a = CstToken::CstToken(RawKind(1), "a")
   let tok_b = CstToken::CstToken(RawKind(2), "b")
   let tok_c = CstToken::CstToken(RawKind(3), "c")
-  let root = CstNode::new(RawKind(100), [
+  let root = CstNode::new_unclassified(RawKind(100), [
     CstElement::Token(tok_a),
     CstElement::Token(tok_b),
   ])
@@ -211,7 +209,7 @@ test "with_replaced_child replaces correctly" {
 test "with_replaced_child recomputes metadata" {
   let tok_a = CstToken::CstToken(RawKind(1), "a")
   let tok_bc = CstToken::CstToken(RawKind(2), "bc")
-  let root = CstNode::new(RawKind(100), [CstElement::Token(tok_a)])
+  let root = CstNode::new_unclassified(RawKind(100), [CstElement::Token(tok_a)])
   inspect(root.text_len, content="1")
   inspect(root.token_count, content="1")
   let new_root = root.with_replaced_child(0, CstElement::Token(tok_bc))
@@ -223,4 +221,26 @@ test "with_replaced_child recomputes metadata" {
   inspect(new_root.text_len, content="2")
   inspect(new_root.token_count, content="1")
   inspect(root.hash == new_root.hash, content="false")
+}
+
+///|
+test "CstNode collections resolve forced cached-hash collisions with Eq" {
+  let first = CstNode::new_unclassified(RawKind(10), [
+    CstElement::Token(CstToken::CstToken(RawKind(1), "first")),
+  ])
+  let actual_second = CstNode::new_unclassified(RawKind(10), [
+    CstElement::Token(CstToken::CstToken(RawKind(1), "second")),
+  ])
+  let forced_collision = CstNode::{ ..actual_second, hash: first.hash }
+  assert_false(first == forced_collision)
+  let values : @hashmap.HashMap[CstNode, String] = @hashmap.HashMap([])
+  values.set(first, "first")
+  values.set(forced_collision, "second")
+  assert_eq(values.length(), 2)
+  assert_eq(values.get(first), Some("first"))
+  assert_eq(values.get(forced_collision), Some("second"))
+  let interner = NodeInterner::new()
+  let _ = interner.intern_node(first)
+  let _ = interner.intern_node(forced_collision)
+  assert_eq(interner.size(), 2)
 }

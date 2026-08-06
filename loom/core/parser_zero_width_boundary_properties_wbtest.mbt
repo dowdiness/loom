@@ -237,9 +237,7 @@ fn zero_width_build_tree_from_events(
       ctx.events.build_tree_interned(
         @seam.ToRawKind::to_raw(spec.root_kind),
         @seam.Interner::new(),
-        trivia_kinds=Some([@seam.ToRawKind::to_raw(spec.whitespace_kind)]),
-        error_kind=Some(@seam.ToRawKind::to_raw(spec.error_kind)),
-        incomplete_kind=Some(@seam.ToRawKind::to_raw(spec.incomplete_kind)),
+        policy=spec.cst_metadata_policy,
       ) catch {
         _ => abort("expected token-interned old tree to build")
       }
@@ -248,9 +246,7 @@ fn zero_width_build_tree_from_events(
         @seam.ToRawKind::to_raw(spec.root_kind),
         @seam.Interner::new(),
         @seam.NodeInterner::new(),
-        trivia_kinds=Some([@seam.ToRawKind::to_raw(spec.whitespace_kind)]),
-        error_kind=Some(@seam.ToRawKind::to_raw(spec.error_kind)),
-        incomplete_kind=Some(@seam.ToRawKind::to_raw(spec.incomplete_kind)),
+        policy=spec.cst_metadata_policy,
       ) catch {
         _ => abort("expected fully-interned old tree to build")
       }
@@ -284,7 +280,7 @@ fn zero_width_parse_indexed(
 ) -> (@seam.CstNode, DiagnosticSet, Int) {
   let tokens = zero_width_tokenize_with_boundaries(source, boundary_counts)
   let starts = build_starts(tokens)
-  parse_tokens_indexed(
+  try! parse_tokens_indexed(
     SourceId("zero-width-boundary-source"),
     source,
     tokens.length(),
@@ -324,10 +320,10 @@ fn zero_width_new_cursor(
 
 ///|
 fn zero_width_contains_repeat_group(node : @seam.CstNode) -> Bool {
-  if node.kind == @seam.repeat_group_kind {
+  if node.kind() == @seam.repeat_group_kind {
     return true
   }
-  for child in node.children {
+  for child in node.children() {
     match child {
       @seam.CstElement::Node(child_node) =>
         if zero_width_contains_repeat_group(child_node) {

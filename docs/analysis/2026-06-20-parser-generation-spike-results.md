@@ -53,7 +53,7 @@ CST `tree_diff` is empty for all fixtures. Diagnostic structural fields (`source
 
 Both trackers seeded before first `apply_edit`. Stable IDs agree across all non-malformed steps. Malformed intermediates recorded correctly; recovery resumes correctly.
 
-**Honesty scoping (Task 9):** Under this wiring, D2b is not an independent path-dependence oracle — a D2b mismatch implies a D2a CST mismatch. D2b's independent value is: (1) hash-collision blind spot guard, (2) consumer-facing stable-ID assertion. Both are exercised by the fixtures.
+**Honesty scoping (Task 9):** Under this wiring, D2b is not an independent path-dependence oracle — a D2b mismatch implies a D2a CST mismatch. D2b directly asserts the consumer-facing stable-ID invariant. Its former hash-collision role was retired by the 2026-08-06 core ownership migration, which made `tree_diff` collision-safe.
 
 ### REUSE-PARITY: reuse counts match
 

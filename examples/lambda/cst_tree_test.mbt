@@ -450,9 +450,9 @@ test "cst: binary with parenthesized operands" {
 ///|
 test "cst: text_len is computed correctly" {
   let cst = test_parse_cst("abc")
-  inspect(cst.text_len, content="3")
+  inspect(cst.text_len(), content="3")
   let cst2 = test_parse_cst("1 + 2")
-  inspect(cst2.text_len, content="5")
+  inspect(cst2.text_len(), content="5")
 }
 
 ///|
@@ -566,7 +566,7 @@ test "cst: error recovery - text_len preserved" {
     _ => abort("lex error")
   }
   // text_len should cover the entire source
-  inspect(cst.text_len, content="8")
+  inspect(cst.text_len(), content="8")
 }
 
 ///|

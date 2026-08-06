@@ -72,7 +72,7 @@ fn bench_perf_cst(b : @bench.T, count : Int) -> Unit {
 fn bench_perf_ast(b : @bench.T, count : Int) -> Unit {
   let source = perf_paragraph_doc(count)
   b.bench(fn() {
-    b.keep(parse(@core.SourceId("markdown-perf-envelope"), source))
+    b.keep(try! parse(@core.SourceId("markdown-perf-envelope"), source))
   })
 }
 
@@ -107,10 +107,10 @@ fn bench_perf_imperative_ast_cycle(b : @bench.T, count : Int) -> Unit {
     source,
     markdown_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   b.bench(fn() {
-    b.keep(parser.edit(edit, edited).ast)
-    b.keep(parser.edit(edit, source).ast)
+    b.keep(try! parser.edit(edit, edited).ast)
+    b.keep(try! parser.edit(edit, source).ast)
   })
 }
 
@@ -118,7 +118,7 @@ fn bench_perf_imperative_ast_cycle(b : @bench.T, count : Int) -> Unit {
 fn bench_perf_reactive_syntax_cycle(b : @bench.T, count : Int) -> Unit {
   let source = perf_paragraph_doc(count)
   let (edited, edit) = perf_middle_edit(source)
-  let parser = @loom.new_syntax_parser(
+  let parser = try! @loom.new_syntax_parser(
     @core.SourceId("markdown-perf-envelope"),
     source,
     markdown_grammar.to_syntax_grammar(),
@@ -126,9 +126,9 @@ fn bench_perf_reactive_syntax_cycle(b : @bench.T, count : Int) -> Unit {
   let syntax = parser.syntax_tree()
   ignore(syntax.read_or_abort())
   b.bench(fn() {
-    parser.apply_edit(edit, edited)
+    try! parser.apply_edit(edit, edited)
     b.keep(syntax.read_or_abort())
-    parser.apply_edit(edit, source)
+    try! parser.apply_edit(edit, source)
     b.keep(syntax.read_or_abort())
   })
 }
@@ -137,7 +137,7 @@ fn bench_perf_reactive_syntax_cycle(b : @bench.T, count : Int) -> Unit {
 fn bench_perf_reactive_ast_cycle(b : @bench.T, count : Int) -> Unit {
   let source = perf_paragraph_doc(count)
   let (edited, edit) = perf_middle_edit(source)
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     @core.SourceId("markdown-perf-envelope"),
     source,
     markdown_grammar,
@@ -145,9 +145,9 @@ fn bench_perf_reactive_ast_cycle(b : @bench.T, count : Int) -> Unit {
   let ast = parser.ast()
   ignore(ast.read_or_abort())
   b.bench(fn() {
-    parser.apply_edit(edit, edited)
+    try! parser.apply_edit(edit, edited)
     b.keep(ast.read_or_abort())
-    parser.apply_edit(edit, source)
+    try! parser.apply_edit(edit, source)
     b.keep(ast.read_or_abort())
   })
 }

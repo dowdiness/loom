@@ -76,7 +76,7 @@ test "parse_with: unclosed node is auto-closed with diagnostic" {
       ctx.emit_token(KNum)
     },
   )
-  inspect(tree.text_len, content="1")
+  inspect(tree.text_len(), content="1")
   let has_unclosed = errors
     .items()
     .iter()
@@ -372,13 +372,13 @@ test "emit_token: EOF placeholder is emitted after trailing trivia" {
     test_tokenize,
     ctx => ctx.emit_token(KNum),
   )
-  inspect(tree.children.length(), content="2")
-  match tree.children[0] {
+  inspect(tree.children().length(), content="2")
+  match tree.children()[0] {
     @seam.CstElement::Token(t) =>
       inspect(t.kind == test_kind_raw(KWs), content="true")
     _ => inspect(false, content="true")
   }
-  match tree.children[1] {
+  match tree.children()[1] {
     @seam.CstElement::Token(t) => {
       inspect(t.kind == test_kind_raw(KNum), content="true")
       inspect(t.text_len(), content="0")

@@ -7,7 +7,7 @@ fn wb_facts(
   Array[@callers.Call],
   Array[(@callers.ScopeId, @callers.ScopeId)],
 ) {
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     @core.SourceId::SourceId("lambda-rename-wbtest"),
     source,
     @lambda.lambda_grammar,

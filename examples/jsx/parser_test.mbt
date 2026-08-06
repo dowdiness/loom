@@ -2,8 +2,8 @@
 /// Render a CST as a single-line s-expression for test assertions.
 /// Whitespace tokens are omitted; error tokens render as `ERR:"text"`.
 fn dump(node : @seam.CstNode) -> String {
-  let kind_name = @syntax.SyntaxKind::from_raw(node.kind).to_string()
-  let parts = node.children.filter_map(dump_element)
+  let kind_name = @syntax.SyntaxKind::from_raw(node.kind()).to_string()
+  let parts = node.children().filter_map(dump_element)
   if parts.is_empty() {
     "(" + kind_name + ")"
   } else {

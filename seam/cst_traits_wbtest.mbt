@@ -1,19 +1,19 @@
 // cst_traits_wbtest.mbt — Tests and benchmarks for trait-based traversal.
 
 ///|
-fn make_trait_test_tree() -> CstElement {
+fn make_trait_test_tree() -> CstElement raise Failure {
   let foo = CstToken::CstToken(RawKind(9), "foo")
   let ws = CstToken::CstToken(RawKind(11), " ")
   let one = CstToken::CstToken(RawKind(10), "1")
   let plus = CstToken::CstToken(RawKind(12), "+")
   let two = CstToken::CstToken(RawKind(10), "2")
   let eof = CstToken::CstToken(RawKind(13), "")
-  let bin_expr = CstNode::new(RawKind(21), [
+  let bin_expr = CstNode::new_unclassified(RawKind(21), [
     CstElement::Token(one),
     CstElement::Token(plus),
     CstElement::Token(two),
   ])
-  let root = CstNode::new(RawKind(20), [
+  let root = CstNode::new_unclassified(RawKind(20), [
     CstElement::Token(foo),
     CstElement::Token(ws),
     CstElement::Node(bin_expr),
@@ -47,7 +47,7 @@ test "accept_fold[TextLen]: single token" {
 
 ///|
 test "accept_fold[TextLen]: empty node" {
-  let node = CstNode::new(RawKind(20), [])
+  let node = CstNode::new_unclassified(RawKind(20), [])
   let elem = CstElement::Node(node)
   let result : TextLen = elem.accept_fold()
   inspect(result, content="TextLen(0)")
@@ -73,7 +73,7 @@ test "accept_transform_fold[NodeCount]: single token" {
 
 ///|
 test "accept_transform_fold[NodeCount]: empty node counts itself" {
-  let node = CstNode::new(RawKind(20), [])
+  let node = CstNode::new_unclassified(RawKind(20), [])
   let elem = CstElement::Node(node)
   let result : NodeCount = elem.accept_transform_fold()
   inspect(result, content="NodeCount(1)")
@@ -83,7 +83,7 @@ test "accept_transform_fold[NodeCount]: empty node counts itself" {
 
 ///|
 /// Build a large tree for benchmarking: depth levels, branching children per node.
-fn generate_large_cst(depth : Int, branching : Int) -> CstElement {
+fn generate_large_cst(depth : Int, branching : Int) -> CstElement raise Failure {
   if depth <= 0 {
     CstElement::Token(CstToken::CstToken(RawKind(9), "leaf"))
   } else {
@@ -92,7 +92,7 @@ fn generate_large_cst(depth : Int, branching : Int) -> CstElement {
       children.push(generate_large_cst(depth - 1, branching))
       let _ = i
     }
-    CstElement::Node(CstNode::new(RawKind(20), children))
+    CstElement::Node(CstNode::new_unclassified(RawKind(20), children))
   }
 }
 

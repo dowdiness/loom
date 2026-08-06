@@ -147,8 +147,9 @@ test "Native runs in sequence between declarative neighbors" {
     parse_root,
   )
   inspect(diagnostics.is_empty(), content="true")
-  match tree.children[0] {
-    @seam.CstElement::Node(root) => inspect(root.children.length(), content="3")
+  match tree.children()[0] {
+    @seam.CstElement::Node(root) =>
+      inspect(root.children().length(), content="3")
     _ => fail("expected Root node")
   }
 }
@@ -188,8 +189,9 @@ test "native capability dispatches a declared Choice" {
     parse_root,
   )
   inspect(diagnostics.is_empty(), content="true")
-  match tree.children[0] {
-    @seam.CstElement::Node(root) => inspect(root.children.length(), content="1")
+  match tree.children()[0] {
+    @seam.CstElement::Node(root) =>
+      inspect(root.children().length(), content="1")
     _ => fail("expected Root node")
   }
 }
@@ -274,10 +276,10 @@ test "HostGuard lowers and evaluates both Choice outcomes" {
       parse_root,
     )
     guard diagnostics.is_empty() else { fail("unexpected diagnostics") }
-    guard tree.children[0] is @seam.CstElement::Node(root) else {
+    guard tree.children()[0] is @seam.CstElement::Node(root) else {
       fail("expected Root node")
     }
-    guard root.children[0] is @seam.CstElement::Token(token) else {
+    guard root.children()[0] is @seam.CstElement::Token(token) else {
       fail("expected emitted token")
     }
     token.kind
@@ -319,9 +321,9 @@ test "negated HostGuard evaluates in a Choice predicate" {
     parse_root,
   )
   inspect(diagnostics.is_empty(), content="true")
-  match tree.children[0] {
+  match tree.children()[0] {
     @seam.CstElement::Node(root) =>
-      match root.children[0] {
+      match root.children()[0] {
         @seam.CstElement::Token(token) =>
           inspect(token.kind, content="RawKind(14)")
         _ => fail("expected emitted token")
@@ -803,18 +805,18 @@ test "compiled grammar accepts fresh native registries per parse" {
   )
   inspect(first_diags.is_empty(), content="true")
   inspect(second_diags.is_empty(), content="true")
-  match first_tree.children[0] {
+  match first_tree.children()[0] {
     @seam.CstElement::Node(root) =>
-      match root.children[0] {
+      match root.children()[0] {
         @seam.CstElement::Token(token) =>
           inspect(token.kind, content="RawKind(11)")
         _ => fail("expected first parse token")
       }
     _ => fail("expected first Root node")
   }
-  match second_tree.children[0] {
+  match second_tree.children()[0] {
     @seam.CstElement::Node(root) =>
-      match root.children[0] {
+      match root.children()[0] {
         @seam.CstElement::Token(token) =>
           inspect(token.kind, content="RawKind(14)")
         _ => fail("expected second parse token")
@@ -937,10 +939,10 @@ test "PrattApp runtime guard stops a repeated atom that stops consuming" {
   // The WordNode wrap proves the head atom consumed and the repetition was
   // entered, so the diagnostic can only have come from the guard inside the
   // loop, not from the head check.
-  guard tree.children[0] is @seam.CstElement::Node(wrapped) else {
+  guard tree.children()[0] is @seam.CstElement::Node(wrapped) else {
     fail("expected the PrattApp wrap node")
   }
-  inspect(wrapped.kind, content="RawKind(15)")
+  inspect(wrapped.kind(), content="RawKind(15)")
   inspect(diagnostics.length(), content="1")
   inspect(
     diagnostics.items()[0].message(),

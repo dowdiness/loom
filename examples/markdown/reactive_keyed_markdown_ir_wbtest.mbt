@@ -3,7 +3,7 @@ fn reactive_keyed_markdown_test_parser(
   source_id : @core.SourceId,
   source : String,
 ) -> @loom.SyntaxParser {
-  @loom.new_syntax_parser(
+  try! @loom.new_syntax_parser(
     source_id,
     source,
     markdown_grammar.to_syntax_grammar(),

@@ -64,8 +64,8 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] Pars
       match cursor.try_reuse(kind.to_raw(), byte_offset, token_pos) {
         None => None
         Some(node) => {
-          let old_node_end = cursor.current_offset + node.text_len
-          let new_node_end = byte_offset + node.text_len
+          let old_node_end = cursor.current_offset + node.text_len()
+          let new_node_end = byte_offset + node.text_len()
           let old_boundary_tokens = cursor.old_zero_width_tokens_at_boundary(
             new_node_end,
           )
@@ -120,9 +120,9 @@ fn push_reused_boundary_zero_width_tokens_reversed(
   out : Array[@seam.CstToken],
 ) -> Unit {
   let mut child_end = boundary
-  let mut i = node.children.length() - 1
+  let mut i = node.children().length() - 1
   while i >= 0 {
-    let child = node.children[i]
+    let child = node.children()[i]
     let child_len = child.text_len()
     let child_start = child_end - child_len
     match child {
@@ -219,7 +219,7 @@ fn[T : @seam.ToRawKind, K] ParserContext::advance_past_reused(
     return
   }
   let node_start = (self.get_start)(self.position)
-  let node_end = node_start + node.text_len
+  let node_end = node_start + node.text_len()
   while self.position < self.token_count &&
         (self.get_start)(self.position) < node_end {
     self.position = self.position + 1
@@ -259,7 +259,7 @@ fn[T, K : @seam.ToRawKind] collect_reused_error_spans(
   let incomplete_raw = spec.incomplete_kind.to_raw()
   let mut offset = node_start
   let mut added = 0
-  for child in node.children {
+  for child in node.children() {
     match child {
       @seam.CstElement::Token(t) => {
         let end = offset + t.text_len()
@@ -271,13 +271,14 @@ fn[T, K : @seam.ToRawKind] collect_reused_error_spans(
       }
       @seam.CstElement::Node(n) => {
         let child_added = collect_reused_error_spans(n, offset, spec, out)
-        if child_added == 0 && (n.kind == error_raw || n.kind == incomplete_raw) {
-          out.push({ start: offset, end: offset + n.text_len })
+        if child_added == 0 &&
+          (n.kind() == error_raw || n.kind() == incomplete_raw) {
+          out.push({ start: offset, end: offset + n.text_len() })
           added = added + 1
         } else {
           added = added + child_added
         }
-        offset = offset + n.text_len
+        offset = offset + n.text_len()
       }
     }
   }
@@ -406,7 +407,7 @@ fn[T : @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_reused(
     Some(cursor) => cursor.current_offset
     None => node_start
   }
-  let node_end = node_start + node.text_len
+  let node_end = node_start + node.text_len()
   self.events.push_parser_reuse_node_rebased_unchecked(
     node,
     self.source,
@@ -416,7 +417,7 @@ fn[T : @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_reused(
     None => true
     Some(cursor) => !cursor.next_sibling_has_error()
   }
-  if node.has_any_error {
+  if node.has_any_error() {
     // Slow path: node has errors — collect spans and replay/synthesize diagnostics.
     let error_spans : Array[ReusedErrorSpan] = []
     let _ = collect_reused_error_spans(node, node_start, self.spec, error_spans)
@@ -438,7 +439,7 @@ fn[T : @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_reused(
       node_start, node_end, false, allow_eof_boundary,
     )
   }
-  self.advance_past_reused(node, old_node_start + node.text_len)
+  self.advance_past_reused(node, old_node_start + node.text_len())
   match self.reuse_cursor {
     Some(cursor) => cursor.advance_past(node)
     None => () // unreachable — no cursor means try_reuse always returns None

@@ -58,7 +58,7 @@ test "let-chain: 80 lets - initial parse" (b : @bench.T) {
       source,
       @lambda.lambda_grammar,
     )
-    let result = parser.parse()
+    let result = try! parser.parse()
     b.keep(result)
   })
 }
@@ -72,7 +72,7 @@ test "let-chain: 320 lets - initial parse" (b : @bench.T) {
       source,
       @lambda.lambda_grammar,
     )
-    let result = parser.parse()
+    let result = try! parser.parse()
     b.keep(result)
   })
 }
@@ -91,8 +91,8 @@ test "let-chain: 80 lets - incremental single edit at tail" (b : @bench.T) {
       source,
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
-    let result = parser.edit(edit, edited)
+    let _ = try! parser.parse()
+    let result = try! parser.edit(edit, edited)
     b.keep(result)
   })
 }
@@ -109,8 +109,8 @@ test "let-chain: 320 lets - incremental single edit at tail" (b : @bench.T) {
       source,
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
-    let result = parser.edit(edit, edited)
+    let _ = try! parser.parse()
+    let result = try! parser.edit(edit, edited)
     b.keep(result)
   })
 }
@@ -129,12 +129,12 @@ test "let-chain: 80 lets - edit-only at tail" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   // Reset to original so each bench iteration starts from the same state
   b.bench(fn() {
-    let _ = parser.edit(edit, edited)
+    let _ = try! parser.edit(edit, edited)
     // Edit back to original for next iteration
-    let _ = parser.edit(
+    let _ = try! parser.edit(
       @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1),
       source,
     )
@@ -153,10 +153,10 @@ test "let-chain: 320 lets - edit-only at tail" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   b.bench(fn() {
-    let _ = parser.edit(edit, edited)
-    let _ = parser.edit(
+    let _ = try! parser.edit(edit, edited)
+    let _ = try! parser.edit(
       @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1),
       source,
     )
@@ -200,13 +200,13 @@ test "let-chain: 80 lets - 50-edit session incremental" (b : @bench.T) {
       source,
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
     let mut s = source
     for i = 0; i < 50; i = i + 1 {
       let ch = chars[i % chars.length()]
       let pos = s.length()
       let (new_s, edit) = apply_char_insert(s, pos, ch)
-      let _ = parser.edit(edit, new_s)
+      let _ = try! parser.edit(edit, new_s)
       s = new_s
     }
     b.keep(parser.get_tree())
@@ -247,13 +247,13 @@ test "let-chain: 320 lets - 50-edit session incremental" (b : @bench.T) {
       source,
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
     let mut s = source
     for i = 0; i < 50; i = i + 1 {
       let ch = chars[i % chars.length()]
       let pos = s.length()
       let (new_s, edit) = apply_char_insert(s, pos, ch)
-      let _ = parser.edit(edit, new_s)
+      let _ = try! parser.edit(edit, new_s)
       s = new_s
     }
     b.keep(parser.get_tree())
@@ -297,8 +297,8 @@ test "let-chain: 80 lets - reuse count for tail edit" {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
-  let _ = parser.edit(edit, edited)
+  let _ = try! parser.parse()
+  let _ = try! parser.edit(edit, edited)
   let reuse = parser.get_last_reuse_count()
   // With let-chain structure, many let-init subtrees should be reusable
   println("80-let reuse count: \{reuse}")
@@ -316,8 +316,8 @@ test "let-chain: 320 lets - reuse count for tail edit" {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
-  let _ = parser.edit(edit, edited)
+  let _ = try! parser.parse()
+  let _ = try! parser.edit(edit, edited)
   let reuse = parser.get_last_reuse_count()
   println("320-let reuse count: \{reuse}")
   inspect(reuse >= 0, content="true")
@@ -348,7 +348,7 @@ test "let-chain: 20 lambda lets - initial parse" (b : @bench.T) {
       source,
       @lambda.lambda_grammar,
     )
-    let result = parser.parse()
+    let result = try! parser.parse()
     b.keep(result)
   })
 }
@@ -368,11 +368,11 @@ test "let-chain: 20 lambda lets - edit-only at tail" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   b.bench(fn() {
-    let _ = parser.edit(edit, edited)
+    let _ = try! parser.edit(edit, edited)
     // Edit back to original for next iteration
-    let _ = parser.edit(
+    let _ = try! parser.edit(
       @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1),
       source,
     )
@@ -405,8 +405,8 @@ test "let-chain: 20 lambda lets - reuse count" {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
-  let _ = parser.edit(edit, edited)
+  let _ = try! parser.parse()
+  let _ = try! parser.edit(edit, edited)
   let reuse = parser.get_last_reuse_count()
   println("20-lambda-let reuse count: \{reuse}")
   inspect(reuse >= 0, content="true")

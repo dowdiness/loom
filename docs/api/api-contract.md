@@ -85,32 +85,38 @@ pub(all) enum CstElement { Token(CstToken); Node(CstNode) }
 ## `CstNode`
 
 ```moonbit
-pub(all) struct CstNode {
-  kind        : RawKind
-  children    : Array[CstElement]
-  text_len    : Int
-  hash        : Int
-  token_count : Int
-}
+pub struct CstMetadataPolicy { /* private fields */ }
+pub struct CstNode { /* private fields */ }
 ```
 
-**Stable.** Immutable interior node. All five fields are public for read access.
+**Stable.** Immutable interior node. Cached metadata and the retained child
+array are private; use the accessors below.
 
 **Invariants:**
-- `children` is **frozen after construction**. Mutating it externally invalidates `text_len`, `hash`, and `token_count`, which are all cached at construction time and never recomputed.
-- `hash` is a structural content hash derived recursively from `kind` and each child's hash via `combine_hash`. Stable as long as `combine_hash` is stable.
+- Public construction copies `children`; `children()` returns a read-only view.
+- Every node in one tree has a semantically equivalent metadata policy.
+- Trivia kinds are a sorted, deduplicated set; error and incomplete slots remain role-distinct.
+- The private cached hash is a collection implementation detail. Equal nodes hash equally, but callers must not serialize or persist its numeric value.
 - `text_len` equals the sum of `child.text_len()` for all children.
-- `token_count` equals the number of non-trivia leaf tokens (see `CstNode::new` for `trivia_kind` semantics).
+- `token_count` equals the number of leaf tokens not classified as trivia by the policy.
 
 | Symbol | Stability | Notes |
 |---|---|---|
-| `CstNode::new(RawKind, Array[CstElement], trivia_kind? : RawKind?) -> Self` | Stable | `trivia_kind` controls what counts as trivia for `token_count` |
-| `CstNode::kind(Self) -> RawKind` | Stable | Accessor for the `kind` field |
+| `CstMetadataPolicy::new(Array[RawKind], error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstMetadataPolicy` | Stable | Copies, sorts, and deduplicates trivia; computes its semantic hash once |
+| `CstMetadataPolicy::unclassified() -> CstMetadataPolicy` | Stable | Returns the package-level immutable singleton |
+| `CstNode::new(RawKind, Array[CstElement], policy~ : CstMetadataPolicy) -> Self raise Failure` | Stable | Copies children and rejects a node child from a different metadata domain |
+| `CstNode::new_unclassified(RawKind, Array[CstElement]) -> Self raise Failure` | Stable | Explicit language-agnostic construction |
+| `CstNode::with_replaced_child(Self, Int, CstElement) -> Self raise Failure` | Stable | Preserves receiver policy; rejects mismatched replacement |
+| `CstNode::with_replaced_root(Self, CstNode) -> Self raise Failure` | Stable | Accepts a root replacement only from an equivalent metadata domain; does not expose the policy |
+| `CstNode::kind(Self) -> RawKind` | Stable | Language-agnostic node kind |
+| `CstNode::children(Self) -> ArrayView[CstElement]` | Stable | Read-only child view |
+| `CstNode::text_len(Self) -> Int` | Stable | Cached UTF-16 code-unit length |
+| `CstNode::token_count(Self) -> Int` | Stable | Cached non-trivia leaf count |
+| `CstNode::has_any_error(Self) -> Bool` | Stable | Cached policy-relative error signal |
 | `CstNode::has_errors(Self, RawKind, RawKind) -> Bool` | Stable | Language-agnostic; caller supplies error kind values |
-| `Eq` | Stable | Hash fast-path rejection, then deep structural check |
-| `Hash` | Stable | Feeds cached `hash` field into hasher |
+| `Eq` | Stable | Physical/hash rejection paths, then semantic-policy and deep structural check |
+| `Hash` | Stable | Collection integration only; numeric contribution is not a persistent fingerprint |
 | `Show` | Stable | Debug representation; format not guaranteed stable |
-| `CstNode::width()` | **Deferred** | Alias for `text_len`; redundant while `text_len` is a public field |
 
 ---
 
@@ -157,9 +163,9 @@ pub struct EventBuffer { /* private fields */ }
 | `EventBuffer::push_synthetic_zero_width_token(Self, RawKind) -> Unit` | **Deprecated** | Compatibility alias for `push_parser_synthetic_zero_width_token` |
 | `EventBuffer::mark(Self) -> Int` | Stable | Reserve a `Tombstone` slot; returns its index |
 | `EventBuffer::start_at(Self, Int, RawKind) -> Unit` | Stable | Fill a `Tombstone` with `StartNode`; aborts if out-of-bounds or non-Tombstone |
-| `EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Builds CST from accumulated events; preserves token source spans for `Token` and parser-owned rebase hooks; raises on malformed event streams |
-| `EventBuffer::build_tree_interned(Self, RawKind, Interner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interns tokens; deduplicates `CstToken` by `(kind, text)` using canonical owned token text |
-| `EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interns both tokens and nodes |
+| `EventBuffer::build_tree(Self, RawKind, policy~ : CstMetadataPolicy) -> CstNode raise` | Stable | Preflights reused-node policies; raises `EventStreamError` or policy-mismatch `Failure` before mutation |
+| `EventBuffer::build_tree_interned(Self, RawKind, Interner, policy~ : CstMetadataPolicy) -> CstNode raise` | Stable | Interns tokens after the same policy preflight |
+| `EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, policy~ : CstMetadataPolicy) -> CstNode raise` | Stable | Interns tokens and nodes after the same policy preflight |
 
 ---
 
@@ -190,7 +196,9 @@ pub struct NodeInterner(HashMap[CstNode, CstNode])
 **Stable.** Session-scoped node intern table. Deduplicates `CstNode` by structural identity.
 Tuple struct — single-field wrapper is unboxed at runtime.
 
-**Critical invariant:** All `CstNode::new` calls feeding this interner MUST use the same `trivia_kind`. See doc comment in `seam/node_interner.mbt`.
+Metadata policy participates in node equality and hashing. Different metadata
+domains remain distinct entries; separately created equivalent policies may
+share a canonical node.
 
 | Symbol | Stability | Notes |
 |---|---|---|
@@ -317,9 +325,9 @@ code chooses the projected leaves, public ID type, and allocator.
 
 | Symbol | Stability | Notes |
 |---|---|---|
-| `build_tree(Array[ParseEvent], RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Use `EventBuffer::build_tree` when building through `EventBuffer` |
-| `build_tree_interned(Array[ParseEvent], RawKind, Interner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interned variant |
-| `build_tree_fully_interned(Array[ParseEvent], RawKind, Interner, NodeInterner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Fully interned variant |
+| `build_tree(Array[ParseEvent], RawKind, policy~ : CstMetadataPolicy) -> CstNode raise` | Stable | Use `EventBuffer::build_tree` when building through `EventBuffer` |
+| `build_tree_interned(Array[ParseEvent], RawKind, Interner, policy~ : CstMetadataPolicy) -> CstNode raise` | Stable | Interned variant |
+| `build_tree_fully_interned(Array[ParseEvent], RawKind, Interner, NodeInterner, policy~ : CstMetadataPolicy) -> CstNode raise` | Stable | Fully interned variant |
 | `combine_hash(Int, Int) -> Int` | Stable | FNV-based mixing function used for structural hashes |
 | `string_hash(StringView) -> Int` | Stable | FNV hash of a string view; used by `CstToken::CstToken` |
 
@@ -331,5 +339,5 @@ Decisions recorded here; may be revisited for `0.2.0`:
 
 | Symbol | Reason deferred |
 |---|---|
-| `CstNode::width()` | Redundant alias for the already-public `text_len` field |
+| `CstNode::width()` | Redundant alias for `text_len()` |
 | `SyntaxNode::node_at(Int) -> Self?` | No current callers; position-on-boundary and trivia semantics need design before freeze |

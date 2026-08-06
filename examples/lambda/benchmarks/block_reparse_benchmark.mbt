@@ -85,7 +85,7 @@ test "block-reparse: 80 blocks - edit inside block" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   // Find position of the number inside the last block's "x + N"
   let num_pos = find_block_number_pos(source, n - 1)
   let num_len = digit_len(n - 1)
@@ -95,9 +95,9 @@ test "block-reparse: 80 blocks - edit inside block" (b : @bench.T) {
   let edited = before + "9" + after
   let edit = @core.Edit::replace(num_pos, num_pos + num_len, num_pos + 1)
   b.bench(fn() {
-    let result = parser.edit(edit, edited)
+    let result = try! parser.edit(edit, edited)
     // Edit back to original for next iteration
-    let _ = parser.edit(
+    let _ = try! parser.edit(
       @core.Edit::replace(num_pos, num_pos + 1, num_pos + num_len),
       source,
     )
@@ -114,7 +114,7 @@ test "block-reparse: 320 blocks - edit inside block" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   let num_pos = find_block_number_pos(source, n - 1)
   let num_len = digit_len(n - 1)
   let before = slice(source, 0, num_pos)
@@ -122,8 +122,8 @@ test "block-reparse: 320 blocks - edit inside block" (b : @bench.T) {
   let edited = before + "9" + after
   let edit = @core.Edit::replace(num_pos, num_pos + num_len, num_pos + 1)
   b.bench(fn() {
-    let result = parser.edit(edit, edited)
-    let _ = parser.edit(
+    let result = try! parser.edit(edit, edited)
+    let _ = try! parser.edit(
       @core.Edit::replace(num_pos, num_pos + 1, num_pos + num_len),
       source,
     )
@@ -172,7 +172,7 @@ test "block-reparse: 80 blocks - 50-edit session" (b : @bench.T) {
       base,
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
     let mut source = base
     for i = 0; i < 50; i = i + 1 {
       let block_idx = i % n
@@ -187,7 +187,7 @@ test "block-reparse: 80 blocks - 50-edit session" (b : @bench.T) {
         num_pos + num_len,
         num_pos + replacement.length(),
       )
-      let _ = parser.edit(edit, edited)
+      let _ = try! parser.edit(edit, edited)
       source = edited
     }
     b.keep(parser.get_tree())
@@ -204,7 +204,7 @@ test "block-reparse: 320 blocks - 50-edit session" (b : @bench.T) {
       base,
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
     let mut source = base
     for i = 0; i < 50; i = i + 1 {
       let block_idx = i % n
@@ -219,7 +219,7 @@ test "block-reparse: 320 blocks - 50-edit session" (b : @bench.T) {
         num_pos + num_len,
         num_pos + replacement.length(),
       )
-      let _ = parser.edit(edit, edited)
+      let _ = try! parser.edit(edit, edited)
       source = edited
     }
     b.keep(parser.get_tree())

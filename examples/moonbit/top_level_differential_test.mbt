@@ -328,7 +328,7 @@ fn skeleton_top_level_summary(
   source_id : @core.SourceId,
   source : String,
 ) -> SkeletonTopLevelSummary {
-  let parser = @loom.new_parser(source_id, source, moonbit_grammar)
+  let parser = try! @loom.new_parser(source_id, source, moonbit_grammar)
   let root = parser.syntax_tree().read_or_abort()
   let ast = parser.ast().read_or_abort()
   let diagnostics = parser.diagnostics().read_or_abort()

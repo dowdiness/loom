@@ -56,17 +56,20 @@ fn syntax_visitor_token(kind : Int, text : String) -> CstElement {
 }
 
 ///|
-fn syntax_visitor_node(kind : Int, children : Array[CstElement]) -> CstElement {
-  Node(CstNode::new(RawKind(kind), children))
+fn syntax_visitor_node(
+  kind : Int,
+  children : Array[CstElement],
+) -> CstElement raise Failure {
+  Node(CstNode::new_unclassified(RawKind(kind), children))
 }
 
 ///|
 test "SyntaxNode::accept_visitor walks source order and flattens repeat groups" {
-  let repeated = CstNode::new(repeat_group_kind, [
+  let repeated = CstNode::new_unclassified(repeat_group_kind, [
     syntax_visitor_token(4, "c"),
     syntax_visitor_node(5, [syntax_visitor_token(6, "d")]),
   ])
-  let root = CstNode::new(RawKind(0), [
+  let root = CstNode::new_unclassified(RawKind(0), [
     syntax_visitor_token(1, "a"),
     syntax_visitor_node(2, [syntax_visitor_token(3, "b")]),
     Node(repeated),
@@ -84,7 +87,7 @@ test "SyntaxNode::accept_visitor walks source order and flattens repeat groups" 
 
 ///|
 test "SyntaxNode::accept_visitor skips subtree when enter_node returns false" {
-  let root = CstNode::new(RawKind(0), [
+  let root = CstNode::new_unclassified(RawKind(0), [
     syntax_visitor_node(9, [syntax_visitor_token(1, "x")]),
     syntax_visitor_token(2, "y"),
   ])

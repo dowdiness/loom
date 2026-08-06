@@ -132,16 +132,16 @@ promise stable parser-owned token or subtree identity across arbitrary edits.
 ```moonbit
 // From @loom:
 let source_id = @loom.SourceId("workspace-document")
-let p = @loom.new_parser(source_id, initial_source, grammar) // → Parser[Ast]
-let s = @loom.new_syntax_parser(
+let p = try! @loom.new_parser(source_id, initial_source, grammar) // → Parser[Ast]
+let s = try! @loom.new_syntax_parser(
   source_id,
   initial_source,
   syntax_grammar,
 ) // → SyntaxParser
 
 // Or attach to an existing runtime:
-let p = @loom.new_parser(source_id, initial_source, grammar, runtime=rt)
-let s = @loom.new_syntax_parser(
+let p = try! @loom.new_parser(source_id, initial_source, grammar, runtime=rt)
+let s = try! @loom.new_syntax_parser(
   source_id,
   initial_source,
   syntax_grammar,

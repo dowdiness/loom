@@ -55,9 +55,11 @@ test "incremental vs full - edit at start" (b : @bench.T) {
       "(f, x) => if f x then x + 1 else x - 1",
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
     let edit = @core.Edit::replace(0, 1, 1)
-    let result = parser.edit(edit, "(f, x) => if f x then x + 1 else x - 1")
+    let result = try! parser.edit(
+      edit, "(f, x) => if f x then x + 1 else x - 1",
+    )
     b.keep(result)
   })
 }
@@ -71,9 +73,11 @@ test "incremental vs full - edit at end" (b : @bench.T) {
       "(f, x) => if f x then x + 1 else x - 1",
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
     let edit = @core.Edit::replace(32, 33, 33)
-    let result = parser.edit(edit, "(f, x) => if f x then x + 1 else x - 2")
+    let result = try! parser.edit(
+      edit, "(f, x) => if f x then x + 1 else x - 2",
+    )
     b.keep(result)
   })
 }
@@ -87,9 +91,11 @@ test "incremental vs full - edit in middle" (b : @bench.T) {
       "(f, x) => if f x then x + 1 else x - 1",
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
     let edit = @core.Edit::replace(14, 15, 15)
-    let result = parser.edit(edit, "(f, x) => if f x then y + 1 else x - 1")
+    let result = try! parser.edit(
+      edit, "(f, x) => if f x then y + 1 else x - 1",
+    )
     b.keep(result)
   })
 }
@@ -104,9 +110,9 @@ test "sequential edits - typing simulation" (b : @bench.T) {
       "x",
       @lambda.lambda_grammar,
     )
-    let _ = parser1.parse()
+    let _ = try! parser1.parse()
     let edit1 = @core.Edit::insert(1, 4)
-    let result = parser1.edit(edit1, "x + 1")
+    let result = try! parser1.edit(edit1, "x + 1")
     b.keep(result)
   })
 }
@@ -121,9 +127,9 @@ test "sequential edits - backspace simulation" (b : @bench.T) {
       "x + 1",
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
     let edit = @core.Edit::delete(2, 5) // Delete " + 1"
-    let result = parser.edit(edit, "x")
+    let result = try! parser.edit(edit, "x")
     b.keep(result)
   })
 }
@@ -137,15 +143,15 @@ test "incremental state baseline - repeated parsing" (b : @bench.T) {
       "(x) => x",
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
 
     // Make edit
     let edit = @core.Edit::insert(4, 8)
-    let _ = parser.edit(edit, "(x) => x + 1")
+    let _ = try! parser.edit(edit, "(x) => x + 1")
 
     // Undo edit (should hit cache ideally)
     let edit2 = @core.Edit::delete(4, 8)
-    let _ = parser.edit(edit2, "(x) => x")
+    let _ = try! parser.edit(edit2, "(x) => x")
   })
 }
 
@@ -158,13 +164,13 @@ test "incremental state baseline - similar expressions" (b : @bench.T) {
       "x + 1",
       @lambda.lambda_grammar,
     )
-    let result1 = parser1.parse()
+    let result1 = try! parser1.parse()
     let parser2 = @loom.new_imperative_parser(
       performance_benchmark_source_id(),
       "x + 2",
       @lambda.lambda_grammar,
     )
-    let result2 = parser2.parse()
+    let result2 = try! parser2.parse()
     b.keep((result1, result2))
   })
 }
@@ -180,12 +186,12 @@ test "memory pressure - large document" (b : @bench.T) {
       large_expr,
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
 
     // Make small edit - change first variable
     let edit = @core.Edit::replace(3, 4, 4) // Replace 'f' with 'g'
     let new_expr = "(g, x) => if g x then ((y) => y + 1) x else ((z) => z - 1) (g x)"
-    let result = parser.edit(edit, new_expr)
+    let result = try! parser.edit(edit, new_expr)
     b.keep(result)
   })
 }
@@ -199,11 +205,13 @@ test "worst case - full invalidation" (b : @bench.T) {
       "(f, x) => if f x then x + 1 else x - 1",
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
 
     // Change at start affects everything.
     let edit = @core.Edit::replace(0, 1, 1)
-    let result = parser.edit(edit, "(f, x) => if f x then x + 1 else x - 1")
+    let result = try! parser.edit(
+      edit, "(f, x) => if f x then x + 1 else x - 1",
+    )
     b.keep(result)
   })
 }
@@ -217,11 +225,11 @@ test "best case - cosmetic change" (b : @bench.T) {
       "x + 1",
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
 
     // Change just the constant
     let edit = @core.Edit::replace(4, 5, 5)
-    let result = parser.edit(edit, "x + 2")
+    let result = try! parser.edit(edit, "x + 2")
     b.keep(result)
   })
 }
@@ -404,7 +412,7 @@ test "phase3: full CST reparse, no cursor - 110 tokens" (b : @bench.T) {
   b.bench(fn() {
     // Match the cursor path's per-iteration setup cost for fair comparison.
     let _ = @lambda.make_reuse_cursor(old_tree, 261, 263, tokens, source)
-    let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
+    let (tree, _, _) = try! @lambda.parse_cst_recover_with_tokens(
       performance_benchmark_source_id(),
       source,
       tokens,
@@ -434,7 +442,7 @@ test "phase3: cursor reuse, edit at end - 110 tokens" (b : @bench.T) {
     let cursor = @lambda.make_reuse_cursor(
       old_tree, 261, 263, new_tokens, new_source,
     )
-    let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
+    let (tree, _, _) = try! @lambda.parse_cst_recover_with_tokens(
       performance_benchmark_source_id(),
       new_source,
       new_tokens,
@@ -464,7 +472,7 @@ test "phase3: cursor reuse, edit at start - 110 tokens" (b : @bench.T) {
     let cursor = @lambda.make_reuse_cursor(
       old_tree, 0, 1, new_tokens, new_source,
     )
-    let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
+    let (tree, _, _) = try! @lambda.parse_cst_recover_with_tokens(
       performance_benchmark_source_id(),
       new_source,
       new_tokens,
@@ -501,7 +509,7 @@ test "phase4: let body edit - full reparse, no cursor (baseline)" (b : @bench.T)
   }
   b.bench(fn() {
     let _ = @lambda.make_reuse_cursor(old_tree, 10, 11, new_tokens, new_source)
-    let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
+    let (tree, _, _) = try! @lambda.parse_cst_recover_with_tokens(
       performance_benchmark_source_id(),
       new_source,
       new_tokens,
@@ -530,7 +538,7 @@ test "phase4: let body edit - init IntLiteral reused via cursor" (b : @bench.T) 
     let cursor = @lambda.make_reuse_cursor(
       old_tree, 10, 11, new_tokens, new_source,
     )
-    let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
+    let (tree, _, _) = try! @lambda.parse_cst_recover_with_tokens(
       performance_benchmark_source_id(),
       new_source,
       new_tokens,
@@ -559,7 +567,7 @@ test "phase4: let init edit - cursor" (b : @bench.T) {
     let cursor = @lambda.make_reuse_cursor(
       old_tree, 8, 9, new_tokens, new_source,
     )
-    let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
+    let (tree, _, _) = try! @lambda.parse_cst_recover_with_tokens(
       performance_benchmark_source_id(),
       new_source,
       new_tokens,
@@ -588,7 +596,7 @@ test "phase4: nested let body edit - multiple inits reused" (b : @bench.T) {
     let cursor = @lambda.make_reuse_cursor(
       old_tree, 20, 21, new_tokens, new_source,
     )
-    let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
+    let (tree, _, _) = try! @lambda.parse_cst_recover_with_tokens(
       performance_benchmark_source_id(),
       new_source,
       new_tokens,

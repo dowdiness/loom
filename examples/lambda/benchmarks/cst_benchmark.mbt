@@ -8,6 +8,9 @@ fn cst_benchmark_source_id() -> @core.SourceId {
 }
 
 ///|
+let cst_benchmark_policy : @seam.CstMetadataPolicy = @seam.CstMetadataPolicy::unclassified()
+
+///|
 fn make_ident_token(text : String) -> @seam.CstToken {
   @seam.CstToken::CstToken(@seam.RawKind(9), text)
 }
@@ -20,7 +23,7 @@ fn make_flat_ident_node(count : Int) -> @seam.CstNode {
       @seam.CstElement::Token(make_ident_token("x" + i.to_string())),
     )
   }
-  @seam.CstNode::new(@seam.RawKind(20), children)
+  try! @seam.CstNode::new_unclassified(@seam.RawKind(20), children)
 }
 
 ///|
@@ -42,7 +45,7 @@ test "concrete-syntax-tree - node constructor from 32 children" (b : @bench.T) {
     )
   }
   b.bench(fn() {
-    let n = @seam.CstNode::new(@seam.RawKind(20), children)
+    let n = try! @seam.CstNode::new_unclassified(@seam.RawKind(20), children)
     b.keep(n)
   })
 }
@@ -67,7 +70,7 @@ test "concrete-syntax-tree - equality mismatch hash fast path" (b : @bench.T) {
     let text = if i == 31 { "changed_tail" } else { "x" + i.to_string() }
     children.push(@seam.CstElement::Token(make_ident_token(text)))
   }
-  let right = @seam.CstNode::new(@seam.RawKind(20), children)
+  let right = try! @seam.CstNode::new_unclassified(@seam.RawKind(20), children)
   b.bench(fn() {
     let same = left == right
     b.keep(same)
@@ -130,7 +133,11 @@ test "interner - intern_token warm hit" (b : @bench.T) {
 test "build_tree - x + 1" (b : @bench.T) {
   let events = make_x_plus_1_events()
   b.bench(fn() {
-    let tree = try! @seam.build_tree(events, @seam.RawKind(22))
+    let tree = try! @seam.build_tree(
+      events,
+      @seam.RawKind(22),
+      policy=cst_benchmark_policy,
+    )
     b.keep(tree)
   })
 }
@@ -146,6 +153,7 @@ test "build_tree_interned - x + 1, cold interner" (b : @bench.T) {
       events,
       @seam.RawKind(22),
       interner,
+      policy=cst_benchmark_policy,
     )
     b.keep(tree)
   })
@@ -157,12 +165,18 @@ test "build_tree_interned - x + 1, cold interner" (b : @bench.T) {
 test "build_tree_interned - x + 1, warm interner" (b : @bench.T) {
   let events = make_x_plus_1_events()
   let interner = @seam.Interner::new()
-  let _ = try! @seam.build_tree_interned(events, @seam.RawKind(22), interner)
+  let _ = try! @seam.build_tree_interned(
+    events,
+    @seam.RawKind(22),
+    interner,
+    policy=cst_benchmark_policy,
+  )
   b.bench(fn() {
     let tree = try! @seam.build_tree_interned(
       events,
       @seam.RawKind(22),
       interner,
+      policy=cst_benchmark_policy,
     )
     b.keep(tree)
   })
@@ -183,7 +197,11 @@ fn make_repeated_ident_events(count : Int) -> Array[@seam.ParseEvent] {
 test "build_tree - 100 identical ident tokens" (b : @bench.T) {
   let events = make_repeated_ident_events(100)
   b.bench(fn() {
-    let tree = try! @seam.build_tree(events, @seam.RawKind(22))
+    let tree = try! @seam.build_tree(
+      events,
+      @seam.RawKind(22),
+      policy=cst_benchmark_policy,
+    )
     b.keep(tree)
   })
 }
@@ -194,12 +212,18 @@ test "build_tree - 100 identical ident tokens" (b : @bench.T) {
 test "build_tree_interned - 100 identical tokens, warm interner" (b : @bench.T) {
   let events = make_repeated_ident_events(100)
   let interner = @seam.Interner::new()
-  let _ = try! @seam.build_tree_interned(events, @seam.RawKind(22), interner)
+  let _ = try! @seam.build_tree_interned(
+    events,
+    @seam.RawKind(22),
+    interner,
+    policy=cst_benchmark_policy,
+  )
   b.bench(fn() {
     let tree = try! @seam.build_tree_interned(
       events,
       @seam.RawKind(22),
       interner,
+      policy=cst_benchmark_policy,
     )
     b.keep(tree)
   })
@@ -238,6 +262,7 @@ test "build_tree_fully_interned - x + x, cold" (b : @bench.T) {
       @seam.RawKind(22),
       interner,
       ni,
+      policy=cst_benchmark_policy,
     )
     b.keep(tree)
   })
@@ -255,6 +280,7 @@ test "build_tree_fully_interned - x + x, warm" (b : @bench.T) {
     @seam.RawKind(22),
     interner,
     ni,
+    policy=cst_benchmark_policy,
   )
   b.bench(fn() {
     let tree = try! @seam.build_tree_fully_interned(
@@ -262,6 +288,7 @@ test "build_tree_fully_interned - x + x, warm" (b : @bench.T) {
       @seam.RawKind(22),
       interner,
       ni,
+      policy=cst_benchmark_policy,
     )
     b.keep(tree)
   })
@@ -272,12 +299,18 @@ test "build_tree_fully_interned - x + x, warm" (b : @bench.T) {
 test "build_tree_interned - x + x, warm" (b : @bench.T) {
   let events = make_x_plus_x_events()
   let interner = @seam.Interner::new()
-  let _ = try! @seam.build_tree_interned(events, @seam.RawKind(22), interner)
+  let _ = try! @seam.build_tree_interned(
+    events,
+    @seam.RawKind(22),
+    interner,
+    policy=cst_benchmark_policy,
+  )
   b.bench(fn() {
     let tree = try! @seam.build_tree_interned(
       events,
       @seam.RawKind(22),
       interner,
+      policy=cst_benchmark_policy,
     )
     b.keep(tree)
   })
@@ -288,7 +321,11 @@ test "build_tree_interned - x + x, warm" (b : @bench.T) {
 test "build_tree - x + x" (b : @bench.T) {
   let events = make_x_plus_x_events()
   b.bench(fn() {
-    let tree = try! @seam.build_tree(events, @seam.RawKind(22))
+    let tree = try! @seam.build_tree(
+      events,
+      @seam.RawKind(22),
+      policy=cst_benchmark_policy,
+    )
     b.keep(tree)
   })
 }
@@ -298,7 +335,7 @@ test "build_tree - x + x" (b : @bench.T) {
 test "node_interner - intern_node cold miss" (b : @bench.T) {
   b.bench(fn() {
     let ni = @seam.NodeInterner::new()
-    let node = @seam.CstNode::new(@seam.RawKind(20), [
+    let node = try! @seam.CstNode::new_unclassified(@seam.RawKind(20), [
       @seam.CstElement::Token(make_ident_token("x")),
     ])
     let r = ni.intern_node(node)
@@ -310,12 +347,12 @@ test "node_interner - intern_node cold miss" (b : @bench.T) {
 /// Benchmark: NodeInterner::intern_node warm hit.
 test "node_interner - intern_node warm hit" (b : @bench.T) {
   let ni = @seam.NodeInterner::new()
-  let node = @seam.CstNode::new(@seam.RawKind(20), [
+  let node = try! @seam.CstNode::new_unclassified(@seam.RawKind(20), [
     @seam.CstElement::Token(make_ident_token("x")),
   ])
   let _ = ni.intern_node(node)
   b.bench(fn() {
-    let node2 = @seam.CstNode::new(@seam.RawKind(20), [
+    let node2 = try! @seam.CstNode::new_unclassified(@seam.RawKind(20), [
       @seam.CstElement::Token(make_ident_token("x")),
     ])
     let r = ni.intern_node(node2)

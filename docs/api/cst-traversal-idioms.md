@@ -42,10 +42,11 @@ to infer it from token text or source position.
 
 For CST→AST lowering that should reuse work across edits. You provide an
 *algebra* `(SyntaxNode, recurse) -> Ast`; `CstFold` owns the tree walk and a
-cache keyed on `CstNode.hash` (the structural, position-independent content
-hash), so **unchanged subtrees are O(1) on cache hit** even after an edit shifts
-their absolute position. This is how the `lambda` / `markdown` / `json` examples
-lower their trees.
+cache keyed by the position-independent `CstNode` value. Cached `Hash` makes
+the normal lookup path constant-time and structural `Eq` resolves collisions,
+so unchanged subtrees remain cheap to reuse after an edit shifts their absolute
+position. This is how the `lambda` / `markdown` / `json` examples lower their
+trees.
 
 ```moonbit
 let cst_fold = CstFold::new(grammar.fold_node)   // algebra: (SyntaxNode, recurse) -> Ast
@@ -60,7 +61,7 @@ algebras. Between compactions, the cache contains the current tree plus a
 finite window of recent fold generations.
 
 > **Caveat — a cache hit returns the prior `Ast` verbatim, with no offset
-> adjustment.** The key is `CstNode.hash` (position-independent), and on a hit
+> adjustment.** The key is the position-independent `CstNode`, and on a hit
 > `fold_node` returns the previously computed result unchanged. So your algebra's
 > `Ast` must itself be **position-independent**: store relative widths, or
 > re-derive positions from the live `SyntaxNode` at use time. If the algebra bakes
@@ -71,7 +72,7 @@ finite window of recent fold generations.
 > fold result should carry structure, not coordinates.
 
 `CstFold` is where loom's incremental-reuse contract reaches semantics: the green
-tree's structural hash drives both syntax reuse and fold-result reuse — which is
+tree's structural identity drives both syntax reuse and fold-result reuse — which is
 exactly why the result must not encode positions the hash deliberately ignores.
 
 ## 3. Position-independent `CstElement` combinators — rarely the answer
@@ -91,7 +92,7 @@ served by `CstFold`. In practice that is a short list:
 Do **not** reach for them for:
 
 - **AST lowering** — needs offsets + typed kinds → use idiom 1 / 2.
-- **Memoized structural attributes** — `CstFold`'s hash-keyed cache already does
+- **Memoized structural attributes** — `CstFold`'s node-keyed cache already does
   this; a separate fold+memo layer re-implements it (see issue #269).
 - **Rendering that includes positions** — e.g. `SyntaxNode::to_json` emits
   `start`/`end`; that is positioned work → idiom 1.
@@ -104,7 +105,7 @@ Do **not** reach for them for:
 ## The principle
 
 Position-independence is a property of the **data layer** (interning, structural
-hashing, subtree reuse) and the **incremental engine** (`CstFold`'s hash cache,
+hashing, subtree reuse) and the **incremental engine** (`CstFold`'s node cache,
 and `@incr` downstream), *not* a user-facing traversal API. This matches
 rust-analyzer: position-independence lives in rowan's green tree and salsa's query
 cache, never in exposed green-tree folds. When you find yourself wanting a

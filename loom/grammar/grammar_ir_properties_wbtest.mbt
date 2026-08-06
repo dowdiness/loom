@@ -797,7 +797,7 @@ fn prop_cst_equivalence(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   let parse_root = interpret(ir) catch { _ => return @qc.property(true) }
   let spec = qc_spec(parse_root)
   let source_id = @core.SourceId("grammar-property-compile-equivalence-source")
-  let (tree1, diags1) = @core.parse_with(
+  let (tree1, diags1) = try! @core.parse_with(
     source_id,
     "ab",
     spec,
@@ -809,7 +809,7 @@ fn prop_cst_equivalence(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   let executable = bind(compiled) catch { _ => return @qc.property(true) }
   let parse_root2 = executable.parse_root()
   let spec2 = qc_spec(parse_root2)
-  let (tree2, diags2) = @core.parse_with(
+  let (tree2, diags2) = try! @core.parse_with(
     source_id,
     "ab",
     spec2,
@@ -839,7 +839,7 @@ fn prop_reference_matches(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   let ref_parse = reference_interpret(ir)
   let ref_spec = qc_spec(ref_parse)
   let source_id = @core.SourceId("grammar-property-reference-source")
-  let (ref_tree, ref_diags) = @core.parse_with(
+  let (ref_tree, ref_diags) = try! @core.parse_with(
     source_id,
     "ab",
     ref_spec,
@@ -849,7 +849,7 @@ fn prop_reference_matches(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   // Real parse
   let real_parse = interpret(ir) catch { _ => return @qc.property(true) }
   let real_spec = qc_spec(real_parse)
-  let (real_tree, real_diags) = @core.parse_with(
+  let (real_tree, real_diags) = try! @core.parse_with(
     source_id,
     "ab",
     real_spec,
@@ -887,7 +887,7 @@ fn prop_reference_matches_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   let ref_parse = reference_interpret(ir)
   let ref_spec = qc_spec(ref_parse)
   let source_id = @core.SourceId("grammar-property-token-reference-source")
-  let (ref_tree, ref_diags) = @core.parse_with(
+  let (ref_tree, ref_diags) = try! @core.parse_with(
     source_id,
     "src",
     ref_spec,
@@ -897,7 +897,7 @@ fn prop_reference_matches_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   // Real parse
   let real_parse = interpret(ir) catch { _ => return @qc.property(true) }
   let real_spec = qc_spec(real_parse)
-  let (real_tree, real_diags) = @core.parse_with(
+  let (real_tree, real_diags) = try! @core.parse_with(
     source_id,
     "src",
     real_spec,
@@ -923,7 +923,7 @@ fn prop_cst_equivalence_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   let parse_root = interpret(ir) catch { _ => return @qc.property(true) }
   let spec = qc_spec(parse_root)
   let source_id = @core.SourceId("grammar-property-token-compile-source")
-  let (tree1, diags1) = @core.parse_with(
+  let (tree1, diags1) = try! @core.parse_with(
     source_id,
     "src",
     spec,
@@ -935,7 +935,7 @@ fn prop_cst_equivalence_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   let executable = bind(compiled) catch { _ => return @qc.property(true) }
   let parse_root2 = executable.parse_root()
   let spec2 = qc_spec(parse_root2)
-  let (tree2, diags2) = @core.parse_with(
+  let (tree2, diags2) = try! @core.parse_with(
     source_id,
     "src",
     spec2,
@@ -1008,7 +1008,7 @@ fn check_equiv(
 ) -> Unit raise Failure {
   let ref_parse = reference_interpret(ir)
   let source_id = @core.SourceId("grammar-deterministic-equivalence-source")
-  let (ref_tree, ref_diags) = @core.parse_with(
+  let (ref_tree, ref_diags) = try! @core.parse_with(
     source_id,
     "src",
     qc_spec(ref_parse),
@@ -1020,7 +1020,7 @@ fn check_equiv(
     Some(f) => f
     None => fail(label + ": interpret failed")
   }
-  let (real_tree, real_diags) = @core.parse_with(
+  let (real_tree, real_diags) = try! @core.parse_with(
     source_id,
     "src",
     qc_spec(real_parse),
@@ -1244,7 +1244,7 @@ fn ref_diags(
   let parse_root = reference_interpret(ir)
   let spec = qc_spec(parse_root)
   let source_id = @core.SourceId("grammar-diagnostic-source")
-  let (_, diags) = @core.parse_with(
+  let (_, diags) = try! @core.parse_with(
     source_id,
     "src",
     spec,

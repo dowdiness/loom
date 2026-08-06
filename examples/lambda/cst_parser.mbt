@@ -750,7 +750,7 @@ fn parse_type_annotation(
 pub fn parse_cst(
   source_id : @core.SourceId,
   source : String,
-) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
+) -> (@seam.CstNode, @core.DiagnosticSet) raise {
   lambda_grammar.parse_cst(source_id, source)
 }
 
@@ -762,7 +762,7 @@ pub fn parse_cst_recover_with_tokens(
   tokens : Array[@token.TokenInfo[@token.Token]],
   cursor : @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?,
   prev_diagnostics? : @core.DiagnosticSet? = None,
-) -> (@seam.CstNode, @core.DiagnosticSet, Int) {
+) -> (@seam.CstNode, @core.DiagnosticSet, Int) raise Failure {
   let starts = @core.build_starts(tokens)
   @core.parse_tokens_indexed(
     source_id,

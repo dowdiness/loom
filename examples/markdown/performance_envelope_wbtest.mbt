@@ -69,8 +69,8 @@ fn perf_local_edit_work(count : Int) -> (Int, Int, Int, Int) {
     source,
     markdown_grammar,
   )
-  let _ = parser.parse()
-  let snapshot = parser.edit(edit, edited)
+  let _ = try! parser.parse()
+  let snapshot = try! parser.edit(edit, edited)
   let stats = parser.get_fold_stats().unwrap()
   (snapshot.reuse_count, stats.reused, stats.recomputed, stats.unvisited)
 }

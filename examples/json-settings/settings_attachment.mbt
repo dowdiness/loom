@@ -94,7 +94,7 @@ pub struct SettingsAttachment {
 pub fn SettingsAttachment::SettingsAttachment(
   source_id : @core.SourceId,
   initial_source : String,
-) -> SettingsAttachment {
+) -> SettingsAttachment raise Failure {
   let parser = @loom.new_parser(source_id, initial_source, @json.json_grammar)
   let scope = @incr.Scope::new(parser.runtime())
   let derived = scope.derived(
@@ -237,7 +237,7 @@ pub fn SettingsAttachment::apply_edit(
   self : SettingsAttachment,
   edit : @core.Edit,
   new_source : String,
-) -> Unit {
+) -> Unit raise Failure {
   let source_before_edit = self.current_source
   self.parser.apply_edit(edit, new_source)
   self.current_source = new_source
@@ -250,7 +250,7 @@ pub fn SettingsAttachment::apply_edit(
 pub fn SettingsAttachment::set_source(
   self : SettingsAttachment,
   new_source : String,
-) -> Unit {
+) -> Unit raise Failure {
   self.parser.set_source(new_source)
   self.current_source = new_source
   self.settle(None, None)

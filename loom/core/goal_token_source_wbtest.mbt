@@ -190,16 +190,16 @@ fn make_goal_buffer(source : String) -> TokenBuffer[GoalTestTok] {
 
 ///|
 fn make_goal_spec() -> LanguageSpec[GoalTestTok, GoalTestKind] {
-  {
-    whitespace_kind: GTKWs,
-    error_kind: GTKErr,
-    incomplete_kind: GTKIncomplete,
-    root_kind: GTKRoot,
-    eof_token: GTEof,
-    parse_root: fn(_) { () },
-    reuse_size_threshold: 64,
-    trivia_kinds_spec: [GTKWs],
-  }
+  LanguageSpec::new(
+    GTKWs,
+    GTKErr,
+    GTKRoot,
+    GTEof,
+    incomplete_kind=GTKIncomplete,
+    parse_root=fn(_) { () },
+    reuse_size_threshold=64,
+    trivia_kinds_spec=[GTKWs],
+  )
 }
 
 // === GoalCache tests ===

@@ -48,11 +48,11 @@ pub fn parse(@diagnostic.SourceId, String) -> @ast.Term raise
 
 pub fn parse_block_expr(@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit
 
-pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise
 
-pub fn parse_cst_recover_with_tokens(@diagnostic.SourceId, String, Array[@core.TokenInfo[@token.Token]], @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int)
+pub fn parse_cst_recover_with_tokens(@diagnostic.SourceId, String, Array[@core.TokenInfo[@token.Token]], @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int) raise Failure
 
-pub fn parse_term(@diagnostic.SourceId, String) -> (@ast.Term, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_term(@diagnostic.SourceId, String) -> (@ast.Term, @core.DiagnosticSet) raise
 
 pub fn resolve(@ast.Term) -> (@ast.Term, Resolution)
 
@@ -130,11 +130,11 @@ pub(all) struct LambdaAnalysis {
   scope : @cells.Scope
   watch : @cells.Watch[Array[LambdaDiagnostic]]
 }
-pub fn LambdaAnalysis::LambdaAnalysis(@diagnostic.SourceId, String) -> Self
-pub fn LambdaAnalysis::apply_edit(Self, @core.Edit, String) -> Unit
+pub fn LambdaAnalysis::LambdaAnalysis(@diagnostic.SourceId, String) -> Self raise Failure
+pub fn LambdaAnalysis::apply_edit(Self, @core.Edit, String) -> Unit raise Failure
 pub fn LambdaAnalysis::diagnostics(Self) -> Array[LambdaDiagnostic]
 pub fn LambdaAnalysis::dispose(Self) -> Unit
-pub fn LambdaAnalysis::set_source(Self, String) -> Unit
+pub fn LambdaAnalysis::set_source(Self, String) -> Unit raise Failure
 pub fn LambdaAnalysis::typecheck_result(Self) -> @typecheck.ModuleTypeResult
 
 pub(all) enum LambdaDiagnostic {

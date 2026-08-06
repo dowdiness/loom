@@ -27,7 +27,7 @@ fn drive_parser_update(
     let prefix = current[0:edit.start].to_owned()
     let suffix = current[edit.start + edit.old_len:].to_owned()
     current = prefix + inserted + suffix
-    parser.edit(edit, current) |> ignore
+    try! (parser.edit(edit, current) |> ignore)
   }
 }
 
@@ -44,7 +44,7 @@ fn EgwPeer::new(
 ) -> EgwPeer raise @egw.TextError {
   let doc = @egw.TextState::new(agent_id)
   let parser = new_imperative_parser(source_id, "")
-  let _ = parser.parse().ast
+  let _ = try! parser.parse().ast
   { doc, parser }
 }
 

@@ -15,7 +15,7 @@ fn make_position_tree(
   depth : Int,
   tokens_per_node : Int,
   fanout : Int,
-) -> CstNode {
+) -> CstNode raise Failure {
   let children : Array[CstElement] = []
   for i = 0; i < tokens_per_node; i = i + 1 {
     children.push(CstElement::Token(CstToken::CstToken(RawKind(9), "ab")))
@@ -27,7 +27,7 @@ fn make_position_tree(
       )
     }
   }
-  CstNode::new(RawKind(21), children)
+  CstNode::new_unclassified(RawKind(21), children)
 }
 
 ///|

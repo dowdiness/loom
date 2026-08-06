@@ -71,20 +71,82 @@ of the trivia kinds and error/incomplete classifiers used to compute CST
 metadata. Normalized semantic content defines equality and avoids a
 process-global mutable identifier.
 
+The trivia kinds form an unordered set. Construction copies the caller's
+array, sorts by `RawKind`, and removes duplicates; declaration order and
+multiplicity do not participate in policy equality or hashing. This
+normalization does not redefine `LanguageSpec::trivia_kinds_raw`: when Phase 3
+seals `LanguageSpec`, that compatibility projection preserves declaration order
+from separately owned specification data rather than exposing the policy's
+canonical set.
+
+The error and incomplete classifiers remain distinct role-bearing slots. Their
+values participate separately in policy equality and hashing, so exchanging
+the two produces a different policy even though the current cached
+`has_any_error` value combines both signals.
+
+Trivia membership and error/incomplete signaling are orthogonal. Policy
+construction does not reject a kind that appears on both axes: such a token is
+excluded from `token_count` and still makes `has_any_error` true. No precedence
+rule rewrites either result.
+
+Policy construction computes and stores one immutable semantic hash from the
+canonical trivia set and the two role-specific classifiers. Policy equality
+uses physical identity and the cached hash only as rejection fast paths, then
+compares the canonical fields so a hash collision cannot establish equality.
+Node construction combines the cached policy hash in constant time rather than
+re-hashing trivia kinds for every node.
+
+Policy equality and hashing are implementation capabilities, not public trait
+implementations. Callers construct and pass opaque policies; compatibility is
+observed when `CstNode` accepts equivalent policies during composition. A
+direct public policy comparison or map-key interface remains deferred until a
+real consumer requires it.
+
+Policy equivalence protects only the cached metadata semantics. It does not
+brand a language, grammar, or complete `RawKind` namespace. Nodes from
+unrelated languages with the same normalized trivia set and role-specific
+error/incomplete kinds are policy-compatible because composing them cannot
+invalidate `token_count` or `has_any_error`. Preventing semantically nonsensical
+cross-language composition would require a separate typed or nominal language
+boundary and is outside this policy's responsibility.
+
 Every `CstNode` stores its policy. The policy participates in node equality and
 the structural hash so the interner cannot treat nodes with different cached
 metadata semantics as interchangeable.
 
 Parent construction checks every node child against the requested policy. A
-mismatch is a programmer error and aborts construction.
+mismatch is a programmer defect detected before any constructed value or
+shared mutation escapes. Construction calls `fail` so an application boundary
+may quarantine the failed operation and retain its prior valid tree; it does
+not use uncatchable `abort` and does not add a typed domain-error effect.
+
+Internal parser recovery catches only the typed malformed-event errors it can
+convert into an error tree or a normal incremental fallback. It does not catch
+or translate policy-mismatch `Failure`; that defect propagates unchanged to the
+application boundary rather than being disguised as user-source recovery.
+
+Event builders preflight the policies of all reused subtrees before allocating
+or interning tree contents. A policy mismatch therefore leaves the
+`EventBuffer` and caller-supplied token/node interners unchanged and reusable;
+it cannot leave a valid but partial cache update behind before `fail`.
 
 `CstNode::new` becomes the classified construction boundary and requires a
 policy. `CstNode::new_unclassified` is the distinct language-agnostic boundary;
-it uses a canonical unclassified policy.
+it uses a canonical unclassified policy. `CstMetadataPolicy::unclassified()`
+returns one package-level immutable value rather than allocating an equivalent
+policy for each call. Its private state contains the empty trivia set and no
+error or incomplete kind, so sharing introduces no mutable global state.
+`CstMetadataPolicy::new([], error_kind=None, incomplete_kind=None)` canonicalizes
+to that same value after normalization; semantic-empty construction cannot
+create a second unclassified policy instance. Physical identity remains an
+internal optimization and is not a public observable contract.
 
 `with_replaced_child` drops its classifier parameters. It reconstructs with the
 receiver's stored policy and rejects a replacement child built under another
-policy.
+policy. `with_replaced_root` is the root-level counterpart: it returns the
+proposed replacement only after verifying an equivalent receiver policy. This
+keeps root reconstruction, including the empty-path case of `splice_tree`,
+domain-preserving without exposing a public policy accessor.
 
 The same rule applies to every other public reconstruction entry.
 `build_tree`, `build_tree_interned`, `build_tree_fully_interned`, and their
@@ -95,21 +157,55 @@ arguments.
 `CstElement::map` drops its classifier parameters and preserves each rebuilt
 node's stored policy automatically. If the mapping callback substitutes a node
 built under another policy, construction of its nearest parent rejects the
-mixed-policy tree. The transformed root may deliberately change policy only
-when the callback replaces the root itself.
+mixed-policy tree. The transformed root is checked against the receiver policy
+as well, so `map` has one uniform domain-preserving contract. A caller that
+intends to change metadata domains constructs a new tree explicitly with the
+target policy rather than using reconstruction as an implicit conversion.
 
 All `CstNode` fields become private. Named scalar accessors expose kind, text
-length, structural hash, non-trivia token count, and cached error presence.
-Child observation uses `ArrayView[CstElement]` or existing iterators.
+length, non-trivia token count, and cached error presence. Child observation
+uses `ArrayView[CstElement]` or existing iterators. The cached structural hash
+has no public integer accessor: callers use the collision-safe `Eq` and `Hash`
+implementations, and the numeric value and combination algorithm remain
+implementation details.
+
+Cross-package consumers migrate accordingly. `CstFold` keys its cache by
+`CstNode` so the collection invokes cached `Hash` plus structural `Eq` on a
+collision, and compaction rebuilds the map with current source-backed nodes.
+`tree_diff` uses node equality rather than treating equal hash integers as
+proof of structural identity. Physical identity and the private cached hash
+remain equality rejection fast paths.
+
+Forced-collision construction is centralized in `seam` white-box collection
+tests, the only test boundary allowed to manipulate the private cached hash.
+Those tests prove that structural `Eq`, `HashMap[CstNode, _>`, and
+`NodeInterner` retain unequal colliding nodes. Cross-package `CstFold` and
+`tree_diff` tests prove their respective node-key and structural-equality
+behavior compositionally; they do not receive a test-only hash accessor or
+constructor.
+
+The public `Hash` implementation is a collection-integration contract, not a
+persistent fingerprint contract. Equal `CstNode` values contribute equal hash
+values and hash collisions are resolved by structural `Eq`, but the numeric
+contribution and combination algorithm may change between Loom versions.
+Callers must not serialize it or use it as a stable node identifier. This
+relaxation applies to `CstNode` and therefore to the node variant of
+`CstElement`; it does not change the separately documented `CstToken`,
+`combine_hash`, or `string_hash` contracts in this phase.
 
 The stored policy is not exposed through a public accessor. Callers that create
 classified trees retain the policy they created; callers that reconstruct
 existing values use policy-preserving operations. This keeps policy extraction
 and re-injection out of the public interface.
 
-Public construction defensively copies child arrays. A package-private constructor
-accepts an exclusively owned child array for `EventBuffer` and other audited
-`seam` hot paths.
+Public construction defensively copies child arrays. A package-private
+constructor accepts an exclusively owned child array for `EventBuffer` and
+other audited `seam` hot paths. That constructor skips only the ownership copy:
+it still validates every node child's policy before constructing the parent.
+There is no unchecked policy-composition constructor. Physical policy identity
+keeps the normal validation path constant-time per node child; any future
+proposal to skip it requires separate benchmark evidence and an auditable proof
+that mismatched children are unrepresentable at the call site.
 
 ### Lexer results and mode re-lexing form one ownership boundary
 
@@ -309,6 +405,15 @@ A builder can own private arrays populated through methods and transfer them at
 adds the existing parser-side `K : ToRawKind` bound and builds the language's
 single `CstMetadataPolicy`.
 
+This ownership moves with the CST policy implementation in Phase 2 rather than
+waiting for the rest of `LanguageSpec` opacity in Phase 3. Moving only the
+policy field would be unsound: mutation through the still-public
+`trivia_kinds_spec` array could make the specification and its fixed policy
+disagree. Phase 2 therefore also copies that constructor input and makes the
+stored trivia array private. Phase 3 makes the remaining fields private and
+finishes the accessor migration. This is the smallest staging boundary at
+which a `LanguageSpec` and its policy cannot diverge.
+
 Only capabilities required outside `loom/core` are exposed: the EOF token,
 reuse threshold, and a copying raw-trivia projection. Parser-only fields and
 the stored policy remain private. Parser and event construction use the stored
@@ -340,54 +445,69 @@ pub fn CstNode::new(
   RawKind,
   Array[CstElement],
   policy~ : CstMetadataPolicy,
-) -> CstNode
-pub fn CstNode::new_unclassified(RawKind, Array[CstElement]) -> CstNode
-pub fn CstNode::with_replaced_child(Self, Int, CstElement) -> CstNode
+) -> CstNode raise Failure
+pub fn CstNode::new_unclassified(
+  RawKind,
+  Array[CstElement],
+) -> CstNode raise Failure
+pub fn CstNode::with_replaced_child(
+  Self,
+  Int,
+  CstElement,
+) -> CstNode raise Failure
+pub fn CstNode::with_replaced_root(
+  Self,
+  CstNode,
+) -> CstNode raise Failure
 pub fn CstNode::kind(Self) -> RawKind
 pub fn CstNode::text_len(Self) -> Int
-pub fn CstNode::structural_hash(Self) -> Int
 pub fn CstNode::token_count(Self) -> Int
 pub fn CstNode::has_any_error(Self) -> Bool
 pub fn CstNode::children(Self) -> ArrayView[CstElement]
-pub fn CstElement::map(Self, (CstElement) -> CstElement) -> CstElement
+pub impl Eq for CstNode
+pub impl Hash for CstNode
+pub fn CstElement::map(
+  Self,
+  (CstElement) -> CstElement,
+) -> CstElement raise Failure
 
 pub fn build_tree(
   Array[ParseEvent],
   RawKind,
   policy~ : CstMetadataPolicy,
-) -> CstNode raise EventStreamError
+) -> CstNode raise
 pub fn build_tree_interned(
   Array[ParseEvent],
   RawKind,
   Interner,
   policy~ : CstMetadataPolicy,
-) -> CstNode raise EventStreamError
+) -> CstNode raise
 pub fn build_tree_fully_interned(
   Array[ParseEvent],
   RawKind,
   Interner,
   NodeInterner,
   policy~ : CstMetadataPolicy,
-) -> CstNode raise EventStreamError
+) -> CstNode raise
 
 pub fn EventBuffer::build_tree(
   Self,
   RawKind,
   policy~ : CstMetadataPolicy,
-) -> CstNode raise EventStreamError
+) -> CstNode raise
 pub fn EventBuffer::build_tree_interned(
   Self,
   RawKind,
   Interner,
   policy~ : CstMetadataPolicy,
-) -> CstNode raise EventStreamError
+) -> CstNode raise
 pub fn EventBuffer::build_tree_fully_interned(
   Self,
   RawKind,
   Interner,
   NodeInterner,
   policy~ : CstMetadataPolicy,
-) -> CstNode raise EventStreamError
+) -> CstNode raise
 
 pub struct OldTokenStarts { /* private fields */ }
 pub fn OldTokenStarts::new(Array[Int]) -> OldTokenStarts
@@ -504,6 +624,14 @@ pub fn DamageTracker::range_count(Self) -> Int
 pub fn DamageTracker::range_at(Self, Int) -> Range?
 ```
 
+The generic `raise` on CST reconstruction is intentional: malformed event
+structure raises `EventStreamError`, while metadata-domain mismatch raises the
+standard catchable `Failure`. Public parser and facade operations that can
+reach reconstruction likewise include `Failure` in their error effect. They
+must not translate a policy mismatch into a parse diagnostic, a fallback tree,
+or an abort; existing `LexError` behavior remains unchanged for lexical
+failures.
+
 ## Release and compatibility boundary
 
 This is a breaking public API migration. The repository currently declares
@@ -525,9 +653,41 @@ Stored policy makes the metadata contract locally checkable. Requiring policy
 at each reconstruction call would move responsibility to every caller while
 leaving mixed-policy children undetectable.
 
-Semantic policy equality avoids a
-global identity allocator and permits separately created but equivalent
+Semantic policy equality avoids a global identity allocator and permits
+separately created but equivalent
 language specifications to interoperate deliberately.
+
+Set-normalizing trivia kinds prevents declaration order and duplicate entries
+from creating false policy mismatches. Preserving the language specification's
+declaration order separately retains its existing public observation without
+turning order into CST metadata semantics.
+
+Keeping error and incomplete kinds role-distinct preserves the language
+contract represented by their named constructor arguments. It deliberately
+rejects swapped-role subtrees rather than defining policy identity only by the
+current combined error bit.
+
+Allowing classification overlap preserves the independence of the two cached
+questions: whether a leaf counts as a semantic token and whether a subtree is
+problem-bearing. Rejecting overlap would add a language restriction that
+neither invariant requires.
+
+Keeping the cached node hash private prevents an optimization detail from
+becoming a persistence or identity interface. Callers already need structural
+equality for correctness; collection keys on `CstNode` preserve O(1) cached
+hashing while making collision verification automatic and local.
+
+Keeping policy comparison private deepens the construction seam: normalization,
+hashing, and compatibility checks remain local to `seam`, while callers learn
+only how to create and pass a policy. No current consumer needs to branch on
+policy equality or store policies as collection keys.
+
+A policy mismatch has no valid recovery value, but detection happens before a
+new parent is published and leaves existing immutable nodes untouched. A
+catchable `Failure` therefore classifies it as a caller defect without widening
+every construction and EventBuffer interface with an error callers cannot
+meaningfully handle. Uncatchable `abort` is reserved for corruption or
+partially mutated state that cannot be quarantined safely.
 
 The public-copy/package-private-owned split places cost at the trust boundary.
 Internal node construction keeps its current no-copy behavior. The mode re-lex
@@ -545,6 +705,21 @@ because callers cannot retain its backing arrays.
 - Each CST node stores one additional immutable policy reference. Release
   benchmarks must measure construction, interning, traversal, full parse, and
   incremental parse before this layout is accepted.
+- The canonical unclassified policy is one package-level immutable value;
+  `new_unclassified` does not allocate a policy per node.
+- Each policy stores one immutable cached semantic hash, keeping policy-aware
+  node construction independent of the trivia-set size after policy creation.
+- Policy `Eq` and `Hash` remain package-private. Public tests and callers
+  observe equivalence only through CST composition.
+- The numeric node hash and combination algorithm are no longer public
+  contracts. Cross-package caches use `CstNode` keys, and structural shortcuts
+  use collision-safe equality.
+- Mixed-policy composition fails with catchable `Failure` before a new node is
+  observable. Existing trees and buffers remain valid after the failed
+  operation is discarded.
+- `LanguageSpec` retains separately owned trivia declaration data for its
+  order-preserving compatibility projection; the normalized policy set is not
+  used to reconstruct author input.
 - Callers that intentionally build language-agnostic trees must spell
   `new_unclassified`; classified reconstruction becomes safer and shorter.
 - External lexers initially pay defensive-copy cost at result construction.
@@ -574,3 +749,30 @@ because callers cannot retain its backing arrays.
   could still receive an opaque value whose parallel-array invariant is false.
   Typed construction failure keeps invalid structure out of the value domain;
   diagnostics remain reserved for complete recovered lexer output.
+- **Brand metadata policy with language identity:** rejects nodes whose cached
+  metadata semantics are compatible and turns a cache-integrity policy into a
+  separate grammar/type-safety mechanism.
+- **Construct policy once per parse operation until Phase 3:** preserves
+  semantics but adds transient allocation and leaves incrementally reused trees
+  holding multiple equivalent policy instances. Moving the coherent
+  `LanguageSpec` policy/trivia kernel in Phase 2 avoids that bridge.
+- **Let `CstElement::map` change only the root policy:** gives one reconstruction
+  operation two domain contracts depending on tree position. Explicit target-
+  policy construction expresses conversion without that exception.
+- **Skip policy validation in the owned-child constructor:** confuses exclusive
+  array ownership with metadata compatibility and creates a second unchecked
+  composition boundary without evidence that it is needed.
+- **Treat the `CstNode` hash contribution as a persistent fingerprint:** freezes
+  a private optimization algorithm and encourages hash-equality identity checks
+  despite collision-safe `CstNode` keys being available.
+- **Expose the cached node hash as an integer accessor:** invites persistence
+  and hash-equality identity checks, while `CstNode` itself already supplies the
+  collision-safe `Eq` and `Hash` capabilities required by caches and interners.
+- **Expose policy `Eq` or `Hash` publicly:** adds a hypothetical comparison seam
+  without a consumer; construction already owns the only required compatibility
+  decision.
+- **Raise a typed policy-mismatch error:** gives callers no valid recovery value
+  and widens every constructor and builder interface for a programming defect.
+- **Abort on policy mismatch:** prevents FFI or application boundaries from
+  quarantining a failed pre-construction operation even though no corrupt state
+  has escaped.

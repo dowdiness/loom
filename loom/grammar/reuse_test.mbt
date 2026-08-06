@@ -84,7 +84,7 @@ fn pratt_parse(
   cursor? : @core.ReuseCursor[TestToken, TestToken]? = None,
   prev_diagnostics? : @core.DiagnosticSet? = None,
 ) -> (@seam.CstNode, @core.DiagnosticSet, Int) {
-  @core.parse_tokens_indexed(
+  try! @core.parse_tokens_indexed(
     source_id,
     source,
     tokens.length(),
@@ -191,10 +191,10 @@ test "PrattBinary reuses unchanged retroactive wrapper before later edit" {
     spec,
   )
   inspect(old_diags.is_empty(), content="true")
-  match old_tree.children[0] {
+  match old_tree.children()[0] {
     @seam.CstElement::Node(node) =>
-      if node.kind != @seam.ToRawKind::to_raw(TestToken::Word) ||
-        node.text_len != 3 {
+      if node.kind() != @seam.ToRawKind::to_raw(TestToken::Word) ||
+        node.text_len() != 3 {
         abort("expected first Pratt wrapper to span '1+2'")
       }
     @seam.CstElement::Token(_) => abort("expected first Pratt wrapper node")

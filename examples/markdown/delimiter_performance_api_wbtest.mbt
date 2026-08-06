@@ -3,7 +3,7 @@ fn delimiter_performance_new_syntax_parser(
   source_identity : String,
   source : String,
 ) -> @loom.SyntaxParser {
-  @loom.new_syntax_parser(
+  try! @loom.new_syntax_parser(
     @core.SourceId(source_identity),
     source,
     markdown_grammar.to_syntax_grammar(),

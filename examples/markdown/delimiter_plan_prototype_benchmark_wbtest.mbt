@@ -96,7 +96,7 @@ fn delimiter_plan_new_parser(
   source_id : @core.SourceId,
   source : String,
 ) -> @loom.SyntaxParser {
-  @loom.new_syntax_parser(
+  try! @loom.new_syntax_parser(
     source_id,
     source,
     markdown_grammar.to_syntax_grammar(),
@@ -212,11 +212,11 @@ test "delimiter prototype: incremental edit and restore match fresh parses" {
   let source_id = @core.SourceId("markdown-delimiter-prototype-incremental")
   let (source, edited, edit) = delimiter_plan_edit_fixture()
   let parser = delimiter_plan_new_parser(source_id, source)
-  parser.apply_edit(edit, edited)
+  try! parser.apply_edit(edit, edited)
   assert_delimiter_plan_parser_matches_fresh(
     source_id, "after edit", parser, edited,
   )
-  parser.apply_edit(edit, source)
+  try! parser.apply_edit(edit, source)
   assert_delimiter_plan_parser_matches_fresh(
     source_id, "after restore", parser, source,
   )
@@ -297,9 +297,9 @@ test "delimiter prototype: representative incremental edit and restore" (
   let parser = delimiter_plan_new_parser(source_id, source)
   ignore(parser.syntax_tree().read_or_abort())
   b.bench(() => {
-    parser.apply_edit(edit, edited)
+    try! parser.apply_edit(edit, edited)
     b.keep(parser.syntax_tree().read_or_abort())
-    parser.apply_edit(edit, source)
+    try! parser.apply_edit(edit, source)
     b.keep(parser.syntax_tree().read_or_abort())
   })
 }

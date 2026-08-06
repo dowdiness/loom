@@ -72,7 +72,7 @@ pub struct GraphAttachment {
 pub fn GraphAttachment::GraphAttachment(
   source_id : @core.SourceId,
   initial_source : String,
-) -> GraphAttachment {
+) -> GraphAttachment raise Failure {
   let parser = @loom.new_parser(source_id, initial_source, graph_grammar)
   let scope = @incr.Scope::new(parser.runtime())
   let derived = scope.derived(
@@ -188,7 +188,7 @@ pub fn GraphAttachment::apply_edit(
   self : GraphAttachment,
   edit : @loom.Edit,
   new_source : String,
-) -> Unit {
+) -> Unit raise Failure {
   let source_before_edit = self.current_source
   self.parser.apply_edit(edit, new_source)
   self.current_source = new_source
@@ -199,7 +199,7 @@ pub fn GraphAttachment::apply_edit(
 pub fn GraphAttachment::set_source(
   self : GraphAttachment,
   new_source : String,
-) -> Unit {
+) -> Unit raise Failure {
   self.parser.set_source(new_source)
   self.current_source = new_source
   self.settle(None, None)

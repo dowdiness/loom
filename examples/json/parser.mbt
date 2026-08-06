@@ -10,6 +10,7 @@ pub suberror ParseError {
 pub fn parse(source_id : @core.SourceId, input : String) -> JsonValue raise {
   let (value, diags) = parse_json(source_id, input) catch {
     @core.LexError(msg) => raise ParseError(msg)
+    error => raise error
   }
   if diags.length() > 0 {
     let diagnostic = diags.items()[0]
@@ -26,7 +27,7 @@ pub fn parse(source_id : @core.SourceId, input : String) -> JsonValue raise {
 pub fn parse_json(
   source_id : @core.SourceId,
   source : String,
-) -> (JsonValue, @core.DiagnosticSet) raise @core.LexError {
+) -> (JsonValue, @core.DiagnosticSet) raise {
   let (cst, diags) = parse_cst(source_id, source)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   (syntax_node_to_json(syntax), diags)

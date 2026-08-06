@@ -71,10 +71,10 @@ test "classifier: message strings differ + empty diagnostics → NoDivergence" {
 ///|
 test "classifier: D2b fail with D1/D2a pass → WrongModelStop (not NoDivergence)" {
   // P1 regression: D2b=false must not fall through to NoDivergence even when
-  // D1 and D2a both pass. This is the hash-collision blind-spot case: tree_diff
-  // returns empty on equal CstNode.hash, but leaf extraction sees the difference.
+  // D1 and D2a both pass. D2b is a direct consumer-facing identity invariant,
+  // so an inconsistent oracle result must still stop the model.
   let r = OracleStepResult::{
-    label: "hash-collision-guard",
+    label: "stable-identity-guard",
     d1_ok: true,
     d2a_ok: true,
     d2b_ok: false,

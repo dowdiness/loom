@@ -4,15 +4,22 @@
 // Run: cd seam && moon bench --release
 
 ///|
+let event_bench_policy : CstMetadataPolicy = CstMetadataPolicy::new(
+  [RawKind(11)],
+  error_kind=Some(RawKind(99)),
+  incomplete_kind=Some(RawKind(98)),
+)
+
+///|
 /// Build a reusable subtree: a node with N tokens.
-fn make_reuse_subtree(size : Int) -> CstNode {
+fn make_reuse_subtree(size : Int) -> CstNode raise Failure {
   let children : Array[CstElement] = Array::new(capacity=size)
   for i = 0; i < size; i = i + 1 {
     children.push(
       CstElement::Token(CstToken::CstToken(RawKind(9), "tok" + i.to_string())),
     )
   }
-  CstNode::new(RawKind(21), children)
+  CstNode::new(RawKind(21), children, policy=event_bench_policy)
 }
 
 ///|
@@ -61,15 +68,8 @@ test "bench: build_tree with ReuseNode (rebuild_subtree)" (b : @bench.T) {
   let subtree = make_reuse_subtree(100)
   let events = make_reuse_events(subtree, 50)
   let root_kind = RawKind(20)
-  let trivia_kinds = Some([RawKind(11)])
   b.bench(fn() {
-    let _ = try! build_tree(
-      events,
-      root_kind,
-      trivia_kinds~,
-      error_kind=Some(RawKind(99)),
-      incomplete_kind=Some(RawKind(98)),
-    )
+    let _ = try! build_tree(events, root_kind, policy=event_bench_policy)
   })
 }
 
@@ -80,15 +80,12 @@ test "bench: build_tree_interned with ReuseNode (re_intern_tokens_only)" (
   let subtree = make_reuse_subtree(100)
   let events = make_reuse_events(subtree, 50)
   let root_kind = RawKind(20)
-  let trivia_kinds = Some([RawKind(11)])
   b.bench(fn() {
     let _ = try! build_tree_interned(
       events,
       root_kind,
       Interner::new(),
-      trivia_kinds~,
-      error_kind=Some(RawKind(99)),
-      incomplete_kind=Some(RawKind(98)),
+      policy=event_bench_policy,
     )
   })
 }
@@ -102,14 +99,8 @@ test "bench: EventBuffer push_parser_reuse_node_rebased (matching source rebase)
   let source = make_reuse_source(100, reuse_count)
   let buf = make_reuse_at_buffer(subtree, source, reuse_count)
   let root_kind = RawKind(20)
-  let trivia_kinds = Some([RawKind(11)])
   b.bench(fn() {
-    let tree = try! buf.build_tree(
-      root_kind,
-      trivia_kinds~,
-      error_kind=Some(RawKind(99)),
-      incomplete_kind=Some(RawKind(98)),
-    )
+    let tree = try! buf.build_tree(root_kind, policy=event_bench_policy)
     b.keep(tree)
   })
 }
@@ -129,14 +120,8 @@ test "bench: EventBuffer push_parser_reuse_node_rebased_unchecked (validated sou
     let _ = i
   }
   let root_kind = RawKind(20)
-  let trivia_kinds = Some([RawKind(11)])
   b.bench(fn() {
-    let tree = try! buf.build_tree(
-      root_kind,
-      trivia_kinds~,
-      error_kind=Some(RawKind(99)),
-      incomplete_kind=Some(RawKind(98)),
-    )
+    let tree = try! buf.build_tree(root_kind, policy=event_bench_policy)
     b.keep(tree)
   })
 }

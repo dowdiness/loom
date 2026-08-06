@@ -101,10 +101,9 @@ pub fn message_strings_equal(
 /// classification (derived from A's diagnostics, which equal B's after D2a),
 /// and project_lambda_leaves is a deterministic function of each CST, a D2b
 /// A-vs-B mismatch under target (i) implies a D2a mismatch — so D2b is NOT an
-/// independent path-dependence oracle as wired here. Its independent residual is:
-/// (1) the tree_diff hash-collision blind spot (D2b can see structural
-///     differences that tree_diff's hash-equality shortcut masks), and
-/// (2) a direct consumer-facing stable-ID invariant assertion.
+/// independent path-dependence oracle as wired here. Since the 2026-08-06 core
+/// ownership migration made tree_diff collision-safe, D2b's remaining purpose
+/// is a direct consumer-facing stable-ID invariant assertion.
 /// Genuine independence requires consumer-style bookkeeping with separate
 /// edit sequences — that belongs to the projectional-language follow-up (Task 13).
 pub fn run_oracle_fixture(
@@ -112,7 +111,7 @@ pub fn run_oracle_fixture(
   initial : String,
   steps : Array[EditStep],
   b : @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind],
-) -> Array[OracleStepResult] {
+) -> Array[OracleStepResult] raise Failure {
   // Build A grammar through the same normalizer as B so only parse_root differs.
   let a_grammar = normalized_syntax_grammar(
     @lambda.lambda_grammar.spec,
@@ -192,9 +191,9 @@ pub fn run_oracle_fixture(
     )
     let d2a_ok = d2a_cst_ok && d2a_diag_ok
 
-    // D2b: stable projection IDs agree between A and B (hash-collision guard +
-    // consumer-invariant assertion). Tracks in lockstep with A's diagnostics
-    // as the shared failure/success signal.
+    // D2b: stable projection IDs agree between A and B as a direct consumer
+    // invariant. Tracks in lockstep with A's diagnostics as the shared
+    // failure/success signal.
     let diagnostics_empty = a_snap.diagnostics.is_empty()
     let d2b_ok : Bool = if diagnostics_empty {
       let a_leaves = project_lambda_leaves(a_snap.syntax)
@@ -289,10 +288,9 @@ fn check_d1(
 /// 3. NoDivergence: all oracle checks pass, messages agree.
 ///
 /// D2b is classified here (not skipped):
-/// - D2b failure with D1/D2a pass catches the tree_diff hash-collision blind spot:
-///   tree_diff returns early on equal CstNode.hash, so two structurally different
-///   trees can make D2a pass while D2b leaf extraction still sees the difference.
-///   Always a WrongModelStop — never falls through to NoDivergence.
+/// - D2b failure with D1/D2a pass violates the direct consumer-facing stable-ID
+///   invariant. The result is internally inconsistent and is always a
+///   WrongModelStop rather than falling through to NoDivergence.
 /// - reuse_parity is vacuous (Task 10 finding) so it is not a divergence signal.
 pub fn classify_divergence(result : OracleStepResult) -> DivergenceClass {
   // D1 failure: incremental != fresh for A or B.
@@ -312,12 +310,12 @@ pub fn classify_divergence(result : OracleStepResult) -> DivergenceClass {
     )
   }
   // D2b failure: stable projection IDs diverge while D1 and D2a pass.
-  // This catches the tree_diff hash-collision blind spot — always a stop condition.
+  // This violates a direct consumer invariant — always a stop condition.
   if !result.d2b_ok {
     return DivergenceClass::WrongModelStop(
       "D2b failure at step \"" +
       result.label +
-      "\": stable projection IDs diverge (hash-collision guard or consumer-invariant failure)",
+      "\": stable projection IDs diverge (consumer-invariant failure)",
     )
   }
   // Structural D2a passed but message strings differ: wording divergence only.
@@ -384,7 +382,7 @@ pub struct NewlineAppProbeResult {
 /// paren-narrowing into the cross-language contract). See spec §5.1/§5.3.
 pub fn run_newline_application_reification_probe(
   source_id : @core.SourceId,
-) -> NewlineAppProbeResult raise @grammar.GrammarCompileError {
+) -> NewlineAppProbeResult raise {
   let (initial, steps) = newline_app_fixture()
   let b = build_b_syntax_grammar()
   let results = run_oracle_fixture(source_id, initial, steps, b)
@@ -410,7 +408,7 @@ pub struct ReifiedIrOracleResult {
 /// so every boolean below is freshly derived on the reified IR.
 pub fn run_reified_ir_oracle(
   source_id : @core.SourceId,
-) -> ReifiedIrOracleResult raise @grammar.GrammarCompileError {
+) -> ReifiedIrOracleResult raise {
   let (initial, steps) = combined_fixture()
   let b = build_b_syntax_grammar()
   let results = run_oracle_fixture(source_id, initial, steps, b)

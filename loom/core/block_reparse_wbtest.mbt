@@ -40,3 +40,51 @@ test "push_offset_diagnostic reports invalid shifted diagnostic" {
     ),
   )
 }
+
+///|
+test "splice_tree rejects a root replacement from another metadata domain" {
+  let receiver_policy = @seam.CstMetadataPolicy::new([@seam.RawKind(8)])
+  let foreign_policy = @seam.CstMetadataPolicy::new([@seam.RawKind(9)])
+  let root = @seam.CstNode::new(
+    @seam.RawKind(1),
+    [
+      @seam.CstElement::Token(
+        @seam.CstToken::CstToken(@seam.RawKind(2), "root"),
+      ),
+    ],
+    policy=receiver_policy,
+  )
+  let foreign = @seam.CstNode::new(@seam.RawKind(3), [], policy=foreign_policy)
+  let mut caught = false
+  try {
+    let _ = splice_tree(root, [], foreign)
+  } catch {
+    Failure::Failure(_) => caught = true
+  } noraise {
+    _ => ()
+  }
+  assert_true(caught)
+  assert_eq(root.text_len(), 4)
+  assert_eq(foreign.kind(), @seam.RawKind(3))
+}
+
+///|
+test "splice_tree accepts an equivalent-domain root replacement" {
+  let receiver_policy = @seam.CstMetadataPolicy::new([
+    @seam.RawKind(9),
+    @seam.RawKind(8),
+  ])
+  let equivalent_policy = @seam.CstMetadataPolicy::new([
+    @seam.RawKind(8),
+    @seam.RawKind(9),
+    @seam.RawKind(8),
+  ])
+  let root = @seam.CstNode::new(@seam.RawKind(1), [], policy=receiver_policy)
+  let replacement = @seam.CstNode::new(
+    @seam.RawKind(2),
+    [],
+    policy=equivalent_policy,
+  )
+  let rebuilt = splice_tree(root, [], replacement)
+  assert_eq(rebuilt.kind(), @seam.RawKind(2))
+}

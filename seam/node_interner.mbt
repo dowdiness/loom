@@ -21,11 +21,9 @@
 ///   - Per-node equality cost at depth d: O(d)
 ///   - Total across all nodes: O(1 + 2 + ... + n) = O(n²)
 ///
-/// **trivia_kind invariant:** All `CstNode::new` calls feeding this interner
-/// MUST use the same `trivia_kinds` value. `CstNode::Eq` compares `kind` and
-/// `children` but NOT `token_count`, which depends on `trivia_kinds`. Mixing
-/// trivia policies within one interner silently canonicalizes to the first-seen
-/// `token_count`, producing incorrect values for subsequent callers.
+/// Metadata policy participates in both `CstNode::Hash` and `CstNode::Eq`.
+/// Nodes from different metadata domains therefore occupy distinct entries;
+/// equivalent policies may safely share canonical nodes.
 ///
 /// Lifetime: own one NodeInterner per parse session (e.g. per IncrementalParser).
 /// Not thread-safe.

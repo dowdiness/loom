@@ -12,7 +12,7 @@ fn unified_parser_benchmark_source_id() -> @core.SourceId {
 /// Measures full construction (engine + inputs + derived cells) + initial parse.
 test "parser: cold - new + ast()" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_parser(
+    let parser = try! @loom.new_parser(
       unified_parser_benchmark_source_id(),
       "(f, x) => if f x then x + 1 else x - 1",
       @lambda.lambda_grammar,
@@ -25,7 +25,7 @@ test "parser: cold - new + ast()" (b : @bench.T) {
 /// Warm pipeline: repeated ast() with no source change.
 /// Derived cells are already valid; subsequent reads only check staleness.
 test "parser: warm - ast() with no source change" (b : @bench.T) {
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     unified_parser_benchmark_source_id(),
     "(f, x) => if f x then x + 1 else x - 1",
     @lambda.lambda_grammar,
@@ -40,14 +40,14 @@ test "parser: warm - ast() with no source change" (b : @bench.T) {
 /// input when the source is unchanged — should be close to free.
 test "parser: identity - set_source(same) + ast()" (b : @bench.T) {
   let source = "(f, x) => if f x then x + 1 else x - 1"
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     unified_parser_benchmark_source_id(),
     source,
     @lambda.lambda_grammar,
   )
   let _ = parser.ast().read_or_abort() // prime
   b.bench(fn() {
-    parser.set_source(source) // identity → no engine call, no input write
+    try! parser.set_source(source) // identity → no engine call, no input write
     b.keep(parser.ast().read_or_abort())
   })
 }
@@ -56,16 +56,16 @@ test "parser: identity - set_source(same) + ast()" (b : @bench.T) {
 /// Full recompute: set_source with a different value + ast().
 /// Engine runs a full reparse; all published cells update in one batch.
 test "parser: full recompute - set_source(new) + ast()" (b : @bench.T) {
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     unified_parser_benchmark_source_id(),
     "(f, x) => if f x then x + 1 else x - 1",
     @lambda.lambda_grammar,
   )
   let _ = parser.ast().read_or_abort() // prime
   b.bench(fn() {
-    parser.set_source("(f, x) => if f x then x + 2 else x - 1")
+    try! parser.set_source("(f, x) => if f x then x + 2 else x - 1")
     let result = parser.ast().read_or_abort()
-    parser.set_source("(f, x) => if f x then x + 1 else x - 1") // restore
+    try! parser.set_source("(f, x) => if f x then x + 1 else x - 1") // restore
     let _ = parser.ast().read_or_abort()
     b.keep(result)
   })
@@ -77,16 +77,16 @@ test "parser: full recompute - set_source(new) + ast()" (b : @bench.T) {
 test "parser: undo/redo cycle (set_source)" (b : @bench.T) {
   let s1 = "(f, x) => if f x then x + 1 else x - 1"
   let s2 = "(f, x) => if f x then x + 2 else x - 1"
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     unified_parser_benchmark_source_id(),
     s1,
     @lambda.lambda_grammar,
   )
   let _ = parser.ast().read_or_abort()
   b.bench(fn() {
-    parser.set_source(s2)
+    try! parser.set_source(s2)
     let _ = parser.ast().read_or_abort()
-    parser.set_source(s1)
+    try! parser.set_source(s1)
     b.keep(parser.ast().read_or_abort())
   })
 }
@@ -102,7 +102,7 @@ test "parser: undo/redo cycle (set_source)" (b : @bench.T) {
 /// publication on top.
 test "parser: apply_edit - single char flip in nested lambda" (b : @bench.T) {
   let s1 = "(f, x) => if f x then x + 1 else x - 1"
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     unified_parser_benchmark_source_id(),
     s1,
     @lambda.lambda_grammar,
@@ -117,10 +117,10 @@ test "parser: apply_edit - single char flip in nested lambda" (b : @bench.T) {
     "2" +
     s1[target + 1:s1.length()].to_owned()
   b.bench(fn() {
-    parser.apply_edit(@core.Edit::new(target, 1, 1), flipped)
+    try! parser.apply_edit(@core.Edit::new(target, 1, 1), flipped)
     let _ = parser.ast().read_or_abort()
     // Restore for next iteration.
-    parser.apply_edit(@core.Edit::new(target, 1, 1), s1)
+    try! parser.apply_edit(@core.Edit::new(target, 1, 1), s1)
     b.keep(parser.ast().read_or_abort())
   })
 }
@@ -138,22 +138,22 @@ test "parity: imperative edit - let init edit" (b : @bench.T) {
       "let x = 1\ny",
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
     let edit = @core.Edit::replace(8, 9, 9)
-    b.keep(parser.edit(edit, "let x = 2\ny"))
+    b.keep(try! parser.edit(edit, "let x = 2\ny"))
   })
 }
 
 ///|
 test "parity: parser apply_edit - let init edit" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_parser(
+    let parser = try! @loom.new_parser(
       unified_parser_benchmark_source_id(),
       "let x = 1\ny",
       @lambda.lambda_grammar,
     )
     let _ = parser.ast().read_or_abort() // prime
-    parser.apply_edit(@core.Edit::replace(8, 9, 9), "let x = 2\ny")
+    try! parser.apply_edit(@core.Edit::replace(8, 9, 9), "let x = 2\ny")
     b.keep(parser.ast().read_or_abort())
   })
 }
@@ -164,16 +164,16 @@ test "parity: parser apply_edit - let init edit" (b : @bench.T) {
 /// diagnostics signal updates atomically with syntax_tree and ast inside
 /// `Runtime::batch` — and verifies that recovery clears the diagnostics.
 test "parser: diagnostics - valid ↔ malformed cycle" (b : @bench.T) {
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     unified_parser_benchmark_source_id(),
     "(x) => x",
     @lambda.lambda_grammar,
   )
   let _ = parser.diagnostics().read_or_abort() // prime
   b.bench(fn() {
-    parser.set_source("(x) =>") // malformed
+    try! parser.set_source("(x) =>") // malformed
     b.keep(parser.diagnostics().read_or_abort())
-    parser.set_source("(x) => x") // recover
+    try! parser.set_source("(x) => x") // recover
     let _ = parser.diagnostics().read_or_abort()
   })
 }

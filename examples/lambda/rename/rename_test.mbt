@@ -8,7 +8,7 @@ fn rename_test_source_id() -> @core.SourceId {
 
 ///|
 fn parse_to_syntax(source : String) -> @seam.SyntaxNode {
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     rename_test_source_id(),
     source,
     @lambda.lambda_grammar,
@@ -49,7 +49,7 @@ fn facts_for_test(
   Array[@callers.Call],
   Array[(@callers.ScopeId, @callers.ScopeId)],
 ) {
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     rename_test_source_id(),
     source,
     @lambda.lambda_grammar,
@@ -65,7 +65,7 @@ fn facts_for_test(
 fn setup_pipeline(
   source : String,
 ) -> (@callers.CallersPipeline, @seam.SyntaxNode) {
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     rename_test_source_id(),
     source,
     @lambda.lambda_grammar,

@@ -171,8 +171,8 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
       match cursor.try_reuse_repeat_group(byte_offset, token_pos) {
         None => false
         Some(node) => {
-          let old_node_end = cursor.current_offset + node.text_len
-          let new_node_end = byte_offset + node.text_len
+          let old_node_end = cursor.current_offset + node.text_len()
+          let new_node_end = byte_offset + node.text_len()
           let old_boundary_tokens = cursor.old_zero_width_tokens_at_boundary(
             new_node_end,
           )

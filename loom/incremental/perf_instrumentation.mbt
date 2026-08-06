@@ -102,7 +102,7 @@ pub fn count_tokens_in_node_instrumented(node : @seam.CstNode) -> Int {
   if perf_stats.enabled.val {
     perf_stats.count_tokens_calls.val = perf_stats.count_tokens_calls.val + 1
   }
-  node.token_count
+  node.token_count()
 }
 
 ///|

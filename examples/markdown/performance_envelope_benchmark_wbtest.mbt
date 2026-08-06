@@ -27,7 +27,7 @@ fn perf_parse_buffer(
   source : String,
   buffer : @core.TokenBuffer[Token],
 ) -> (@seam.CstNode, @core.DiagnosticSet, Int) {
-  @core.parse_tokens_indexed(
+  try! @core.parse_tokens_indexed(
     source_id,
     source,
     buffer.token_count(),

@@ -41,7 +41,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_cst_fro
   lex : (@core.SourceId, String) -> @core.LexResult[T],
   incremental_relex_enabled : Bool,
   mode_relex : @core.ModeRelexFactory[T]?,
-) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
+) -> (@seam.CstNode, @core.DiagnosticSet) raise {
   let buffer = create_buffer(
     source_id,
     source,
@@ -73,7 +73,7 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Gram
   self : Grammar[T, K, Ast],
   source_id : @core.SourceId,
   source : String,
-) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
+) -> (@seam.CstNode, @core.DiagnosticSet) raise {
   parse_cst_from_parts(
     source_id,
     source,
@@ -91,7 +91,7 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] SyntaxGra
   self : SyntaxGrammar[T, K],
   source_id : @core.SourceId,
   source : String,
-) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
+) -> (@seam.CstNode, @core.DiagnosticSet) raise {
   parse_cst_from_parts(
     source_id,
     source,

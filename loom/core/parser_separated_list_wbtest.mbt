@@ -12,8 +12,8 @@ fn render_cst_element(elem : @seam.CstElement) -> String {
       }
     }
     Node(n) => {
-      let @seam.RawKind(k) = n.kind
-      "n\{k}(" + n.children.map(render_cst_element).join(" ") + ")"
+      let @seam.RawKind(k) = n.kind()
+      "n\{k}(" + n.children().map(render_cst_element).join(" ") + ")"
     }
   }
 }
@@ -25,13 +25,11 @@ fn render_list_tree(ctx : ParserContext[TestTok, TestKind]) -> String {
   let tree = ctx.events.build_tree_interned(
     @seam.ToRawKind::to_raw(test_spec.root_kind),
     @seam.Interner::new(),
-    trivia_kinds=Some(test_spec.trivia_kinds_raw()),
-    error_kind=Some(@seam.ToRawKind::to_raw(test_spec.error_kind)),
-    incomplete_kind=Some(@seam.ToRawKind::to_raw(test_spec.incomplete_kind)),
+    policy=test_spec.cst_metadata_policy,
   ) catch {
     _ => abort("expected separated_list tree to build")
   }
-  tree.children.map(render_cst_element).join(" ")
+  tree.children().map(render_cst_element).join(" ")
 }
 
 ///|
@@ -286,9 +284,7 @@ test "separated_list element slots hit incremental reuse like node()" {
   let old_tree = old_ctx.events.build_tree_interned(
     @seam.ToRawKind::to_raw(test_spec.root_kind),
     @seam.Interner::new(),
-    trivia_kinds=Some(test_spec.trivia_kinds_raw()),
-    error_kind=Some(@seam.ToRawKind::to_raw(test_spec.error_kind)),
-    incomplete_kind=Some(@seam.ToRawKind::to_raw(test_spec.incomplete_kind)),
+    policy=test_spec.cst_metadata_policy,
   ) catch {
     _ => abort("expected interned old tree")
   }
@@ -340,9 +336,7 @@ test "separated_list missing separator still recovers after element reuse" {
   let old_tree = old_ctx.events.build_tree_interned(
     @seam.ToRawKind::to_raw(test_spec.root_kind),
     @seam.Interner::new(),
-    trivia_kinds=Some(test_spec.trivia_kinds_raw()),
-    error_kind=Some(@seam.ToRawKind::to_raw(test_spec.error_kind)),
-    incomplete_kind=Some(@seam.ToRawKind::to_raw(test_spec.incomplete_kind)),
+    policy=test_spec.cst_metadata_policy,
   ) catch {
     _ => abort("expected interned old tree")
   }

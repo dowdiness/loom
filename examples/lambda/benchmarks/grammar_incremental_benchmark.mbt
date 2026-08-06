@@ -83,12 +83,12 @@ fn make_edit_session(base : String) -> Array[(@core.Edit, String)] {
 test "grammar A and B reuse comparably on a tail edit (throughput parity mechanism)" {
   let source = make_let_chain(80, "0")
   let session = make_edit_session(source)
-  let a = @loom.new_syntax_parser(
+  let a = try! @loom.new_syntax_parser(
     grammar_incremental_source_id(),
     source,
     build_a(),
   )
-  let b = @loom.new_syntax_parser(
+  let b = try! @loom.new_syntax_parser(
     grammar_incremental_source_id(),
     source,
     build_b(),
@@ -114,12 +114,12 @@ test "grammar A and B reuse comparably on a DEEP-subtree edit (deep-tier honesty
   // reuse on the first deep flip so the deep-tier number is read correctly.
   let source = make_lambda_let_chain(20)
   let session = make_deep_tree_session(source)
-  let a = @loom.new_syntax_parser(
+  let a = try! @loom.new_syntax_parser(
     grammar_incremental_source_id(),
     source,
     build_a(),
   )
-  let b = @loom.new_syntax_parser(
+  let b = try! @loom.new_syntax_parser(
     grammar_incremental_source_id(),
     source,
     build_b(),
@@ -159,12 +159,12 @@ test "grammar A and B reuse on a FLAT in-place edit (is the gap general?)" {
     "1" +
     slice(source, pos + 1, source.length())
   let edit = @core.Edit::replace(pos, pos + 1, pos + 1)
-  let a = @loom.new_syntax_parser(
+  let a = try! @loom.new_syntax_parser(
     grammar_incremental_source_id(),
     source,
     build_a(),
   )
-  let b = @loom.new_syntax_parser(
+  let b = try! @loom.new_syntax_parser(
     grammar_incremental_source_id(),
     source,
     build_b(),
@@ -192,7 +192,7 @@ test "grammar A (hand): let-chain 80 - initial parse" (b : @bench.T) {
   let source = make_let_chain(80, "0")
   let grammar = build_a()
   b.bench(fn() {
-    let parser = @loom.new_syntax_parser(
+    let parser = try! @loom.new_syntax_parser(
       grammar_incremental_source_id(),
       source,
       grammar,
@@ -206,7 +206,7 @@ test "grammar B (interp): let-chain 80 - initial parse" (b : @bench.T) {
   let source = make_let_chain(80, "0")
   let grammar = build_b()
   b.bench(fn() {
-    let parser = @loom.new_syntax_parser(
+    let parser = try! @loom.new_syntax_parser(
       grammar_incremental_source_id(),
       source,
       grammar,
@@ -227,7 +227,7 @@ test "grammar A (hand): deep lambda tree - full parse" (b : @bench.T) {
   let source = make_lambda_let_chain(20)
   let grammar = build_a()
   b.bench(fn() {
-    let parser = @loom.new_syntax_parser(
+    let parser = try! @loom.new_syntax_parser(
       grammar_incremental_source_id(),
       source,
       grammar,
@@ -241,7 +241,7 @@ test "grammar B (interp): deep lambda tree - full parse" (b : @bench.T) {
   let source = make_lambda_let_chain(20)
   let grammar = build_b()
   b.bench(fn() {
-    let parser = @loom.new_syntax_parser(
+    let parser = try! @loom.new_syntax_parser(
       grammar_incremental_source_id(),
       source,
       grammar,
@@ -262,7 +262,7 @@ test "grammar A (hand): let-chain 80 - incremental edit session (8 edits)" (
 ) {
   let source = make_let_chain(80, "0")
   let session = make_edit_session(source)
-  let parser = @loom.new_syntax_parser(
+  let parser = try! @loom.new_syntax_parser(
     grammar_incremental_source_id(),
     source,
     build_a(),
@@ -271,7 +271,7 @@ test "grammar A (hand): let-chain 80 - incremental edit session (8 edits)" (
   b.bench(fn() {
     for step in session {
       let (edit, after) = step
-      parser.apply_edit(edit, after)
+      try! parser.apply_edit(edit, after)
       b.keep(parser.snapshot().read_or_abort())
     }
   })
@@ -283,7 +283,7 @@ test "grammar B (interp): let-chain 80 - incremental edit session (8 edits)" (
 ) {
   let source = make_let_chain(80, "0")
   let session = make_edit_session(source)
-  let parser = @loom.new_syntax_parser(
+  let parser = try! @loom.new_syntax_parser(
     grammar_incremental_source_id(),
     source,
     build_b(),
@@ -292,7 +292,7 @@ test "grammar B (interp): let-chain 80 - incremental edit session (8 edits)" (
   b.bench(fn() {
     for step in session {
       let (edit, after) = step
-      parser.apply_edit(edit, after)
+      try! parser.apply_edit(edit, after)
       b.keep(parser.snapshot().read_or_abort())
     }
   })
@@ -361,7 +361,7 @@ test "grammar A (hand): deep lambda tree - incremental edit session" (
 ) {
   let source = make_lambda_let_chain(20)
   let session = make_deep_tree_session(source)
-  let parser = @loom.new_syntax_parser(
+  let parser = try! @loom.new_syntax_parser(
     grammar_incremental_source_id(),
     source,
     build_a(),
@@ -370,7 +370,7 @@ test "grammar A (hand): deep lambda tree - incremental edit session" (
   b.bench(fn() {
     for step in session {
       let (edit, after) = step
-      parser.apply_edit(edit, after)
+      try! parser.apply_edit(edit, after)
       b.keep(parser.snapshot().read_or_abort())
     }
   })
@@ -382,7 +382,7 @@ test "grammar B (interp): deep lambda tree - incremental edit session" (
 ) {
   let source = make_lambda_let_chain(20)
   let session = make_deep_tree_session(source)
-  let parser = @loom.new_syntax_parser(
+  let parser = try! @loom.new_syntax_parser(
     grammar_incremental_source_id(),
     source,
     build_b(),
@@ -391,7 +391,7 @@ test "grammar B (interp): deep lambda tree - incremental edit session" (
   b.bench(fn() {
     for step in session {
       let (edit, after) = step
-      parser.apply_edit(edit, after)
+      try! parser.apply_edit(edit, after)
       b.keep(parser.snapshot().read_or_abort())
     }
   })

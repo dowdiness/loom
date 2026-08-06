@@ -117,11 +117,11 @@ test "realistic: 40 defs - incremental (edit tail)" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   b.bench(fn() {
-    let tree = parser.edit(edit, edited)
+    let tree = try! parser.edit(edit, edited)
     b.keep(tree)
-    let _ = parser.edit(edit, source)
+    let _ = try! parser.edit(edit, source)
   })
 }
 
@@ -136,11 +136,11 @@ test "realistic: 40 defs - incremental (edit head block)" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   b.bench(fn() {
-    let tree = parser.edit(edit, edited)
+    let tree = try! parser.edit(edit, edited)
     b.keep(tree)
-    let _ = parser.edit(edit, source)
+    let _ = try! parser.edit(edit, source)
   })
 }
 
@@ -155,11 +155,11 @@ test "realistic: 40 defs - incremental (edit middle block)" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   b.bench(fn() {
-    let tree = parser.edit(edit, edited)
+    let tree = try! parser.edit(edit, edited)
     b.keep(tree)
-    let _ = parser.edit(edit, source)
+    let _ = try! parser.edit(edit, source)
   })
 }
 
@@ -187,11 +187,11 @@ test "realistic: 80 defs - incremental (edit tail)" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   b.bench(fn() {
-    let tree = parser.edit(edit, edited)
+    let tree = try! parser.edit(edit, edited)
     b.keep(tree)
-    let _ = parser.edit(edit, source)
+    let _ = try! parser.edit(edit, source)
   })
 }
 
@@ -206,11 +206,11 @@ test "realistic: 80 defs - incremental (edit middle block)" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   b.bench(fn() {
-    let tree = parser.edit(edit, edited)
+    let tree = try! parser.edit(edit, edited)
     b.keep(tree)
-    let _ = parser.edit(edit, source)
+    let _ = try! parser.edit(edit, source)
   })
 }
 
@@ -238,11 +238,11 @@ test "realistic: 160 defs - incremental (edit tail)" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   b.bench(fn() {
-    let tree = parser.edit(edit, edited)
+    let tree = try! parser.edit(edit, edited)
     b.keep(tree)
-    let _ = parser.edit(edit, source)
+    let _ = try! parser.edit(edit, source)
   })
 }
 
@@ -257,10 +257,10 @@ test "realistic: 160 defs - incremental (edit middle block)" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   b.bench(fn() {
-    let tree = parser.edit(edit, edited)
+    let tree = try! parser.edit(edit, edited)
     b.keep(tree)
-    let _ = parser.edit(edit, source)
+    let _ = try! parser.edit(edit, source)
   })
 }
