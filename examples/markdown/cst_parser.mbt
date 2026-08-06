@@ -502,16 +502,11 @@ fn decide_block_quote_paragraph_continuation(
 fn parse_block_quote_paragraph(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
-  ctx.node(ParagraphNode, fn() {
-    let handler : ContinuationHandler[BlockContinuationAction] = {
-      decide: () => decide_block_quote_paragraph_continuation(ctx),
-      consume: action => consume_block_continuation(ctx, action),
-    }
-    parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
-    if ctx.peek() is Newline {
-      ctx.emit_token(NewlineToken)
-    }
-  })
+  let handler : ContinuationHandler[BlockContinuationAction] = {
+    decide: () => decide_block_quote_paragraph_continuation(ctx),
+    consume: action => consume_block_continuation(ctx, action),
+  }
+  parse_block_quote_paragraph_with_handler(ctx, handler)
 }
 
 ///|
@@ -554,22 +549,16 @@ fn decide_block_quote_heading_continuation(
 fn try_parse_block_quote_setext_heading(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Bool {
-  let cp = ctx.checkpoint()
-  ctx.start_node(HeadingNode)
   let handler : ContinuationHandler[BlockContinuationAction] = {
     decide: () => decide_block_quote_heading_continuation(ctx),
     consume: action => consume_block_continuation(ctx, action),
   }
-  parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
-  if quoted_setext_underline_depth_after_newline(ctx) is Some(_) {
-    consume_quoted_setext_underline_line(ctx)
-    ctx.finish_node()
-    true
-  } else {
-    ctx.finish_node()
-    ctx.restore(cp)
-    false
-  }
+  try_parse_block_quote_setext_heading_with_handler(
+    ctx,
+    handler,
+    () => quoted_setext_underline_depth_after_newline(ctx),
+    () => consume_quoted_setext_underline_line(ctx),
+  )
 }
 
 ///|
@@ -907,7 +896,13 @@ fn consume_block_quote_child_separator(
 fn parse_block_quote_with_prefix(
   ctx : @core.ParserContext[Token, SyntaxKind],
   prefix : LinePrefix?,
+  owned_prefix_min_indent : Int?,
 ) -> Unit {
+  // A list item owns its content indentation, so carry it as the min indent
+  // of the owned prefix accepted on subsequent physical lines of the quote.
+  if try_parse_repeated_nested_block_quote(ctx, prefix, owned_prefix_min_indent) {
+    return
+  }
   ctx.node(BlockQuoteNode, fn() {
     // A list item owns its content indentation, which can exceed the root
     // blockquote limit of three columns. Consume that structural prefix inside
@@ -933,7 +928,7 @@ fn parse_block_quote_with_prefix(
 
 ///|
 fn parse_block_quote(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
-  parse_block_quote_with_prefix(ctx, None)
+  parse_block_quote_with_prefix(ctx, None, None)
 }
 
 ///|
@@ -1145,7 +1140,7 @@ fn try_continue_list_item_after_blank_line(
       true
     }
     Indentation(_) if prefixed_list_item_block_starts(ctx, content_indent) => {
-      parse_list_item_prefixed_block(ctx)
+      parse_list_item_prefixed_block(ctx, content_indent)
       true
     }
     Indentation(_) => {
@@ -1205,7 +1200,7 @@ fn try_parse_list_item_block_after_newline(
     Indentation(_) if allow_prefixed_blocks &&
       !current_line_is_link_reference_definition(ctx) &&
       prefixed_list_item_block_starts(ctx, content_indent) => {
-      parse_list_item_prefixed_block(ctx)
+      parse_list_item_prefixed_block(ctx, content_indent)
       true
     }
     _ => {
@@ -1601,6 +1596,7 @@ fn next_indented_text_indent_after_newline(
 ///|
 fn parse_list_item_prefixed_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
 ) -> Unit {
   if current_line_is_link_reference_definition(ctx) {
     parse_link_reference_definition(ctx)
@@ -1613,7 +1609,8 @@ fn parse_list_item_prefixed_block(
   match ctx.peek_nth(1) {
     ThematicBreak => parse_thematic_break_with_prefix(ctx, Some(prefix))
     HeadingMarker(_) => parse_heading_with_prefix(ctx, Some(prefix))
-    BlockQuoteMarker => parse_block_quote_with_prefix(ctx, Some(prefix))
+    BlockQuoteMarker =>
+      parse_block_quote_with_prefix(ctx, Some(prefix), Some(content_indent))
     CodeFenceOpen(_, _) => parse_code_block_with_prefix(ctx, Some(prefix))
     HtmlBlockOpen(_) => parse_html_block(ctx, Some(prefix))
     _ => parse_paragraph_with_prefix(ctx, Some(prefix))
@@ -1635,7 +1632,7 @@ fn try_parse_list_item_indented_flow(
         ListMarker | OrderedListMarker(_) =>
           parse_nested_list_at_current_marker(ctx, content_indent)
         _ => {
-          parse_list_item_prefixed_block(ctx)
+          parse_list_item_prefixed_block(ctx, content_indent)
           true
         }
       }

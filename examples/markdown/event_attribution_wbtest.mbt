@@ -256,7 +256,7 @@ test "event attribution: deterministic transcript remains stable" {
       #|recovery-heavy|source=372|tokens=113|reads=3862/1208/1204|token-max=52|diagnostics=0|payload=40/300|payload-units=300/0/0/0/0/0|backticks=0
       #|html|source=208|tokens=29|reads=182/36/32|token-max=11|diagnostics=0|payload=12/192|payload-units=0/192/0/0/0/0|backticks=0
       #|fenced-code|source=160|tokens=37|reads=222/40/36|token-max=10|diagnostics=0|payload=16/116|payload-units=0/0/88/0/28/0|backticks=0
-      #|nested-container|source=104|tokens=41|reads=806/163/130|token-max=104|diagnostics=0|payload=4/36|payload-units=36/0/0/0/0/0|backticks=0
+      #|nested-container|source=104|tokens=41|reads=933/287/285|token-max=35|diagnostics=0|payload=4/36|payload-units=36/0/0/0/0/0|backticks=0
       #|
     ),
   )
@@ -269,7 +269,7 @@ test "event attribution: deterministic transcript remains stable" {
       #|recovery-heavy|source=5952|tokens=1793|reads=61762/19328/19264|token-max=52|diagnostics=0|payload=640/4800|payload-units=4800/0/0/0/0/0|backticks=0
       #|html|source=3328|tokens=449|reads=2882/576/512|token-max=11|diagnostics=0|payload=192/3072|payload-units=0/3072/0/0/0/0|backticks=0
       #|fenced-code|source=2560|tokens=577|reads=3522/640/576|token-max=10|diagnostics=0|payload=256/1856|payload-units=0/0/1408/0/448/0|backticks=0
-      #|nested-container|source=1718|tokens=641|reads=13166/2623/2110|token-max=1364|diagnostics=0|payload=64/630|payload-units=630/0/0/0/0/0|backticks=0
+      #|nested-container|source=1718|tokens=641|reads=14793/4727/4725|token-max=35|diagnostics=0|payload=64/630|payload-units=630/0/0/0/0/0|backticks=0
       #|
     ),
   )
