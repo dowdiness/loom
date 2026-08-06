@@ -1,8 +1,11 @@
 # ADR: Reject online Markdown delimiter resolution
 
-**Date:** 2026-08-06  
-**Status:** Accepted  
-**Investigation:** [Markdown delimiter-plan cost-reduction prototype](../performance/2026-08-06-markdown-delimiter-plan-prototype.md)  
+**Date:** 2026-08-06
+
+**Status:** Accepted
+
+**Investigation:** [Markdown delimiter-plan cost-reduction prototype](../performance/2026-08-06-markdown-delimiter-plan-prototype.md)
+
 **Issue:** [#883](https://github.com/dowdiness/loom/issues/883)
 
 ## Context
