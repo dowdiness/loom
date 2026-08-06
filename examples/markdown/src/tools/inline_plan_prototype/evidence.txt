@@ -1,0 +1,88 @@
+Issue #890 throwaway feasibility evidence
+=========================================
+
+Scope
+-----
+Local branch: prototype/890-inline-plan-seam
+Production base: 26f687b7d392dc42ae866106c6f914ae69088144
+Initial prototype commit: 9fda5577a42b46bca32d2f69d456cae4d078dc25
+Production parser/runtime files changed: none
+
+Structural evidence
+-------------------
+- One PrototypeCombinedInlinePlan contains the existing production
+  DelimiterResolutionPlan and preclassified production angle facts.
+- Angle classification remains in the lexer shell. The combined plan consumes
+  facts and never rescans or reclassifies source.
+- The NoAnglePath branch returns before angle index construction and allocates
+  no angle fact array.
+- The production classifier fixture probe covers URI, email, open/close HTML,
+  comments, multiline HTML, adjacent candidates, malformed attributes,
+  malformed spacing, malformed self-closing tags, and malformed closing tags.
+- The production code/link/image/emphasis indexes and delimiter plan are used
+  directly by the white-box composition probe.
+- A shared-closer probe verifies that the production reverse index stores the
+  same greater-than endpoint for every opener, making endpoint retrieval one
+  indexed lookup rather than a repeated search for the common closer.
+- The original interactive prototype covers CommonMark 342-346, 516, 525,
+  526, destination/title backticks, LF/CRLF/CR continuation mapping, and
+  discontinuous source segments.
+
+Corpus metadata
+---------------
+Delimiter/control bank: 512 motifs, 10,752 InlineAnalysisToken facts.
+Angle-free source: 16,897 UTF-16 units.
+Angle-heavy source: 16,274 UTF-16 units, 1,536 classified angle facts.
+Shared-closer sources: 1,026 / 4,098 / 16,386 UTF-16 units.
+Each moon benchmark reports 10 samples and its inner-run count.
+
+Paired-control release measurements
+-----------------------------------
+Commands:
+  moon bench --release --target js inline_plan_seam_prototype_wbtest.mbt
+  moon bench --release --target wasm-gc inline_plan_seam_prototype_wbtest.mbt
+Each command was run twice on the same runner and working tree. Every run has
+adjacent control-A and identical control-A-repeat rows before the consumers.
+The observed paired-control sample ranges define the calibration envelope; no
+fixed threshold is inferred beyond that measured envelope.
+
+JS mean (run 1 / run 2):
+  control A:                          1.36 ms / 1.48 ms
+  identical control A repeat:        1.33 ms / 1.33 ms
+  angle-free combined consumer:      1.34 ms / 1.29 ms
+  angle-heavy combined consumer:     1.34 ms / 1.29 ms
+  shared closer path, 1,024 openers: 0.210 ms / 0.200 ms
+  shared closer path, 4,096 openers: 0.814 ms / 0.835 ms
+  shared closer path, 16,384 openers:4.00 ms / 4.02 ms
+  combined with 4,096-opener facts:  1.34 ms / 1.29 ms
+Observed paired-control sample envelope: 1.26-1.92 ms.
+
+wasm-gc mean (run 1 / run 2):
+  control A:                          1.02 ms / 1.01 ms
+  identical control A repeat:        1.03 ms / 1.02 ms
+  angle-free combined consumer:      1.06 ms / 1.01 ms
+  angle-heavy combined consumer:     1.02 ms / 1.00 ms
+  shared closer path, 1,024 openers: 0.229 ms / 0.233 ms
+  shared closer path, 4,096 openers: 0.990 ms / 1.02 ms
+  shared closer path, 16,384 openers:5.64 ms / 5.60 ms
+  combined with 4,096-opener facts:  1.03 ms / 1.05 ms
+Observed paired-control sample envelope: 0.983-1.09 ms.
+
+Interpretation
+--------------
+- No added combined-consumer cost was observed outside the measured paired
+  control envelope on either target. This is a feasibility result, not a
+  general production-performance certification.
+- Angle-free input does not enter the angle path or build its index/fact array.
+- Shared-closer index assertions rule out repeated nearest-closer discovery.
+  Timing growth is reported as an adversarial control; it is not claimed as a
+  formal wall-time complexity proof.
+- Classification timing is existing lexer-shell work, not added plan-consumer
+  overhead. Production integration must reuse those facts rather than rerun
+  classification.
+
+Verdict
+-------
+STRUCTURAL GO. Issue #890's prototype gate is satisfied. This does not certify
+future production changes; #891/#892 and later slices must rerun their own
+base/head full-parser and incremental performance gates.
