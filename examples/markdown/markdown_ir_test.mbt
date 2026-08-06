@@ -169,7 +169,8 @@ test "experimental MarkdownIR: heading lowers with origin and Block adapter" {
 
 ///|
 test "experimental MarkdownIR: CommonMark example 91 preserves block origins" {
-  let source = "`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>\n"
+  let fixture = commonmark_html_fixture_case_by_example(91).unwrap()
+  let source = fixture.source
   let ir = markdown_ir_from_source(
     @core.SourceId("markdown-ir-commonmark-example-91"),
     source,
