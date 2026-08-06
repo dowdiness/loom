@@ -194,6 +194,7 @@ fn issue_892_incremental_case(
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
   let incremental_diagnostics = incremental.diagnostics().read_or_abort()
   let fresh_diagnostics = fresh.diagnostics().read_or_abort()
+  assert_eq(incremental_syntax, fresh_syntax)
   assert_eq(incremental_diagnostics, fresh_diagnostics)
   assert_eq(incremental_diagnostics.length(), 0)
   let incremental_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
@@ -204,6 +205,11 @@ fn issue_892_incremental_case(
   )
   assert_eq(incremental_ir, fresh_ir)
   issue_892_assert_no_recovery(incremental_ir)
+  issue_892_assert_no_recovery(fresh_ir)
+  assert_source_fidelity(
+    @core.SourceId("markdown-issue-892-fidelity-" + label),
+    updated,
+  )
   assert_eq(
     experimental_markdown_ir_to_commonmark_html(incremental_ir),
     expected_html,
