@@ -323,27 +323,27 @@ diagnostics, and version as a full lex even when a custom mode relexer retains
 everything it receives or mutates its private session before returning an
 invalid partial result.
 
-- [ ] Add a regression fixture whose custom mode relexer attempts to retain the
+- [x] Add a regression fixture whose custom mode relexer attempts to retain the
   old-offset input and reuse result arrays. Confirm the current API can expose
   the alias before changing the type boundary.
-- [ ] Add opaque `OldTokenStarts` with `length()` and `start_at(Int)`. Document
+- [x] Add opaque `OldTokenStarts` with `length()` and `start_at(Int)`. Document
   that an out-of-range index aborts as a programmer error and expose no array or
   backing iterator.
-- [ ] Change `ModeRelexState.relex_from` to receive `OldTokenStarts`, never
+- [x] Change `ModeRelexState.relex_from` to receive `OldTokenStarts`, never
   `Array[Int]` or an accessor that returns one.
-- [ ] Change public mode-aware `TokenBuffer` construction to accept a
+- [x] Change public mode-aware `TokenBuffer` construction to accept a
   `ModeRelexFactory`, not a standalone state. Add the dedicated
   `TokenBuffer::new_from_mode_relex`, keep `new_from_lex` plain-only, and remove
   public `TokenBuffer::new_with_mode_relex`. Migrate mode-aware callers to the
   dedicated constructor. Keep any initialized state/result fast path
   package-private and pair it with the same factory-derived reset capability.
-- [ ] Preserve the facade selection rule: when
+- [x] Preserve the facade selection rule: when
   `incremental_relex_enabled=false`, call plain `new_from_lex` and never create
   or invoke the optional mode factory; otherwise select
   `new_from_mode_relex` when a factory is present. Retain the existing opt-out
   test and cover both `examples/html/grammar.mbt` and
   `examples/jsx/grammar.mbt`.
-- [ ] Change public `ModeRelexFactory::new` to accept only a fresh-session
+- [x] Change public `ModeRelexFactory::new` to accept only a fresh-session
   constructor. Implement `ModeRelexFactory::tokenize` through a fresh session;
   keep the combined session/result initializer package-private for built-in
   adapters. Migrate `ModeRelexFactory::new_session_with_initial`,
@@ -351,53 +351,53 @@ invalid partial result.
   public `TokenBuffer::new_from_mode_relex` absorb the package-private combined
   initializer so the cross-package facade does not need private access. Do not
   retain a caller-supplied detached tokenizer as a second authority.
-- [ ] Store the current session as a private `Ready(ModeRelexState[T])` or
+- [x] Store the current session as a private `Ready(ModeRelexState[T])` or
   `ResetRequired` state. Permit partial re-lex only from `Ready`.
-- [ ] Put session-state and commit-eligibility decisions in a deterministic
+- [x] Put session-state and commit-eligibility decisions in a deterministic
   transition function. Keep factory/session invocation and atomic buffer
   mutation in the `TokenBuffer` shell; test the transition table independently
   from closure wiring.
-- [ ] Group all publicly observable lex state and the private session slot in a
+- [x] Group all publicly observable lex state and the private session slot in a
   private committed-state value where practical. Perform one assignment after
   validation and all callbacks so no raised error can expose a partial commit.
-- [ ] Make `ModeRelexState`, `ModeRelexFactory`, and `ModeRelexResult` fields
+- [x] Make `ModeRelexState`, `ModeRelexFactory`, and `ModeRelexResult` fields
   private. Add the exact public constructors and named factory/session
   operations in the ADR; do not expose their stored closures or result arrays.
-- [ ] Make public `ModeRelexResult` construction copy arrays before validating
+- [x] Make public `ModeRelexResult` construction copy arrays before validating
   the owned copies and copy diagnostics. Raise `LexResultError` for intrinsic
   shape failure, and change the installed `relex_from` callback type to declare
   that exact error. Add a package-private owned constructor for the built-in
   mode lexer.
-- [ ] Catch `LexResultError` from `relex_from` as an invalid partial attempt;
+- [x] Catch `LexResultError` from `relex_from` as an invalid partial attempt;
   do not catch or translate unrelated defects. Discard the possibly mutated
   session before asking the factory for a replacement.
-- [ ] Validate the complete partial result before mutating any committed buffer
+- [x] Validate the complete partial result before mutating any committed buffer
   state. Fall back to fresh arrays on a valid shape that is not patchable.
-- [ ] On an invalid partial result, discard it and never call `tokenize` on that
+- [x] On an invalid partial result, discard it and never call `tokenize` on that
   session. Use the retained factory to create and initialize a fresh session for
   `new_source`; use the package-private combined initializer when available,
   otherwise call `tokenize` on the newly created session. Never consult the
   grammar's plain lexer or compare results from independent authorities.
   Atomically commit the replacement session and only a result satisfying the
   normal full-lex token/start/source-bound/EOF invariants.
-- [ ] Add `T : Eq` to both public `TokenBuffer` full-result constructors and
+- [x] Add `T : Eq` to both public `TokenBuffer` full-result constructors and
   validate their complete initial results before exposing a buffer. Abort with
   distinct invariant messages on malformed plain or mode-aware initial output;
   do not cross-fallback between authorities. Cover both programmer-defect
   paths.
-- [ ] Keep an invalid-partial counter in internal instrumentation; do not add an
+- [x] Keep an invalid-partial counter in internal instrumentation; do not add an
   incremental-only public diagnostic when full fallback succeeds.
-- [ ] If fallback full tokenization remains invalid, raise `LexError`, prove that
+- [x] If fallback full tokenization remains invalid, raise `LexError`, prove that
   tokens, starts, diagnostics, source, and version retain their pre-update
   values, and mark the mode session as reset-required. Prove that no later
   partial re-lex occurs; the next update must create another fresh session and
   perform a full reset.
-- [ ] Add a custom factory fixture whose `relex_from` mutates captured lexer
+- [x] Add a custom factory fixture whose `relex_from` mutates captured lexer
   state before returning an invalid result. Prove that fallback increments the
   factory's session-creation count, uses a different lexer shell, matches a
   detached full lex produced through another fresh factory session, and
   replaces the session only on successful validation.
-- [ ] Run core mode-relex tests and incremental/full-lex parity tests.
+- [x] Run core mode-relex tests and incremental/full-lex parity tests.
 
 ## Phase 2: make CST policy enforceable
 

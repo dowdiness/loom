@@ -366,18 +366,14 @@ test "incremental: ordered marker delimiter relex matches detached tokenize" {
     error_token=Token::Error("lex error"),
     error_token_from_message=Some(msg => Token::Error(msg)),
   )
-  let state = (factory.new_session)(source_id)
-  let initial = (state.tokenize)(source)
-  let buffer = @core.TokenBuffer::new_with_mode_relex(
+  let buffer = @core.TokenBuffer::new_from_mode_relex(
     source_id,
     source,
-    initial.tokens(),
-    initial.starts(),
-    Token::EOF,
-    state,
+    factory~,
+    eof_token=Token::EOF,
   )
   buffer.update(edit, new_source)
-  let full = (factory.tokenize)(source_id, new_source)
+  let full = factory.tokenize(source_id, new_source)
   inspect(buffer.get_tokens() == full.tokens(), content="true")
   inspect(buffer.get_starts() == full.starts(), content="true")
   for i in 0..<buffer.token_count() {

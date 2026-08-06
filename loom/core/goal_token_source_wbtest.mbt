@@ -164,6 +164,8 @@ fn baseline_tokenize(source : String) -> LexResult[GoalTestTok] {
     }
   }
   let starts = build_starts(tokens)
+  starts.push(source.length())
+  tokens.push(TokenInfo::new(GTEof, 0))
   LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
 }
 

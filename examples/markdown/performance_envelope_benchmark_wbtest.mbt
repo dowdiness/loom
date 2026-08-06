@@ -3,24 +3,11 @@
 ///|
 fn perf_new_markdown_buffer(source : String) -> @core.TokenBuffer[Token] {
   let source_id = @core.SourceId("markdown-perf-buffer")
-  let (state, initial) = mode_factory
-    .new_session_with_initial(source_id, source)
-    .unwrap()
-  let initial_pending : Ref[Bool] = Ref(true)
-  let lex = current_source => {
-    if initial_pending.val {
-      initial_pending.val = false
-      initial
-    } else {
-      (mode_factory.tokenize)(source_id, current_source)
-    }
-  }
-  @core.TokenBuffer::new_from_lex(
+  @core.TokenBuffer::new_from_mode_relex(
     source_id,
     source,
-    lex_fn=lex,
+    factory=mode_factory,
     eof_token=EOF,
-    mode_relex=Some(state),
   )
 }
 

@@ -338,5 +338,5 @@ pub fn lex(
   source_id : @core.SourceId,
   input : String,
 ) -> @core.LexResult[@token.Token] {
-  (html_mode_relex_factory.tokenize)(source_id, input)
+  html_mode_relex_factory.tokenize(source_id, input)
 }

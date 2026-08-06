@@ -60,6 +60,42 @@ the balanced interleaved schedule. Final verification against runner commit
 `95db812e0b31194991adadff3ce00778153d04d3` passed all gates; the largest
 positive paired difference was 2.33% on the JSON incremental edit cycle.
 
+## 2026-08-06 (core collection ownership Phase 1)
+
+- Issue: [#878](https://github.com/dowdiness/loom/issues/878)
+- Baseline: `031200eb552db96351f6ff84dfc9c414ec8b5dde`
+- Candidate and runner: `907e6162513a93fd2d162bc9667a8aea80cbc491`
+- Comparison: five clean-worktree samples per side in balanced interleaved
+  order, with the median of paired differences
+- Environment: WSL2, Linux 6.18.33.2, x86_64, host `A6`; CPU governor was not
+  exposed by the environment
+- Toolchain: Moon `0.1.20260713 (75c7e1f 2026-07-13)`
+- Target: release wasm-gc
+- Command: `bash bench-check.sh --profile core-ownership --baseline-ref
+  031200eb552db96351f6ff84dfc9c414ec8b5dde --candidate-ref
+  907e6162513a93fd2d162bc9667a8aea80cbc491 --runs 5`
+- Evidence: [raw samples, stability reports, metadata, and comparison](evidence/loom-core-ownership-phase1-878-907e6162.tar.gz),
+  SHA-256 `d7a8ccd390343d3fcfdbd367912659d366a7d4a4b18adfd3821bb709c24c8550`
+
+All ten required rows were present, both sides stayed below the 5% relative-MAD
+limit, and every gated row passed. The direct old-offset handoff exceeded the
+relative threshold but remained within its 50 ns absolute allowance. Earlier
+development runs were rejected when either stability failed or an actual
+regression was detected; none was selected as the final comparison.
+
+| Qualified row | Baseline median | Phase 1 candidate | Paired difference |
+|---|---:|---:|---:|
+| JSON full parse, 100-member object | 220.03 µs | 219.16 µs | -0.71% |
+| JSON incremental edit cycle | 213.86 µs | 220.08 µs | +2.42% |
+| Lambda full parse, complex | 11.48 µs | 11.71 µs | +2.19% |
+| Lambda incremental multiple edits | 9.91 µs | 10.00 µs | +2.04% |
+| `LexResult::with_starts`, 10,000 tokens | 45.86 µs | 46.33 µs | +0.52% (INFO) |
+| Markdown equal-cardinality mode relex | 506.26 ns | 523.49 ns | +38.38 ns / +7.57% |
+| Markdown CST plus AST, 100 paragraphs | 1.81 ms | 1.76 ms | -2.75% |
+| Markdown imperative AST edit cycle | 39.67 µs | 39.10 µs | -1.44% |
+| CST package-owned construction, 32 children | 166.50 ns | 163.98 ns | +0.56% |
+| CST public construction, 32 children | 163.57 ns | 162.25 ns | -0.31% |
+
 ## 2026-08-05 (bounded `CstFold` cache retention)
 
 - Issue: [#782](https://github.com/dowdiness/loom/issues/782)
