@@ -91,6 +91,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-08-06-markdown-delimiter-plan-candidate-rejection.md](decisions/2026-08-06-markdown-delimiter-plan-candidate-rejection.md) — **Accepted** reject the online Markdown delimiter resolver after it failed the two-target representative adoption gate; retain the informational oracle matrix (#883)
 - [decisions/2026-08-05-core-collection-ownership-boundary.md](decisions/2026-08-05-core-collection-ownership-boundary.md) — **Accepted** stored CST metadata policy, opaque validated collection values, single-authority mode re-lexing, and measured internal no-copy construction (#783)
 - [decisions/2026-08-04-markdown-ir-exhaustive-read-view.md](decisions/2026-08-04-markdown-ir-exhaustive-read-view.md) — **Accepted** external adapters inspect every MarkdownIR semantic variant through one exhaustive typed view while private storage and common child/origin/diagnostic accessors remain separate (#862)
 - [decisions/2026-08-04-markdown-semantic-attachment-boundary.md](decisions/2026-08-04-markdown-semantic-attachment-boundary.md) — **Accepted** one opaque attachment reads owning MarkdownIR from a caller-owned `Parser[Block]` and performs stale-work collection internally (#863)
@@ -204,6 +205,7 @@ Point-in-time diagnoses. Dated snapshots — verify against current code before 
 - [performance/2026-03-30-cst-traversal-tiers.md](performance/2026-03-30-cst-traversal-tiers.md) — feasibility report for the three traversal tiers (closures, Folder/TransformFolder, MutVisitor); drove the seam port and motivated removing the original `cst-transform/` sandbox
 - [performance/2026-03-31-map-specialization.md](performance/2026-03-31-map-specialization.md) — closure specialization vs generic map in wasm-gc (narrower types ≠ faster)
 - [performance/2026-08-05-markdown-event-attribution.md](performance/2026-08-05-markdown-event-attribution.md) — completed #872 point-in-time Markdown event attribution: stage isolation, deterministic work counts, inline analysis microbenchmarks, payload materialization, and decisions (#875, #883)
+- [performance/2026-08-06-markdown-delimiter-plan-prototype.md](performance/2026-08-06-markdown-delimiter-plan-prototype.md) — completed #883 delimiter-plan prototype: calibrated attribution, rejected online-resolver candidate, representative adoption gate, and retained benchmark matrix
 - [../BENCHMARKS.md](../BENCHMARKS.md) — benchmark results and raw data (root-level)
 - [../bench-check.sh](../bench-check.sh) — regression guard (`--update` to refresh baseline)
 
