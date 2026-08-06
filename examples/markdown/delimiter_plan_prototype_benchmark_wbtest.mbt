@@ -1,8 +1,10 @@
-// Calibrated adoption-gate benchmarks for the Issue #883 candidate.
+// Reusable adoption-gate benchmark matrix for Issue #883.
 //
 // The representative excerpt mixes ordinary README prose with CommonMark
 // delimiter boundaries. Synthetic delimiter-heavy rows remain in
 // delimiter_performance_wbtest.mbt and are not substituted for this corpus.
+// The measured online-resolver candidate was rejected, so this file preserves
+// only the production oracle and informational control workloads.
 
 ///|
 fn delimiter_plan_representative_excerpt() -> String {
