@@ -72,7 +72,7 @@ pub(all) struct LambdaAnalysis {
 pub fn LambdaAnalysis::LambdaAnalysis(
   source_id : @core.SourceId,
   source : String,
-) -> LambdaAnalysis {
+) -> LambdaAnalysis raise Failure {
   attach_lambda_analysis(@loom.new_parser(source_id, source, lambda_grammar))
 }
 
@@ -121,7 +121,7 @@ pub fn LambdaAnalysis::typecheck_result(
 pub fn LambdaAnalysis::set_source(
   self : LambdaAnalysis,
   source : String,
-) -> Unit {
+) -> Unit raise Failure {
   self.parser.set_source(source)
 }
 
@@ -131,7 +131,7 @@ pub fn LambdaAnalysis::apply_edit(
   self : LambdaAnalysis,
   edit : @core.Edit,
   new_source : String,
-) -> Unit {
+) -> Unit raise Failure {
   self.parser.apply_edit(edit, new_source)
 }
 

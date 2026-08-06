@@ -1,17 +1,17 @@
 ///|
-fn make_test_tree() -> CstElement {
+fn make_test_tree() -> CstElement raise Failure {
   let foo = CstToken::CstToken(RawKind(9), "foo")
   let ws = CstToken::CstToken(RawKind(11), " ")
   let one = CstToken::CstToken(RawKind(10), "1")
   let plus = CstToken::CstToken(RawKind(12), "+")
   let two = CstToken::CstToken(RawKind(10), "2")
   let eof = CstToken::CstToken(RawKind(13), "")
-  let bin_expr = CstNode::new(RawKind(21), [
+  let bin_expr = CstNode::new_unclassified(RawKind(21), [
     CstElement::Token(one),
     CstElement::Token(plus),
     CstElement::Token(two),
   ])
-  let root = CstNode::new(RawKind(20), [
+  let root = CstNode::new_unclassified(RawKind(20), [
     CstElement::Token(foo),
     CstElement::Token(ws),
     CstElement::Node(bin_expr),
@@ -148,13 +148,21 @@ test "each: single token" {
 
 ///|
 test "CstNode::each: visible direct children flatten repeat groups" {
-  let repeated = CstNode::new(repeat_group_kind, [
+  let repeated = CstNode::new_unclassified(repeat_group_kind, [
     Token(CstToken::CstToken(RawKind(4), "c")),
-    Node(CstNode::new(RawKind(5), [Token(CstToken::CstToken(RawKind(6), "d"))])),
+    Node(
+      CstNode::new_unclassified(RawKind(5), [
+        Token(CstToken::CstToken(RawKind(6), "d")),
+      ]),
+    ),
   ])
-  let root = CstNode::new(RawKind(0), [
+  let root = CstNode::new_unclassified(RawKind(0), [
     Token(CstToken::CstToken(RawKind(1), "a")),
-    Node(CstNode::new(RawKind(2), [Token(CstToken::CstToken(RawKind(3), "b"))])),
+    Node(
+      CstNode::new_unclassified(RawKind(2), [
+        Token(CstToken::CstToken(RawKind(3), "b")),
+      ]),
+    ),
     Node(repeated),
     Token(CstToken::CstToken(RawKind(7), "e")),
   ])
@@ -176,10 +184,10 @@ test "CstNode::each: visible direct children flatten repeat groups" {
 
 ///|
 test "CstNode::each: early termination" {
-  let root = CstNode::new(RawKind(0), [
+  let root = CstNode::new_unclassified(RawKind(0), [
     Token(CstToken::CstToken(RawKind(1), "a")),
     Node(
-      CstNode::new(repeat_group_kind, [
+      CstNode::new_unclassified(repeat_group_kind, [
         Token(CstToken::CstToken(RawKind(2), "b")),
         Token(CstToken::CstToken(RawKind(3), "c")),
       ]),
@@ -203,13 +211,21 @@ test "CstNode::each: early termination" {
 
 ///|
 test "CstNode::direct_elements_iter: visible direct children flatten repeat groups" {
-  let repeated = CstNode::new(repeat_group_kind, [
+  let repeated = CstNode::new_unclassified(repeat_group_kind, [
     Token(CstToken::CstToken(RawKind(4), "c")),
-    Node(CstNode::new(RawKind(5), [Token(CstToken::CstToken(RawKind(6), "d"))])),
+    Node(
+      CstNode::new_unclassified(RawKind(5), [
+        Token(CstToken::CstToken(RawKind(6), "d")),
+      ]),
+    ),
   ])
-  let root = CstNode::new(RawKind(0), [
+  let root = CstNode::new_unclassified(RawKind(0), [
     Token(CstToken::CstToken(RawKind(1), "a")),
-    Node(CstNode::new(RawKind(2), [Token(CstToken::CstToken(RawKind(3), "b"))])),
+    Node(
+      CstNode::new_unclassified(RawKind(2), [
+        Token(CstToken::CstToken(RawKind(3), "b")),
+      ]),
+    ),
     Node(repeated),
     Token(CstToken::CstToken(RawKind(7), "e")),
   ])
@@ -229,7 +245,7 @@ test "CstNode::direct_elements_iter: visible direct children flatten repeat grou
 
 ///|
 test "CstNode::direct_elements_iter: empty node" {
-  let root = CstNode::new(RawKind(0), [])
+  let root = CstNode::new_unclassified(RawKind(0), [])
   inspect(root.direct_elements_iter().count(), content="0")
 }
 
@@ -261,7 +277,7 @@ test "iter: find_first" {
 
 ///|
 test "iter: empty node" {
-  let node = CstNode::new(RawKind(20), [])
+  let node = CstNode::new_unclassified(RawKind(20), [])
   let elem = CstElement::Node(node)
   let count = elem.iter().fold(init=0, (acc, _e) => acc + 1)
   inspect(count, content="1")
@@ -345,28 +361,25 @@ test "map: single token" {
 }
 
 ///|
-test "map: trivia_kind excludes whitespace from token_count" {
+test "map: preserves receiver token classification" {
   let tree = make_test_tree()
-  let ws_kind = RawKind(11)
-  let mapped = tree.map(elem => elem, trivia_kinds=Some([ws_kind]))
+  let mapped = tree.map(elem => elem)
   match mapped {
-    Node(n) =>
-      // 6 total tokens - 1 whitespace = 5
-      inspect(n.token_count, content="5")
+    Node(n) => inspect(n.token_count, content="6")
     _ => ()
   }
 }
 
 ///|
 test "fold: empty node returns empty" {
-  let node = CstNode::new(RawKind(20), [])
+  let node = CstNode::new_unclassified(RawKind(20), [])
   let result = CstElement::Node(node).fold(_token => 1, (a, b) => a + b, 0)
   inspect(result, content="0")
 }
 
 ///|
 test "transform_fold: empty node returns init" {
-  let node = CstNode::new(RawKind(20), [])
+  let node = CstNode::new_unclassified(RawKind(20), [])
   let result = CstElement::Node(node).transform_fold(_token => 1, _kind => 42, (
     _kind,
     acc,
@@ -377,7 +390,7 @@ test "transform_fold: empty node returns init" {
 
 ///|
 test "transform: empty node" {
-  let node = CstNode::new(RawKind(20), [])
+  let node = CstNode::new_unclassified(RawKind(20), [])
   let result : Int = CstElement::Node(node).transform(_token => 1, (
     _kind,
     children,
@@ -394,7 +407,7 @@ test "transform: empty node" {
 
 ///|
 test "find: empty node no match" {
-  let node = CstNode::new(RawKind(20), [])
+  let node = CstNode::new_unclassified(RawKind(20), [])
   let found = CstElement::Node(node).find(NumberFinder::{ kind: RawKind(10) })
   inspect(found is None, content="true")
 }

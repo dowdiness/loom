@@ -49,11 +49,11 @@ pub let markdown_mode_lexer : @core.ModeLexer[Token, MarkdownLexMode]
 
 pub let markdown_spec : @core.LanguageSpec[Token, SyntaxKind]
 
-pub fn parse(@diagnostic.SourceId, String) -> Block
+pub fn parse(@diagnostic.SourceId, String) -> Block raise Failure
 
-pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise
 
-pub fn parse_markdown(@diagnostic.SourceId, String) -> (Block, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_markdown(@diagnostic.SourceId, String) -> (Block, @core.DiagnosticSet) raise
 
 pub fn project_markdown_roles(@seam.SyntaxNode) -> Array[MarkdownRoleSpan]
 

@@ -120,16 +120,16 @@ fn test_tokenize_with_starts(
 }
 
 ///|
-let test_spec : LanguageSpec[TestTok, TestKind] = {
-  whitespace_kind: KWs,
-  error_kind: KErr,
-  incomplete_kind: KIncomplete,
-  root_kind: KRoot,
-  eof_token: TestTok::TokEof,
-  parse_root: fn(_) { () },
-  reuse_size_threshold: 64,
-  trivia_kinds_spec: [KWs],
-}
+let test_spec : LanguageSpec[TestTok, TestKind] = LanguageSpec::new(
+  KWs,
+  KErr,
+  KRoot,
+  TestTok::TokEof,
+  incomplete_kind=KIncomplete,
+  parse_root=fn(_) { () },
+  reuse_size_threshold=64,
+  trivia_kinds_spec=[KWs],
+)
 
 ///|
 fn test_grammar(ctx : ParserContext[TestTok, TestKind]) -> Unit {

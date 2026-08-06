@@ -11,7 +11,7 @@ struct Peer {
 ///|
 fn Peer::new(source_id : @core.SourceId, source : String) -> Peer {
   let parser = new_imperative_parser(source_id, source)
-  let _ = parser.parse().ast
+  let _ = try! parser.parse().ast
   { text: source, parser }
 }
 
@@ -50,7 +50,7 @@ fn apply_peer_delta(peer : Peer, delta : Array[@core.TextDelta]) -> Unit {
     let prefix = current[0:edit.start].to_owned()
     let suffix = current[edit.start + edit.old_len:].to_owned()
     current = prefix + inserted + suffix
-    let _ = peer.parser.edit(edit, current)
+    let _ = try! peer.parser.edit(edit, current)
   }
   peer.text = new_text
 }

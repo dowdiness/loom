@@ -22,7 +22,7 @@ fn vocab_diags(
   let parse_root = interpret(GrammarIr::GrammarIr(rules, root~))
   let spec = test_spec(parse_root)
   let source_id = @core.SourceId("grammar-vocab-source")
-  let (_, diags) = @core.parse_with(
+  let (_, diags) = try! @core.parse_with(
     source_id,
     src,
     spec,

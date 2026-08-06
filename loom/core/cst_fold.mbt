@@ -1,7 +1,7 @@
 // cst_fold.mbt — Memoized catamorphism over CstNode.
 //
 // The language author provides an algebra: (SyntaxNode, recurse) -> Ast.
-// The framework owns the tree walk, hash-keyed caching, and child-visit
+// The framework owns the tree walk, structurally keyed caching, and child-visit
 // verification. Unchanged subtrees are skipped at O(1) per subtree.
 
 ///|
@@ -17,15 +17,6 @@ pub fn FoldStats::zero() -> FoldStats {
 }
 
 ///|
-/// Cache entry: stores both the CstNode (for collision verification)
-/// and the fold result. Hash is used as a fast lookup key, but two
-/// different CstNodes can theoretically share the same hash.
-priv struct CacheEntry[Ast] {
-  cst : @seam.CstNode
-  result : Ast
-}
-
-///|
 /// Rebuild the cache often enough to bound stale edit-generation retention,
 /// while amortizing the O(current tree) reachability walk across folds.
 let cst_fold_compaction_interval : Int = 64
@@ -33,15 +24,14 @@ let cst_fold_compaction_interval : Int = 64
 ///|
 /// Memoized catamorphism over CstNode.
 ///
-/// Cache key: CstNode.hash (structural content hash, position-independent).
-/// Cache entries store the CstNode for collision verification via Eq.
+/// Cache key: CstNode structural equality and hashing.
 /// The cache persists across folds — unchanged subtrees are O(1) on cache hit.
 /// Every 64 folds, the cache is rebuilt from entries reachable from the current
 /// tree. Stale entries can therefore retain source-backed CSTs for at most one
 /// bounded compaction window rather than for the lifetime of the CstFold.
 pub struct CstFold[Ast] {
   algebra : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
-  priv mut cache : Map[Int, CacheEntry[Ast]]
+  priv mut cache : Map[@seam.CstNode, Ast]
   priv mut folds_since_compaction : Int
   mut stats : FoldStats
 }
@@ -80,19 +70,17 @@ fn[Ast] CstFold::compact_reachable(
   self : CstFold[Ast],
   root : @seam.SyntaxNode,
 ) -> Unit {
-  let retained : Map[Int, CacheEntry[Ast]] = Map([])
+  let retained : Map[@seam.CstNode, Ast] = Map([])
   for element in @seam.CstElement::Node(root.cst_node()).iter() {
     match element {
-      @seam.CstElement::Node(cst) => {
-        let hash = cst.hash
-        match self.cache.get(hash) {
-          Some(entry) if entry.cst == cst =>
-            // Keep the folded result, but refresh the collision witness so an
-            // unchanged subtree cannot pin an older backing source.
-            retained[hash] = { cst, result: entry.result }
+      @seam.CstElement::Node(cst) =>
+        match self.cache.get(cst) {
+          Some(result) =>
+            // Inserting the current node into a fresh map refreshes the key so
+            // an unchanged subtree cannot pin an older backing source.
+            retained[cst] = result
           _ => ()
         }
-      }
       @seam.CstElement::Token(_) => ()
     }
   }
@@ -103,12 +91,10 @@ fn[Ast] CstFold::compact_reachable(
 /// Internal recursive fold with persistent cache lookup.
 fn[Ast] CstFold::fold_node(self : CstFold[Ast], node : @seam.SyntaxNode) -> Ast {
   let cst = node.cst_node()
-  let hash = cst.hash
-  // Check cache — verify structural equality to guard against hash collisions.
-  match self.cache.get(hash) {
-    Some(entry) if entry.cst == cst => {
+  match self.cache.get(cst) {
+    Some(result) => {
       self.stats.reused = self.stats.reused + 1
-      return entry.result
+      return result
     }
     _ => ()
   }
@@ -120,7 +106,7 @@ fn[Ast] CstFold::fold_node(self : CstFold[Ast], node : @seam.SyntaxNode) -> Ast 
     self.fold_node(child)
   }
   let result = (self.algebra)(node, recurse)
-  self.cache[hash] = { cst, result }
+  self.cache[cst] = result
   self.stats.recomputed = self.stats.recomputed + 1
   // Verification: warm cache for unvisited node-children
   for child in node.children() {

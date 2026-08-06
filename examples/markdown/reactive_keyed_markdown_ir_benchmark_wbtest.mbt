@@ -94,16 +94,16 @@ fn benchmark_reactive_keyed_markdown_ir_direct(
   block_count : Int,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
-  let parser = @loom.new_syntax_parser(
+  let parser = try! @loom.new_syntax_parser(
     @core.SourceId("markdown-reactive-keyed-benchmark-direct"),
     input.source,
     markdown_grammar.to_syntax_grammar(),
   )
   ignore(reactive_keyed_markdown_ir_benchmark_direct_read(parser))
   b.bench(() => {
-    parser.apply_edit(input.edit, input.edited)
+    try! parser.apply_edit(input.edit, input.edited)
     b.keep(reactive_keyed_markdown_ir_benchmark_direct_read(parser))
-    parser.apply_edit(input.edit, input.source)
+    try! parser.apply_edit(input.edit, input.source)
     b.keep(reactive_keyed_markdown_ir_benchmark_direct_read(parser))
   })
 }
@@ -115,7 +115,7 @@ fn benchmark_reactive_keyed_markdown_ir_shell(
   instrumented : Bool,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
-  let parser = @loom.new_syntax_parser(
+  let parser = try! @loom.new_syntax_parser(
     @core.SourceId("markdown-reactive-keyed-benchmark-shell"),
     input.source,
     markdown_grammar.to_syntax_grammar(),
@@ -126,9 +126,9 @@ fn benchmark_reactive_keyed_markdown_ir_shell(
     attach_reactive_keyed_markdown_ir(parser)
   }
   b.bench(() => {
-    parser.apply_edit(input.edit, input.edited)
+    try! parser.apply_edit(input.edit, input.edited)
     b.keep(shell.read())
-    parser.apply_edit(input.edit, input.source)
+    try! parser.apply_edit(input.edit, input.source)
     b.keep(shell.read())
   })
   shell.dispose()
@@ -140,16 +140,16 @@ fn benchmark_reactive_keyed_markdown_direct_block(
   block_count : Int,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
-  let parser = @loom.new_syntax_parser(
+  let parser = try! @loom.new_syntax_parser(
     @core.SourceId("markdown-reactive-keyed-benchmark-direct-block"),
     input.source,
     markdown_grammar.to_syntax_grammar(),
   )
   ignore(reactive_keyed_markdown_ir_benchmark_direct_block_read(parser))
   b.bench(() => {
-    parser.apply_edit(input.edit, input.edited)
+    try! parser.apply_edit(input.edit, input.edited)
     b.keep(reactive_keyed_markdown_ir_benchmark_direct_block_read(parser))
-    parser.apply_edit(input.edit, input.source)
+    try! parser.apply_edit(input.edit, input.source)
     b.keep(reactive_keyed_markdown_ir_benchmark_direct_block_read(parser))
   })
 }
@@ -160,16 +160,16 @@ fn benchmark_markdown_projection_attachment(
   block_count : Int,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
-  let parser = @loom.new_syntax_parser(
+  let parser = try! @loom.new_syntax_parser(
     @core.SourceId("markdown-projection-attachment-benchmark"),
     input.source,
     markdown_grammar.to_syntax_grammar(),
   )
   let attachment = attach_markdown_projection(parser)
   b.bench(() => {
-    parser.apply_edit(input.edit, input.edited)
+    try! parser.apply_edit(input.edit, input.edited)
     b.keep(attachment.projection())
-    parser.apply_edit(input.edit, input.source)
+    try! parser.apply_edit(input.edit, input.source)
     b.keep(attachment.projection())
   })
   attachment.dispose()
@@ -181,7 +181,7 @@ fn benchmark_markdown_semantic_attachment(
   block_count : Int,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     @core.SourceId("markdown-semantic-attachment-benchmark"),
     input.source,
     markdown_grammar,
@@ -191,9 +191,9 @@ fn benchmark_markdown_semantic_attachment(
   )
   ignore(attachment.document())
   b.bench(() => {
-    parser.apply_edit(input.edit, input.edited)
+    try! parser.apply_edit(input.edit, input.edited)
     b.keep(attachment.document())
-    parser.apply_edit(input.edit, input.source)
+    try! parser.apply_edit(input.edit, input.source)
     b.keep(attachment.document())
   })
   attachment.dispose()
@@ -202,16 +202,16 @@ fn benchmark_markdown_semantic_attachment(
 ///|
 fn benchmark_markdown_semantic_direct(b : @bench.T, block_count : Int) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     @core.SourceId("markdown-semantic-direct-benchmark"),
     input.source,
     markdown_grammar,
   )
   ignore(markdown_semantic_benchmark_direct_read(parser))
   b.bench(() => {
-    parser.apply_edit(input.edit, input.edited)
+    try! parser.apply_edit(input.edit, input.edited)
     b.keep(markdown_semantic_benchmark_direct_read(parser))
-    parser.apply_edit(input.edit, input.source)
+    try! parser.apply_edit(input.edit, input.source)
     b.keep(markdown_semantic_benchmark_direct_read(parser))
   })
 }
@@ -222,7 +222,7 @@ fn benchmark_markdown_direct_initial_read(
   block_count : Int,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     @core.SourceId("markdown-direct-initial-read-benchmark"),
     input.source,
     markdown_grammar,
@@ -236,7 +236,7 @@ fn benchmark_markdown_syntax_direct_initial_read(
   block_count : Int,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
-  let parser = @loom.new_syntax_parser(
+  let parser = try! @loom.new_syntax_parser(
     @core.SourceId("markdown-syntax-direct-initial-read-benchmark"),
     input.source,
     markdown_grammar.to_syntax_grammar(),
@@ -250,7 +250,7 @@ fn benchmark_markdown_semantic_initial_read(
   block_count : Int,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     @core.SourceId("markdown-semantic-initial-read-benchmark"),
     input.source,
     markdown_grammar,
@@ -270,7 +270,7 @@ fn benchmark_markdown_projection_initial_read(
   block_count : Int,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
-  let parser = @loom.new_syntax_parser(
+  let parser = try! @loom.new_syntax_parser(
     @core.SourceId("markdown-projection-initial-read-benchmark"),
     input.source,
     markdown_grammar.to_syntax_grammar(),
@@ -288,16 +288,16 @@ fn benchmark_markdown_compatibility_block_parser(
   block_count : Int,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     @core.SourceId("markdown-compatibility-block-benchmark"),
     input.source,
     markdown_grammar,
   )
   ignore(parser.ast().read_or_abort())
   b.bench(() => {
-    parser.apply_edit(input.edit, input.edited)
+    try! parser.apply_edit(input.edit, input.edited)
     b.keep(parser.ast().read_or_abort())
-    parser.apply_edit(input.edit, input.source)
+    try! parser.apply_edit(input.edit, input.source)
     b.keep(parser.ast().read_or_abort())
   })
 }

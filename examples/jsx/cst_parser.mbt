@@ -352,6 +352,6 @@ fn parse_jsx_root(
 pub fn parse_cst(
   source_id : @core.SourceId,
   source : String,
-) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
+) -> (@seam.CstNode, @core.DiagnosticSet) raise {
   jsx_grammar.parse_cst(source_id, source)
 }

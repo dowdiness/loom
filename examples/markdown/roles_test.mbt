@@ -3,7 +3,7 @@ fn markdown_test_roles(
   source_id : @core.SourceId,
   source : String,
 ) -> Array[MarkdownRoleSpan] {
-  let parser = @loom.new_syntax_parser(
+  let parser = try! @loom.new_syntax_parser(
     source_id,
     source,
     markdown_grammar.to_syntax_grammar(),

@@ -13,7 +13,7 @@ fn test_parse_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
 
 ///|
 fn test_parse_item_tree(src : String) -> @seam.CstNode {
-  let (tree, _) = parse_with(
+  let (tree, _) = try! parse_with(
     SourceId("parser-reuse-source"),
     src,
     test_spec,
@@ -68,7 +68,7 @@ test "ReuseCursor::new: globally disabled when damage covers root" {
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     tree,
     0,
-    tree.text_len,
+    tree.text_len(),
     toks.length(),
     i => toks[i].token,
     i => starts[i],
@@ -110,7 +110,7 @@ test "ReuseCursor::new: not globally disabled with partial damage" {
 test "ReuseCursor::explain_reuse_rejection: reports root damage disable" {
   let src = "1+2"
   let old_tree = test_parse_item_tree(src)
-  let cursor = test_reuse_cursor(old_tree, src, 0, old_tree.text_len)
+  let cursor = test_reuse_cursor(old_tree, src, 0, old_tree.text_len())
   let reason = cursor.explain_reuse_rejection(test_kind_raw(KExpr), 0, 0)
   inspect(reason == Some(ReuseRejectGloballyDisabled), content="true")
 }
@@ -223,7 +223,7 @@ test "ReuseCursor::try_reuse: returns None when globally disabled" {
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
     0,
-    old_tree.text_len,
+    old_tree.text_len(),
     toks.length(),
     i => toks[i].token,
     i => starts[i],
@@ -703,16 +703,16 @@ test "ReuseCursor::try_reuse: reuses unaffected nodes across middle deletion" {
       }
     }
   }
-  let item_spec : LanguageSpec[TestTok, TestKind] = {
-    whitespace_kind: KWs,
-    error_kind: KErr,
-    incomplete_kind: KIncomplete,
-    root_kind: KRoot,
-    eof_token: TestTok::TokEof,
-    parse_root: grammar_item_nodes,
-    reuse_size_threshold: 64,
-    trivia_kinds_spec: [KWs],
-  }
+  let item_spec : LanguageSpec[TestTok, TestKind] = LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    TestTok::TokEof,
+    incomplete_kind=KIncomplete,
+    parse_root=grammar_item_nodes,
+    reuse_size_threshold=64,
+    trivia_kinds_spec=[KWs],
+  )
   let old_src = "1+2+3"
   let new_src = "1+3"
   let (old_tree, _) = parse_with(
@@ -758,16 +758,16 @@ test "parse_tokens_indexed: parse with middle deletion can still reuse shifted n
       }
     }
   }
-  let item_spec : LanguageSpec[TestTok, TestKind] = {
-    whitespace_kind: KWs,
-    error_kind: KErr,
-    incomplete_kind: KIncomplete,
-    root_kind: KRoot,
-    eof_token: TestTok::TokEof,
-    parse_root: grammar_item_nodes,
-    reuse_size_threshold: 64,
-    trivia_kinds_spec: [KWs],
-  }
+  let item_spec : LanguageSpec[TestTok, TestKind] = LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    TestTok::TokEof,
+    incomplete_kind=KIncomplete,
+    parse_root=grammar_item_nodes,
+    reuse_size_threshold=64,
+    trivia_kinds_spec=[KWs],
+  )
   let old_src = "1 + 2 + 3"
   let new_src = "2 + 3"
   let (old_tree, _) = parse_with(
@@ -832,16 +832,16 @@ test "parse_tokens_indexed: parse with prefix deletion reuses shifted descendant
       }
     }
   }
-  let item_spec : LanguageSpec[TestTok, TestKind] = {
-    whitespace_kind: KWs,
-    error_kind: KErr,
-    incomplete_kind: KIncomplete,
-    root_kind: KRoot,
-    eof_token: TestTok::TokEof,
-    parse_root: grammar_item_nodes,
-    reuse_size_threshold: 64,
-    trivia_kinds_spec: [KWs],
-  }
+  let item_spec : LanguageSpec[TestTok, TestKind] = LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    TestTok::TokEof,
+    incomplete_kind=KIncomplete,
+    parse_root=grammar_item_nodes,
+    reuse_size_threshold=64,
+    trivia_kinds_spec=[KWs],
+  )
   let old_src = "1+2+3"
   let new_src = "2+3"
   let (old_tree, _) = parse_with(
@@ -897,16 +897,16 @@ test "parse_tokens_indexed: parse with suffix deletion reuses unaffected prefix 
       }
     }
   }
-  let item_spec : LanguageSpec[TestTok, TestKind] = {
-    whitespace_kind: KWs,
-    error_kind: KErr,
-    incomplete_kind: KIncomplete,
-    root_kind: KRoot,
-    eof_token: TestTok::TokEof,
-    parse_root: grammar_item_nodes,
-    reuse_size_threshold: 64,
-    trivia_kinds_spec: [KWs],
-  }
+  let item_spec : LanguageSpec[TestTok, TestKind] = LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    TestTok::TokEof,
+    incomplete_kind=KIncomplete,
+    parse_root=grammar_item_nodes,
+    reuse_size_threshold=64,
+    trivia_kinds_spec=[KWs],
+  )
   let old_src = "1+2+3"
   let new_src = "1+2"
   let (old_tree, _) = parse_with(
@@ -972,6 +972,11 @@ test "multi-trivia: collect_old_tokens excludes all trivia kinds" {
   let ws_tok = @seam.CstToken::CstToken(ws_kind, " ")
   let plus_tok1 = @seam.CstToken::CstToken(plus_kind, "+")
   let plus_tok2 = @seam.CstToken::CstToken(plus_kind, "+")
+  let policy = @seam.CstMetadataPolicy::new(
+    trivia_kinds,
+    error_kind=Some(err_kind),
+    incomplete_kind=Some(inc_kind),
+  )
   let node = @seam.CstNode::new(
     @seam.RawKind(3), // root
     [
@@ -980,13 +985,11 @@ test "multi-trivia: collect_old_tokens excludes all trivia kinds" {
       @seam.CstElement::Token(plus_tok1),
       @seam.CstElement::Token(plus_tok2),
     ],
-    trivia_kinds=Some(trivia_kinds),
-    error_kind=Some(err_kind),
-    incomplete_kind=Some(inc_kind),
+    policy~,
   )
 
   // Verify token_count excludes both trivia kinds (2 tokens out of 4)
-  inspect(node.token_count, content="2")
+  inspect(node.token_count(), content="2")
 
   // Verify collect_old_tokens returns only non-trivia tokens
   let flat : Array[OldToken] = []
@@ -1011,20 +1014,20 @@ test "multi-trivia: collect_old_tokens excludes all trivia kinds" {
 /// primary whitespace kind, making multi-trivia filtering ineffective for
 /// generated grammars.
 test "flush_trivia: emits trivia tokens with their actual raw kind" {
-  let multi_spec : LanguageSpec[TestTok, TestKind] = {
-    whitespace_kind: KWs,
-    error_kind: KErr,
-    incomplete_kind: KIncomplete,
-    root_kind: KRoot,
-    eof_token: TestTok::TokEof,
-    parse_root: fn(ctx) {
+  let multi_spec : LanguageSpec[TestTok, TestKind] = LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    TestTok::TokEof,
+    incomplete_kind=KIncomplete,
+    parse_root=fn(ctx) {
       ctx.start_node(KExpr)
       ctx.emit_token(KNum)
       ctx.finish_node()
     },
-    reuse_size_threshold: 64,
-    trivia_kinds_spec: [KWs, KComment],
-  }
+    reuse_size_threshold=64,
+    trivia_kinds_spec=[KWs, KComment],
+  )
   // Source with Comment, Ws, then Num: "/*c*/ 42"
   let source = "/*c*/ 42"
   // Token ranges computed from source:

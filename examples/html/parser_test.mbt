@@ -1,7 +1,7 @@
 ///|
 fn dump(node : @seam.CstNode) -> String {
-  let kind_name = @syntax.SyntaxKind::from_raw(node.kind).to_string()
-  let parts = node.children.filter_map(dump_element)
+  let kind_name = @syntax.SyntaxKind::from_raw(node.kind()).to_string()
+  let parts = node.children().filter_map(dump_element)
   if parts.is_empty() {
     "(" + kind_name + ")"
   } else {
@@ -315,7 +315,7 @@ test "MAX_DEPTH recovery reports an error without stack overflow" {
   }
   let (tree, diagnostics) = result
   inspect(diagnostics.length() >= 1, content="true")
-  inspect(tree.text_len == input.length(), content="true")
+  inspect(tree.text_len() == input.length(), content="true")
 }
 
 ///|
@@ -332,7 +332,7 @@ test "MAX_ERRORS recovery reaches EOF without retrying sentinel" {
   }
   let (tree, diagnostics) = result
   inspect(diagnostics.length() >= 1, content="true")
-  inspect(tree.text_len == input.length(), content="true")
+  inspect(tree.text_len() == input.length(), content="true")
 }
 
 ///|

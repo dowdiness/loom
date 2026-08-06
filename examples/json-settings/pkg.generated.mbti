@@ -22,12 +22,12 @@ pub fn Setting::Setting(id~ : String, key~ : String, value~ : Double) -> Self
 pub struct SettingsAttachment {
   // private fields
 }
-pub fn SettingsAttachment::SettingsAttachment(@diagnostic.SourceId, String) -> Self
-pub fn SettingsAttachment::apply_edit(Self, @core.Edit, String) -> Unit
+pub fn SettingsAttachment::SettingsAttachment(@diagnostic.SourceId, String) -> Self raise Failure
+pub fn SettingsAttachment::apply_edit(Self, @core.Edit, String) -> Unit raise Failure
 pub fn SettingsAttachment::current_result(Self) -> Result[SettingsDoc, String]
 pub fn SettingsAttachment::dispose(Self) -> Unit
 pub fn SettingsAttachment::last_good(Self) -> SettingsDoc?
-pub fn SettingsAttachment::set_source(Self, String) -> Unit
+pub fn SettingsAttachment::set_source(Self, String) -> Unit raise Failure
 pub fn SettingsAttachment::state(Self) -> SettingsState
 
 pub struct SettingsDoc {

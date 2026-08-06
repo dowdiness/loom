@@ -106,17 +106,9 @@ pub fn EventBuffer::new() -> EventBuffer {
 pub fn EventBuffer::build_tree(
   self : EventBuffer,
   root_kind : RawKind,
-  trivia_kinds? : Array[RawKind]? = None,
-  error_kind? : RawKind? = None,
-  incomplete_kind? : RawKind? = None,
-) -> CstNode raise EventStreamError {
-  build_tree_buffered(
-    self.events,
-    root_kind,
-    trivia_kinds~,
-    error_kind~,
-    incomplete_kind~,
-  )
+  policy~ : CstMetadataPolicy,
+) -> CstNode raise {
+  build_tree_buffered(self.events, root_kind, policy~)
 }
 
 ///|
@@ -125,18 +117,14 @@ pub fn EventBuffer::build_tree_fully_interned(
   root_kind : RawKind,
   interner : Interner,
   node_interner : NodeInterner,
-  trivia_kinds? : Array[RawKind]? = None,
-  error_kind? : RawKind? = None,
-  incomplete_kind? : RawKind? = None,
-) -> CstNode raise EventStreamError {
+  policy~ : CstMetadataPolicy,
+) -> CstNode raise {
   build_tree_fully_interned_buffered(
     self.events,
     root_kind,
     interner,
     node_interner,
-    trivia_kinds~,
-    error_kind~,
-    incomplete_kind~,
+    policy~,
   )
 }
 
@@ -145,18 +133,9 @@ pub fn EventBuffer::build_tree_interned(
   self : EventBuffer,
   root_kind : RawKind,
   interner : Interner,
-  trivia_kinds? : Array[RawKind]? = None,
-  error_kind? : RawKind? = None,
-  incomplete_kind? : RawKind? = None,
-) -> CstNode raise EventStreamError {
-  build_tree_interned_buffered(
-    self.events,
-    root_kind,
-    interner,
-    trivia_kinds~,
-    error_kind~,
-    incomplete_kind~,
-  )
+  policy~ : CstMetadataPolicy,
+) -> CstNode raise {
+  build_tree_interned_buffered(self.events, root_kind, interner, policy~)
 }
 
 ///|
@@ -300,10 +279,8 @@ pub fn EventBuffer::truncate(self : EventBuffer, n : Int) -> Unit {
 /// source-span token.
 fn rebuild_subtree_owned(
   node : CstNode,
-  trivia_kinds : Array[RawKind]?,
-  error_kind : RawKind?,
-  incomplete_kind : RawKind?,
-) -> CstNode {
+  policy : CstMetadataPolicy,
+) -> CstNode raise Failure {
   let children = node.children.map(child => {
     match child {
       CstElement::Token(t) => {
@@ -315,20 +292,12 @@ fn rebuild_subtree_owned(
         CstElement::Token(token)
       }
       CstElement::Node(n) => {
-        let rebuilt = rebuild_subtree_owned(
-          n, trivia_kinds, error_kind, incomplete_kind,
-        )
+        let rebuilt = rebuild_subtree_owned(n, policy)
         CstElement::Node(rebuilt)
       }
     }
   })
-  CstNode::new(
-    node.kind,
-    children,
-    trivia_kinds~,
-    error_kind~,
-    incomplete_kind~,
-  )
+  CstNode::new_owned(node.kind, children, policy~)
 }
 
 ///|
@@ -375,10 +344,8 @@ fn rebase_subtree_to_source_unchecked(
   node : CstNode,
   source : String,
   source_start : Int,
-  trivia_kinds : Array[RawKind]?,
-  error_kind : RawKind?,
-  incomplete_kind : RawKind?,
-) -> CstNode {
+  policy : CstMetadataPolicy,
+) -> CstNode raise Failure {
   let children : Array[CstElement] = []
   let mut offset = source_start
   for child in node.children {
@@ -398,20 +365,14 @@ fn rebase_subtree_to_source_unchecked(
       }
       CstElement::Node(n) => {
         let rebuilt = rebase_subtree_to_source_unchecked(
-          n, source, offset, trivia_kinds, error_kind, incomplete_kind,
+          n, source, offset, policy,
         )
         children.push(CstElement::Node(rebuilt))
         offset = offset + n.text_len
       }
     }
   }
-  CstNode::new(
-    node.kind,
-    children,
-    trivia_kinds~,
-    error_kind~,
-    incomplete_kind~,
-  )
+  CstNode::new_owned(node.kind, children, policy~)
 }
 
 ///|
@@ -421,16 +382,33 @@ fn rebuild_subtree_for_source(
   node : CstNode,
   source : String,
   source_start : Int,
-  trivia_kinds : Array[RawKind]?,
-  error_kind : RawKind?,
-  incomplete_kind : RawKind?,
-) -> CstNode {
+  policy : CstMetadataPolicy,
+) -> CstNode raise Failure {
   if subtree_matches_source(node, source, source_start) {
-    rebase_subtree_to_source_unchecked(
-      node, source, source_start, trivia_kinds, error_kind, incomplete_kind,
-    )
+    rebase_subtree_to_source_unchecked(node, source, source_start, policy)
   } else {
-    rebuild_subtree_owned(node, trivia_kinds, error_kind, incomplete_kind)
+    rebuild_subtree_owned(node, policy)
+  }
+}
+
+///|
+/// Validate every reused subtree before construction or interning begins.
+fn preflight_reuse_policies(
+  events : Array[BufferedEvent],
+  policy : CstMetadataPolicy,
+) -> Unit raise Failure {
+  for event in events {
+    let reused = match event {
+      BufferedReuseNode(node) => Some(node)
+      BufferedReuseNodeAt(node, _, _) => Some(node)
+      BufferedReuseNodeAtUnchecked(node, _, _) => Some(node)
+      _ => None
+    }
+    match reused {
+      Some(node) if !policy_equal(node.policy, policy) =>
+        fail("EventBuffer: reused node metadata policy mismatch")
+      _ => ()
+    }
   }
 }
 
@@ -442,23 +420,17 @@ fn rebuild_subtree_for_source(
 /// Use this variant when tokens will be reused across multiple parses of the
 /// same document (e.g. in IncrementalParser).
 ///
-/// `trivia_kinds`: forwarded to every `CstNode::new` call; leaf tokens with
-/// this kind are excluded from each node's `token_count`.
 pub fn build_tree_interned(
   events : Array[ParseEvent],
   root_kind : RawKind,
   interner : Interner,
-  trivia_kinds? : Array[RawKind]? = None,
-  error_kind? : RawKind? = None,
-  incomplete_kind? : RawKind? = None,
-) -> CstNode raise EventStreamError {
+  policy~ : CstMetadataPolicy,
+) -> CstNode raise {
   build_tree_interned_buffered(
     buffered_events_of_parse_events(events),
     root_kind,
     interner,
-    trivia_kinds~,
-    error_kind~,
-    incomplete_kind~,
+    policy~,
   )
 }
 
@@ -466,26 +438,18 @@ pub fn build_tree_interned(
 fn intern_reuse_tokens_only(
   node : CstNode,
   interner : Interner,
-  trivia_kinds : Array[RawKind]?,
-  error_kind : RawKind?,
-  incomplete_kind : RawKind?,
-) -> CstElement {
-  CstElement::Node(node).map(
-    elem => {
-      match elem {
-        Token(t) =>
-          if t.is_source_backed() {
-            Token(interner.intern_token(t.kind, t.text()))
-          } else {
-            Token(CstToken::synthetic_zero_width(t.kind))
-          }
-        _ => elem
-      }
-    },
-    trivia_kinds~,
-    error_kind~,
-    incomplete_kind~,
-  )
+) -> CstElement raise Failure {
+  CstElement::Node(node).map(elem => {
+    match elem {
+      Token(t) =>
+        if t.is_source_backed() {
+          Token(interner.intern_token(t.kind, t.text()))
+        } else {
+          Token(CstToken::synthetic_zero_width(t.kind))
+        }
+      _ => elem
+    }
+  })
 }
 
 ///|
@@ -493,10 +457,9 @@ fn build_tree_interned_buffered(
   events : Array[BufferedEvent],
   root_kind : RawKind,
   interner : Interner,
-  trivia_kinds? : Array[RawKind]? = None,
-  error_kind? : RawKind? = None,
-  incomplete_kind? : RawKind? = None,
-) -> CstNode raise EventStreamError {
+  policy~ : CstMetadataPolicy,
+) -> CstNode raise {
+  preflight_reuse_policies(events, policy)
   let stack : Array[Array[CstElement]] = [[]]
   let kinds : Array[RawKind] = [root_kind]
   for event in events {
@@ -514,16 +477,8 @@ fn build_tree_interned_buffered(
           Some(k) => k
           None => raise EventStreamError::UnbalancedFinish
         }
-        let children = balance_children(
-          raw_children, trivia_kinds, error_kind, incomplete_kind,
-        )
-        let node = CstNode::new(
-          kind,
-          children,
-          trivia_kinds~,
-          error_kind~,
-          incomplete_kind~,
-        )
+        let children = balance_children(raw_children, policy)
+        let node = CstNode::new_owned(kind, children, policy~)
         match stack.last() {
           Some(parent) => parent.push(Node(node))
           None => raise EventStreamError::UnbalancedFinish
@@ -544,9 +499,7 @@ fn build_tree_interned_buffered(
         }
       }
       BufferedReuseNode(node) => {
-        let interned = intern_reuse_tokens_only(
-          node, interner, trivia_kinds, error_kind, incomplete_kind,
-        )
+        let interned = intern_reuse_tokens_only(node, interner)
         match stack.last() {
           Some(parent) => parent.push(interned)
           None => raise EventStreamError::OrphanedEvent
@@ -554,11 +507,9 @@ fn build_tree_interned_buffered(
       }
       BufferedReuseNodeAt(node, source, source_start) => {
         let rebased = rebuild_subtree_for_source(
-          node, source, source_start, trivia_kinds, error_kind, incomplete_kind,
+          node, source, source_start, policy,
         )
-        let interned = intern_reuse_tokens_only(
-          rebased, interner, trivia_kinds, error_kind, incomplete_kind,
-        )
+        let interned = intern_reuse_tokens_only(rebased, interner)
         match stack.last() {
           Some(parent) => parent.push(interned)
           None => raise EventStreamError::OrphanedEvent
@@ -566,11 +517,9 @@ fn build_tree_interned_buffered(
       }
       BufferedReuseNodeAtUnchecked(node, source, source_start) => {
         let rebased = rebase_subtree_to_source_unchecked(
-          node, source, source_start, trivia_kinds, error_kind, incomplete_kind,
+          node, source, source_start, policy,
         )
-        let interned = intern_reuse_tokens_only(
-          rebased, interner, trivia_kinds, error_kind, incomplete_kind,
-        )
+        let interned = intern_reuse_tokens_only(rebased, interner)
         match stack.last() {
           Some(parent) => parent.push(interned)
           None => raise EventStreamError::OrphanedEvent
@@ -582,19 +531,8 @@ fn build_tree_interned_buffered(
   if stack.length() != 1 {
     raise EventStreamError::UnbalancedStart(missing_finishes=stack.length() - 1)
   }
-  let root_children = balance_children(
-    stack[0],
-    trivia_kinds,
-    error_kind,
-    incomplete_kind,
-  )
-  CstNode::new(
-    root_kind,
-    root_children,
-    trivia_kinds~,
-    error_kind~,
-    incomplete_kind~,
-  )
+  let root_children = balance_children(stack[0], policy)
+  CstNode::new_owned(root_kind, root_children, policy~)
 }
 
 ///|
@@ -607,10 +545,8 @@ fn re_intern_subtree(
   node : CstNode,
   interner : Interner,
   node_interner : NodeInterner,
-  trivia_kinds : Array[RawKind]?,
-  error_kind : RawKind?,
-  incomplete_kind : RawKind?,
-) -> CstNode {
+  policy : CstMetadataPolicy,
+) -> CstNode raise Failure {
   let children : Array[CstElement] = []
   for child in node.children {
     match child {
@@ -623,22 +559,12 @@ fn re_intern_subtree(
         children.push(CstElement::Token(token))
       }
       CstElement::Node(n) => {
-        let interned = re_intern_subtree(
-          n, interner, node_interner, trivia_kinds, error_kind, incomplete_kind,
-        )
+        let interned = re_intern_subtree(n, interner, node_interner, policy)
         children.push(CstElement::Node(interned))
       }
     }
   }
-  node_interner.intern_node(
-    CstNode::new(
-      node.kind,
-      children,
-      trivia_kinds~,
-      error_kind~,
-      incomplete_kind~,
-    ),
-  )
+  node_interner.intern_node(CstNode::new_owned(node.kind, children, policy~))
 }
 
 ///|
@@ -649,25 +575,19 @@ fn re_intern_subtree(
 /// Construction is bottom-up: children are interned before their parent, so
 /// the parent's equality check terminates at hash match without deep recursion.
 ///
-/// `trivia_kinds`: forwarded to every `CstNode::new` call; leaf tokens with
-/// this kind are excluded from each node's `token_count`.
 pub fn build_tree_fully_interned(
   events : Array[ParseEvent],
   root_kind : RawKind,
   interner : Interner,
   node_interner : NodeInterner,
-  trivia_kinds? : Array[RawKind]? = None,
-  error_kind? : RawKind? = None,
-  incomplete_kind? : RawKind? = None,
-) -> CstNode raise EventStreamError {
+  policy~ : CstMetadataPolicy,
+) -> CstNode raise {
   build_tree_fully_interned_buffered(
     buffered_events_of_parse_events(events),
     root_kind,
     interner,
     node_interner,
-    trivia_kinds~,
-    error_kind~,
-    incomplete_kind~,
+    policy~,
   )
 }
 
@@ -677,10 +597,9 @@ fn build_tree_fully_interned_buffered(
   root_kind : RawKind,
   interner : Interner,
   node_interner : NodeInterner,
-  trivia_kinds? : Array[RawKind]? = None,
-  error_kind? : RawKind? = None,
-  incomplete_kind? : RawKind? = None,
-) -> CstNode raise EventStreamError {
+  policy~ : CstMetadataPolicy,
+) -> CstNode raise {
+  preflight_reuse_policies(events, policy)
   let stack : Array[Array[CstElement]] = [[]]
   let kinds : Array[RawKind] = [root_kind]
   for event in events {
@@ -698,17 +617,9 @@ fn build_tree_fully_interned_buffered(
           Some(k) => k
           None => raise EventStreamError::UnbalancedFinish
         }
-        let children = balance_children(
-          raw_children, trivia_kinds, error_kind, incomplete_kind,
-        )
+        let children = balance_children(raw_children, policy)
         let node = node_interner.intern_node(
-          CstNode::new(
-            kind,
-            children,
-            trivia_kinds~,
-            error_kind~,
-            incomplete_kind~,
-          ),
+          CstNode::new_owned(kind, children, policy~),
         )
         match stack.last() {
           Some(parent) => parent.push(Node(node))
@@ -730,9 +641,7 @@ fn build_tree_fully_interned_buffered(
         }
       }
       BufferedReuseNode(node) => {
-        let interned = re_intern_subtree(
-          node, interner, node_interner, trivia_kinds, error_kind, incomplete_kind,
-        )
+        let interned = re_intern_subtree(node, interner, node_interner, policy)
         match stack.last() {
           Some(parent) => parent.push(Node(interned))
           None => raise EventStreamError::OrphanedEvent
@@ -740,10 +649,10 @@ fn build_tree_fully_interned_buffered(
       }
       BufferedReuseNodeAt(node, source, source_start) => {
         let rebased = rebuild_subtree_for_source(
-          node, source, source_start, trivia_kinds, error_kind, incomplete_kind,
+          node, source, source_start, policy,
         )
         let interned = re_intern_subtree(
-          rebased, interner, node_interner, trivia_kinds, error_kind, incomplete_kind,
+          rebased, interner, node_interner, policy,
         )
         match stack.last() {
           Some(parent) => parent.push(Node(interned))
@@ -752,10 +661,10 @@ fn build_tree_fully_interned_buffered(
       }
       BufferedReuseNodeAtUnchecked(node, source, source_start) => {
         let rebased = rebase_subtree_to_source_unchecked(
-          node, source, source_start, trivia_kinds, error_kind, incomplete_kind,
+          node, source, source_start, policy,
         )
         let interned = re_intern_subtree(
-          rebased, interner, node_interner, trivia_kinds, error_kind, incomplete_kind,
+          rebased, interner, node_interner, policy,
         )
         match stack.last() {
           Some(parent) => parent.push(Node(interned))
@@ -768,20 +677,9 @@ fn build_tree_fully_interned_buffered(
   if stack.length() != 1 {
     raise EventStreamError::UnbalancedStart(missing_finishes=stack.length() - 1)
   }
-  let root_children = balance_children(
-    stack[0],
-    trivia_kinds,
-    error_kind,
-    incomplete_kind,
-  )
+  let root_children = balance_children(stack[0], policy)
   node_interner.intern_node(
-    CstNode::new(
-      root_kind,
-      root_children,
-      trivia_kinds~,
-      error_kind~,
-      incomplete_kind~,
-    ),
+    CstNode::new_owned(root_kind, root_children, policy~),
   )
 }
 
@@ -789,21 +687,15 @@ fn build_tree_fully_interned_buffered(
 /// Build a concrete syntax tree from a flat event stream.
 /// root_kind is the kind of the implicit root node (e.g., SourceFile).
 ///
-/// `trivia_kinds`: forwarded to every `CstNode::new` call; leaf tokens with
-/// these kinds are excluded from each node's `token_count`.
 pub fn build_tree(
   events : Array[ParseEvent],
   root_kind : RawKind,
-  trivia_kinds? : Array[RawKind]? = None,
-  error_kind? : RawKind? = None,
-  incomplete_kind? : RawKind? = None,
-) -> CstNode raise EventStreamError {
+  policy~ : CstMetadataPolicy,
+) -> CstNode raise {
   build_tree_buffered(
     buffered_events_of_parse_events(events),
     root_kind,
-    trivia_kinds~,
-    error_kind~,
-    incomplete_kind~,
+    policy~,
   )
 }
 
@@ -811,10 +703,9 @@ pub fn build_tree(
 fn build_tree_buffered(
   events : Array[BufferedEvent],
   root_kind : RawKind,
-  trivia_kinds? : Array[RawKind]? = None,
-  error_kind? : RawKind? = None,
-  incomplete_kind? : RawKind? = None,
-) -> CstNode raise EventStreamError {
+  policy~ : CstMetadataPolicy,
+) -> CstNode raise {
+  preflight_reuse_policies(events, policy)
   // stack and kinds move in lockstep:
   // - StartNode pushes one frame + one kind
   // - FinishNode pops one frame + one kind
@@ -837,16 +728,8 @@ fn build_tree_buffered(
           Some(k) => k
           None => raise EventStreamError::UnbalancedFinish
         }
-        let children = balance_children(
-          raw_children, trivia_kinds, error_kind, incomplete_kind,
-        )
-        let node = CstNode::new(
-          kind,
-          children,
-          trivia_kinds~,
-          error_kind~,
-          incomplete_kind~,
-        )
+        let children = balance_children(raw_children, policy)
+        let node = CstNode::new_owned(kind, children, policy~)
         match stack.last() {
           Some(parent) => parent.push(Node(node))
           None => raise EventStreamError::UnbalancedFinish
@@ -867,9 +750,7 @@ fn build_tree_buffered(
         }
       }
       BufferedReuseNode(node) => {
-        let rebuilt = rebuild_subtree_owned(
-          node, trivia_kinds, error_kind, incomplete_kind,
-        )
+        let rebuilt = rebuild_subtree_owned(node, policy)
         match stack.last() {
           Some(parent) => parent.push(Node(rebuilt))
           None => raise EventStreamError::OrphanedEvent
@@ -877,7 +758,7 @@ fn build_tree_buffered(
       }
       BufferedReuseNodeAt(node, source, source_start) => {
         let rebased = rebuild_subtree_for_source(
-          node, source, source_start, trivia_kinds, error_kind, incomplete_kind,
+          node, source, source_start, policy,
         )
         match stack.last() {
           Some(parent) => parent.push(Node(rebased))
@@ -886,7 +767,7 @@ fn build_tree_buffered(
       }
       BufferedReuseNodeAtUnchecked(node, source, source_start) => {
         let rebased = rebase_subtree_to_source_unchecked(
-          node, source, source_start, trivia_kinds, error_kind, incomplete_kind,
+          node, source, source_start, policy,
         )
         match stack.last() {
           Some(parent) => parent.push(Node(rebased))
@@ -900,19 +781,8 @@ fn build_tree_buffered(
   if stack.length() != 1 {
     raise EventStreamError::UnbalancedStart(missing_finishes=stack.length() - 1)
   }
-  let root_children = balance_children(
-    stack[0],
-    trivia_kinds,
-    error_kind,
-    incomplete_kind,
-  )
-  CstNode::new(
-    root_kind,
-    root_children,
-    trivia_kinds~,
-    error_kind~,
-    incomplete_kind~,
-  )
+  let root_children = balance_children(stack[0], policy)
+  CstNode::new_owned(root_kind, root_children, policy~)
 }
 
 ///|
@@ -983,10 +853,8 @@ fn flatten_repeat_group_children(
 /// by letting the incremental parser skip entire groups as single units.
 fn balance_children(
   children : Array[CstElement],
-  trivia_kinds : Array[RawKind]?,
-  error_kind : RawKind?,
-  incomplete_kind : RawKind?,
-) -> Array[CstElement] {
+  policy : CstMetadataPolicy,
+) -> Array[CstElement] raise Failure {
   let children = flatten_repeat_group_children(children)
   if children.length() <= balance_threshold {
     return children
@@ -1032,9 +900,7 @@ fn balance_children(
         }
         if node_count > balance_threshold {
           // Build balanced groups from the run (index-based, no copy)
-          build_balanced_group(
-            children, run_start, i, trivia_kinds, error_kind, incomplete_kind, result,
-          )
+          build_balanced_group(children, run_start, i, policy, result)
         } else {
           // Short run — copy as-is
           for j = run_start; j < i; j = j + 1 {
@@ -1060,11 +926,9 @@ fn build_balanced_group(
   elements : Array[CstElement],
   start : Int,
   end : Int,
-  trivia_kinds : Array[RawKind]?,
-  error_kind : RawKind?,
-  incomplete_kind : RawKind?,
+  policy : CstMetadataPolicy,
   out : Array[CstElement],
-) -> Unit {
+) -> Unit raise Failure {
   let len = end - start
   if len <= balance_threshold {
     // Base case: copy this range into a single RepeatGroup
@@ -1072,13 +936,7 @@ fn build_balanced_group(
     for j = start; j < end; j = j + 1 {
       children.push(elements[j])
     }
-    let group = CstNode::new(
-      repeat_group_kind,
-      children,
-      trivia_kinds~,
-      error_kind~,
-      incomplete_kind~,
-    )
+    let group = CstNode::new_owned(repeat_group_kind, children, policy~)
     out.push(CstElement::Node(group))
     return
   }
@@ -1095,18 +953,8 @@ fn build_balanced_group(
   }
   // Recurse into left and right halves, collecting into a shared buffer
   let group_children : Array[CstElement] = []
-  build_balanced_group(
-    elements, start, mid, trivia_kinds, error_kind, incomplete_kind, group_children,
-  )
-  build_balanced_group(
-    elements, mid, end, trivia_kinds, error_kind, incomplete_kind, group_children,
-  )
-  let group = CstNode::new(
-    repeat_group_kind,
-    group_children,
-    trivia_kinds~,
-    error_kind~,
-    incomplete_kind~,
-  )
+  build_balanced_group(elements, start, mid, policy, group_children)
+  build_balanced_group(elements, mid, end, policy, group_children)
+  let group = CstNode::new_owned(repeat_group_kind, group_children, policy~)
   out.push(CstElement::Node(group))
 }

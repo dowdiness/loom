@@ -46,13 +46,13 @@ pub struct ImperativeLanguage[Ast] {
     @seam.SyntaxNode,
     @core.DiagnosticSet,
     Int,
-  )
+  ) raise Failure
   priv incremental_parse : (
     @core.SourceId,
     String,
     @seam.SyntaxNode,
     @core.Edit,
-  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int)
+  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) raise Failure
   priv to_ast : (@seam.SyntaxNode) -> Ast
   priv get_fold_stats : (() -> @core.FoldStats)?
 }
@@ -64,12 +64,12 @@ pub fn[Ast] ImperativeLanguage::new(
     @seam.SyntaxNode,
     @core.DiagnosticSet,
     Int,
-  ),
+  ) raise Failure,
   incremental_parse~ : (@core.SourceId, String, @seam.SyntaxNode, @core.Edit) -> (
     @seam.SyntaxNode,
     @core.DiagnosticSet,
     Int,
-  ),
+  ) raise Failure,
   to_ast~ : (@seam.SyntaxNode) -> Ast,
   get_fold_stats? : (() -> @core.FoldStats)? = None,
 ) -> ImperativeLanguage[Ast] {

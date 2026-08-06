@@ -8,14 +8,32 @@ fn tok(kind_val : Int, text : String) -> @seam.CstElement {
 
 ///|
 /// Helper: create a node element.
-fn nd(kind_val : Int, children : Array[@seam.CstElement]) -> @seam.CstElement {
-  @seam.CstElement::Node(@seam.CstNode::new(@seam.RawKind(kind_val), children))
+fn nd(
+  kind_val : Int,
+  children : Array[@seam.CstElement],
+) -> @seam.CstElement raise Failure {
+  @seam.CstElement::Node(
+    @seam.CstNode::new_unclassified(@seam.RawKind(kind_val), children),
+  )
 }
 
 ///|
 /// White-box retention signal. This intentionally stays out of the public API.
 fn[Ast] CstFold::cache_entry_count(self : CstFold[Ast]) -> Int {
   self.cache.keys().count()
+}
+
+///|
+fn[Ast] CstFold::cached_key_equal_to(
+  self : CstFold[Ast],
+  expected : @seam.CstNode,
+) -> @seam.CstNode? {
+  for key in self.cache.keys() {
+    if key == expected {
+      return Some(key)
+    }
+  }
+  None
 }
 
 ///|
@@ -48,7 +66,10 @@ test "CstFold: basic fold produces correct result" {
   //   └── Child(20)
   //       └── Token(2, "y")
   let child = nd(20, [tok(2, "y")])
-  let root = @seam.CstNode::new(@seam.RawKind(10), [tok(1, "x"), child])
+  let root = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
+    tok(1, "x"),
+    child,
+  ])
   let syntax = @seam.SyntaxNode::from_cst(root)
   let fold : CstFold[String] = CstFold::new(test_algebra)
   let result = fold.fold(syntax)
@@ -58,7 +79,10 @@ test "CstFold: basic fold produces correct result" {
 ///|
 test "CstFold: second fold reuses cache for unchanged tree" {
   let child = nd(20, [tok(2, "y")])
-  let root = @seam.CstNode::new(@seam.RawKind(10), [tok(1, "x"), child])
+  let root = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
+    tok(1, "x"),
+    child,
+  ])
   let syntax = @seam.SyntaxNode::from_cst(root)
   let fold : CstFold[String] = CstFold::new(test_algebra)
   let _ = fold.fold(syntax)
@@ -74,16 +98,16 @@ test "CstFold: second fold reuses cache for unchanged tree" {
 ///|
 test "CstFold: incremental fold reuses unchanged subtrees" {
   // Original:  Root(10) -> [Token("a"), Child(20) -> [Token("y")]]
-  let child = @seam.CstNode::new(@seam.RawKind(20), [tok(2, "y")])
-  let root = @seam.CstNode::new(@seam.RawKind(10), [
+  let child = @seam.CstNode::new_unclassified(@seam.RawKind(20), [tok(2, "y")])
+  let root = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
     tok(1, "a"),
     @seam.CstElement::Node(child),
   ])
   let fold : CstFold[String] = CstFold::new(test_algebra)
   let _ = fold.fold(@seam.SyntaxNode::from_cst(root))
   // Modified: Root(10) -> [Token("b"), Child(20) -> [Token("y")]]
-  // Child(20) is structurally identical (same hash) — should be reused.
-  let new_root = @seam.CstNode::new(@seam.RawKind(10), [
+  // Child(20) is structurally identical — should be reused.
+  let new_root = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
     tok(1, "b"),
     @seam.CstElement::Node(child),
   ])
@@ -106,7 +130,10 @@ test "CstFold: unvisited children are cache-warmed" {
     "leaf:" + k.to_string() // Never calls recurse
   }
   let child = nd(20, [tok(2, "y")])
-  let root = @seam.CstNode::new(@seam.RawKind(10), [tok(1, "x"), child])
+  let root = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
+    tok(1, "x"),
+    child,
+  ])
   let fold : CstFold[String] = CstFold::new(skip_algebra)
   let _ = fold.fold(@seam.SyntaxNode::from_cst(root))
   let stats = fold.get_stats()
@@ -121,7 +148,9 @@ test "CstFold: cache retention stays bounded across distinct roots" {
   let edit_generations = cst_fold_compaction_interval * 4 + 7
   for i = 0; i < edit_generations; i = i + 1 {
     let source = "value-" + i.to_string()
-    let root = @seam.CstNode::new(@seam.RawKind(10), [tok(1, source)])
+    let root = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
+      tok(1, source),
+    ])
     let result = fold.fold(@seam.SyntaxNode::from_cst(root))
     assert_eq(result, source)
   }
@@ -134,25 +163,25 @@ test "CstFold: cache retention stays bounded across distinct roots" {
 ///|
 test "CstFold: compaction releases a historical source-backed root" {
   let fold : CstFold[String] = CstFold::new(test_algebra)
-  let historical = @seam.CstNode::new(@seam.RawKind(10), [
+  let historical = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
     tok(1, "historical-source"),
   ])
   let _ = fold.fold(@seam.SyntaxNode::from_cst(historical))
-  inspect(fold.cache.contains(historical.hash), content="true")
+  inspect(fold.cache.contains(historical), content="true")
   for i = 1; i < cst_fold_compaction_interval; i = i + 1 {
-    let current = @seam.CstNode::new(@seam.RawKind(10), [
+    let current = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
       tok(1, "current-" + i.to_string()),
     ])
     let _ = fold.fold(@seam.SyntaxNode::from_cst(current))
   }
-  inspect(fold.cache.contains(historical.hash), content="false")
+  inspect(fold.cache.contains(historical), content="false")
 }
 
 ///|
 test "CstFold: compaction refreshes reachable CST source backing" {
   let historical_source = "old:stable"
   let current_source = "new:stable"
-  let historical = @seam.CstNode::new(@seam.RawKind(10), [
+  let historical = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
     @seam.CstElement::Token(
       @seam.CstToken::CstToken(
         @seam.RawKind(1),
@@ -160,7 +189,7 @@ test "CstFold: compaction refreshes reachable CST source backing" {
       ),
     ),
   ])
-  let current = @seam.CstNode::new(@seam.RawKind(10), [
+  let current = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
     @seam.CstElement::Token(
       @seam.CstToken::CstToken(
         @seam.RawKind(1),
@@ -176,9 +205,9 @@ test "CstFold: compaction refreshes reachable CST source backing" {
       generation = generation + 1 {
     let _ = fold.fold(@seam.SyntaxNode::from_cst(current))
   }
-  match fold.cache.get(current.hash) {
-    Some(entry) =>
-      match entry.cst.first_token(fn(_kind) { false }) {
+  match fold.cached_key_equal_to(current) {
+    Some(cached) =>
+      match cached.first_token(fn(_kind) { false }) {
         Some(token) =>
           inspect(
             physical_equal(token.unsafe_backing_source(), current_source),
@@ -192,12 +221,14 @@ test "CstFold: compaction refreshes reachable CST source backing" {
 
 ///|
 test "CstFold: root-hit compaction preserves deep adjacent reuse" {
-  let grandchild = @seam.CstNode::new(@seam.RawKind(30), [tok(3, "stable")])
-  let child = @seam.CstNode::new(@seam.RawKind(20), [
+  let grandchild = @seam.CstNode::new_unclassified(@seam.RawKind(30), [
+    tok(3, "stable"),
+  ])
+  let child = @seam.CstNode::new_unclassified(@seam.RawKind(20), [
     tok(2, "before"),
     @seam.CstElement::Node(grandchild),
   ])
-  let root = @seam.CstNode::new(@seam.RawKind(10), [
+  let root = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
     @seam.CstElement::Node(child),
   ])
   let syntax = @seam.SyntaxNode::from_cst(root)
@@ -212,11 +243,11 @@ test "CstFold: root-hit compaction preserves deep adjacent reuse" {
   let root_hit_stats = fold.get_stats()
   inspect(root_hit_stats.reused, content="1")
   inspect(root_hit_stats.recomputed, content="0")
-  let edited_child = @seam.CstNode::new(@seam.RawKind(20), [
+  let edited_child = @seam.CstNode::new_unclassified(@seam.RawKind(20), [
     tok(2, "after"),
     @seam.CstElement::Node(grandchild),
   ])
-  let edited_root = @seam.CstNode::new(@seam.RawKind(10), [
+  let edited_root = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
     @seam.CstElement::Node(edited_child),
   ])
   let _ = fold.fold(@seam.SyntaxNode::from_cst(edited_root))
@@ -226,15 +257,19 @@ test "CstFold: root-hit compaction preserves deep adjacent reuse" {
 }
 
 ///|
-test "CstFold: hash collision still requires structural equality" {
-  let first = @seam.CstNode::new(@seam.RawKind(10), [tok(1, "first")])
-  let actual_second = @seam.CstNode::new(@seam.RawKind(10), [tok(1, "second")])
-  let forced_collision = @seam.CstNode::{ ..actual_second, hash: first.hash }
-  inspect(first == forced_collision, content="false")
+test "CstFold: structurally distinct nodes occupy distinct cache entries" {
+  let first = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
+    tok(1, "first"),
+  ])
+  let second = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
+    tok(1, "second"),
+  ])
+  inspect(first == second, content="false")
   let fold : CstFold[String] = CstFold::new(test_algebra)
   let _ = fold.fold(@seam.SyntaxNode::from_cst(first))
-  let _ = fold.fold(@seam.SyntaxNode::from_cst(forced_collision))
+  let _ = fold.fold(@seam.SyntaxNode::from_cst(second))
   let stats = fold.get_stats()
   inspect(stats.reused, content="0")
   inspect(stats.recomputed, content="1")
+  inspect(fold.cache_entry_count(), content="2")
 }

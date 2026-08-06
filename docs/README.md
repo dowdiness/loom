@@ -14,10 +14,11 @@ Navigation map for the incremental parser. Start here, go one level deeper for d
 New to loom? Read in this order:
 
 1. [../README.md](../README.md) — monorepo landing, what each module does
-2. [../loom/README.md](../loom/README.md) — `dowdiness/loom` package: install, Quick Start, public API
-3. [architecture/overview.md](architecture/overview.md) — layer diagram and architectural principles
-4. [api/choosing-a-parser.md](api/choosing-a-parser.md) — `Parser` vs `ImperativeParser`
-5. [../examples/lambda/](../examples/lambda/) — a complete grammar as reference
+2. [../CONTEXT.md](../CONTEXT.md) — canonical parser-core ownership vocabulary
+3. [../loom/README.md](../loom/README.md) — `dowdiness/loom` package: install, Quick Start, public API
+4. [architecture/overview.md](architecture/overview.md) — layer diagram and architectural principles
+5. [api/choosing-a-parser.md](api/choosing-a-parser.md) — `Parser` vs `ImperativeParser`
+6. [../examples/lambda/](../examples/lambda/) — a complete grammar as reference
 
 Going deeper:
 

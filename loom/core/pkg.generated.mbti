@@ -27,17 +27,17 @@ pub fn lexer_diagnostic_at(@diagnostic.SourceId, String, Int, Int, String) -> @d
 
 pub fn next_char_offset(String, Int) -> Int
 
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(@diagnostic.SourceId, String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, LanguageSpec[T, K], cursor? : ReuseCursor[T, K]?, prev_diagnostics? : DiagnosticSet?) -> (@seam.CstNode, DiagnosticSet, Int)
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(@diagnostic.SourceId, String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, LanguageSpec[T, K], cursor? : ReuseCursor[T, K]?, prev_diagnostics? : DiagnosticSet?) -> (@seam.CstNode, DiagnosticSet, Int) raise Failure
 
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(@diagnostic.SourceId, String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, DiagnosticSet)
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(@diagnostic.SourceId, String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, DiagnosticSet) raise Failure
 
 pub fn[R : @diagnostic.SourceResolver] render_diagnostics_plain(ArrayView[@diagnostic.Diagnostic], R) -> String raise @diagnostic.DiagnosticRenderError
 
 pub fn[R : @diagnostic.SourceResolver, D : @diagnostic.TextDisplay] render_diagnostics_plain_with_display(ArrayView[@diagnostic.Diagnostic], R, D) -> String raise @diagnostic.DiagnosticRenderError
 
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(@diagnostic.SourceId, @seam.SyntaxNode, String, Edit, (@diagnostic.SourceId, String) -> LexResult[T], LanguageSpec[T, K], BlockReparseSpec[T, K], DiagnosticSet) -> (@seam.CstNode, DiagnosticSet)?
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(@diagnostic.SourceId, @seam.SyntaxNode, String, Edit, (@diagnostic.SourceId, String) -> LexResult[T], LanguageSpec[T, K], BlockReparseSpec[T, K], DiagnosticSet) -> (@seam.CstNode, DiagnosticSet)? raise Failure
 
-pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode, trivia_kinds? : Array[@seam.RawKind]?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode
+pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode) -> @seam.CstNode raise Failure
 
 pub fn text_to_delta(String, String) -> Array[TextDelta]
 
@@ -146,11 +146,11 @@ pub struct LanguageSpec[T, K] {
   incomplete_kind : K
   root_kind : K
   eof_token : T
-  trivia_kinds_spec : Array[K]
   parse_root : (ParserContext[T, K]) -> Unit
   reuse_size_threshold : Int
+  // private fields
 }
-pub fn[T, K] LanguageSpec::new(K, K, K, T, incomplete_kind? : K, parse_root? : (ParserContext[T, K]) -> Unit, reuse_size_threshold? : Int, trivia_kinds_spec? : Array[K]) -> Self[T, K]
+pub fn[T, K : @seam.ToRawKind] LanguageSpec::new(K, K, K, T, incomplete_kind? : K, parse_root? : (ParserContext[T, K]) -> Unit, reuse_size_threshold? : Int, trivia_kinds_spec? : Array[K]) -> Self[T, K]
 pub fn[T, K : @seam.ToRawKind] LanguageSpec::trivia_kinds_raw(Self[T, K]) -> Array[@seam.RawKind]
 
 pub struct LexCursor {

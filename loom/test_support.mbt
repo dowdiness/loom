@@ -16,8 +16,8 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] assert_in
   new_source : String,
   grammar : SyntaxGrammar[T, K],
 ) -> Int {
-  let parser = new_syntax_parser(source_id, old_source, grammar)
-  parser.apply_edit(edit, new_source)
+  let parser = try! new_syntax_parser(source_id, old_source, grammar)
+  try! parser.apply_edit(edit, new_source)
   let incremental = parser.snapshot().read_or_abort()
   let (full_cst, full_diagnostics) = try! grammar.parse_cst(
     source_id, new_source,

@@ -74,14 +74,16 @@ pub struct LanguageSpec[T, K] {
   /// All trivia kinds (including whitespace_kind). Used by the reuse cursor
   /// to skip all trivia leaf tokens when walking the old CST.
   /// Populated from all `#loom.trivia`-annotated variants in the language spec.
-  trivia_kinds_spec : Array[K]
+  priv trivia_kinds_spec : Array[K]
+  /// Canonical CST metadata domain shared by every tree built from this spec.
+  priv cst_metadata_policy : @seam.CstMetadataPolicy
   parse_root : (ParserContext[T, K]) -> Unit
   reuse_size_threshold : Int
 }
 
 ///|
 /// Construct a LanguageSpec. Use this from outside the core package.
-pub fn[T, K] LanguageSpec::new(
+pub fn[T, K : @seam.ToRawKind] LanguageSpec::new(
   whitespace_kind : K,
   error_kind : K,
   root_kind : K,
@@ -91,13 +93,20 @@ pub fn[T, K] LanguageSpec::new(
   reuse_size_threshold? : Int = 64,
   trivia_kinds_spec? : Array[K] = [whitespace_kind],
 ) -> LanguageSpec[T, K] {
+  let owned_trivia_kinds = trivia_kinds_spec.copy()
+  let cst_metadata_policy = @seam.CstMetadataPolicy::new(
+    owned_trivia_kinds.map(fn(kind) { kind.to_raw() }),
+    error_kind=Some(error_kind.to_raw()),
+    incomplete_kind=Some(incomplete_kind.to_raw()),
+  )
   {
     whitespace_kind,
     error_kind,
     incomplete_kind,
     root_kind,
     eof_token,
-    trivia_kinds_spec,
+    trivia_kinds_spec: owned_trivia_kinds,
+    cst_metadata_policy,
     parse_root,
     reuse_size_threshold,
   }

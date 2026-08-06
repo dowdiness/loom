@@ -31,14 +31,14 @@ test "parse_cst returns diagnostics" {
   let (cst, diagnostics) = parse_cst_or_fail_recovery("(,) => x")
   inspect(diagnostics.length() > 0, content="true")
   // Cst should be a valid SourceFile
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
+  inspect(@syntax.SyntaxKind::from_raw(cst.kind()), content="SourceFile")
 }
 
 ///|
 test "parse_cst no errors on valid input" {
   let (cst, diagnostics) = parse_cst_or_fail_recovery("(x) => x")
   inspect(diagnostics.length(), content="0")
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
+  inspect(@syntax.SyntaxKind::from_raw(cst.kind()), content="SourceFile")
 }
 
 ///|

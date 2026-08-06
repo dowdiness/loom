@@ -15,14 +15,14 @@ fn bench_perf_block_reparse_cycle(b : @bench.T, count : Int) -> Unit {
   let mut syntax = @seam.SyntaxNode::from_cst(initial_cst)
   let mut diagnostics = initial_diagnostics
   b.bench(fn() {
-    let (edited_cst, edited_diagnostics) = @core.reparse_block(
+    let (edited_cst, edited_diagnostics) = try! @core.reparse_block(
       source_id, syntax, edited, edit, lex_for_grammar, markdown_spec, markdown_block_reparse_spec,
       diagnostics,
     ).unwrap()
     syntax = @seam.SyntaxNode::from_cst(edited_cst)
     diagnostics = edited_diagnostics
     b.keep(syntax)
-    let (restored_cst, restored_diagnostics) = @core.reparse_block(
+    let (restored_cst, restored_diagnostics) = try! @core.reparse_block(
       source_id, syntax, source, edit, lex_for_grammar, markdown_spec, markdown_block_reparse_spec,
       diagnostics,
     ).unwrap()

@@ -64,7 +64,7 @@ Typed wrappers over `SyntaxNode` — `LambdaExprView`, `AppExprView`, `LetDefVie
 
 ### What Was Built
 
-1. ✅ **Green tree diff utility:** `tree_diff(old, new) -> Array[Edit]` in `loom/src/core/diff.mbt` — uses `CstNode.hash` as O(1) skip key for unchanged subtrees.
+1. ✅ **Green tree diff utility:** `tree_diff(old, new) -> Array[Edit]` in `loom/core/diff.mbt` — uses collision-safe structural node equality to skip unchanged subtrees.
 
 2. ✅ **Text CRDT adapter:** `text_to_delta(old, new) -> Array[TextDelta]` in `loom/src/core/delta.mbt` — translates string pairs to minimal Retain/Delete/Insert sequences; `to_edits()` converts these to `Edit` structs for the parser.
 

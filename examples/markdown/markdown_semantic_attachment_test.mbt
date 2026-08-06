@@ -3,7 +3,7 @@ fn markdown_semantic_attachment_test_parser(
   source_id : @core.SourceId,
   source : String,
 ) -> @loom.Parser[Block] {
-  @loom.new_parser(source_id, source, markdown_grammar)
+  try! @loom.new_parser(source_id, source, markdown_grammar)
 }
 
 ///|
@@ -34,7 +34,7 @@ fn markdown_semantic_attachment_test_replace_all(
   current : String,
   updated : String,
 ) -> Unit {
-  parser.apply_edit(
+  try! parser.apply_edit(
     @core.Edit::new(0, current.length(), updated.length()),
     updated,
   )

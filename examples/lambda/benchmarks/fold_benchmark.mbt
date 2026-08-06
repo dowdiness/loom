@@ -39,11 +39,11 @@ test "CstFold stats: 80-let incremental edit reuses most subtrees" {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   let edited = make_let_chain_edited(80)
   let edit_start = tail_literal_offset(source)
   let edit = @core.Edit::new(edit_start, 1, 1)
-  let _ = parser.edit(edit, edited)
+  let _ = try! parser.edit(edit, edited)
   let stats = parser.get_fold_stats().unwrap()
   // 80-let chain: most LetDef subtrees are structurally unchanged after editing
   // the last literal. Expect high reuse, low recompute.
@@ -61,7 +61,7 @@ test "fold benchmark: 80 lets - initial parse+fold" (b : @bench.T) {
       source,
       @lambda.lambda_grammar,
     )
-    let result = parser.parse()
+    let result = try! parser.parse()
     b.keep(result)
   })
 }
@@ -76,14 +76,14 @@ test "fold benchmark: 80 lets - incremental fold after single edit" (
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   let edited = make_let_chain_edited(80)
   let edit_start = tail_literal_offset(source)
   let fwd = @core.Edit::new(edit_start, 1, 1)
   let bwd = @core.Edit::new(edit_start, 1, 1)
   b.bench(fn() {
-    let _ = parser.edit(fwd, edited)
-    let result = parser.edit(bwd, source)
+    let _ = try! parser.edit(fwd, edited)
+    let result = try! parser.edit(bwd, source)
     b.keep(result)
   })
 }
@@ -97,7 +97,7 @@ test "fold benchmark: 320 lets - initial parse+fold" (b : @bench.T) {
       source,
       @lambda.lambda_grammar,
     )
-    let result = parser.parse()
+    let result = try! parser.parse()
     b.keep(result)
   })
 }
@@ -112,14 +112,14 @@ test "fold benchmark: 320 lets - incremental fold after single edit" (
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   let edited = make_let_chain_edited(320)
   let edit_start = tail_literal_offset(source)
   let fwd = @core.Edit::new(edit_start, 1, 1)
   let bwd = @core.Edit::new(edit_start, 1, 1)
   b.bench(fn() {
-    let _ = parser.edit(fwd, edited)
-    let result = parser.edit(bwd, source)
+    let _ = try! parser.edit(fwd, edited)
+    let result = try! parser.edit(bwd, source)
     b.keep(result)
   })
 }

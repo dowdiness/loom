@@ -296,7 +296,7 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq]
   source : String,
   grammar : Grammar[T, K, Ast],
   runtime? : @incr.Runtime,
-) -> @pipeline.Parser[Ast] {
+) -> @pipeline.Parser[Ast] raise Failure {
   @pipeline.Parser::new(
     source_id,
     source,
@@ -316,7 +316,7 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] new_synta
   source : String,
   grammar : SyntaxGrammar[T, K],
   runtime? : @incr.Runtime,
-) -> @pipeline.SyntaxParser {
+) -> @pipeline.SyntaxParser raise Failure {
   @pipeline.SyntaxParser::new(
     source_id,
     source,

@@ -221,7 +221,7 @@ only new kinds get the next unused integer. The loomgen design doc
 (parent canopy `docs/design/07-loomgen-design.md` §"Generation idempotency") has been
 corrected from "sequential / never-reads" to "idempotent *given the registry*."
 Severity confirmed **MILD** (the seam content hash is in-memory only — no persisted or
-transmitted artifact keys off `RawKind.inner` or `CstNode.hash`). The codegen-payoff
+transmitted artifact keys off `RawKind.inner` or the private node hash). The codegen-payoff
 re-baseline on current lambda (§4.5 L1-B: ~1,200 lines, estimate holds) is recorded
 at §3 finding 3. **All gating conditions for loomgen build are now cleared:**
 §4.1 conditions (L1-A fix + re-baseline) and the §4.4 build-order constraint
@@ -307,7 +307,7 @@ preconditions. Three checks, all running the same edit sequence through A and B:
   `assert_incremental_edit_matches_full_parse` on parser B. Proves B is itself
   incrementally correct (B-incremental == B-fresh). Zero new code.
 - **D2a — CST + diagnostics parity.** Assert `@core.tree_diff(A_cst, B_cst)` is
-  empty (structural identity, *up to hash collisions* — `loom/src/core/diff.mbt`)
+  empty (collision-safe structural identity — `loom/core/diff.mbt`)
   **and** `A_diagnostics.equal(B_diagnostics)` at **every step.** Catches the
   root-cause divergence (the four churn cases are all CST-shape facts).
 - **D2b — stable-ID parity (do *not* skip).** Drive the *existing pure*
@@ -321,11 +321,9 @@ preconditions. Three checks, all running the same edit sequence through A and B:
   the leaf sequence is a deterministic function of each CST, a D2b A-vs-B mismatch
   under target (i) *implies* a D2a mismatch — so D2b is **not an independent
   discriminator of path-dependent last-good churn as wired.** Its
-  genuinely-independent residual is the **hash-collision blind spot**: `tree_diff`
-  returns early on equal `CstNode.hash` (`core/diff.mbt`), so a hash collision lets
-  D2a report an empty diff on structurally-different trees, which the leaf
-  extraction then sees through. So D2b earns its place as (1) the hash-collision
-  guard and (2) a *direct* assertion of the consumer-facing stable-ID invariant —
+  historical hash-collision residual was removed by the 2026-08-06 core ownership
+  migration: `tree_diff` now uses collision-safe node equality. D2b therefore earns
+  its place as a *direct* assertion of the consumer-facing stable-ID invariant —
   but the stronger claim, that it proves "no last-good / authoring-cache churn"
   *independently of the CST*, holds only with a harness that drives the tracker via
   consumer-style **independent** baseline/edit bookkeeping (not shared variables),
@@ -485,7 +483,7 @@ next_leaves, allocate, edit?)` and `ProjectionStringIdAllocator` carries
 **path-dependent**. Fixes folded in: §5.2 now adds **D2b** (run the existing pure
 tracker/allocator for both A and B and assert ID parity), §5.4 reworded ("runs
 the existing pure helper", not "upstream of"), and "byte-identity" replaced with
-"structural identity (`tree_diff`, up to hash collisions) + ID parity" throughout.
+"collision-safe structural identity (`tree_diff`) + ID parity" throughout.
 (Round-2 also noted the `incr/` submodule is unpopulated in the review worktree;
 the incr 0.9.0 claims were verified earlier in the populated main checkout —
 `incr/incr/cells/accepted_derived.mbt`, `incr/CHANGELOG.md`.)
@@ -571,8 +569,8 @@ frame-boundary-residual-vs-no-reuse-floor classifier (a scalar delta otherwise
 collapses benign and fatal cases). (B) **D2b's independence is narrower than §5.2
 first claimed** (refined in §5.2 above): as wired with shared edits/seeding, a D2b
 mismatch implies a D2a mismatch, so D2b is not an independent path-dependence
-discriminator under (i); its independent residual is the `tree_diff`
-hash-collision blind spot plus a direct consumer-invariant assertion. (C) Two
+discriminator under (i); after the 2026-08-06 collision-safe `tree_diff`
+migration, its remaining role is a direct consumer-invariant assertion. (C) Two
 positional-API confounds caught against source and fixed in the plan:
 `Edit::replace(start, old_end, new_end)`'s third arg is an end *offset*, not a
 length (`core/edit.mbt`); and B's `LanguageSpec` must mirror A's `lambda_spec`

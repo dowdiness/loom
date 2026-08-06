@@ -3,7 +3,7 @@
 pub fn parse_moonbit(
   source_id : @core.SourceId,
   source : String,
-) -> (MoonbitParseShell, @core.DiagnosticSet) {
+) -> (MoonbitParseShell, @core.DiagnosticSet) raise Failure {
   let parser = @loom.new_imperative_parser(source_id, source, moonbit_grammar)
   let snapshot = parser.parse()
   (snapshot.ast, snapshot.diagnostics)
@@ -15,6 +15,6 @@ pub fn parse_moonbit(
 pub fn parse_cst(
   source_id : @core.SourceId,
   source : String,
-) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
+) -> (@seam.CstNode, @core.DiagnosticSet) raise {
   moonbit_syntax_grammar.parse_cst(source_id, source)
 }

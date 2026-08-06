@@ -27,8 +27,8 @@ fn token_events(seed : Int, count_raw : Int) -> Array[ParseEvent] {
 test "property: build_tree hash is deterministic" {
   quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (seed, count) = input
-    let root1 = try! build_tree(token_events(seed, count), RawKind(0))
-    let root2 = try! build_tree(token_events(seed, count), RawKind(0))
+    let root1 = try! build_test_tree(token_events(seed, count), RawKind(0))
+    let root2 = try! build_test_tree(token_events(seed, count), RawKind(0))
     root1.hash == root2.hash
   })
 }
@@ -44,7 +44,7 @@ test "property: build_tree preserves total text length" {
         _ => acc
       }
     })
-    let root = try! build_tree(events, RawKind(0))
+    let root = try! build_test_tree(events, RawKind(0))
     root.text_len == expected
   })
 }
@@ -69,7 +69,7 @@ test "property: SyntaxNode child offsets are contiguous" {
       events.push(ParseEvent::Token(RawKind(2), "y"))
     }
     events.push(ParseEvent::FinishNode)
-    let cst = try! build_tree(events, RawKind(0))
+    let cst = try! build_test_tree(events, RawKind(0))
     let root = SyntaxNode::from_cst(cst)
     let children = root.children()
     let (final_cursor, all_ok) = children.fold(init=(root.start(), true), (

@@ -143,7 +143,7 @@ fn event_attribution_snapshot(
   let token_reads = Array::make(token_count, 0)
   let start_reads = Array::make(token_count, 0)
   let end_reads = Array::make(token_count, 0)
-  let (cst, diagnostics, reuse_count) = @core.parse_tokens_indexed(
+  let (cst, diagnostics, reuse_count) = try! @core.parse_tokens_indexed(
     source_id,
     corpus.source,
     token_count,

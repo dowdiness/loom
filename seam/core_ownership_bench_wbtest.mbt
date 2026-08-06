@@ -16,16 +16,20 @@ fn core_ownership_children_32() -> Array[CstElement] {
 ///|
 fn core_ownership_node_from_owned_children(
   children : Array[CstElement],
-) -> CstNode {
+) -> CstNode raise Failure {
   // Phase 0 intentionally uses the current no-copy constructor. Phase 2 may
   // change only this call to the package-private owned-child constructor.
-  CstNode::new(RawKind(20), children)
+  CstNode::new_owned(
+    RawKind(20),
+    children,
+    policy=CstMetadataPolicy::unclassified(),
+  )
 }
 
 ///|
 test "core ownership: CST public construction from 32 children" (b : @bench.T) {
   let children = core_ownership_children_32()
-  b.bench(fn() { b.keep(CstNode::new(RawKind(20), children)) })
+  b.bench(fn() { b.keep(try! CstNode::new_unclassified(RawKind(20), children)) })
 }
 
 ///|
@@ -33,5 +37,7 @@ test "core ownership: CST package-owned construction from 32 children" (
   b : @bench.T,
 ) {
   let children = core_ownership_children_32()
-  b.bench(fn() { b.keep(core_ownership_node_from_owned_children(children)) })
+  b.bench(fn() {
+    b.keep(try! core_ownership_node_from_owned_children(children))
+  })
 }

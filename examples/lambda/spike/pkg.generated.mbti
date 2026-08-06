@@ -64,11 +64,11 @@ pub fn project_lambda_leaves(@seam.SyntaxNode) -> Array[@projection.ProjectionLe
 
 pub fn rhs_newline_fixture() -> (String, Array[EditStep])
 
-pub fn run_newline_application_reification_probe(@diagnostic.SourceId) -> NewlineAppProbeResult raise @grammar.GrammarCompileError
+pub fn run_newline_application_reification_probe(@diagnostic.SourceId) -> NewlineAppProbeResult raise
 
-pub fn run_oracle_fixture(@diagnostic.SourceId, String, Array[EditStep], @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]) -> Array[OracleStepResult]
+pub fn run_oracle_fixture(@diagnostic.SourceId, String, Array[EditStep], @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]) -> Array[OracleStepResult] raise Failure
 
-pub fn run_reified_ir_oracle(@diagnostic.SourceId) -> ReifiedIrOracleResult raise @grammar.GrammarCompileError
+pub fn run_reified_ir_oracle(@diagnostic.SourceId) -> ReifiedIrOracleResult raise
 
 pub fn soft_newline_fixture() -> (String, Array[EditStep])
 

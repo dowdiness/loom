@@ -170,7 +170,7 @@ fn collect_old_tokens(
   incomplete_raw : @seam.RawKind,
 ) -> Unit {
   let mut offset = node_start
-  for child in node.children {
+  for child in node.children() {
     match child {
       @seam.CstElement::Token(t) => {
         if t.is_source_backed() &&
@@ -185,7 +185,7 @@ fn collect_old_tokens(
         collect_old_tokens(
           n, offset, out, trivia_kinds, err_raw, incomplete_raw,
         )
-        offset = offset + n.text_len
+        offset = offset + n.text_len()
       }
     }
   }
@@ -216,7 +216,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   new_damage_end? : Int = damage_end,
 ) -> ReuseCursor[T, K] {
   let reuse_globally_disabled = damage_start <= 0 &&
-    damage_end >= old_tree.text_len
+    damage_end >= old_tree.text_len()
   let trivia_kinds = spec.trivia_kinds_raw()
   let err_raw = spec.error_kind.to_raw()
   let incomplete_raw = spec.incomplete_kind.to_raw()
@@ -358,7 +358,7 @@ fn first_source_backed_token(
   node : @seam.CstNode,
   trivia_kinds : Array[@seam.RawKind],
 ) -> @seam.CstToken? {
-  for child in node.children {
+  for child in node.children() {
     match child {
       @seam.CstElement::Token(token) =>
         if token.is_source_backed() && !trivia_kinds.contains(token.kind) {
@@ -536,7 +536,7 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] trailing_context_match
 /// current_child_offset in the parent advances to the end of the popped frame.
 fn[T, K] ReuseCursor::pop_frame(self : ReuseCursor[T, K]) -> Unit {
   let frame = self.stack[self.stack.length() - 1]
-  let frame_end = frame.start_offset + frame.node.text_len
+  let frame_end = frame.start_offset + frame.node.text_len()
   let _ = self.stack.pop()
   if self.stack.length() > 0 {
     let parent = self.stack[self.stack.length() - 1]
@@ -568,12 +568,12 @@ fn[T, K] ReuseCursor::seek_node_at(
     let node = frame.node
     // Check if current frame matches (never return RepeatGroup — traverse it)
     if frame.start_offset == target_offset &&
-      node.kind == expected_kind &&
-      node.kind != @seam.repeat_group_kind {
+      node.kind() == expected_kind &&
+      node.kind() != @seam.repeat_group_kind {
       return Some((node, frame.start_offset))
     }
     // If target is outside this node's range, pop up
-    let node_end = frame.start_offset + node.text_len
+    let node_end = frame.start_offset + node.text_len()
     if target_offset < frame.start_offset || target_offset >= node_end {
       self.pop_frame()
       continue
@@ -582,8 +582,8 @@ fn[T, K] ReuseCursor::seek_node_at(
     let mut child_offset = frame.current_child_offset
     let mut found_child = false
     // Search remaining children from where we left off
-    while frame.child_index < node.children.length() {
-      let child = node.children[frame.child_index]
+    while frame.child_index < node.children().length() {
+      let child = node.children()[frame.child_index]
       let child_width = child.text_len()
       let child_end = child_offset + child_width
       if target_offset < child_offset {
@@ -592,7 +592,7 @@ fn[T, K] ReuseCursor::seek_node_at(
       if target_offset < child_end {
         match child {
           @seam.CstElement::Node(child_node) => {
-            if child_node.kind == @seam.repeat_group_kind {
+            if child_node.kind() == @seam.repeat_group_kind {
               // Always descend into RepeatGroup — only try_reuse_repeat_group reuses whole groups
               self.stack.push({
                 node: child_node,
@@ -603,7 +603,7 @@ fn[T, K] ReuseCursor::seek_node_at(
               found_child = true
               break
             } else if child_offset == target_offset &&
-              child_node.kind == expected_kind {
+              child_node.kind() == expected_kind {
               self.current_offset = child_offset
               return Some((child_node, child_offset))
             }
@@ -662,10 +662,10 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse
     Some((node, node_offset)) => {
       // Skip reuse for small nodes — reparsing is cheaper than the protocol.
       if self.reuse_size_threshold > 0 &&
-        node.text_len < self.reuse_size_threshold {
+        node.text_len() < self.reuse_size_threshold {
         return Err(ReuseRejectBelowSizeThreshold)
       }
-      let node_end = node_offset + node.text_len
+      let node_end = node_offset + node.text_len()
       let node_end_in_new = self.to_new_offset(node_end)
       if !is_outside_damage(
           node_offset,
@@ -751,7 +751,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
   while self.stack.length() > 0 {
     let frame = self.stack[self.stack.length() - 1]
     let node = frame.node
-    let node_end = frame.start_offset + node.text_len
+    let node_end = frame.start_offset + node.text_len()
     // If target is outside this node's range, pop up
     if source_offset < frame.start_offset || source_offset >= node_end {
       self.pop_frame()
@@ -760,8 +760,8 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
     // Scan children from cached position
     let mut child_offset = frame.current_child_offset
     let mut found_child = false
-    while frame.child_index < node.children.length() {
-      let child = node.children[frame.child_index]
+    while frame.child_index < node.children().length() {
+      let child = node.children()[frame.child_index]
       let child_width = child.text_len()
       let child_end = child_offset + child_width
       if source_offset < child_offset {
@@ -770,7 +770,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
       if source_offset < child_end {
         match child {
           @seam.CstElement::Node(child_node) => {
-            if child_node.kind == @seam.repeat_group_kind &&
+            if child_node.kind() == @seam.repeat_group_kind &&
               child_offset == source_offset &&
               is_outside_damage(
                 child_offset,
@@ -788,7 +788,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
               }
             }
             // Not a match — if it's a RepeatGroup overlapping damage, descend
-            if child_node.kind == @seam.repeat_group_kind {
+            if child_node.kind() == @seam.repeat_group_kind {
               self.stack.push({
                 node: child_node,
                 child_index: 0,
@@ -845,11 +845,11 @@ pub fn[T, K] ReuseCursor::next_sibling_has_error(
   }
   let frame = self.stack[self.stack.length() - 1]
   let next_idx = frame.child_index + 1
-  if next_idx >= frame.node.children.length() {
+  if next_idx >= frame.node.children().length() {
     return false
   }
-  match frame.node.children[next_idx] {
-    @seam.CstElement::Node(n) => n.has_any_error
+  match frame.node.children()[next_idx] {
+    @seam.CstElement::Node(n) => n.has_any_error()
     @seam.CstElement::Token(t) =>
       t.kind == self.err_raw || t.kind == self.incomplete_raw
   }
@@ -862,7 +862,7 @@ pub fn[T, K] ReuseCursor::advance_past(
   self : ReuseCursor[T, K],
   node : @seam.CstNode,
 ) -> Unit {
-  self.current_offset = self.current_offset + node.text_len
+  self.current_offset = self.current_offset + node.text_len()
 }
 
 ///|

@@ -16,6 +16,13 @@ fn profiling_benchmark_source_id() -> @core.SourceId {
 }
 
 ///|
+let profiling_cst_policy : @seam.CstMetadataPolicy = @seam.CstMetadataPolicy::new(
+  [@syntax.WhitespaceToken.to_raw()],
+  error_kind=Some(@syntax.ErrorToken.to_raw()),
+  incomplete_kind=Some(@syntax.ErrorToken.to_raw()),
+)
+
+///|
 fn make_profile_source(n : Int, tail : String) -> String {
   let segments : Array[String] = []
   for i = 0; i < n - 1; i = i + 1 {
@@ -58,14 +65,14 @@ test "profile: 80 lets - incremental (edit tail)" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   let edit_pos = source.length() - "0\nx79".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
   b.bench(fn() {
-    let tree = parser.edit(edit, edited)
+    let tree = try! parser.edit(edit, edited)
     b.keep(tree)
     // Reset for next iteration
-    let _ = parser.edit(edit, source)
+    let _ = try! parser.edit(edit, source)
   })
 }
 
@@ -84,12 +91,12 @@ test "profile: 80 lets - incremental (edit head)" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   let edit = @core.Edit::replace(9, 10, 10) // Replace "0" with "1" in x0's init
   b.bench(fn() {
-    let tree = parser.edit(edit, edited)
+    let tree = try! parser.edit(edit, edited)
     b.keep(tree)
-    let _ = parser.edit(edit, source)
+    let _ = try! parser.edit(edit, source)
   })
 }
 
@@ -123,13 +130,13 @@ test "profile: 320 lets - incremental (edit tail)" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   let edit_pos = source.length() - "0\nx319".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
   b.bench(fn() {
-    let tree = parser.edit(edit, edited)
+    let tree = try! parser.edit(edit, edited)
     b.keep(tree)
-    let _ = parser.edit(edit, source)
+    let _ = try! parser.edit(edit, source)
   })
 }
 
@@ -146,12 +153,12 @@ test "profile: 320 lets - incremental (edit head)" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   let edit = @core.Edit::replace(9, 10, 10)
   b.bench(fn() {
-    let tree = parser.edit(edit, edited)
+    let tree = try! parser.edit(edit, edited)
     b.keep(tree)
-    let _ = parser.edit(edit, source)
+    let _ = try! parser.edit(edit, source)
   })
 }
 
@@ -162,8 +169,8 @@ test "profile: 320 lets - incremental (edit head)" (b : @bench.T) {
 ///|
 /// Helper: serialize a CstNode into StartNode/Token/FinishNode events.
 fn serialize_node(node : @seam.CstNode, out : Array[@seam.ParseEvent]) -> Unit {
-  out.push(@seam.ParseEvent::StartNode(node.kind))
-  for child in node.children {
+  out.push(@seam.ParseEvent::StartNode(node.kind()))
+  for child in node.children() {
     match child {
       @seam.CstElement::Token(t) =>
         out.push(@seam.ParseEvent::Token(t.kind, t.text()))
@@ -182,16 +189,20 @@ test "profile: 80 lets - tree build (normal events)" (b : @bench.T) {
   }
   // Serialize CST into normal events
   let events : Array[@seam.ParseEvent] = []
-  for child in cst.children {
+  for child in cst.children() {
     match child {
       @seam.CstElement::Token(t) =>
         events.push(@seam.ParseEvent::Token(t.kind, t.text()))
       @seam.CstElement::Node(n) => serialize_node(n, events)
     }
   }
-  let root_kind = cst.kind
+  let root_kind = cst.kind()
   b.bench(fn() {
-    let tree = try! @seam.build_tree(events, root_kind)
+    let tree = try! @seam.build_tree(
+      events,
+      root_kind,
+      policy=profiling_cst_policy,
+    )
     b.keep(tree)
   })
 }
@@ -204,16 +215,20 @@ test "profile: 80 lets - tree build (ReuseNode events)" (b : @bench.T) {
     _ => abort("failed")
   }
   let events : Array[@seam.ParseEvent] = []
-  for child in cst.children {
+  for child in cst.children() {
     match child {
       @seam.CstElement::Token(t) =>
         events.push(@seam.ParseEvent::Token(t.kind, t.text()))
       @seam.CstElement::Node(n) => events.push(@seam.ParseEvent::ReuseNode(n))
     }
   }
-  let root_kind = cst.kind
+  let root_kind = cst.kind()
   b.bench(fn() {
-    let tree = try! @seam.build_tree(events, root_kind)
+    let tree = try! @seam.build_tree(
+      events,
+      root_kind,
+      policy=profiling_cst_policy,
+    )
     b.keep(tree)
   })
 }
@@ -225,16 +240,20 @@ test "profile: 320 lets - tree build (normal events)" (b : @bench.T) {
     _ => abort("failed")
   }
   let events : Array[@seam.ParseEvent] = []
-  for child in cst.children {
+  for child in cst.children() {
     match child {
       @seam.CstElement::Token(t) =>
         events.push(@seam.ParseEvent::Token(t.kind, t.text()))
       @seam.CstElement::Node(n) => serialize_node(n, events)
     }
   }
-  let root_kind = cst.kind
+  let root_kind = cst.kind()
   b.bench(fn() {
-    let tree = try! @seam.build_tree(events, root_kind)
+    let tree = try! @seam.build_tree(
+      events,
+      root_kind,
+      policy=profiling_cst_policy,
+    )
     b.keep(tree)
   })
 }
@@ -246,16 +265,20 @@ test "profile: 320 lets - tree build (ReuseNode events)" (b : @bench.T) {
     _ => abort("failed")
   }
   let events : Array[@seam.ParseEvent] = []
-  for child in cst.children {
+  for child in cst.children() {
     match child {
       @seam.CstElement::Token(t) =>
         events.push(@seam.ParseEvent::Token(t.kind, t.text()))
       @seam.CstElement::Node(n) => events.push(@seam.ParseEvent::ReuseNode(n))
     }
   }
-  let root_kind = cst.kind
+  let root_kind = cst.kind()
   b.bench(fn() {
-    let tree = try! @seam.build_tree(events, root_kind)
+    let tree = try! @seam.build_tree(
+      events,
+      root_kind,
+      policy=profiling_cst_policy,
+    )
     b.keep(tree)
   })
 }
@@ -300,13 +323,13 @@ test "profile: 20 deep lets - incremental (edit tail)" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   let edit_pos = source.length() - 2 // change "x0" to "x1"
   let edit = @core.Edit::replace(edit_pos, edit_pos + 2, edit_pos + 2)
   b.bench(fn() {
-    let tree = parser.edit(edit, edited)
+    let tree = try! parser.edit(edit, edited)
     b.keep(tree)
-    let _ = parser.edit(edit, source)
+    let _ = try! parser.edit(edit, source)
   })
 }
 
@@ -331,13 +354,13 @@ test "profile: 20 very deep lets - incremental (edit tail)" (b : @bench.T) {
     source,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   let edit_pos = source.length() - 2
   let edit = @core.Edit::replace(edit_pos, edit_pos + 2, edit_pos + 2)
   b.bench(fn() {
-    let tree = parser.edit(edit, edited)
+    let tree = try! parser.edit(edit, edited)
     b.keep(tree)
-    let _ = parser.edit(edit, source)
+    let _ = try! parser.edit(edit, source)
   })
 }
 
@@ -351,16 +374,20 @@ test "profile: 20 deep lets - build_tree (ReuseNode)" (b : @bench.T) {
     _ => abort("failed")
   }
   let events : Array[@seam.ParseEvent] = []
-  for child in cst.children {
+  for child in cst.children() {
     match child {
       @seam.CstElement::Token(t) =>
         events.push(@seam.ParseEvent::Token(t.kind, t.text()))
       @seam.CstElement::Node(n) => events.push(@seam.ParseEvent::ReuseNode(n))
     }
   }
-  let root_kind = cst.kind
+  let root_kind = cst.kind()
   b.bench(fn() {
-    let tree = try! @seam.build_tree(events, root_kind)
+    let tree = try! @seam.build_tree(
+      events,
+      root_kind,
+      policy=profiling_cst_policy,
+    )
     b.keep(tree)
   })
 }
@@ -375,17 +402,14 @@ test "profile: 20 deep lets - build_tree_fully_interned (ReuseNode)" (
     _ => abort("failed")
   }
   let events : Array[@seam.ParseEvent] = []
-  for child in cst.children {
+  for child in cst.children() {
     match child {
       @seam.CstElement::Token(t) =>
         events.push(@seam.ParseEvent::Token(t.kind, t.text()))
       @seam.CstElement::Node(n) => events.push(@seam.ParseEvent::ReuseNode(n))
     }
   }
-  let root_kind = cst.kind
-  // WhitespaceToken raw kind = 11 (from syntax_kind.mbt:to_raw).
-  // Not accessible as a constant from the benchmarks package.
-  let ws = @seam.RawKind(11)
+  let root_kind = cst.kind()
   b.bench(fn() {
     // Fresh interners per iteration to avoid warm-cache bias.
     let interner = @seam.Interner::new()
@@ -395,7 +419,7 @@ test "profile: 20 deep lets - build_tree_fully_interned (ReuseNode)" (
       root_kind,
       interner,
       ni,
-      trivia_kinds=Some([ws]),
+      policy=profiling_cst_policy,
     )
     b.keep(tree)
   })

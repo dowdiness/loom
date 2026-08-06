@@ -14,11 +14,13 @@
 // (derived-inside-derived) is covered by the runtime test below.
 
 ///|
+#warnings("-unused_error_type")
 fn test_imperative_language() -> @incremental.ImperativeLanguage[String] {
-  let full_parse = (_source_id : @core.SourceId, s : String) => {
+  let full_parse = fn(_source_id : @core.SourceId, s : String) raise Failure {
     let cst = @seam.build_tree(
       [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
       @seam.RawKind(0),
+      policy=@seam.CstMetadataPolicy::unclassified(),
     ) catch {
       _ => abort("build_tree failed in TestLang")
     }
@@ -30,12 +32,14 @@ fn test_imperative_language() -> @incremental.ImperativeLanguage[String] {
     (@seam.SyntaxNode::from_cst(cst), diagnostics, 0)
   }
   // Tests don't exercise incremental reuse — fall through to full_parse.
-  let incremental_parse = (
+  let incremental_parse = fn(
     source_id : @core.SourceId,
     s : String,
     _old : @seam.SyntaxNode,
     _edit : @core.Edit,
-  ) => full_parse(source_id, s)
+  ) raise Failure {
+    full_parse(source_id, s)
+  }
   let to_ast = (n : @seam.SyntaxNode) => {
     match n.tokens() {
       [t, ..] => t.text()
@@ -142,14 +146,16 @@ test "Parser exposes its runtime for downstream derived cells" {
 /// every time the engine runs a parse. Use this to observe short-circuit
 /// behavior in `Parser::set_source` — identical sources should not
 /// trigger a second parse.
+#warnings("-unused_error_type")
 fn test_imperative_language_with_counter(
   parse_count : Ref[Int],
 ) -> @incremental.ImperativeLanguage[String] {
-  let full_parse = (_source_id : @core.SourceId, s : String) => {
+  let full_parse = fn(_source_id : @core.SourceId, s : String) raise Failure {
     parse_count.val = parse_count.val + 1
     let cst = @seam.build_tree(
       [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
       @seam.RawKind(0),
+      policy=@seam.CstMetadataPolicy::unclassified(),
     ) catch {
       _ => abort("build_tree failed in counter lang")
     }
@@ -157,7 +163,9 @@ fn test_imperative_language_with_counter(
   }
   @incremental.ImperativeLanguage::new(
     full_parse~,
-    incremental_parse=(source_id, s, _old, _edit) => full_parse(source_id, s),
+    incremental_parse=fn(source_id, s, _old, _edit) raise Failure {
+      full_parse(source_id, s)
+    },
     to_ast=n => {
       match n.tokens() {
         [t, ..] => t.text()

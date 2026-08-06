@@ -89,7 +89,7 @@ test "markdown: 10x (~200 lines) - tokenize" (b : @bench.T) {
 test "markdown: 10x (~200 lines) - full parse" (b : @bench.T) {
   let source = scaled_markdown_doc(10)
   b.bench(() => {
-    let ast = parse(@core.SourceId("markdown-benchmark-document"), source)
+    let ast = try! parse(@core.SourceId("markdown-benchmark-document"), source)
     b.keep(ast)
   })
 }
@@ -102,15 +102,15 @@ test "markdown: 10x (~200 lines) - incremental" (b : @bench.T) {
     source,
     markdown_grammar,
   )
-  let _ = parser.parse().ast
+  let _ = try! parser.parse().ast
   // Edit in the middle: change a character in a paragraph
   let mid = source.length() / 2
   let edited = md_replace_at(source, mid, "X")
   let edit = @core.Edit::replace(mid, mid + 1, mid + 1)
   b.bench(() => {
-    let tree = parser.edit(edit, edited).ast
+    let tree = try! parser.edit(edit, edited).ast
     b.keep(tree)
-    let _ = parser.edit(edit, source).ast
+    let _ = try! parser.edit(edit, source).ast
   })
 }
 
@@ -127,7 +127,7 @@ test "markdown: 50x (~1000 lines) - tokenize" (b : @bench.T) {
 test "markdown: 50x (~1000 lines) - full parse" (b : @bench.T) {
   let source = scaled_markdown_doc(50)
   b.bench(() => {
-    let ast = parse(@core.SourceId("markdown-benchmark-document"), source)
+    let ast = try! parse(@core.SourceId("markdown-benchmark-document"), source)
     b.keep(ast)
   })
 }
@@ -140,14 +140,14 @@ test "markdown: 50x (~1000 lines) - incremental" (b : @bench.T) {
     source,
     markdown_grammar,
   )
-  let _ = parser.parse().ast
+  let _ = try! parser.parse().ast
   let mid = source.length() / 2
   let edited = md_replace_at(source, mid, "X")
   let edit = @core.Edit::replace(mid, mid + 1, mid + 1)
   b.bench(() => {
-    let tree = parser.edit(edit, edited).ast
+    let tree = try! parser.edit(edit, edited).ast
     b.keep(tree)
-    let _ = parser.edit(edit, source).ast
+    let _ = try! parser.edit(edit, source).ast
   })
 }
 
@@ -164,7 +164,7 @@ test "markdown: 100x (~2000 lines) - tokenize" (b : @bench.T) {
 test "markdown: 100x (~2000 lines) - full parse" (b : @bench.T) {
   let source = scaled_markdown_doc(100)
   b.bench(() => {
-    let ast = parse(@core.SourceId("markdown-benchmark-document"), source)
+    let ast = try! parse(@core.SourceId("markdown-benchmark-document"), source)
     b.keep(ast)
   })
 }
@@ -177,14 +177,14 @@ test "markdown: 100x (~2000 lines) - incremental" (b : @bench.T) {
     source,
     markdown_grammar,
   )
-  let _ = parser.parse().ast
+  let _ = try! parser.parse().ast
   let mid = source.length() / 2
   let edited = md_replace_at(source, mid, "X")
   let edit = @core.Edit::replace(mid, mid + 1, mid + 1)
   b.bench(() => {
-    let tree = parser.edit(edit, edited).ast
+    let tree = try! parser.edit(edit, edited).ast
     b.keep(tree)
-    let _ = parser.edit(edit, source).ast
+    let _ = try! parser.edit(edit, source).ast
   })
 }
 
@@ -210,7 +210,7 @@ test "markdown: realistic doc - full parse (CST)" (b : @bench.T) {
 test "markdown: realistic doc - full parse (CST+AST)" (b : @bench.T) {
   let source = realistic_markdown_doc()
   b.bench(() => {
-    let ast = parse(@core.SourceId("markdown-benchmark-document"), source)
+    let ast = try! parse(@core.SourceId("markdown-benchmark-document"), source)
     b.keep(ast)
   })
 }
@@ -305,7 +305,7 @@ test "markdown: realistic doc - incremental (edit paragraph)" (b : @bench.T) {
     source,
     markdown_grammar,
   )
-  let _ = parser.parse().ast
+  let _ = try! parser.parse().ast
   // Edit inside "comprehensive" -> change 'c' to 'C' in a paragraph
   let target = "comprehensive"
   let edit_pos = find_substring(source, target)
@@ -313,9 +313,9 @@ test "markdown: realistic doc - incremental (edit paragraph)" (b : @bench.T) {
   let edited = md_replace_at(source, edit_pos, "C")
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
   b.bench(() => {
-    let tree = parser.edit(edit, edited).ast
+    let tree = try! parser.edit(edit, edited).ast
     b.keep(tree)
-    let _ = parser.edit(edit, source).ast
+    let _ = try! parser.edit(edit, source).ast
   })
 }
 
@@ -327,7 +327,7 @@ test "markdown: realistic doc - incremental (edit heading)" (b : @bench.T) {
     source,
     markdown_grammar,
   )
-  let _ = parser.parse().ast
+  let _ = try! parser.parse().ast
   // Edit inside "Architecture" heading -> change 'A' to 'a'
   let target = "Architecture"
   let edit_pos = find_substring(source, target)
@@ -335,9 +335,9 @@ test "markdown: realistic doc - incremental (edit heading)" (b : @bench.T) {
   let edited = md_replace_at(source, edit_pos, "a")
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
   b.bench(() => {
-    let tree = parser.edit(edit, edited).ast
+    let tree = try! parser.edit(edit, edited).ast
     b.keep(tree)
-    let _ = parser.edit(edit, source).ast
+    let _ = try! parser.edit(edit, source).ast
   })
 }
 
@@ -349,7 +349,7 @@ test "markdown: realistic doc - incremental (edit list item)" (b : @bench.T) {
     source,
     markdown_grammar,
   )
-  let _ = parser.parse().ast
+  let _ = try! parser.parse().ast
   // Edit inside "Second item" -> change 'S' to 's'
   let target = "Second item"
   let edit_pos = find_substring(source, target)
@@ -357,9 +357,9 @@ test "markdown: realistic doc - incremental (edit list item)" (b : @bench.T) {
   let edited = md_replace_at(source, edit_pos, "s")
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
   b.bench(() => {
-    let tree = parser.edit(edit, edited).ast
+    let tree = try! parser.edit(edit, edited).ast
     b.keep(tree)
-    let _ = parser.edit(edit, source).ast
+    let _ = try! parser.edit(edit, source).ast
   })
 }
 
@@ -371,7 +371,7 @@ test "markdown: realistic doc - incremental (edit code block)" (b : @bench.T) {
     source,
     markdown_grammar,
   )
-  let _ = parser.parse().ast
+  let _ = try! parser.parse().ast
   // Edit inside code block: "fibonacci" -> change 'f' to 'F'
   let target = "fibonacci"
   let edit_pos = find_substring(source, target)
@@ -379,8 +379,8 @@ test "markdown: realistic doc - incremental (edit code block)" (b : @bench.T) {
   let edited = md_replace_at(source, edit_pos, "F")
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
   b.bench(() => {
-    let tree = parser.edit(edit, edited).ast
+    let tree = try! parser.edit(edit, edited).ast
     b.keep(tree)
-    let _ = parser.edit(edit, source).ast
+    let _ = try! parser.edit(edit, source).ast
   })
 }

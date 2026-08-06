@@ -158,7 +158,7 @@ fn perf_residual_project_readme_excerpt() -> String {
     #|pub let markdown_spec : @core.LanguageSpec[Token, SyntaxKind]
     #|pub let markdown_mode_lexer : @core.ModeLexer[Token, MarkdownLexMode]
     #|
-    #|pub fn parse(@core.SourceId, String) -> Block
+    #|pub fn try! parse(@core.SourceId, String) -> Block
     #|pub fn parse_markdown(
     #|  @core.SourceId,
     #|  String,
@@ -258,7 +258,7 @@ fn bench_perf_residual_cst(b : @bench.T, source : String) -> Unit {
 ///|
 fn bench_perf_residual_ast(b : @bench.T, source : String) -> Unit {
   b.bench(fn() {
-    b.keep(parse(@core.SourceId("markdown-performance-residual"), source))
+    b.keep(try! parse(@core.SourceId("markdown-performance-residual"), source))
   })
 }
 
@@ -324,7 +324,7 @@ fn bench_perf_residual_syntax_cycle(
   b : @bench.T,
   fixture : PerfResidualEditFixture,
 ) -> Unit {
-  let parser = @loom.new_syntax_parser(
+  let parser = try! @loom.new_syntax_parser(
     @core.SourceId("markdown-performance-residual-edit"),
     fixture.source,
     markdown_grammar.to_syntax_grammar(),
@@ -332,9 +332,9 @@ fn bench_perf_residual_syntax_cycle(
   let syntax = parser.syntax_tree()
   ignore(syntax.read_or_abort())
   b.bench(fn() {
-    parser.apply_edit(fixture.edit, fixture.edited)
+    try! parser.apply_edit(fixture.edit, fixture.edited)
     b.keep(syntax.read_or_abort())
-    parser.apply_edit(fixture.edit, fixture.source)
+    try! parser.apply_edit(fixture.edit, fixture.source)
     b.keep(syntax.read_or_abort())
   })
 }
@@ -376,13 +376,13 @@ test "perf residual: 10k edit matrix covers position and block kind" {
   assert_true(cases[2].edit.start < source_length * 3 / 4)
   assert_true(cases[3].edit.start > source_length * 9 / 10)
   for fixture in cases {
-    let incremental = @loom.new_syntax_parser(
+    let incremental = try! @loom.new_syntax_parser(
       @core.SourceId("markdown-performance-residual-parity"),
       fixture.source,
       markdown_grammar.to_syntax_grammar(),
     )
     incremental.apply_edit(fixture.edit, fixture.edited)
-    let fresh = @loom.new_syntax_parser(
+    let fresh = try! @loom.new_syntax_parser(
       @core.SourceId("markdown-performance-residual-parity"),
       fixture.edited,
       markdown_grammar.to_syntax_grammar(),

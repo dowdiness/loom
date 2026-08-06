@@ -49,6 +49,7 @@ accepted. Do not implement the breaking API while the ADR remains Proposed.
 | --- | --- | --- |
 | `CstNode` | `pub(all)` fields and retained `children` input invalidate cached metadata | Opaque fields, stored policy, public copy, package-private owned construction |
 | `CstNode::with_replaced_child` | Optional classifiers can silently drop metadata | Reuse receiver policy; reject mismatched child policy |
+| Root reconstruction | Empty-path replacement can silently change metadata domains | Validate through `CstNode::with_replaced_root`; keep policy opaque |
 | `build_tree*` and `EventBuffer::build_tree*` | Optional classifiers allow classified event streams and reused nodes to be rebuilt under another policy | Require one policy; use explicit canonical unclassified policy for language-agnostic trees |
 | `CstElement::map` | Recursive reconstruction can omit classifiers or accept a mismatched returned subtree | Preserve each receiver policy automatically and reject mismatched substitutions |
 | `LexResult` | Validated parallel arrays remain public and constructor inputs are retained | Opaque fields, public copy constructors, indexed/read-only observation, internal owned constructor |
@@ -73,7 +74,22 @@ their diffs after `moon info`; do not hand-edit them.
 - `seam/pkg.generated.mbti`
 - `loom/core/pkg.generated.mbti`
 - `loom/incremental/pkg.generated.mbti`
+- `loom/pipeline/pkg.generated.mbti`
 - `loom/pkg.generated.mbti`
+- `examples/graph-dsl/pkg.generated.mbti`
+- `examples/html/pkg.generated.mbti`
+- `examples/json-settings/pkg.generated.mbti`
+- `examples/json/pkg.generated.mbti`
+- `examples/jsx/pkg.generated.mbti`
+- `examples/lambda/pkg.generated.mbti`
+- `examples/lambda/spike/pkg.generated.mbti`
+- `examples/markdown/pkg.generated.mbti`
+- `examples/moonbit/pkg.generated.mbti`
+
+The additional pipeline and example interfaces change because catchable policy
+composition failures must propagate through parser factories and example
+facades instead of being converted to recovery output. They do not expose the
+private policy value.
 
 Any other first-party `.mbti` change must be added to this inventory with an
 explanation or reverted before release.
@@ -283,8 +299,9 @@ its recorded baseline commit.
 2. `fix(core): replace the mutable mode-relex offset handoff`
    owns Phase 1 and its correctness tests.
 3. `refactor(seam): store CST metadata policy and seal CstNode`
-   owns Phase 2, including EventBuffer migration and seam benchmarks.
-4. `refactor(core): seal LexResult and LanguageSpec collection inputs`
+   owns Phase 2, including the `LanguageSpec` policy/trivia ownership kernel,
+   EventBuffer migration, and seam benchmarks.
+4. `refactor(core): seal LexResult and finish LanguageSpec opacity`
    owns Phase 3 and external lexer construction measurements.
 5. `refactor(incremental): hide DamageTracker range storage`
    owns Phase 4 as a small independent API migration.
@@ -405,46 +422,138 @@ invalid partial result.
 child array, and reconstruction preserves or rejects metadata policy rather
 than silently changing it.
 
-- [ ] Add black-box tests proving public construction copies children and
+### Phase 2 implementation order
+
+Use RED/GREEN slices that leave each commit type-checking and independently
+reviewable:
+
+1. Define policy semantics in package-white-box tests, then add the opaque
+   normalized policy, cached semantic hash, and canonical unclassified value.
+2. Add public retained-child mutation and policy-composition tests, then seal
+   `CstNode`, add accessors, and split public copying from package-private owned
+   construction.
+3. Add mismatch tests for child replacement, root/interior `map` callbacks,
+   and root/interior `splice_tree` reconstruction. Make reconstruction inherit
+   receiver policy, using a narrow root-replacement operation rather than a
+   public policy accessor.
+4. Add EventBuffer/interner failure-atomicity tests, then preflight reuse policy
+   and migrate all three builders plus rebase/interner hot paths to the owned
+   constructor.
+5. Add the retained-trivia-input `LanguageSpec` test, then move the coherent
+   private trivia/policy kernel and thread the stored policy through full,
+   incremental, block-reparse, and error-tree construction.
+6. Characterize forced collisions once at the `seam` collection boundary,
+   then migrate `CstFold` to `CstNode` keys and `tree_diff` to structural
+   equality before removing the public integer hash field/access pattern.
+   Consumer tests verify those public capabilities compositionally without a
+   test-only hash hook.
+7. Migrate remaining first-party call sites, refresh generated interfaces, and
+   run focused, full, and migration-profile performance verification. Do not
+   combine unrelated formatter or generated-package churn with these slices.
+
+- [x] Add black-box tests proving public construction copies children and
   exposes only read-only observation.
-- [ ] Add tests for equivalent policy acceptance, mismatched child policy
-  rejection, `new_unclassified`, and policy-preserving child replacement.
-- [ ] Add opaque normalized `CstMetadataPolicy` with semantic equality and hash.
-- [ ] Store policy on every `CstNode`; include it in node equality/hash and
-  validate node children during construction.
-- [ ] Make all `CstNode` fields private and add the minimum scalar/read-only
-  accessors fixed by the ADR: kind, text length, structural hash, token count,
-  cached error presence, and children.
-- [ ] Change `CstNode::new` to require a policy and add
-  `CstNode::new_unclassified` for explicit language-agnostic trees.
-- [ ] Remove classifier parameters from `with_replaced_child`; reconstruct with
+- [x] Add tests for equivalent policy acceptance, mismatched child policy
+  rejection, swapped error/incomplete role rejection, `new_unclassified`, and
+  policy-preserving child replacement. Add a white-box assertion that repeated
+  unclassified construction retains the same package-level immutable policy.
+  Catch `Failure` explicitly in mismatch tests, assert that no node was
+  returned, and prove the original nodes and EventBuffer remain usable. Do not
+  accept a typed construction error or uncatchable abort. Cover a token kind
+  that is both trivia and an error signal: it is excluded from `token_count`
+  while setting `has_any_error`.
+- [x] Add opaque normalized `CstMetadataPolicy` with semantic equality and hash.
+  Copy, sort, and deduplicate trivia kinds so declaration order and duplicates
+  do not affect policy identity. Compare and hash error/incomplete kinds as
+  distinct role-bearing slots. Compute and retain the semantic hash once at
+  policy construction; confirm equality by canonical fields after hash checks.
+  Keep policy `Eq`/`Hash` package-private until a real external consumer needs
+  direct comparison or map keys.
+- [x] Store policy on every `CstNode`; include it in node equality/hash and
+  validate node children during construction. Detect mismatches before a new
+  node or shared mutation escapes and reject them with `fail`.
+- [x] Narrow parser/build recovery catches to their typed malformed-event or
+  reparse errors. Add an integration test proving a policy mismatch is not
+  converted into an error tree, diagnostic, `None`, or normal full-reparse
+  fallback and instead reaches the caller as `Failure`.
+- [x] Make all `CstNode` fields private and add the minimum scalar/read-only
+  accessors fixed by the ADR: kind, text length, token count, cached error
+  presence, and children. Keep the cached structural hash private; preserve
+  public collision-safe `Eq` and `Hash` implementations.
+- [x] Change `CstNode::new` to require a policy and add
+  `CstNode::new_unclassified` for explicit language-agnostic trees. Back
+  `CstMetadataPolicy::unclassified()` with one package-level immutable value so
+  node construction creates no policy allocation. Canonicalize a semantically
+  empty `CstMetadataPolicy::new` call to the same singleton and verify physical
+  sharing only in package-white-box tests.
+- [x] Remove classifier parameters from `with_replaced_child`; reconstruct with
   the receiver policy.
-- [ ] Remove classifier parameters from `CstElement::map`; preserve each
-  receiver node's policy and reject a mismatched replacement subtree.
-- [ ] Require a policy in `build_tree`, `build_tree_interned`,
+- [x] Add `with_replaced_root` as the minimum root-reconstruction capability
+  needed by `splice_tree`; accept equivalent policies, reject mismatches with
+  `Failure`, and keep the stored policy hidden.
+- [x] Remove classifier parameters from `CstElement::map`; preserve each
+  receiver node's policy and reject a mismatched replacement subtree,
+  including a callback replacement of the root. Add a test proving deliberate
+  policy conversion remains possible only through explicit construction with
+  the target policy.
+- [x] Require a policy in `build_tree`, `build_tree_interned`,
   `build_tree_fully_interned`, and all three `EventBuffer` methods. Migrate
   language-agnostic callers to an explicit
   `CstMetadataPolicy::unclassified()` value.
-- [ ] Keep the stored policy private. Do not add a public policy accessor solely
+- [x] Move the coherent `LanguageSpec` policy kernel into Phase 2: add
+  `K : ToRawKind` to `LanguageSpec::new`, copy and privately retain its trivia
+  declaration array, construct exactly one private `CstMetadataPolicy`, and use
+  that stored value for every parse, reparse, and tree build. Add a retained-
+  input mutation test that proves the copied trivia declaration and policy
+  cannot diverge, plus white-box assertions that one spec creates one policy
+  and every node in its trees retains that same value. Do not create a policy
+  per parse operation.
+- [x] Keep the stored policy private. Do not add a public policy accessor solely
   to let callers extract and re-inject reconstruction state.
-- [ ] Add a package-private owned-child constructor and migrate `EventBuffer`,
+- [x] Add a package-private owned-child constructor and migrate `EventBuffer`,
   rebase, traversal, and interner hot paths before migrating tests/examples.
-- [ ] Migrate all first-party direct field accesses and constructor calls.
+  Skip only the child-array copy: retain policy validation and do not add an
+  unchecked policy-composition constructor.
+- [x] Preflight every reused subtree policy before an `EventBuffer` build can
+  mutate caller-supplied token or node interners. Add mismatch tests for all
+  three builders proving the buffer and both interners retain their prior
+  observable contents and remain reusable after catching `Failure`.
+- [x] Migrate `CstFold` from integer hash keys to `CstNode` keys, rebuilding
+  compaction maps with current source-backed nodes. Change `tree_diff` to use
+  collision-safe node equality rather than hash equality. Centralize forced-
+  collision coverage in `seam` white-box tests for `Eq`,
+  `HashMap[CstNode, _>`, and `NodeInterner`; keep consumer tests focused on
+  their public node-key/equality behavior. Retain physical-identity fast-path
+  benchmarks and do not expose a test-only numeric hash capability.
+- [x] Remove tests and documentation that promise a version-stable numeric
+  `CstNode` or node-variant `CstElement` hash. Retain `Hash`/`Eq` law tests and
+  collection/interner collision tests. Document that persisted fingerprints
+  require a future explicit API; do not change the separate `CstToken`,
+  `combine_hash`, or `string_hash` contracts in Phase 2.
+- [x] Migrate all first-party direct field accesses and constructor calls.
 
-## Phase 3: seal lexer and language specifications
+Phase 2 implementation and correctness verification completed on 2026-08-06.
+The four target suites, documentation checks, generated-interface review, and
+benchmark-runner self-tests pass. The five-sample release profile remains a
+Phase 5 gate: two complete runs failed closed for sample instability on
+different baseline/candidate rows, so they establish neither a regression nor
+a performance acceptance result.
 
-**Public seam:** mutating arrays passed to `LexResult` or `LanguageSpec`
-constructors after return cannot alter the validated value or parser behavior.
+## Phase 3: seal lexer results and finish language-spec opacity
 
-- [ ] Add black-box retained-input mutation tests for `LexResult::with_starts`
-  and `LanguageSpec::new`.
-- [ ] Make `LexResult` fields private; copy public constructor inputs before
+**Public seam:** mutating arrays passed to `LexResult` constructors after return
+cannot alter the validated value, and `LanguageSpec` exposes only named
+capabilities while preserving its Phase 2-owned trivia/policy kernel.
+
+- [ ] Add black-box retained-input mutation tests for `LexResult::with_starts`;
+  retain the Phase 2 `LanguageSvate; copy public constructor inputs before
   validating the owned copies; raise the exact `LexResultError` variants fixed
   by the ADR and retain copy-returning compatibility getters. Prove each failure
   returns no opaque result.
 - [ ] Audit every `LexResult::LexResult` and `LexResult::with_starts` caller.
   Built-in total lexers must use validated internal construction or handle the
-  typed error before installing their callbacks; external migration examples
+  typed error before installing thpec::new` mutation test in the release suite.
+- [ ] Make `LexResult` fields prieir callbacks; external migration examples
   must distinguish adapter-contract failure from user-text diagnostics.
 - [ ] Keep grammar lexer callbacks total. Add an adapter fixture and migration
   example that catches `LexResultError` inside the installed closure and either
@@ -458,10 +567,10 @@ constructors after return cannot alter the validated value or parser behavior.
 - [ ] Add `length`, `token_at`, `start_at`, and paired read-only iteration.
 - [ ] Add package-private owned construction and migrate arrays produced wholly
   inside `loom/core`.
-- [ ] Make `LanguageSpec` fields private, copy trivia kinds, construct one
-  `CstMetadataPolicy`, and add `K : ToRawKind` to its constructor. Expose only
-  `eof_token`, `reuse_size_threshold`, and the copying
-  `trivia_kinds_raw`; keep parser-only fields and policy private.
+- [ ] Make the remaining `LanguageSpec` fields private. Expose only `eof_token`,
+  `reuse_size_threshold`, and the copying `trivia_kinds_raw`; preserve the
+  declaration order already owned by the Phase 2 policy kernel, and keep
+  parser-only fields and policy private.
 - [ ] Migrate generated specs, grammar interpreter code, examples, and fixtures.
 - [ ] Measure public lexer construction. Propose `LexResultBuilder` only if the
   representative end-to-end benchmark crosses the 5% release gate because of
@@ -481,7 +590,7 @@ methods but cannot mutate its sorted, non-overlapping range representation.
 
 ## Phase 5: release verification and communication
 
-- [ ] Run `moon info` and review the four generated interfaces in the inventory.
+- [ ] Run `moon info` and review all generated interfaces in the inventory.
   Add and explain any other changed first-party `.mbti` before release.
 - [ ] Run `moon check --deny-warn` and the full release test suite.
 - [ ] Run `moon bench -p dowdiness/seam --release`, the existing CST interner and

@@ -42,14 +42,14 @@ pub fn DamageTracker::stats(Self) -> String
 pub struct ImperativeLanguage[Ast] {
   // private fields
 }
-pub fn[Ast] ImperativeLanguage::new(full_parse~ : (@diagnostic.SourceId, String) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int), incremental_parse~ : (@diagnostic.SourceId, String, @seam.SyntaxNode, @core.Edit) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int), to_ast~ : (@seam.SyntaxNode) -> Ast, get_fold_stats? : (() -> @core.FoldStats)?) -> Self[Ast]
+pub fn[Ast] ImperativeLanguage::new(full_parse~ : (@diagnostic.SourceId, String) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) raise Failure, incremental_parse~ : (@diagnostic.SourceId, String, @seam.SyntaxNode, @core.Edit) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) raise Failure, to_ast~ : (@seam.SyntaxNode) -> Ast, get_fold_stats? : (() -> @core.FoldStats)?) -> Self[Ast]
 
 pub struct ImperativeParser[Ast] {
   // private fields
 }
 pub fn[Ast] ImperativeParser::current(Self[Ast]) -> ParseSnapshot[Ast]?
 pub fn[Ast] ImperativeParser::diagnostics(Self[Ast]) -> @core.DiagnosticSet
-pub fn[Ast] ImperativeParser::edit(Self[Ast], @core.Edit, String) -> ParseSnapshot[Ast]
+pub fn[Ast] ImperativeParser::edit(Self[Ast], @core.Edit, String) -> ParseSnapshot[Ast] raise Failure
 pub fn[Ast] ImperativeParser::get_fold_stats(Self[Ast]) -> @core.FoldStats?
 pub fn[Ast] ImperativeParser::get_last_reuse_count(Self[Ast]) -> Int
 pub fn[Ast] ImperativeParser::get_source(Self[Ast]) -> String
@@ -57,8 +57,8 @@ pub fn[Ast] ImperativeParser::get_source_id(Self[Ast]) -> @diagnostic.SourceId
 pub fn[Ast] ImperativeParser::get_syntax_tree(Self[Ast]) -> @seam.SyntaxNode?
 pub fn[Ast] ImperativeParser::get_tree(Self[Ast]) -> Ast?
 pub fn[Ast] ImperativeParser::new(@diagnostic.SourceId, String, ImperativeLanguage[Ast]) -> Self[Ast]
-pub fn[Ast] ImperativeParser::parse(Self[Ast]) -> ParseSnapshot[Ast]
-pub fn[Ast] ImperativeParser::reset(Self[Ast], String) -> ParseSnapshot[Ast]
+pub fn[Ast] ImperativeParser::parse(Self[Ast]) -> ParseSnapshot[Ast] raise Failure
+pub fn[Ast] ImperativeParser::reset(Self[Ast], String) -> ParseSnapshot[Ast] raise Failure
 
 pub struct ParseSnapshot[Ast] {
   source : String

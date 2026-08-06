@@ -209,90 +209,87 @@ pub impl Hash for CstElement with fn hash_combine(self, hasher) {
 ///   which are all computed once in `CstNode::new` and never recomputed.
 ///   Treat `children` as a read-only sequence.
 ///
-/// - `hash` is a stable structural content hash derived recursively from
-///   `kind` and every child's hash. Two `CstNode`s are structurally equal
-///   iff they have the same `kind`, same number of children, and pairwise-
-///   equal children. The `Eq` impl uses `hash` as a fast rejection path
-///   (see stability guarantee on `Eq` below).
+/// - `hash` is a private cached collection hash derived from the metadata
+///   policy, `kind`, error state, and every child. Its numeric value is not a
+///   persistent fingerprint. The `Eq` impl uses it only as a fast rejection
+///   path.
 ///
 /// - `text_len` is the total UTF-16 code-unit length of all leaf token text
 ///   under this node, computed as the sum of `child.text_len()` at construction time.
 ///
 /// - `token_count` is the non-trivia leaf token count (see field doc below).
-pub(all) struct CstNode {
-  kind : RawKind
-  children : Array[CstElement]
-  text_len : Int
-  hash : Int
+pub struct CstNode {
+  priv kind : RawKind
+  priv children : Array[CstElement]
+  priv text_len : Int
+  priv hash : Int
   /// Non-trivia leaf token count. Equals the number of leaf tokens whose kind
-  /// is NOT equal to `trivia_kind` (when provided to `CstNode::new`).
-  /// Equals the total leaf token count when no `trivia_kind` is given.
+  /// is not classified as trivia by this node's metadata policy.
   /// Used by the incremental parser to advance `position` (whitespace-free
   /// token index) without an O(subtree) traversal on every reuse.
-  token_count : Int
+  priv token_count : Int
   /// True if this node or any descendant has an error or incomplete kind.
-  /// Computed at construction time via the optional `error_kind`/`incomplete_kind`
-  /// parameters. When those are not provided, defaults to `false`.
+  /// Computed at construction time from the policy's role-distinct error and
+  /// incomplete kinds.
   /// Used by the incremental parser to skip O(subtree) error span collection
   /// for healthy reused nodes.
-  has_any_error : Bool
-} derive(Debug)
+  priv has_any_error : Bool
+  priv policy : CstMetadataPolicy
+} derive(Debug(ignore=[CstMetadataPolicy]))
 
 ///|
-/// True when `k` is one of the language's error / incomplete-signal kinds.
+/// Create a classified CstNode.
 ///
-/// Single source of truth for the error-classification predicate shared by
-/// `CstNode::new`'s own-kind and token-child checks.  Reserves the extension
-/// point for future error-classification kinds — add them here, not at each
-/// call site.
-fn is_error_signal(
-  k : RawKind,
-  error_kind : RawKind?,
-  incomplete_kind : RawKind?,
-) -> Bool {
-  (match error_kind {
-    Some(ek) => k == ek
-    None => false
-  }) ||
-  (match incomplete_kind {
-    Some(ik) => k == ik
-    None => false
-  })
-}
-
-///|
-/// Create a CstNode. text_len, hash, and token_count are computed from children.
-///
-/// `trivia_kinds`: when provided, leaf tokens with these kinds are excluded from
-/// `token_count`.  Pass `Some([whitespace_raw_kind, ...])` from the language layer to
-/// get a non-trivia token count.  Pass nothing (or `None`) for a
-/// language-agnostic total leaf token count.
+/// The child array is copied before it is retained. Every node child must use
+/// an equivalent metadata policy.
 pub fn CstNode::new(
   kind : RawKind,
   children : Array[CstElement],
-  trivia_kinds? : Array[RawKind]? = None,
-  error_kind? : RawKind? = None,
-  incomplete_kind? : RawKind? = None,
-) -> CstNode {
+  policy~ : CstMetadataPolicy,
+) -> CstNode raise Failure {
+  CstNode::new_owned(kind, children.copy(), policy~)
+}
+
+///|
+/// Create a language-agnostic CstNode using the canonical unclassified policy.
+pub fn CstNode::new_unclassified(
+  kind : RawKind,
+  children : Array[CstElement],
+) -> CstNode raise Failure {
+  CstNode::new(kind, children, policy=CstMetadataPolicy::unclassified())
+}
+
+///|
+/// Construct from a package-owned child array without copying it.
+///
+/// Exclusive array ownership does not imply policy compatibility, so this path
+/// performs the same child-policy validation as public construction.
+fn CstNode::new_owned(
+  kind : RawKind,
+  children : Array[CstElement],
+  policy~ : CstMetadataPolicy,
+) -> CstNode raise Failure {
+  for child in children {
+    match child {
+      Node(node) if !policy_equal(node.policy, policy) =>
+        fail("CstNode: child metadata policy mismatch")
+      _ => ()
+    }
+  }
   let RawKind(k) = kind
   let mut text_len = 0
-  let mut h = k
+  let mut h = combine_hash(policy.semantic_hash, k)
   let mut token_count = 0
-  let mut has_any_error = is_error_signal(kind, error_kind, incomplete_kind)
+  let mut has_any_error = policy.is_error_signal(kind)
   for child in children {
     text_len = text_len + child.text_len()
     h = combine_hash(h, child_hash(child))
     match child {
       Token(t) => {
-        match trivia_kinds {
-          Some(kinds) =>
-            if !kinds.contains(t.kind) {
-              token_count = token_count + 1
-            }
-          None => token_count = token_count + 1
+        if !policy.is_trivia(t.kind) {
+          token_count = token_count + 1
         }
-        if !has_any_error &&
-          is_error_signal(t.kind, error_kind, incomplete_kind) {
+        if !has_any_error && policy.is_error_signal(t.kind) {
           has_any_error = true
         }
       }
@@ -305,29 +302,45 @@ pub fn CstNode::new(
     }
   }
   let final_hash = if has_any_error { combine_hash(h, 1) } else { h }
-  { kind, children, text_len, hash: final_hash, token_count, has_any_error }
+  {
+    kind,
+    children,
+    text_len,
+    hash: final_hash,
+    token_count,
+    has_any_error,
+    policy,
+  }
 }
 
 ///|
 /// Create a new CstNode with one child replaced. Pure function — original unchanged.
-/// Delegates to CstNode::new() for correct metadata recomputation.
+/// Reuses the receiver policy and recomputes cached metadata.
 pub fn CstNode::with_replaced_child(
   self : CstNode,
   index : Int,
   new_child : CstElement,
-  trivia_kinds? : Array[RawKind]? = None,
-  error_kind? : RawKind? = None,
-  incomplete_kind? : RawKind? = None,
-) -> CstNode {
+) -> CstNode raise Failure {
   let new_children = self.children.copy()
   new_children[index] = new_child
-  CstNode::new(
-    self.kind,
-    new_children,
-    trivia_kinds~,
-    error_kind~,
-    incomplete_kind~,
-  )
+  CstNode::new_owned(self.kind, new_children, policy=self.policy)
+}
+
+///|
+/// Return `new_root` after verifying that it belongs to the receiver's
+/// metadata domain. Pure function — both nodes remain unchanged.
+///
+/// This is the root-level counterpart of `with_replaced_child`: it lets
+/// reconstruction code preserve the receiver policy without exposing that
+/// policy as public state.
+pub fn CstNode::with_replaced_root(
+  self : CstNode,
+  new_root : CstNode,
+) -> CstNode raise Failure {
+  guard policy_equal(self.policy, new_root.policy) else {
+    fail("CstNode::with_replaced_root: metadata policy mismatch")
+  }
+  new_root
 }
 
 ///|
@@ -342,17 +355,40 @@ fn child_hash(elem : CstElement) -> Int {
 }
 
 ///|
-/// Accessor for the `kind` field (equivalent to `self.kind`).
+/// Language-agnostic node kind.
 pub fn CstNode::kind(self : CstNode) -> RawKind {
   self.kind
 }
 
 ///|
-/// **Stability guarantee:** Two `CstNode`s are structurally equal iff they
-/// have the same `kind`, same number of children, and pairwise-equal children
-/// (per `CstElement::Eq`). The cached `hash` is compared first as a fast
-/// rejection path; a hash match does NOT bypass the deep structural check.
-/// This behavior is stable across versions.
+/// Total UTF-16 code-unit length of this node's token text.
+pub fn CstNode::text_len(self : CstNode) -> Int {
+  self.text_len
+}
+
+///|
+/// Number of non-trivia leaf tokens under this node.
+pub fn CstNode::token_count(self : CstNode) -> Int {
+  self.token_count
+}
+
+///|
+/// Whether this node contains an error or incomplete signal.
+pub fn CstNode::has_any_error(self : CstNode) -> Bool {
+  self.has_any_error
+}
+
+///|
+/// Direct children as a read-only view.
+pub fn CstNode::children(self : CstNode) -> ArrayView[CstElement] {
+  self.children[:]
+}
+
+///|
+/// Two `CstNode`s are equal iff they have semantically equivalent metadata
+/// policies, the same `kind`, and pairwise-equal children. The cached hash is
+/// compared first as a rejection path; a hash match never bypasses policy and
+/// structural checks.
 ///
 /// ## Why `physical_equal` comes first
 ///
@@ -380,7 +416,8 @@ pub impl Eq for CstNode with fn equal(self, other) {
   if self.hash != other.hash {
     return false
   }
-  if self.kind != other.kind ||
+  if !policy_equal(self.policy, other.policy) ||
+    self.kind != other.kind ||
     self.has_any_error != other.has_any_error ||
     self.children.length() != other.children.length() {
     return false
@@ -394,9 +431,10 @@ pub impl Eq for CstNode with fn equal(self, other) {
 }
 
 ///|
-/// **Stability guarantee:** The `Hash` output is the cached structural content
-/// hash, derived recursively from `kind` and each child's variant-tagged hash
-/// via `combine_hash`. Stable as long as `combine_hash` is stable.
+/// Supply the cached structural hash to collection implementations.
+///
+/// The numeric contribution is not a persistent fingerprint and may change
+/// between Loom versions.
 pub impl Hash for CstNode with fn hash_combine(self, hasher) {
   hasher.combine_int(self.hash)
 }
@@ -426,10 +464,8 @@ pub fn CstNode::first_token(
 /// Check if this concrete syntax tree contains any error nodes or error tokens.
 /// error_node_kind and error_token_kind are language-specific RawKind values.
 ///
-/// **Prefer `has_any_error`** when querying the same `error_kind`/
-/// `incomplete_kind` that were passed to `CstNode::new` at construction —
-/// the cached field is O(1) vs O(n) traversal. Use this method when the
-/// query kinds differ from the construction-time classifiers.
+/// **Prefer `has_any_error()`** when querying the construction policy's error
+/// roles; the cached value is O(1). Use this method for different query kinds.
 pub fn CstNode::has_errors(
   self : CstNode,
   error_node_kind : RawKind,

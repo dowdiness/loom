@@ -18,7 +18,7 @@ fn callers_wbtest_source_id() -> @core.SourceId {
 /// the helper in callers_test.mbt for whitebox tests that need to invoke
 /// package-private extract_facts_full.
 fn parse_to_syntax_wb(source : String) -> @seam.SyntaxNode {
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     callers_wbtest_source_id(),
     source,
     @lambda.lambda_grammar,

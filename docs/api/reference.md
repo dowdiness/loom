@@ -20,7 +20,7 @@ simplest entry point when only the semantic AST is needed.
 pub fn parse_term(
   @core.SourceId,
   String,
-) -> (Term, @core.DiagnosticSet) raise @core.LexError
+) -> (Term, @core.DiagnosticSet) raise
 ```
 
 Parses a multi-expression source file — a sequence of top-level `let` value declarations or `fn` definitions optionally followed by a final expression — and converts to `Term`. Function parameters lower to nested `Lam` terms. Returns both the term and any parse diagnostics (does not raise on parse errors). Use this for file-level input.
@@ -36,13 +36,14 @@ fn const(x, y) { x }
 pub fn parse_cst(
   @core.SourceId,
   String,
-) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+) -> (@seam.CstNode, @core.DiagnosticSet) raise
 ```
 
 Parses a string into an immutable `CstNode` tree — a lossless CST with
 structural hashing — and returns its structured diagnostics. Parser recovery
 produces error nodes instead of raising; lexical infrastructure failures may
-still raise `LexError`. All whitespace is preserved as trivia nodes.
+raise `LexError`, and an internal CST metadata-domain mismatch propagates as a
+catchable `Failure`. All whitespace is preserved as trivia nodes.
 
 The `SourceId` passed to all parsing functions is caller-owned source identity.
 Keep it stable across revisions of the same source and distinct across different
@@ -191,7 +192,7 @@ try {
 
 All CST types come from the `seam` package (`seam/`).
 
-- **`CstNode`** — Immutable CST node: kind, children, text length, structural hash, token count. Node offsets are external; unchanged regions are structurally shareable. `text_len`, `hash`, and `token_count` are cached at construction time.
+- **`CstNode`** — Immutable CST node with private children, metadata policy, text length, collection hash, and token count. Node offsets are external; unchanged regions are structurally shareable. Observe it through `kind()`, `children()`, `text_len()`, `token_count()`, and `has_any_error()`; the numeric cached hash is not a persistent identifier.
 - **`CstToken`** — Leaf token with kind, source-span text, and cached structural hash.
 - **`SyntaxNode`** — Ephemeral positioned view over a `CstNode`. Computes absolute UTF-16 code-unit offsets on demand via parent pointers; not stored persistently.
 - **`RawKind`** — Language-agnostic node/token kind (a newtype over `Int`).
@@ -276,7 +277,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(
   source   : String,
   grammar  : Grammar[T, K, Ast],
   runtime? : @incr.Runtime,
-) -> @pipeline.Parser[Ast]
+) -> @pipeline.Parser[Ast] raise Failure
 ```
 
 Creates the unified `Parser[Ast]` reactive handle (post Stage 6, ADR
@@ -300,13 +301,13 @@ backdating at the AST boundary, so equality is part of the public contract.
 
 ```moonbit
 let source_id = @loom.SourceId("reactive-lambda-document")
-let p = @loom.new_parser(
+let p = try! @loom.new_parser(
   source_id,
   "(x) => x + 1",
   @lambda.lambda_grammar,
 )
 let term = p.ast().read_or_abort()            // Ast type parameter of the Grammar
-p.set_source("(x) => x + 2")
+try! p.set_source("(x) => x + 2")
 let updated = p.ast().read_or_abort()         // re-runs syntax + AST stages only if source changed
 let diags = p.diagnostics().read_or_abort()   // DiagnosticSet, empty on success
 ```

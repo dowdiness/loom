@@ -76,7 +76,7 @@ pub fn SyntaxParser::new(
   source : String,
   lang : @incremental.ImperativeLanguage[Unit],
   runtime? : @incr.Runtime,
-) -> SyntaxParser {
+) -> SyntaxParser raise Failure {
   let parser = Parser::new(source_id, source, lang, runtime?)
   let snapshot_view = parser.derive_syntax_snapshot()
   { parser, snapshot_view }
@@ -85,7 +85,10 @@ pub fn SyntaxParser::new(
 ///|
 /// Replace the source text, discarding incremental state. Identical source is
 /// a no-op, matching `Parser::set_source`.
-pub fn SyntaxParser::set_source(self : SyntaxParser, source : String) -> Unit {
+pub fn SyntaxParser::set_source(
+  self : SyntaxParser,
+  source : String,
+) -> Unit raise Failure {
   self.parser.set_source(source)
 }
 
@@ -96,7 +99,7 @@ pub fn SyntaxParser::apply_edit(
   self : SyntaxParser,
   edit : @core.Edit,
   new_source : String,
-) -> Unit {
+) -> Unit raise Failure {
   self.parser.apply_edit(edit, new_source)
 }
 

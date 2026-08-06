@@ -1,7 +1,27 @@
 ///|
+let event_test_policy : CstMetadataPolicy = CstMetadataPolicy::unclassified()
+
+///|
+fn build_test_tree(
+  events : Array[ParseEvent],
+  root_kind : RawKind,
+) -> CstNode raise {
+  build_tree(events, root_kind, policy=event_test_policy)
+}
+
+///|
+fn build_test_tree_interned(
+  events : Array[ParseEvent],
+  root_kind : RawKind,
+  interner : Interner,
+) -> CstNode raise {
+  build_tree_interned(events, root_kind, interner, policy=event_test_policy)
+}
+
+///|
 test "build_tree: single token produces root node" {
   let events = [ParseEvent::Token(RawKind(10), "42")]
-  let root = build_tree(events, RawKind(22))
+  let root = build_test_tree(events, RawKind(22))
   inspect(root.kind == RawKind(22), content="true")
   inspect(root.children.length(), content="1")
   inspect(root.text_len, content="2")
@@ -13,7 +33,7 @@ test "build_tree: token keeps source span" {
   let events = [
     ParseEvent::Token(RawKind(9), source.view(start_offset=4, end_offset=5)),
   ]
-  let root = build_tree(events, RawKind(22))
+  let root = build_test_tree(events, RawKind(22))
   match root.children[0] {
     CstElement::Token(tok) => {
       inspect(
@@ -33,7 +53,7 @@ test "build_tree: token keeps source span" {
 test "EventBuffer: synthetic zero-width token records non-source provenance" {
   let buf = EventBuffer::new()
   buf.push_parser_synthetic_zero_width_token(RawKind(9))
-  let root = buf.build_tree(RawKind(22))
+  let root = buf.build_tree(RawKind(22), policy=event_test_policy)
   match root.children[0] {
     CstElement::Token(tok) => {
       inspect(tok.text(), content="")
@@ -59,11 +79,13 @@ test "build_tree_fully_interned: token provenance prevents node collapse" {
     RawKind(0),
     interner,
     node_interner,
+    policy=event_test_policy,
   )
   let synthetic_tree = synthetic_buf.build_tree_fully_interned(
     RawKind(0),
     interner,
     node_interner,
+    policy=event_test_policy,
   )
   match (source_tree.children[0], synthetic_tree.children[0]) {
     (CstElement::Node(source_node), CstElement::Node(synthetic_node)) => {
@@ -88,8 +110,8 @@ test "build_tree: public ReuseNode copies token backing source" {
     RawKind(9),
     old_source.view(start_offset=7, end_offset=11),
   )
-  let reused = CstNode::new(RawKind(1), [CstElement::Token(token)])
-  let root = build_tree([ParseEvent::ReuseNode(reused)], RawKind(0))
+  let reused = CstNode::new_unclassified(RawKind(1), [CstElement::Token(token)])
+  let root = build_test_tree([ParseEvent::ReuseNode(reused)], RawKind(0))
   match root.children[0] {
     CstElement::Node(node) =>
       match node.children[0] {
@@ -112,11 +134,11 @@ test "EventBuffer: push_parser_reuse_node_rebased rebases token spans" {
     RawKind(9),
     old_source.view(start_offset=7, end_offset=11),
   )
-  let reused = CstNode::new(RawKind(1), [CstElement::Token(token)])
+  let reused = CstNode::new_unclassified(RawKind(1), [CstElement::Token(token)])
   let current_source = ">>> keep <<<"
   let buf = EventBuffer::new()
   buf.push_parser_reuse_node_rebased(reused, current_source, 4)
-  let root = buf.build_tree(RawKind(0))
+  let root = buf.build_tree(RawKind(0), policy=event_test_policy)
   match root.children[0] {
     CstElement::Node(node) =>
       match node.children[0] {
@@ -142,11 +164,11 @@ test "EventBuffer: push_parser_reuse_node_rebased_unchecked rebases without dire
     RawKind(9),
     old_source.view(start_offset=7, end_offset=11),
   )
-  let reused = CstNode::new(RawKind(1), [CstElement::Token(token)])
+  let reused = CstNode::new_unclassified(RawKind(1), [CstElement::Token(token)])
   let current_source = ">>> keep <<<"
   let buf = EventBuffer::new()
   buf.push_parser_reuse_node_rebased_unchecked(reused, current_source, 4)
-  let root = buf.build_tree(RawKind(0))
+  let root = buf.build_tree(RawKind(0), policy=event_test_policy)
   match root.children[0] {
     CstElement::Node(node) => {
       inspect(physical_equal(node, reused), content="false")
@@ -174,11 +196,11 @@ test "EventBuffer: push_parser_reuse_node_rebased falls back when source mismatc
     RawKind(9),
     old_source.view(start_offset=7, end_offset=11),
   )
-  let reused = CstNode::new(RawKind(1), [CstElement::Token(token)])
+  let reused = CstNode::new_unclassified(RawKind(1), [CstElement::Token(token)])
   let current_source = ">>> nope <<<"
   let buf = EventBuffer::new()
   buf.push_parser_reuse_node_rebased(reused, current_source, 4)
-  let root = buf.build_tree(RawKind(0))
+  let root = buf.build_tree(RawKind(0), policy=event_test_policy)
   match root.children[0] {
     CstElement::Node(node) =>
       match node.children[0] {
@@ -197,10 +219,10 @@ test "EventBuffer: push_parser_reuse_node_rebased falls back when source mismatc
 ///|
 test "EventBuffer: push_parser_reuse_node_rebased falls back when span is out of bounds" {
   let token = CstToken::CstToken(RawKind(9), "keep")
-  let reused = CstNode::new(RawKind(1), [CstElement::Token(token)])
+  let reused = CstNode::new_unclassified(RawKind(1), [CstElement::Token(token)])
   let buf = EventBuffer::new()
   buf.push_parser_reuse_node_rebased(reused, "tiny", 99)
-  let root = buf.build_tree(RawKind(0))
+  let root = buf.build_tree(RawKind(0), policy=event_test_policy)
   match root.children[0] {
     CstElement::Node(node) =>
       match node.children[0] {
@@ -215,18 +237,24 @@ test "EventBuffer: push_parser_reuse_node_rebased falls back when span is out of
 }
 
 ///|
-test "build_tree: public ReuseNode recomputes metadata" {
+test "build_tree: public ReuseNode accepts equivalent metadata policy" {
   let ws = RawKind(0)
   let id = RawKind(1)
-  let reused = CstNode::new(RawKind(2), [
-    CstElement::Token(CstToken::CstToken(ws, " ")),
-    CstElement::Token(CstToken::CstToken(id, "x")),
-  ])
-  inspect(reused.token_count, content="2")
+  let reused_policy = CstMetadataPolicy::new([ws])
+  let build_policy = CstMetadataPolicy::new([ws, ws])
+  let reused = CstNode::new(
+    RawKind(2),
+    [
+      CstElement::Token(CstToken::CstToken(ws, " ")),
+      CstElement::Token(CstToken::CstToken(id, "x")),
+    ],
+    policy=reused_policy,
+  )
+  inspect(reused.token_count, content="1")
   let root = build_tree(
     [ParseEvent::ReuseNode(reused)],
     RawKind(3),
-    trivia_kinds=Some([ws]),
+    policy=build_policy,
   )
   match root.children[0] {
     CstElement::Node(node) => inspect(node.token_count, content="1")
@@ -242,7 +270,7 @@ test "build_tree: nested StartNode/FinishNode" {
     ParseEvent::Token(RawKind(10), "5"),
     ParseEvent::FinishNode,
   ]
-  let root = build_tree(events, RawKind(22))
+  let root = build_test_tree(events, RawKind(22))
   inspect(root.kind == RawKind(22), content="true")
   inspect(root.children.length(), content="1")
   let child = match root.children[0] {
@@ -265,7 +293,7 @@ test "EventBuffer mark and start_at" {
 ///|
 test "Tombstone events are ignored by build_tree" {
   let events = [ParseEvent::Tombstone, ParseEvent::Token(RawKind(10), "1")]
-  let root = build_tree(events, RawKind(22))
+  let root = build_test_tree(events, RawKind(22))
   inspect(root.children.length(), content="1")
 }
 
@@ -285,7 +313,7 @@ test "panic EventBuffer::start_at rejects non-Tombstone mark" {
 ///|
 test "build_tree: missing FinishNode raises" {
   try
-    build_tree(
+    build_test_tree(
       [ParseEvent::StartNode(RawKind(19)), ParseEvent::Token(RawKind(10), "5")],
       RawKind(22),
     )
@@ -298,7 +326,7 @@ test "build_tree: missing FinishNode raises" {
 
 ///|
 test "build_tree: leading FinishNode raises" {
-  try build_tree([ParseEvent::FinishNode], RawKind(22)) catch {
+  try build_test_tree([ParseEvent::FinishNode], RawKind(22)) catch {
     _ => ()
   } noraise {
     _ => abort("expected leading FinishNode to raise")
@@ -308,7 +336,7 @@ test "build_tree: leading FinishNode raises" {
 ///|
 test "build_tree: extra FinishNode raises" {
   try
-    build_tree(
+    build_test_tree(
       [
         ParseEvent::StartNode(RawKind(19)),
         ParseEvent::Token(RawKind(10), "5"),
@@ -341,9 +369,9 @@ test "build_tree_interned: structurally equal to build_tree" {
     ParseEvent::Token(tok_kind, "x"),
     ParseEvent::FinishNode,
   ]
-  let plain = build_tree(events1, root_kind)
+  let plain = build_test_tree(events1, root_kind)
   let interner = Interner::new()
-  let interned = build_tree_interned(events2, root_kind, interner)
+  let interned = build_test_tree_interned(events2, root_kind, interner)
   inspect(plain == interned, content="true")
 }
 
@@ -353,21 +381,10 @@ test "build_tree_fully_interned: identical subtrees share canonical reference" {
   let ni = NodeInterner::new()
   let events : Array[ParseEvent] = [Token(RawKind(1), "x")]
   let ws = RawKind(99)
+  let policy = CstMetadataPolicy::new([ws])
   let root_kind = RawKind(0)
-  let t1 = build_tree_fully_interned(
-    events,
-    root_kind,
-    interner,
-    ni,
-    trivia_kinds=Some([ws]),
-  )
-  let t2 = build_tree_fully_interned(
-    events,
-    root_kind,
-    interner,
-    ni,
-    trivia_kinds=Some([ws]),
-  )
+  let t1 = build_tree_fully_interned(events, root_kind, interner, ni, policy~)
+  let t2 = build_tree_fully_interned(events, root_kind, interner, ni, policy~)
   inspect(t1 == t2, content="true")
   inspect(ni.size() <= 2, content="true") // root + child, no duplication
 }
@@ -381,7 +398,7 @@ test "build_tree_interned: interner size bounded by vocabulary" {
   for _ in 0..<100 {
     events.push(ParseEvent::Token(tok_kind, "x"))
   }
-  let _ = build_tree_interned(events, root_kind, interner)
+  let _ = build_test_tree_interned(events, root_kind, interner)
   inspect(interner.size(), content="1")
 }
 
@@ -397,7 +414,7 @@ test "build_tree balances >8 same-kind siblings into RepeatGroup" {
     events.push(FinishNode)
   }
   events.push(FinishNode)
-  let tree = build_tree(events, RawKind(0))
+  let tree = build_test_tree(events, RawKind(0))
   // The root has one child: the RawKind(1) node
   let parent = match tree.children[0] {
     CstElement::Node(n) => n
@@ -422,7 +439,7 @@ test "RepeatGroup flattening preserves offsets" {
     events.push(FinishNode)
   }
   events.push(FinishNode)
-  let tree = build_tree(events, RawKind(0))
+  let tree = build_test_tree(events, RawKind(0))
   let syn = SyntaxNode::from_cst(tree)
   let parent_syn = syn.children()[0]
   let children = parent_syn.children()
@@ -443,7 +460,7 @@ test "build_tree does not balance 8 or fewer same-kind siblings" {
     events.push(FinishNode)
   }
   events.push(FinishNode)
-  let tree = build_tree(events, RawKind(0))
+  let tree = build_test_tree(events, RawKind(0))
   let parent = match tree.children[0] {
     CstElement::Node(n) => n
     CstElement::Token(_) => abort("expected node")
@@ -462,7 +479,7 @@ test "build_tree balances 9 same-kind siblings" {
     events.push(FinishNode)
   }
   events.push(FinishNode)
-  let tree = build_tree(events, RawKind(0))
+  let tree = build_test_tree(events, RawKind(0))
   let parent = match tree.children[0] {
     CstElement::Node(n) => n
     CstElement::Token(_) => abort("expected node")
@@ -495,16 +512,16 @@ test "build_tree canonicalizes reused RepeatGroup fragments before balancing" {
     }
   }
 
-  fn flat_parent_tree(count : Int) -> CstNode raise EventStreamError {
+  fn flat_parent_tree(count : Int) -> CstNode raise {
     let events : Array[ParseEvent] = []
     events.push(StartNode(RawKind(1)))
     push_child_run(events, count)
     events.push(FinishNode)
-    build_tree(events, RawKind(0))
+    build_test_tree(events, RawKind(0))
   }
 
-  fn child_node() -> CstNode {
-    CstNode::new(RawKind(2), [
+  fn child_node() -> CstNode raise Failure {
+    CstNode::new_unclassified(RawKind(2), [
       CstElement::Token(CstToken::CstToken(RawKind(100), "x")),
     ])
   }
@@ -513,7 +530,7 @@ test "build_tree canonicalizes reused RepeatGroup fragments before balancing" {
     CstElement::Token(CstToken::CstToken(RawKind(200), "\n"))
   }
 
-  fn repeat_group_run(start : Int, end : Int) -> CstNode {
+  fn repeat_group_run(start : Int, end : Int) -> CstNode raise Failure {
     if start >= end {
       abort("repeat_group_run requires a non-empty range")
     }
@@ -524,7 +541,7 @@ test "build_tree canonicalizes reused RepeatGroup fragments before balancing" {
         children.push(separator_element())
       }
     }
-    CstNode::new(repeat_group_kind, children)
+    CstNode::new_unclassified(repeat_group_kind, children)
   }
 
   let fragmented_events : Array[ParseEvent] = []
@@ -533,7 +550,7 @@ test "build_tree canonicalizes reused RepeatGroup fragments before balancing" {
   push_separator(fragmented_events)
   fragmented_events.push(ReuseNode(repeat_group_run(5, 12)))
   fragmented_events.push(FinishNode)
-  let fragmented_tree = build_tree(fragmented_events, RawKind(0))
+  let fragmented_tree = build_test_tree(fragmented_events, RawKind(0))
 
   inspect(fragmented_tree == flat_parent_tree(12), content="true")
 
@@ -541,7 +558,7 @@ test "build_tree canonicalizes reused RepeatGroup fragments before balancing" {
   small_fragment_events.push(StartNode(RawKind(1)))
   small_fragment_events.push(ReuseNode(repeat_group_run(0, 4)))
   small_fragment_events.push(FinishNode)
-  let small_fragment_tree = build_tree(small_fragment_events, RawKind(0))
+  let small_fragment_tree = build_test_tree(small_fragment_events, RawKind(0))
 
   inspect(small_fragment_tree == flat_parent_tree(4), content="true")
 }
@@ -554,7 +571,7 @@ test "build_tree handles single child without grouping" {
   events.push(Token(RawKind(100), "x"))
   events.push(FinishNode)
   events.push(FinishNode)
-  let tree = build_tree(events, RawKind(0))
+  let tree = build_test_tree(events, RawKind(0))
   let parent = match tree.children[0] {
     CstElement::Node(n) => n
     CstElement::Token(_) => abort("expected node")
@@ -567,7 +584,7 @@ test "build_tree handles empty children" {
   let events : Array[ParseEvent] = []
   events.push(StartNode(RawKind(1)))
   events.push(FinishNode)
-  let tree = build_tree(events, RawKind(0))
+  let tree = build_test_tree(events, RawKind(0))
   let parent = match tree.children[0] {
     CstElement::Node(n) => n
     CstElement::Token(_) => abort("expected node")
@@ -590,7 +607,7 @@ test "build_tree balances interleaved node-separator runs correctly" {
     }
   }
   events.push(FinishNode)
-  let tree = build_tree(events, RawKind(0))
+  let tree = build_test_tree(events, RawKind(0))
   let parent = match tree.children[0] {
     CstElement::Node(n) => n
     CstElement::Token(_) => abort("expected node")

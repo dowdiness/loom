@@ -1,27 +1,26 @@
 ///|
 /// Walk two CST trees simultaneously, appending Edit records for changed regions.
-/// Uses CstNode.hash as an O(1) skip key: equal hashes mean structurally
-/// identical subtrees, skipping the subtree without recursion.
+/// Uses CstNode structural equality as a safe skip key.
 fn diff_nodes(
   old : @seam.CstNode,
   new : @seam.CstNode,
   old_pos : Int,
   result : Array[Edit],
 ) -> Unit {
-  // Hash fast-path: equal hashes almost certainly mean structurally identical
-  if old.hash == new.hash {
+  if old == new {
     return
   }
   // Kind or child-count mismatch: emit one Edit for the whole pair
-  if old.kind != new.kind || old.children.length() != new.children.length() {
-    result.push(Edit::new(old_pos, old.text_len, new.text_len))
+  if old.kind() != new.kind() ||
+    old.children().length() != new.children().length() {
+    result.push(Edit::new(old_pos, old.text_len(), new.text_len()))
     return
   }
   // Same kind and child count: walk children pairwise
   let mut pos = old_pos
-  for i = 0; i < old.children.length(); i = i + 1 {
-    let old_child = old.children[i]
-    let new_child = new.children[i]
+  for i = 0; i < old.children().length(); i = i + 1 {
+    let old_child = old.children()[i]
+    let new_child = new.children()[i]
     match (old_child, new_child) {
       (@seam.CstElement::Node(o), @seam.CstElement::Node(n)) =>
         diff_nodes(o, n, pos, result)
@@ -39,11 +38,10 @@ fn diff_nodes(
 
 ///|
 /// Compute Edit records describing what changed between two parse trees.
-/// Uses CstNode.hash as a fast-path heuristic: equal hashes skip the subtree
-/// (small collision risk; acceptable for CRDT merge verification).
+/// Uses structural equality to skip unchanged subtrees without collision risk.
 ///
 /// Positions are in the old document coordinate space. An empty Array means
-/// both trees are structurally identical (verified up to hash collisions).
+/// both trees are structurally identical.
 /// Multiple edits require coordinate adjustment before sequential parser.edit()
 /// calls — use tree_diff primarily for convergence checks (assert empty diff).
 pub fn tree_diff(old : @seam.CstNode, new : @seam.CstNode) -> Array[Edit] {

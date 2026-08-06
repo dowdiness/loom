@@ -204,7 +204,7 @@ fn e3_check_step(
   edit : @core.Edit,
   after : String,
 ) -> Bool {
-  parser.apply_edit(edit, after)
+  try! parser.apply_edit(edit, after)
   let snap = parser.snapshot().read_or_abort()
   check_d1(source_id, after, snap, grammar)
 }

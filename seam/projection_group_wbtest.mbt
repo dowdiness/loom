@@ -21,12 +21,12 @@ test "SyntaxNode::direct_element_groups_by non-empty groups span their element e
   // `stack`@10-15 `(`@15-16 n2@16-17 `,`@17-18 n2@18-19 n3@19-21 `,`@21-22 `42`@22-24 `)`@24-25
   let arg = (kind : Int, text : String) => {
     CstElement::Node(
-      CstNode::new(RawKind(kind), [
+      CstNode::new_unclassified(RawKind(kind), [
         CstElement::Token(CstToken::CstToken(RawKind(9), text)),
       ]),
     )
   }
-  let root = CstNode::new(RawKind(0), [
+  let root = CstNode::new_unclassified(RawKind(0), [
     CstElement::Token(CstToken::CstToken(RawKind(5), "stack")),
     CstElement::Token(CstToken::CstToken(RawKind(6), "(")),
     arg(2, "a"),
@@ -53,7 +53,7 @@ test "SyntaxNode::direct_element_groups_by non-empty groups span their element e
 ///|
 test "SyntaxNode::direct_element_groups_by leading empty group spans parent start to first separator" {
   // ` `@0-1 (trivia) `,`@1-2 `a`@2-3 — the leading slot covers the trivia.
-  let root = CstNode::new(RawKind(0), [
+  let root = CstNode::new_unclassified(RawKind(0), [
     CstElement::Token(CstToken::CstToken(RawKind(8), " ")),
     CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
     CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
@@ -68,7 +68,7 @@ test "SyntaxNode::direct_element_groups_by leading empty group spans parent star
 ///|
 test "SyntaxNode::direct_element_groups_by trailing empty group spans after last separator" {
   // `a`@0-1 `,`@1-2 ` `@2-3 (trivia) — the trailing slot covers the trivia.
-  let root = CstNode::new(RawKind(0), [
+  let root = CstNode::new_unclassified(RawKind(0), [
     CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
     CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
     CstElement::Token(CstToken::CstToken(RawKind(8), " ")),
@@ -83,7 +83,7 @@ test "SyntaxNode::direct_element_groups_by trailing empty group spans after last
 ///|
 test "SyntaxNode::direct_element_groups_by doubled separator empty group spans the gap" {
   // `a`@0-1 `,`@1-2 ` `@2-3 (trivia) `,`@3-4 `b`@4-5 — middle slot is 2..3.
-  let root = CstNode::new(RawKind(0), [
+  let root = CstNode::new_unclassified(RawKind(0), [
     CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
     CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
     CstElement::Token(CstToken::CstToken(RawKind(8), " ")),
@@ -103,7 +103,7 @@ test "SyntaxNode::direct_element_groups_by doubled separator empty group spans t
 ///|
 test "SyntaxNode::direct_element_groups_by edge separators without trivia yield zero-width slot spans" {
   // `,`@0-1 `a`@1-2 — leading slot collapses to 0..0 (parent start, separator start).
-  let leading = CstNode::new(RawKind(0), [
+  let leading = CstNode::new_unclassified(RawKind(0), [
     CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
     CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
   ])
@@ -114,7 +114,7 @@ test "SyntaxNode::direct_element_groups_by edge separators without trivia yield 
     content="g0@0-0:_ || g1@1-2:#1",
   )
   // `a`@0-1 `,`@1-2 — trailing slot collapses to 2..2 (separator end, parent end).
-  let trailing = CstNode::new(RawKind(0), [
+  let trailing = CstNode::new_unclassified(RawKind(0), [
     CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
     CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
   ])
@@ -129,7 +129,7 @@ test "SyntaxNode::direct_element_groups_by edge separators without trivia yield 
 ///|
 test "SyntaxNode::direct_element_groups_by handles zero-width separator tokens" {
   // `a`@0-1, zero-width seps @1-1, `b`@1-2 — the doubled slot collapses to 1..1.
-  let root = CstNode::new(RawKind(0), [
+  let root = CstNode::new_unclassified(RawKind(0), [
     CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
     CstElement::Token(CstToken::CstToken(RawKind(1), "")),
     CstElement::Token(CstToken::CstToken(RawKind(1), "")),
@@ -144,7 +144,7 @@ test "SyntaxNode::direct_element_groups_by handles zero-width separator tokens" 
 
 ///|
 test "SyntaxNode::direct_element_groups_by on empty node yields one empty group over the node span" {
-  let groups = SyntaxNode::from_cst(CstNode::new(RawKind(0), [])).direct_element_groups_by(
+  let groups = SyntaxNode::from_cst(CstNode::new_unclassified(RawKind(0), [])).direct_element_groups_by(
     RawKind(1),
   )
   inspect(render_group_spans(groups), content="g0@0-0:_")
@@ -156,11 +156,11 @@ test "DirectElementGroup cardinality helpers accept well-shaped groups" {
   let number_kind = RawKind(71)
   let comma_kind = RawKind(72)
   let callback_kind = RawKind(73)
-  let callback = CstNode::new(callback_kind, [
+  let callback = CstNode::new_unclassified(callback_kind, [
     CstElement::Token(CstToken::CstToken(RawKind(75), "rev")),
   ])
   let call = SyntaxNode::from_cst(
-    CstNode::new(RawKind(70), [
+    CstNode::new_unclassified(RawKind(70), [
       CstElement::Token(CstToken::CstToken(number_kind, "2")),
       CstElement::Token(CstToken::CstToken(comma_kind, ",")),
       CstElement::Node(callback),
@@ -195,7 +195,7 @@ test "DirectElementGroup required_token_of_kind reports the slot span for an emp
   let number_kind = RawKind(71)
   let comma_kind = RawKind(72)
   let call = SyntaxNode::from_cst(
-    CstNode::new(RawKind(70), [
+    CstNode::new_unclassified(RawKind(70), [
       CstElement::Token(CstToken::CstToken(number_kind, "2")),
       CstElement::Token(CstToken::CstToken(comma_kind, ",")),
       CstElement::Token(CstToken::CstToken(RawKind(74), " ")),
@@ -262,11 +262,11 @@ fn project_every(
 ///|
 test "checked .every(count, callback) example projects well-formed argument lists" {
   // `(`@0-1 `2`@1-2 `,`@2-3 ` `@3-4 n85@4-7 `)`@7-8 — `(2, rev)`.
-  let callback = CstNode::new(RawKind(85), [
+  let callback = CstNode::new_unclassified(RawKind(85), [
     CstElement::Token(CstToken::CstToken(RawKind(86), "rev")),
   ])
   let args = SyntaxNode::from_cst(
-    CstNode::new(RawKind(80), [
+    CstNode::new_unclassified(RawKind(80), [
       CstElement::Token(CstToken::CstToken(RawKind(81), "(")),
       CstElement::Token(CstToken::CstToken(RawKind(82), "2")),
       CstElement::Token(CstToken::CstToken(RawKind(83), ",")),
@@ -295,7 +295,7 @@ test "checked .every(count, callback) example projects well-formed argument list
 test "checked .every(count, callback) example rejects a missing callback argument" {
   // `(`@0-1 `2`@1-2 `,`@2-3 `)`@3-4 — `(2,)`: group 1 holds only the rparen.
   let args = SyntaxNode::from_cst(
-    CstNode::new(RawKind(80), [
+    CstNode::new_unclassified(RawKind(80), [
       CstElement::Token(CstToken::CstToken(RawKind(81), "(")),
       CstElement::Token(CstToken::CstToken(RawKind(82), "2")),
       CstElement::Token(CstToken::CstToken(RawKind(83), ",")),

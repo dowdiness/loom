@@ -18,9 +18,9 @@ pub fn lex(@diagnostic.SourceId, String) -> @core.LexResult[@token.Token]
 
 pub fn make_jsx_spec((@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : @syntax.SyntaxKind) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]
 
-pub fn parse_ast(@diagnostic.SourceId, String) -> (JsxNode, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_ast(@diagnostic.SourceId, String) -> (JsxNode, @core.DiagnosticSet) raise
 
-pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise
 
 // Errors
 

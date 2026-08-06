@@ -61,9 +61,9 @@ source    : String
 | Symbol | Stability | Notes |
 |---|---|---|
 | `ImperativeParser::new[Ast](SourceId, String, ImperativeLanguage[Ast]) -> Self[Ast]` | Stable | Prefer `new_imperative_parser` from `@loom`; this constructor is for advanced use |
-| `ImperativeParser::parse[Ast](Self[Ast]) -> ParseSnapshot[Ast]` | Stable | Full parse from `self.source`; returns source, syntax, AST, diagnostics, and reuse count |
-| `ImperativeParser::edit[Ast](Self[Ast], Edit, String) -> ParseSnapshot[Ast]` | Stable | Incremental reparse; falls back to `parse()` if no prior snapshot |
-| `ImperativeParser::reset[Ast](Self[Ast], String) -> ParseSnapshot[Ast]` | Stable | Discard all incremental state, full parse of new source |
+| `ImperativeParser::parse[Ast](Self[Ast]) -> ParseSnapshot[Ast] raise Failure` | Stable | Full parse; policy-domain mismatch is catchable and never converted into diagnostics |
+| `ImperativeParser::edit[Ast](Self[Ast], Edit, String) -> ParseSnapshot[Ast] raise Failure` | Stable | Incremental reparse; falls back to `parse()` if no prior snapshot |
+| `ImperativeParser::reset[Ast](Self[Ast], String) -> ParseSnapshot[Ast] raise Failure` | Stable | Discard all incremental state, full parse of new source |
 | `ImperativeParser::current[Ast](Self[Ast]) -> ParseSnapshot[Ast]?` | Stable | Cached snapshot from the last parse/edit/reset; `None` before first call |
 | `ImperativeParser::get_source[Ast](Self[Ast]) -> String` | Stable | Current source text |
 | `ImperativeParser::get_source_id[Ast](Self[Ast]) -> SourceId` | Stable | Stable caller-supplied source identity |

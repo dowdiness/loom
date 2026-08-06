@@ -17,9 +17,9 @@ pub let moonbit_grammar : @loom.Grammar[MoonToken, MoonbitSyntaxKind, MoonbitPar
 
 pub let moonbit_syntax_grammar : @loom.SyntaxGrammar[MoonToken, MoonbitSyntaxKind]
 
-pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise
 
-pub fn parse_moonbit(@diagnostic.SourceId, String) -> (MoonbitParseShell, @core.DiagnosticSet)
+pub fn parse_moonbit(@diagnostic.SourceId, String) -> (MoonbitParseShell, @core.DiagnosticSet) raise Failure
 
 pub fn tokenize(@diagnostic.SourceId, String) -> Array[@core.TokenInfo[MoonToken]]
 

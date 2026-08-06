@@ -103,16 +103,16 @@ fn make_test_fixtures() -> (
   LanguageSpec[TestTok, TestKind],
   Array[TokenInfo[TestTok]],
 ) {
-  let spec : LanguageSpec[TestTok, TestKind] = {
-    whitespace_kind: KWs,
-    error_kind: KErr,
-    incomplete_kind: KErr,
-    root_kind: KRoot,
-    eof_token: TestTok::TokEof,
-    parse_root: _ => (),
-    reuse_size_threshold: 64,
-    trivia_kinds_spec: [KWs],
-  }
+  let spec : LanguageSpec[TestTok, TestKind] = LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    TestTok::TokEof,
+    incomplete_kind=KErr,
+    parse_root=_ => (),
+    reuse_size_threshold=64,
+    trivia_kinds_spec=[KWs],
+  )
   let tokens = [
     { token: TestTok::Plus, len: 1 },
     { token: TestTok::Num(42), len: 2 },
@@ -887,7 +887,7 @@ impl AstView for FooView with fn syntax_node(self) {
 
 ///|
 test "AstView: a concrete impl exposes its SyntaxNode" {
-  let cst = @seam.CstNode::new(@seam.RawKind(0), [])
+  let cst = @seam.CstNode::new_unclassified(@seam.RawKind(0), [])
   let syn = @seam.SyntaxNode::from_cst(cst)
   let v : FooView = { node: syn }
   inspect(@seam.AstView::syntax_node(v) == syn, content="true")

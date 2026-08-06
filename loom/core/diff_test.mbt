@@ -2,7 +2,9 @@
 // Helpers — build minimal CstNode trees for testing.
 fn leaf(kind : Int, text : String) -> @seam.CstNode {
   let tok = @seam.CstToken::CstToken(@seam.RawKind(kind), text)
-  @seam.CstNode::new(@seam.RawKind(kind), [@seam.CstElement::Token(tok)])
+  try! @seam.CstNode::new_unclassified(@seam.RawKind(kind), [
+    @seam.CstElement::Token(tok),
+  ])
 }
 
 ///|
@@ -41,11 +43,11 @@ test "tree_diff: unchanged left child, changed right child" {
   let a = leaf(1, "a")
   let b_old = leaf(1, "b")
   let b_new = leaf(1, "z")
-  let old_root = @seam.CstNode::new(@seam.RawKind(10), [
+  let old_root = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
     @seam.CstElement::Node(a),
     @seam.CstElement::Node(b_old),
   ])
-  let new_root = @seam.CstNode::new(@seam.RawKind(10), [
+  let new_root = @seam.CstNode::new_unclassified(@seam.RawKind(10), [
     @seam.CstElement::Node(a),
     @seam.CstElement::Node(b_new),
   ])

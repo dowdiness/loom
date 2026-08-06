@@ -154,7 +154,7 @@ test "heavy: large document - initial parse" (b : @bench.T) {
       source,
       @lambda.lambda_grammar,
     )
-    let result = parser.parse()
+    let result = try! parser.parse()
     b.keep(result)
   })
 }
@@ -169,7 +169,7 @@ test "heavy: wide arithmetic 100 terms - initial parse" (b : @bench.T) {
       source,
       @lambda.lambda_grammar,
     )
-    let result = parser.parse()
+    let result = try! parser.parse()
     b.keep(result)
   })
 }
@@ -184,7 +184,7 @@ test "heavy: nested application depth 50 - initial parse" (b : @bench.T) {
       source,
       @lambda.lambda_grammar,
     )
-    let result = parser.parse()
+    let result = try! parser.parse()
     b.keep(result)
   })
 }
@@ -218,13 +218,13 @@ test "heavy: typing session - 100 edits at end" (b : @bench.T) {
       base,
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
     let mut source = base
     for i = 0; i < 100; i = i + 1 {
       let ch = chars[i % chars.length()]
       let pos = source.length()
       let (new_source, edit) = apply_char_insert(source, pos, ch)
-      let _ = parser.edit(edit, new_source)
+      let _ = try! parser.edit(edit, new_source)
       source = new_source
     }
     b.keep(parser.get_tree())
@@ -247,13 +247,13 @@ test "heavy: typing session - 100 edits in middle" (b : @bench.T) {
       base,
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
     let mut source = base
     let mut insert_pos = mid
     for i = 0; i < 100; i = i + 1 {
       let ch = chars[i % chars.length()]
       let (new_source, edit) = apply_char_insert(source, insert_pos, ch)
-      let _ = parser.edit(edit, new_source)
+      let _ = try! parser.edit(edit, new_source)
       source = new_source
       insert_pos = insert_pos + ch.length()
     }
@@ -275,7 +275,7 @@ test "heavy: refactoring session - 100 scattered replacements" (b : @bench.T) {
       base,
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
     let mut source = base
     let mut seed = 42
     for i = 0; i < 100; i = i + 1 {
@@ -287,7 +287,7 @@ test "heavy: refactoring session - 100 scattered replacements" (b : @bench.T) {
       let pos = seed.abs() % (len - 1)
       let ch = replacements[i % replacements.length()]
       let (new_source, edit) = apply_char_replace(source, pos, ch)
-      let _ = parser.edit(edit, new_source)
+      let _ = try! parser.edit(edit, new_source)
       source = new_source
     }
     b.keep(parser.get_tree())
@@ -413,7 +413,7 @@ test "heavy: reuse ratio over 50 edits at end" {
     base,
     @lambda.lambda_grammar,
   )
-  let _ = parser.parse()
+  let _ = try! parser.parse()
   let chars = [" ", "+", " ", "1"]
   let mut source = base
   let mut total_reuse = 0
@@ -422,7 +422,7 @@ test "heavy: reuse ratio over 50 edits at end" {
     let ch = chars[i % chars.length()]
     let pos = source.length()
     let (new_source, edit) = apply_char_insert(source, pos, ch)
-    let _ = parser.edit(edit, new_source)
+    let _ = try! parser.edit(edit, new_source)
     total_reuse = total_reuse + parser.get_last_reuse_count()
     total_edits = total_edits + 1
     source = new_source
@@ -452,8 +452,8 @@ fn bench_incremental_single_edit(source : String, b : @bench.T) -> Unit {
       source,
       @lambda.lambda_grammar,
     )
-    let _ = p.parse()
-    let result = p.edit(edit, new_source)
+    let _ = try! p.parse()
+    let result = try! p.edit(edit, new_source)
     b.keep(result)
   })
 }
@@ -477,13 +477,13 @@ fn bench_session_incremental(source : String, n : Int, b : @bench.T) -> Unit {
       source,
       @lambda.lambda_grammar,
     )
-    let _ = parser.parse()
+    let _ = try! parser.parse()
     let mut s = source
     for i = 0; i < n; i = i + 1 {
       let ch = chars[i % chars.length()]
       let pos = s.length()
       let (new_s, edit) = apply_char_insert(s, pos, ch)
-      let _ = parser.edit(edit, new_s)
+      let _ = try! parser.edit(edit, new_s)
       s = new_s
     }
     b.keep(parser.get_tree())

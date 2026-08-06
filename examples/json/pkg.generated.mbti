@@ -40,11 +40,11 @@ pub fn parse(@diagnostic.SourceId, String) -> JsonValue raise
 
 pub fn parse_array(@core.ParserContext[Token, SyntaxKind]) -> Unit
 
-pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise
 
-pub fn parse_cst_recover_with_tokens(@diagnostic.SourceId, String, Array[@core.TokenInfo[Token]], @core.ReuseCursor[Token, SyntaxKind]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int)
+pub fn parse_cst_recover_with_tokens(@diagnostic.SourceId, String, Array[@core.TokenInfo[Token]], @core.ReuseCursor[Token, SyntaxKind]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int) raise Failure
 
-pub fn parse_json(@diagnostic.SourceId, String) -> (JsonValue, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_json(@diagnostic.SourceId, String) -> (JsonValue, @core.DiagnosticSet) raise
 
 pub fn parse_json_string(String) -> String
 

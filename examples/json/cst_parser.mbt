@@ -205,7 +205,7 @@ fn parse_json_root(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 pub fn parse_cst(
   source_id : @core.SourceId,
   source : String,
-) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
+) -> (@seam.CstNode, @core.DiagnosticSet) raise {
   json_grammar.parse_cst(source_id, source)
 }
 
@@ -217,7 +217,7 @@ pub fn parse_cst_recover_with_tokens(
   tokens : Array[@core.TokenInfo[Token]],
   cursor : @core.ReuseCursor[Token, SyntaxKind]?,
   prev_diagnostics? : @core.DiagnosticSet? = None,
-) -> (@seam.CstNode, @core.DiagnosticSet, Int) {
+) -> (@seam.CstNode, @core.DiagnosticSet, Int) raise Failure {
   let starts = @core.build_starts(tokens)
   @core.parse_tokens_indexed(
     source_id,

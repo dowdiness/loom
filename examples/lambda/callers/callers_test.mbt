@@ -26,7 +26,7 @@ fn callers_test_source_id() -> @core.SourceId {
 /// the pure-extraction tests below, which don't care about incremental
 /// re-derivation.
 fn parse_to_syntax(source : String) -> @seam.SyntaxNode {
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     callers_test_source_id(),
     source,
     @lambda.lambda_grammar,
@@ -403,7 +403,7 @@ test "extract_facts wrapper: backward-compat 2-tuple shape preserved" {
 /// for tests that need to mutate via parser (apply_edit, set_source, gc),
 /// construct parser and pipeline separately.
 fn build_test_pipeline(source : String) -> CallersPipeline {
-  let parser = @loom.new_parser(
+  let parser = try! @loom.new_parser(
     callers_test_source_id(),
     source,
     @lambda.lambda_grammar,

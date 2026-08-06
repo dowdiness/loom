@@ -10,6 +10,7 @@ pub suberror ParseError {
 pub fn parse(source_id : @core.SourceId, input : String) -> @ast.Term raise {
   let (term, diags) = parse_term(source_id, input) catch {
     @core.LexError(msg) => raise ParseError(msg)
+    error => raise error
   }
   if diags.length() > 0 {
     let diagnostic = diags.items()[0]
@@ -26,7 +27,7 @@ pub fn parse(source_id : @core.SourceId, input : String) -> @ast.Term raise {
 pub fn parse_term(
   source_id : @core.SourceId,
   source : String,
-) -> (@ast.Term, @core.DiagnosticSet) raise @core.LexError {
+) -> (@ast.Term, @core.DiagnosticSet) raise {
   let (cst, diags) = parse_cst(source_id, source)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   (syntax_node_to_term(syntax), diags)

@@ -8,7 +8,7 @@ test "parse_with: simple number" {
     test_grammar,
   )
   inspect(errors.length(), content="0")
-  inspect(tree.text_len, content="2")
+  inspect(tree.text_len(), content="2")
 }
 
 ///|
@@ -21,7 +21,7 @@ test "parse_with: addition expression" {
     test_grammar,
   )
   inspect(errors.length(), content="0")
-  inspect(tree.text_len, content="9")
+  inspect(tree.text_len(), content="9")
 }
 
 ///|

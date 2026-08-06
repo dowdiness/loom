@@ -7,11 +7,11 @@ import {
 }
 
 // Values
-pub fn build_tree(Array[ParseEvent], RawKind, trivia_kinds? : Array[RawKind]?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError
+pub fn build_tree(Array[ParseEvent], RawKind, policy~ : CstMetadataPolicy) -> CstNode raise
 
-pub fn build_tree_fully_interned(Array[ParseEvent], RawKind, Interner, NodeInterner, trivia_kinds? : Array[RawKind]?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError
+pub fn build_tree_fully_interned(Array[ParseEvent], RawKind, Interner, NodeInterner, policy~ : CstMetadataPolicy) -> CstNode raise
 
-pub fn build_tree_interned(Array[ParseEvent], RawKind, Interner, trivia_kinds? : Array[RawKind]?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError
+pub fn build_tree_interned(Array[ParseEvent], RawKind, Interner, policy~ : CstMetadataPolicy) -> CstNode raise
 
 pub fn combine_hash(Int, Int) -> Int
 
@@ -40,7 +40,7 @@ pub fn[F : Finder] CstElement::find(Self, F) -> Self?
 pub fn[R] CstElement::fold(Self, (CstToken) -> R, (R, R) -> R, R) -> R
 pub fn CstElement::iter(Self) -> Iter[Self]
 pub fn CstElement::kind(Self) -> RawKind
-pub fn CstElement::map(Self, (Self) -> Self, trivia_kinds? : Array[RawKind]?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> Self
+pub fn CstElement::map(Self, (Self) -> Self) -> Self raise Failure
 pub fn CstElement::text_len(Self) -> Int
 pub fn CstElement::token_count(Self, Array[RawKind]) -> Int
 pub fn[R] CstElement::transform(Self, (CstToken) -> R, (RawKind, Array[R]) -> R) -> R
@@ -48,21 +48,28 @@ pub fn[R] CstElement::transform_fold(Self, (CstToken) -> R, (RawKind) -> R, (Raw
 pub impl Eq for CstElement
 pub impl Hash for CstElement
 
-pub(all) struct CstNode {
-  kind : RawKind
-  children : Array[CstElement]
-  text_len : Int
-  hash : Int
-  token_count : Int
-  has_any_error : Bool
+pub struct CstMetadataPolicy {
+  // private fields
+}
+pub fn CstMetadataPolicy::new(Array[RawKind], error_kind? : RawKind?, incomplete_kind? : RawKind?) -> Self
+pub fn CstMetadataPolicy::unclassified() -> Self
+
+pub struct CstNode {
+  // private fields
 } derive(@debug.Debug)
+pub fn CstNode::children(Self) -> ArrayView[CstElement]
 pub fn CstNode::direct_elements_iter(Self) -> Iter[CstElement]
 pub fn CstNode::each(Self, (CstElement) -> Bool) -> Bool
 pub fn CstNode::first_token(Self, (RawKind) -> Bool) -> CstToken?
+pub fn CstNode::has_any_error(Self) -> Bool
 pub fn CstNode::has_errors(Self, RawKind, RawKind) -> Bool
 pub fn CstNode::kind(Self) -> RawKind
-pub fn CstNode::new(RawKind, Array[CstElement], trivia_kinds? : Array[RawKind]?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> Self
-pub fn CstNode::with_replaced_child(Self, Int, CstElement, trivia_kinds? : Array[RawKind]?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> Self
+pub fn CstNode::new(RawKind, Array[CstElement], policy~ : CstMetadataPolicy) -> Self raise Failure
+pub fn CstNode::new_unclassified(RawKind, Array[CstElement]) -> Self raise Failure
+pub fn CstNode::text_len(Self) -> Int
+pub fn CstNode::token_count(Self) -> Int
+pub fn CstNode::with_replaced_child(Self, Int, CstElement) -> Self raise Failure
+pub fn CstNode::with_replaced_root(Self, Self) -> Self raise Failure
 pub impl Eq for CstNode
 pub impl Hash for CstNode
 
@@ -100,9 +107,9 @@ pub fn DirectElementGroup::start(Self) -> Int
 pub struct EventBuffer {
   // private fields
 }
-pub fn EventBuffer::build_tree(Self, RawKind, trivia_kinds? : Array[RawKind]?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError
-pub fn EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kinds? : Array[RawKind]?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError
-pub fn EventBuffer::build_tree_interned(Self, RawKind, Interner, trivia_kinds? : Array[RawKind]?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError
+pub fn EventBuffer::build_tree(Self, RawKind, policy~ : CstMetadataPolicy) -> CstNode raise
+pub fn EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, policy~ : CstMetadataPolicy) -> CstNode raise
+pub fn EventBuffer::build_tree_interned(Self, RawKind, Interner, policy~ : CstMetadataPolicy) -> CstNode raise
 pub fn EventBuffer::length(Self) -> Int
 pub fn EventBuffer::mark(Self) -> Int
 pub fn EventBuffer::new() -> Self

@@ -97,7 +97,7 @@ test "code block value: source-backed indented corpus performs zero reconstructi
 ///|
 test "code block value: token-free compatibility tree uses reconstruction fallback" {
   let empty = @seam.SyntaxNode::from_cst(
-    @seam.CstNode::new(CodeBlockNode.to_raw(), []),
+    @seam.CstNode::new_unclassified(CodeBlockNode.to_raw(), []),
   )
   let mut source_reconstructions = 0
   let source = code_block_source_with_fallback(empty, fn() {
@@ -111,7 +111,7 @@ test "code block value: token-free compatibility tree uses reconstruction fallba
 ///|
 test "code block value: token-local backing string uses reconstruction fallback" {
   let token_local = @seam.SyntaxNode::from_cst(
-    @seam.CstNode::new(CodeBlockNode.to_raw(), [
+    @seam.CstNode::new_unclassified(CodeBlockNode.to_raw(), [
       @seam.CstElement::Token(
         @seam.CstToken::CstToken(IndentationToken.to_raw(), "    "),
       ),

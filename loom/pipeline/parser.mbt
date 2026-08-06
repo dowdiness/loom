@@ -44,7 +44,7 @@ pub fn[Ast : Eq] Parser::new(
   source : String,
   lang : @incremental.ImperativeLanguage[Ast],
   runtime? : @incr.Runtime,
-) -> Parser[Ast] {
+) -> Parser[Ast] raise Failure {
   let engine = @incremental.ImperativeParser::new(source_id, source, lang)
   let initial_snapshot = engine.parse()
   let rt = match runtime {
@@ -106,11 +106,12 @@ pub fn[Ast : Eq] Parser::new(
 pub fn[Ast : Eq] Parser::set_source(
   self : Parser[Ast],
   source : String,
-) -> Unit {
+) -> Unit raise Failure {
   if source == self.engine.get_source() {
     return
   }
-  self.rt.batch(() => self.snapshot_input.set(self.engine.reset(source)))
+  let snapshot = self.engine.reset(source)
+  self.rt.batch(() => self.snapshot_input.set(snapshot))
 }
 
 ///|
@@ -120,10 +121,9 @@ pub fn[Ast : Eq] Parser::apply_edit(
   self : Parser[Ast],
   edit : @core.Edit,
   new_source : String,
-) -> Unit {
-  self.rt.batch(() => {
-    self.snapshot_input.set(self.engine.edit(edit, new_source))
-  })
+) -> Unit raise Failure {
+  let snapshot = self.engine.edit(edit, new_source)
+  self.rt.batch(() => self.snapshot_input.set(snapshot))
 }
 
 ///|

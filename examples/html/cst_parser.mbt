@@ -200,6 +200,6 @@ fn parse_html_root(
 pub fn parse_cst(
   source_id : @core.SourceId,
   source : String,
-) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
+) -> (@seam.CstNode, @core.DiagnosticSet) raise {
   html_grammar.parse_cst(source_id, source)
 }

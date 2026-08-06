@@ -34,16 +34,16 @@ fn build_physical_path(
   let mut current = root
   let mut current_offset = 0
   // Check if root itself is the target
-  if root.kind == target_kind &&
+  if root.kind() == target_kind &&
     current_offset == target_offset &&
-    current_offset + root.text_len == target_end {
+    current_offset + root.text_len() == target_end {
     return Some(path) // empty path = root is the target
   }
   // Keep drilling until we find the target node
   while true {
     let mut found = false
     let mut child_offset = current_offset
-    for i, elem in current.children {
+    for i, elem in current.children() {
       let child_len = elem.text_len()
       let child_start = child_offset
       let child_end = child_offset + child_len
@@ -51,7 +51,7 @@ fn build_physical_path(
         @seam.CstElement::Node(child_node) =>
           if child_start <= target_offset && target_end <= child_end {
             // This child contains the target
-            if child_node.kind == @seam.repeat_group_kind {
+            if child_node.kind() == @seam.repeat_group_kind {
               // Transparent: drill into RepeatGroup but record its physical index
               path.push(i)
               current = child_node
@@ -60,7 +60,7 @@ fn build_physical_path(
               break
             } else if child_start == target_offset &&
               child_end == target_end &&
-              child_node.kind == target_kind {
+              child_node.kind() == target_kind {
               // Found the exact target
               path.push(i)
               return Some(path)
@@ -131,25 +131,22 @@ pub fn find_reparseable_ancestor(
 
 ///|
 /// Path-copy splice: walk nodes along path, replace bottom-up using
-/// with_replaced_child. Returns a new root CstNode with the node at
-/// `path` replaced by `new_node`.
+/// policy-preserving reconstruction. Returns a new root CstNode with the node
+/// at `path` replaced by `new_node`.
 pub fn splice_tree(
   root : @seam.CstNode,
   path : Array[Int],
   new_node : @seam.CstNode,
-  trivia_kinds? : Array[@seam.RawKind]? = None,
-  error_kind? : @seam.RawKind? = None,
-  incomplete_kind? : @seam.RawKind? = None,
-) -> @seam.CstNode {
+) -> @seam.CstNode raise Failure {
   if path.length() == 0 {
-    return new_node
+    return root.with_replaced_root(new_node)
   }
   // Collect the chain of ancestor nodes along the path
   let ancestors : Array[@seam.CstNode] = [root]
   let mut current = root
   for i = 0; i < path.length() - 1; i = i + 1 {
     let idx = path[i]
-    match current.children[idx] {
+    match current.children()[idx] {
       @seam.CstElement::Node(child) => {
         ancestors.push(child)
         current = child
@@ -163,13 +160,7 @@ pub fn splice_tree(
   for i = path.length() - 1; i >= 0; i = i - 1 {
     let ancestor = ancestors[i]
     let child_idx = path[i]
-    let new_ancestor = ancestor.with_replaced_child(
-      child_idx,
-      replacement,
-      trivia_kinds~,
-      error_kind~,
-      incomplete_kind~,
-    )
+    let new_ancestor = ancestor.with_replaced_child(child_idx, replacement)
     replacement = @seam.CstElement::Node(new_ancestor)
   }
   match replacement {
@@ -184,7 +175,7 @@ pub fn splice_tree(
 /// flush trivia, auto-close unclosed nodes, and build tree.
 /// Returns the reparsed CstNode and any new diagnostics, or None
 /// if parsing produces no node child.
-fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_block_isolated(
+fn[T : @seam.IsTrivia + @seam.ToRawKind, K] parse_block_isolated(
   source_id : SourceId,
   block_text : String,
   block_kind : @seam.RawKind,
@@ -192,7 +183,7 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_block_isolat
   starts : Array[Int],
   reparse_fn : (ParserContext[T, K]) -> Unit,
   spec : LanguageSpec[T, K],
-) -> (@seam.CstNode, DiagnosticSet)? {
+) -> (@seam.CstNode, DiagnosticSet)? raise Failure {
   if starts.length() != tokens.length() {
     return None
   }
@@ -218,15 +209,11 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_block_isolat
     ctx.open_nodes = ctx.open_nodes - 1
   }
   // Build tree using block_kind as root
-  let trivia_raws = spec.trivia_kinds_raw()
-  let err_raw = spec.error_kind.to_raw()
-  let inc_raw = spec.incomplete_kind.to_raw()
   let wrapper = ctx.events.build_tree(
     block_kind,
-    trivia_kinds=Some(trivia_raws),
-    error_kind=Some(err_raw),
-    incomplete_kind=Some(inc_raw),
+    policy=spec.cst_metadata_policy,
   ) catch {
+    Failure::Failure(_) as failure => raise failure
     e => {
       ctx.error("internal: block reparse failed: " + @debug.to_string(e))
       return None // fall back to full incremental reparse
@@ -236,7 +223,7 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_block_isolat
   // and parse_block_expr also emits BlockExpr start/finish,
   // producing block_kind(BlockExpr(...)). Extract the inner node.
   let mut inner : @seam.CstNode? = None
-  for child in wrapper.children {
+  for child in wrapper.children() {
     match child {
       @seam.CstElement::Node(n) => {
         inner = Some(n)
@@ -330,7 +317,7 @@ fn merge_diagnostics(
 ///
 /// Returns the new root CstNode and merged diagnostics, or None if
 /// block reparse is not applicable (falls back to full reparse).
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(
   source_id : SourceId,
   tree : @seam.SyntaxNode,
   new_source : String,
@@ -339,7 +326,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
   spec : LanguageSpec[T, K],
   block_spec : BlockReparseSpec[T, K],
   old_diagnostics : DiagnosticSet,
-) -> (@seam.CstNode, DiagnosticSet)? {
+) -> (@seam.CstNode, DiagnosticSet)? raise Failure {
   let root_cst = tree.cst_node()
   for
     candidate in find_reparseable_ancestors(
@@ -379,17 +366,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
         }
         let new_diags = block_lex_diags.copy()
         new_diags.add_all(parse_diags)
-        let trivia_raws = spec.trivia_kinds_raw()
-        let err_raw = spec.error_kind.to_raw()
-        let inc_raw = spec.incomplete_kind.to_raw()
-        let new_root = splice_tree(
-          root_cst,
-          path,
-          new_block,
-          trivia_kinds=Some(trivia_raws),
-          error_kind=Some(err_raw),
-          incomplete_kind=Some(inc_raw),
-        )
+        let new_root = splice_tree(root_cst, path, new_block)
         let merged = merge_diagnostics(
           source_id,
           old_diagnostics,

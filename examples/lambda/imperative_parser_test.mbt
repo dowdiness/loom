@@ -672,8 +672,8 @@ fn assert_lambda_incremental_edit_matches_full(
     old_source,
     lambda_grammar,
   )
-  let _ = parser.parse().ast
-  let incremental = parser.edit(edit, new_source).ast
+  let _ = try! parser.parse().ast
+  let incremental = try! parser.edit(edit, new_source).ast
   let full = parse(imperative_parser_test_source_id(), new_source) catch {
     _ => abort("parse failed for edit matrix case: " + label)
   }

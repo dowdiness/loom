@@ -261,14 +261,14 @@ fn assert_delimiter_performance_incremental_parity(
     source_identity,
     fixture.source,
   )
-  parser.apply_edit(fixture.edit, fixture.edited)
+  try! parser.apply_edit(fixture.edit, fixture.edited)
   assert_delimiter_performance_parser_matches_fresh(
     source_identity,
     label + " after edit",
     parser,
     fixture.edited,
   )
-  parser.apply_edit(fixture.edit, fixture.source)
+  try! parser.apply_edit(fixture.edit, fixture.source)
   assert_delimiter_performance_parser_matches_fresh(
     source_identity,
     label + " after restore",
@@ -374,9 +374,9 @@ fn benchmark_delimiter_performance_incremental_cycle(
     fixture.source,
   )
   b.bench(() => {
-    parser.apply_edit(fixture.edit, fixture.edited)
+    try! parser.apply_edit(fixture.edit, fixture.edited)
     b.keep(parser.syntax_tree().read_or_abort())
-    parser.apply_edit(fixture.edit, fixture.source)
+    try! parser.apply_edit(fixture.edit, fixture.source)
     b.keep(parser.syntax_tree().read_or_abort())
   })
 }
