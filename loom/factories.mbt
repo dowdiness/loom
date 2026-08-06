@@ -12,7 +12,7 @@
 /// Create a fresh TokenBuffer.
 /// The grammar owns lexing and returns a total `LexResult`; the factory only
 /// chooses whether TokenBuffer may use range relex for incremental edits.
-fn[T] create_buffer(
+fn[T : Eq] create_buffer(
   source_id : @core.SourceId,
   source : String,
   lex : (@core.SourceId, String) -> @core.LexResult[T],
@@ -32,39 +32,12 @@ fn[T] create_buffer(
   }
   match mode_relex {
     Some(factory) =>
-      match factory.new_session_with_initial(source_id, source) {
-        Some((state, initial)) => {
-          let initial_pending : Ref[Bool] = Ref(true)
-          let lex_with_initial = current_source => {
-            if initial_pending.val {
-              initial_pending.val = false
-              initial
-            } else {
-              lex_current(current_source)
-            }
-          }
-          @core.TokenBuffer::new_from_lex(
-            source_id,
-            source,
-            lex_fn=lex_with_initial,
-            eof_token~,
-            incremental_relex_enabled~,
-            mode_relex=Some(state),
-          )
-        }
-        None => {
-          let state = (factory.new_session)(source_id)
-          ignore((state.tokenize)(source))
-          @core.TokenBuffer::new_from_lex(
-            source_id,
-            source,
-            lex_fn=lex_current,
-            eof_token~,
-            incremental_relex_enabled~,
-            mode_relex=Some(state),
-          )
-        }
-      }
+      @core.TokenBuffer::new_from_mode_relex(
+        source_id,
+        source,
+        factory~,
+        eof_token~,
+      )
     None =>
       @core.TokenBuffer::new_from_lex(
         source_id,
@@ -94,7 +67,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
   let block_reparse_spec = grammar.block_reparse_spec
   let mode_relex = grammar.mode_relex
   let detached_lex = match mode_relex {
-    Some(factory) => factory.tokenize
+    Some(factory) => (source_id, source) => factory.tokenize(source_id, source)
     None => lex
   }
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref(None)

@@ -55,23 +55,19 @@ test "line-end cache preserves quote forms and line terminators" {
 test "line-end cache resets before earlier incremental relex" {
   let source_id = @core.SourceId("markdown-line-end-cache-relex")
   let source = line_end_cache_nested_quote_doc(128, 100)
-  let (state, initial) = mode_factory
-    .new_session_with_initial(source_id, source)
-    .unwrap()
-  let buffer = @core.TokenBuffer::new_with_mode_relex(
+  let initial = mode_factory.tokenize(source_id, source)
+  let buffer = @core.TokenBuffer::new_from_mode_relex(
     source_id,
     source,
-    initial.tokens(),
-    initial.starts(),
-    EOF,
-    state,
+    factory=mode_factory,
+    eof_token=EOF,
   )
   let edited = "!" + source[1:].to_owned()
   let edit = @core.Edit::replace(0, 1, 1)
   buffer.update(edit, edited) catch {
     _ => abort("line-end cache earlier relex failed")
   }
-  let edited_full = (mode_factory.tokenize)(source_id, edited)
+  let edited_full = mode_factory.tokenize(source_id, edited)
   assert_eq(buffer.get_tokens(), edited_full.tokens())
   assert_eq(buffer.get_starts(), edited_full.starts())
 

@@ -609,7 +609,7 @@ test "new_syntax_parser: session-owned mode factory tokenizes initial source onc
   let detached_lex_calls : Ref[Int] = Ref(0)
   let lex = (source_id : @core.SourceId, source : String) => {
     detached_lex_calls.val = detached_lex_calls.val + 1
-    (mode_factory.tokenize)(source_id, source)
+    mode_factory.tokenize(source_id, source)
   }
   let spec = @core.LanguageSpec::new(
     KWs,
@@ -652,7 +652,7 @@ test "new_syntax_parser: block reparse preserves the token-buffer mode session" 
   let root_kind = fkind_raw(KRoot)
   let grammar = SyntaxGrammar::new(
     spec~,
-    lex=mode_factory.tokenize,
+    lex=(source_id, source) => mode_factory.tokenize(source_id, source),
     mode_relex=Some(mode_factory),
     block_reparse_spec=Some({
       is_reparseable: kind => kind == root_kind,
@@ -693,14 +693,14 @@ test "create_buffer: strict-wrapper total lex keeps diagnostic" {
 }
 
 ///|
-test "create_buffer: mode lex keeps total diagnostics" {
+test "create_buffer: mode factory is the sole diagnostics authority" {
   let state = @core.erase_mode_lexer(
     @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
     Eof,
     error_token=Err,
   )
   let lex = (source_id : @core.SourceId, source : String) => {
-    let result = (state.tokenize)(source_id, source)
+    let result = state.tokenize(source_id, source)
     let diagnostics = result.diagnostics()
     diagnostics.push(
       @core.lexer_diagnostic_at(source_id, "soft mode note", 0, 1, "lex-note"),
@@ -709,14 +709,11 @@ test "create_buffer: mode lex keeps total diagnostics" {
   }
   let source_id = @core.SourceId("factory-mode-buffer-source")
   let buffer = create_buffer(source_id, "a", lex, Eof, mode_relex=Some(state))
-  debug_inspect(
-    buffer.get_diagnostics().format(),
-    content="[\"soft mode note [0,1]\"]",
-  )
+  debug_inspect(buffer.get_diagnostics().format(), content="[]")
 }
 
 ///|
-test "create_buffer: mode update skips total lex on incremental path" {
+test "create_buffer: mode path never invokes plain lexer" {
   let state = @core.erase_mode_lexer(
     @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
     Eof,
@@ -725,7 +722,7 @@ test "create_buffer: mode update skips total lex on incremental path" {
   let lex_calls : Ref[Int] = Ref(0)
   let lex = (source_id : @core.SourceId, source : String) => {
     lex_calls.val = lex_calls.val + 1
-    let result = (state.tokenize)(source_id, source)
+    let result = state.tokenize(source_id, source)
     let diagnostics = result.diagnostics()
     diagnostics.push(
       @core.lexer_diagnostic_at(
@@ -740,13 +737,10 @@ test "create_buffer: mode update skips total lex on incremental path" {
   }
   let source_id = @core.SourceId("factory-mode-update-source")
   let buffer = create_buffer(source_id, "a", lex, Eof, mode_relex=Some(state))
-  debug_inspect(
-    buffer.get_diagnostics().format(),
-    content="[\"mode source length 1 [0,1]\"]",
-  )
-  inspect(lex_calls.val, content="1")
+  debug_inspect(buffer.get_diagnostics().format(), content="[]")
+  inspect(lex_calls.val, content="0")
   buffer.update(@core.Edit::insert(1, 1), "aa")
-  inspect(lex_calls.val, content="1")
+  inspect(lex_calls.val, content="0")
   debug_inspect(buffer.get_token(0), content="A")
   debug_inspect(buffer.get_token(1), content="A")
   debug_inspect(buffer.get_token(2), content="Eof")
@@ -760,7 +754,7 @@ test "create_buffer: mode lex respects incremental opt out" {
     error_token=Err,
   )
   let lex = (source_id : @core.SourceId, source : String) => {
-    (state.tokenize)(source_id, source)
+    state.tokenize(source_id, source)
   }
   let source_id = @core.SourceId("factory-mode-opt-out-source")
   let buffer = create_buffer(
@@ -792,7 +786,7 @@ test "create_buffer: recovered mode lex updates incrementally" {
     error_token=Err,
   )
   let lex = (source_id : @core.SourceId, source : String) => {
-    (state.tokenize)(source_id, source)
+    state.tokenize(source_id, source)
   }
   let source_id = @core.SourceId("factory-mode-recovery-source")
   let buffer = create_buffer(source_id, "!", lex, Eof, mode_relex=Some(state))

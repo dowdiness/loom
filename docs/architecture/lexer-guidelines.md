@@ -84,7 +84,7 @@ let mode_relex = @core.erase_mode_lexer_factory(
   Eof,
   error_token=Error,
 )
-let lex = mode_relex.tokenize
+let lex = (source_id, source) => mode_relex.tokenize(source_id, source)
 let grammar = @loom.Grammar::new(
   spec~, lex~, fold_node~, mode_relex=Some(mode_relex),
 )
@@ -95,13 +95,18 @@ tokenization and once for each parser session. Loom initializes the session and
 its first `LexResult` together, so a source-local index is neither shared across
 parsers nor rebuilt by a second initial tokenization.
 
-The grammar's `lex` function must be semantically identical to the factory's
-`tokenize`. Assigning `mode_relex.tokenize` directly makes that relationship
-explicit.
+When the mode path is enabled, its factory is the sole token and diagnostic
+authority. The grammar's plain `lex` callback is used only when mode re-lexing
+is absent or explicitly disabled. If a grammar needs extra diagnostics or token
+transforms on the mode path, put that behavior in the factory-created
+`ModeRelexState`; Loom does not merge output from two lexer authorities.
 
-If the grammar lexer adds independent diagnostics or transforms tokens, keep
-the legacy `erase_mode_lexer` path unless that behavior is moved into the
-factory-owned lexer.
+Custom mode adapters construct an opaque `ModeRelexState` and install it with
+`ModeRelexFactory::new`. Their partial callback receives `OldTokenStarts`,
+which permits only checked `length()` and `start_at()` observation, and returns
+an alias-safe `ModeRelexResult::new(...)`. `TokenBuffer::new_from_mode_relex`
+retains the factory so malformed partial output can be quarantined and rebuilt
+with a distinct fresh session.
 
 In both forms, edits re-lex from the damage frontier until both source position
 and lexical mode converge, then reuse the unchanged suffix.

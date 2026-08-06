@@ -19,6 +19,13 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Changed
 
+- **Breaking mode-relex ownership boundary:** mode-aware token buffers are now
+  constructed with `TokenBuffer::new_from_mode_relex` and a retained
+  `ModeRelexFactory`. Custom relex callbacks receive opaque `OldTokenStarts`
+  instead of a mutable offset array and return validated `ModeRelexResult`
+  values. Invalid partial output discards the session and retries through a
+  fresh factory session without partially committing parser-visible state.
+
 - **Breaking diagnostic naming:** `Diagnostic` construction/access now uses
   `origin` and `DiagnosticOrigin`; rendering receives any `SourceResolver`, and
   coherent rendering inputs use `SourceSnapshot`.

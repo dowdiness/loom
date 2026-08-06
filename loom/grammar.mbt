@@ -34,7 +34,7 @@ pub struct SyntaxGrammar[T, K] {
 ///|
 /// Shared one-shot CST parse implementation for `Grammar` and `SyntaxGrammar`.
 #warnings("-unused_error_type")
-fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_cst_from_parts(
+fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_cst_from_parts(
   source_id : @core.SourceId,
   source : String,
   spec : @core.LanguageSpec[T, K],
@@ -69,7 +69,7 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_cst_from_par
 /// Eliminates boilerplate that every grammar must duplicate:
 /// lex → TokenBuffer → parse_tokens_indexed.
 #warnings("-unused_error_type")
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::parse_cst(
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::parse_cst(
   self : Grammar[T, K, Ast],
   source_id : @core.SourceId,
   source : String,
@@ -87,7 +87,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::
 ///|
 /// Parse a source string to CST + diagnostics without an AST fold.
 #warnings("-unused_error_type")
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] SyntaxGrammar::parse_cst(
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] SyntaxGrammar::parse_cst(
   self : SyntaxGrammar[T, K],
   source_id : @core.SourceId,
   source : String,

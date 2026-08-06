@@ -50,33 +50,37 @@ fn bench_perf_mode_relex_cycle(b : @bench.T, count : Int) -> Unit {
   let source_id = @core.SourceId("markdown-mode-relex-benchmark")
   let source = perf_work_paragraph_doc(count)
   let (edited, edit) = perf_work_middle_edit(source)
-  let (state, initial) = mode_factory
-    .new_session_with_initial(source_id, source)
-    .unwrap()
+  let state = mode_factory.new_session(source_id)
+  let initial = state.tokenize(source)
   let starts = initial.starts()
+  let old_starts = @core.OldTokenStarts::new(starts)
   let left = perf_mode_relex_left_token(starts, edit.start)
   b.bench(fn() {
     b.keep(
-      (state.relex_from)(
+      state.relex_from(
         edited,
         starts[left],
         left,
         starts.length(),
-        starts,
+        old_starts,
         edit.delta(),
         edit.new_end(),
-      ),
+      ) catch {
+        _ => abort("edited direct mode relex failed")
+      },
     )
     b.keep(
-      (state.relex_from)(
+      state.relex_from(
         source,
         starts[left],
         left,
         starts.length(),
-        starts,
+        old_starts,
         edit.delta(),
         edit.new_end(),
-      ),
+      ) catch {
+        _ => abort("restored direct mode relex failed")
+      },
     )
   })
 }

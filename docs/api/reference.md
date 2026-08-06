@@ -246,7 +246,13 @@ the grammar's `lex` implementation. `incremental_relex_enabled=false` marks
 lexers that must be rerun on the whole source instead of arbitrary text slices.
 For mode-aware grammars, build `mode_relex` with `erase_mode_lexer` and provide
 an error token so invalid or incomplete mode steps become structured lexer
-diagnostics plus recoverable error tokens.
+diagnostics plus recoverable error tokens. When incremental mode re-lexing is
+enabled, the factory is the sole token and diagnostic authority: the plain
+`lex` callback is not consulted for initialization or fallback. The buffer
+retains the factory so an invalid partial result can discard its mutated
+session and rebuild through a fresh one. Setting
+`incremental_relex_enabled=false` selects the plain `lex` path and never invokes
+the optional mode factory.
 
 ### `new_imperative_parser`
 

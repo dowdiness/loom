@@ -11,7 +11,7 @@ fn lex_for_grammar(
   source_id : @core.SourceId,
   source : String,
 ) -> @core.LexResult[Token] {
-  (mode_factory.tokenize)(source_id, source)
+  mode_factory.tokenize(source_id, source)
 }
 
 ///|

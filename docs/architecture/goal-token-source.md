@@ -25,7 +25,7 @@ parser is in `DivGoal` or `RegExpGoal`.
 
 - `get_tokens()` — linear token array (baseline, lexer-inferred goals)
 - `update(edit)` — range re-lex plus offset patching
-- `mode_relex` — optional `ModeRelexState` for lexer-driven mode switching
+- `mode_relex` — optional factory-backed session for lexer-driven mode switching
 - `GoalCache` — lazy goal-directed results, invalidated on every source edit
 
 Incremental parser sessions may separately retain old syntax and a
@@ -241,4 +241,4 @@ baseline-only.
 | Memoized results with full invalidation on edit | Unified goal-aware `peek_nth` |
 | Offset-based cursor advancement | Parser-driven mode switching |
 | Reuse suppression for goal-subsumed spans | Automatic parser-to-lexer mode bridge |
-| Coexistence with `ModeRelexState` | Parser-local mode setter |
+| Coexistence with factory-backed mode re-lex | Parser-local mode setter |

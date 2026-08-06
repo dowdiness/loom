@@ -59,6 +59,15 @@ pub(all) suberror LexError {
 }
 pub impl @diagnostic.ToDiagnostic for LexError
 
+pub(all) suberror LexResultError {
+  TokenStartCountMismatch(Int, Int)
+  NegativeTokenLength(Int, Int)
+  NegativeStart(Int, Int)
+  DecreasingStart(Int, Int, Int)
+  OverlappingToken(Int, Int, Int)
+  NegativeConvergence(Int)
+} derive(Eq, @debug.Debug)
+
 // Types and methods
 pub(all) struct BlockReparseSpec[T, K] {
   is_reparseable : (@seam.RawKind) -> Bool
@@ -198,23 +207,27 @@ pub(all) struct ModeLexer[T, M] {
 }
 
 pub struct ModeRelexFactory[T] {
-  tokenize : (@diagnostic.SourceId, String) -> LexResult[T]
-  new_session : (@diagnostic.SourceId) -> ModeRelexState[T]
   // private fields
 }
-pub fn[T] ModeRelexFactory::new_session_with_initial(Self[T], @diagnostic.SourceId, String) -> (ModeRelexState[T], LexResult[T])?
+pub fn[T] ModeRelexFactory::new(new_session~ : (@diagnostic.SourceId) -> ModeRelexState[T]) -> Self[T]
+pub fn[T] ModeRelexFactory::new_session(Self[T], @diagnostic.SourceId) -> ModeRelexState[T]
+pub fn[T] ModeRelexFactory::tokenize(Self[T], @diagnostic.SourceId, String) -> LexResult[T]
 
 pub struct ModeRelexResult[T] {
-  tokens : Array[TokenInfo[T]]
-  starts : Array[Int]
-  diagnostics : DiagnosticSet
-  converged_at_old_token : Int
+  // private fields
 }
+pub fn[T] ModeRelexResult::converged_at_old_token(Self[T]) -> Int
+pub fn[T] ModeRelexResult::diagnostics(Self[T]) -> DiagnosticSet
+pub fn[T] ModeRelexResult::new(Array[TokenInfo[T]], Array[Int], DiagnosticSet, converged_at_old_token~ : Int) -> Self[T] raise LexResultError
+pub fn[T] ModeRelexResult::starts(Self[T]) -> Array[Int]
+pub fn[T] ModeRelexResult::tokens(Self[T]) -> Array[TokenInfo[T]]
 
 pub struct ModeRelexState[T] {
-  tokenize : (String) -> LexResult[T]
-  relex_from : (String, Int, Int, Int, Array[Int], Int, Int) -> ModeRelexResult[T]
+  // private fields
 }
+pub fn[T] ModeRelexState::new(tokenize~ : (String) -> LexResult[T], relex_from~ : (String, Int, Int, Int, OldTokenStarts, Int, Int) -> ModeRelexResult[T] raise LexResultError) -> Self[T]
+pub fn[T] ModeRelexState::relex_from(Self[T], String, Int, Int, Int, OldTokenStarts, Int, Int) -> ModeRelexResult[T] raise LexResultError
+pub fn[T] ModeRelexState::tokenize(Self[T], String) -> LexResult[T]
 
 type OldToken derive(Compare, Eq, @debug.Debug)
 
@@ -226,6 +239,11 @@ pub struct OldTokenCache {
 pub fn OldTokenCache::apply_edit(Self, Int, Int, Int) -> Unit
 pub fn OldTokenCache::apply_source_edit(Self, Edit) -> Unit
 pub fn OldTokenCache::empty() -> Self
+
+pub struct OldTokenStarts(Array[Int])
+pub fn OldTokenStarts::length(Self) -> Int
+pub fn OldTokenStarts::new(Array[Int]) -> Self
+pub fn OldTokenStarts::start_at(Self, Int) -> Int
 
 pub struct ParserContext[T, K] {
   // private fields
@@ -357,8 +375,6 @@ pub(all) enum TextDelta {
 pub impl Show for TextDelta
 
 pub struct TokenBuffer[T] {
-  mut source : String
-  mut version : Int
   // private fields
 }
 pub fn[T] TokenBuffer::get_diagnostics(Self[T]) -> DiagnosticSet
@@ -373,13 +389,13 @@ pub fn[T] TokenBuffer::get_view(Self[T], Int) -> StringView
 pub fn[T] TokenBuffer::goal_span_exceeds(Self[T], Int, Int) -> Bool
 pub fn[T] TokenBuffer::goal_token_at(Self[T], Int, Int) -> (T, Int)
 pub fn[T] TokenBuffer::new(@diagnostic.SourceId, String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T) -> Self[T] raise LexError
-pub fn[T] TokenBuffer::new_from_lex(@diagnostic.SourceId, String, lex_fn~ : (String) -> LexResult[T], eof_token~ : T, incremental_relex_enabled? : Bool, mode_relex? : ModeRelexState[T]?) -> Self[T]
+pub fn[T : Eq] TokenBuffer::new_from_lex(@diagnostic.SourceId, String, lex_fn~ : (String) -> LexResult[T], eof_token~ : T, incremental_relex_enabled? : Bool) -> Self[T]
+pub fn[T : Eq] TokenBuffer::new_from_mode_relex(@diagnostic.SourceId, String, factory~ : ModeRelexFactory[T], eof_token~ : T) -> Self[T]
 pub fn[T] TokenBuffer::new_from_steps(@diagnostic.SourceId, String, PrefixLexer[T], eof_token~ : T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> Self[T]
 pub fn[T] TokenBuffer::new_from_steps_strict(@diagnostic.SourceId, String, PrefixLexer[T], eof_token~ : T) -> Self[T] raise LexError
 #deprecated
 pub fn[T] TokenBuffer::new_resilient(@diagnostic.SourceId, String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]
 pub fn[T] TokenBuffer::new_resilient_compat(@diagnostic.SourceId, String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]
-pub fn[T] TokenBuffer::new_with_mode_relex(@diagnostic.SourceId, String, Array[TokenInfo[T]], Array[Int], T, ModeRelexState[T]) -> Self[T]
 pub fn[T] TokenBuffer::set_goal_step(Self[T], (String, Int, Int) -> LexStep[T]) -> Unit
 pub fn[T] TokenBuffer::token_count(Self[T]) -> Int
 pub fn[T] TokenBuffer::tokenize_at_offset(Self[T], Int, Int) -> LexStep[T]

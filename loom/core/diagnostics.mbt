@@ -40,6 +40,18 @@ pub struct LexResult[T] {
 } derive(Eq, Debug)
 
 ///|
+/// A lexer adapter violated the structural contract of a token/start result.
+/// This describes adapter output, not malformed user source.
+pub(all) suberror LexResultError {
+  TokenStartCountMismatch(Int, Int)
+  NegativeTokenLength(Int, Int)
+  NegativeStart(Int, Int)
+  DecreasingStart(Int, Int, Int)
+  OverlappingToken(Int, Int, Int)
+  NegativeConvergence(Int)
+} derive(Eq, Debug)
+
+///|
 pub fn[T] LexResult::LexResult(
   tokens : Array[TokenInfo[T]],
   diagnostics? : DiagnosticSet = DiagnosticSet::empty(),

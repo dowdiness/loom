@@ -15,15 +15,11 @@ fn create_mock_buffer(source : String) -> TokenBuffer[MockToken] {
     error_token_from_message=Some(msg => Error(msg)),
   )
   let source_id = SourceId("mode-relex-mock-source")
-  let state = (factory.new_session)(source_id)
-  let result = (state.tokenize)(source)
-  TokenBuffer::new_with_mode_relex(
+  TokenBuffer::new_from_mode_relex(
     source_id,
     source,
-    result.tokens(),
-    result.starts(),
-    MockToken::EOF,
-    state,
+    factory~,
+    eof_token=MockToken::EOF,
   )
 }
 
@@ -39,15 +35,11 @@ fn create_mixed_buffer(source : String) -> TokenBuffer[MixedToken] {
     error_token=OpaqueRaw("error"),
   )
   let source_id = SourceId("mode-relex-mixed-source")
-  let state = (factory.new_session)(source_id)
-  let result = (state.tokenize)(source)
-  TokenBuffer::new_with_mode_relex(
+  TokenBuffer::new_from_mode_relex(
     source_id,
     source,
-    result.tokens(),
-    result.starts(),
-    MixedToken::EOF,
-    state,
+    factory~,
+    eof_token=MixedToken::EOF,
   )
 }
 
@@ -76,32 +68,13 @@ test "mode relex: head edit propagates opaque to notation context" {
 
 ///|
 test "mode relex: same-cardinality edit converges before close paren" {
-  let lexer : ModeLexer[MixedToken, MixedMode] = {
-    lex_step: mixed_lex_step,
-    initial_mode: Normal,
-  }
-  let factory = erase_mode_lexer(
-    lexer,
-    MixedToken::EOF,
-    error_token=OpaqueRaw("error"),
-  )
-  let state = (factory.new_session)(SourceId("mode-relex-convergence-source"))
   let old_source = "section(\"verse\") s(\"tail\")"
   let new_source = "s(\"verse\") s(\"tail\")"
-  let old_result = (state.tokenize)(old_source)
-  let result = (state.relex_from)(
-    new_source,
-    0,
-    0,
-    old_result.tokens().length(),
-    old_result.starts(),
-    -6,
-    1,
-  )
-  inspect(result.converged_at_old_token, content="5")
-  inspect(result.tokens.length(), content="5")
-  debug_inspect(result.starts, content="[0, 1, 2, 3, 8]")
-  inspect(result.tokens[3].token, content="NotationWord(\"verse\")")
+  let buffer = create_mixed_buffer(old_source)
+  buffer.update(Edit::replace(0, 7, 1), new_source)
+  inspect(buffer.get_token(3), content="NotationWord(\"verse\")")
+  inspect(buffer.get_start(3), content="3")
+  inspect(buffer.get_token(5), content="CloseParen")
 }
 
 ///|
@@ -116,73 +89,279 @@ test "mode relex: edit inside normal region converges immediately" {
 }
 
 ///|
-test "mode relex: in-place patch does not mutate constructor inputs" {
-  let lexer : ModeLexer[MockToken, MockMode] = {
-    lex_step: mock_lex_step,
-    initial_mode: Normal,
-  }
-  let factory = erase_mode_lexer(
-    lexer,
-    MockToken::EOF,
-    error_token=Error("error"),
-    error_token_from_message=Some(msg => Error(msg)),
-  )
+test "mode relex: construction owns initial result arrays" {
   let source_id = SourceId("mode-relex-owned-arrays-source")
   let source = "hello\"world\"end"
-  let state = (factory.new_session)(source_id)
-  let initial = (state.tokenize)(source)
-  let retained_tokens = initial.tokens()
-  let retained_starts = initial.starts()
-  let buffer = TokenBuffer::new_with_mode_relex(
+  let retained_tokens = [
+    TokenInfo::new(Text(source), source.length()),
+    TokenInfo::new(MockToken::EOF, 0),
+  ]
+  let retained_starts = [0, source.length()]
+  let factory = ModeRelexFactory::new(new_session=_source_id => {
+    ModeRelexState::new(
+      tokenize=fn(_source) {
+        LexResult::with_starts(
+          retained_tokens,
+          retained_starts,
+          diagnostics=DiagnosticSet::empty(),
+        )
+      },
+      relex_from=(
+        _source,
+        _start_offset,
+        _start_tok_idx,
+        old_token_count,
+        _old_starts,
+        _edit_delta,
+        _new_damage_end,
+      ) => {
+        ModeRelexResult::new(
+          [],
+          [],
+          DiagnosticSet::empty(),
+          converged_at_old_token=old_token_count,
+        )
+      },
+    )
+  })
+  let buffer = TokenBuffer::new_from_mode_relex(
     source_id,
     source,
-    retained_tokens,
-    retained_starts,
-    MockToken::EOF,
-    state,
+    factory~,
+    eof_token=MockToken::EOF,
   )
-  buffer.update(Edit::replace(4, 2, 2), "hell\"oworld\"end")
-  inspect(buffer.get_token(0), content="Text(\"hell\")")
-  inspect(buffer.get_start(1), content="4")
-  inspect(retained_tokens[0].token, content="Text(\"hello\")")
-  inspect(retained_starts[1], content="5")
+  retained_tokens[0] = TokenInfo::new(Text("mutated"), 7)
+  retained_starts[0] = 7
+  inspect(buffer.get_token(0), content="Text(\"hello\\\"world\\\"end\")")
+  inspect(buffer.get_start(0), content="0")
 }
 
 ///|
-test "mode relex: new_from_lex owns arrays before in-place patch" {
-  let lexer : ModeLexer[MockToken, MockMode] = {
-    lex_step: mock_lex_step,
-    initial_mode: Normal,
-  }
-  let factory = erase_mode_lexer(
-    lexer,
-    MockToken::EOF,
-    error_token=Error("error"),
-    error_token_from_message=Some(msg => Error(msg)),
-  )
-  let source_id = SourceId("mode-relex-owned-lex-result-source")
-  let source = "hello\"world\"end"
-  let state = (factory.new_session)(source_id)
-  let initial = (state.tokenize)(source)
-  let retained_tokens = initial.tokens()
-  let retained_starts = initial.starts()
-  let retained_result = LexResult::with_starts(
-    retained_tokens,
-    retained_starts,
-    diagnostics=DiagnosticSet::empty(),
-  )
-  let buffer = TokenBuffer::new_from_lex(
-    source_id,
-    source,
-    lex_fn=_ => retained_result,
+test "mode relex: retained old starts cannot mutate committed buffer" {
+  let retained_old_starts : Ref[OldTokenStarts?] = Ref(None)
+  let retained_result_tokens : Array[TokenInfo[MockToken]] = []
+  let retained_result_starts : Array[Int] = []
+  let factory = ModeRelexFactory::new(new_session=_source_id => {
+    ModeRelexState::new(
+      tokenize=fn(source) {
+        LexResult::with_starts(
+          [
+            TokenInfo::new(Text(source), source.length()),
+            TokenInfo::new(EOF, 0),
+          ],
+          [0, source.length()],
+          diagnostics=DiagnosticSet::empty(),
+        )
+      },
+      relex_from=(
+        source,
+        _start_offset,
+        _start_tok_idx,
+        old_token_count,
+        old_starts,
+        _edit_delta,
+        _new_damage_end,
+      ) => {
+        retained_old_starts.val = Some(old_starts)
+        retained_result_tokens.push(
+          TokenInfo::new(Text(source), source.length()),
+        )
+        retained_result_starts.push(0)
+        ModeRelexResult::new(
+          retained_result_tokens,
+          retained_result_starts,
+          DiagnosticSet::empty(),
+          converged_at_old_token=old_token_count,
+        )
+      },
+    )
+  })
+  let buffer = TokenBuffer::new_from_mode_relex(
+    SourceId("mode-relex-retained-old-starts"),
+    "a",
+    factory~,
     eof_token=MockToken::EOF,
-    mode_relex=Some(state),
   )
-  buffer.update(Edit::replace(4, 2, 2), "hell\"oworld\"end")
-  inspect(buffer.get_token(0), content="Text(\"hell\")")
-  inspect(buffer.get_start(1), content="4")
-  inspect(retained_tokens[0].token, content="Text(\"hello\")")
-  inspect(retained_starts[1], content="5")
+  buffer.update(Edit::replace(0, 1, 1), "b")
+  inspect(retained_old_starts.val.unwrap().start_at(0), content="0")
+  retained_result_tokens[0] = TokenInfo::new(Text("mutated"), 7)
+  retained_result_starts[0] = 99
+  inspect(buffer.get_token(0), content="Text(\"b\")")
+  inspect(buffer.get_start(0), content="0")
+}
+
+///|
+test "OldTokenStarts owns public constructor input" {
+  let starts = [0, 3]
+  let old_starts = OldTokenStarts::new(starts)
+  starts[0] = 99
+  inspect(old_starts.length(), content="2")
+  inspect(old_starts.start_at(0), content="0")
+  inspect(old_starts.start_at(1), content="3")
+}
+
+///|
+test "panic OldTokenStarts rejects an out-of-range index" {
+  ignore(OldTokenStarts::new([0]).start_at(1))
+}
+
+///|
+test "panic plain lex rejects invalid initial token stream" {
+  ignore(
+    TokenBuffer::new_from_lex(
+      SourceId("plain-invalid-source"),
+      "a",
+      lex_fn=_ => {
+        LexResult::with_starts(
+          [TokenInfo::new(Text("a"), 1), TokenInfo::new(EOF, 0)],
+          [0],
+          diagnostics=DiagnosticSet::empty(),
+        )
+      },
+      eof_token=MockToken::EOF,
+    ),
+  )
+}
+
+///|
+test "mode relex: invalid partial and failed reset preserve committed state" {
+  let session_creations : Ref[Int] = Ref(0)
+  let partial_calls : Ref[Int] = Ref(0)
+  let factory = ModeRelexFactory::new(new_session=_source_id => {
+    session_creations.val = session_creations.val + 1
+    let session_number = session_creations.val
+    let session_mutated : Ref[Bool] = Ref(false)
+    ModeRelexState::new(
+      tokenize=fn(source) {
+        if session_mutated.val {
+          abort("mutated mode session was reused for full tokenization")
+        }
+        if session_number == 2 {
+          LexResult::with_starts(
+            [
+              TokenInfo::new(Text(source), source.length()),
+              TokenInfo::new(EOF, 0),
+            ],
+            [0],
+            diagnostics=DiagnosticSet::empty(),
+          )
+        } else {
+          LexResult::with_starts(
+            [
+              TokenInfo::new(Text(source), source.length()),
+              TokenInfo::new(EOF, 0),
+            ],
+            [0, source.length()],
+            diagnostics=DiagnosticSet::empty(),
+          )
+        }
+      },
+      relex_from=(
+        _source,
+        _start_offset,
+        _start_tok_idx,
+        _old_token_count,
+        _old_starts,
+        _edit_delta,
+        _new_damage_end,
+      ) => {
+        partial_calls.val = partial_calls.val + 1
+        session_mutated.val = true
+        raise TokenStartCountMismatch(1, 0)
+      },
+    )
+  })
+  let source_id = SourceId("mode-relex-failed-reset")
+  let buffer = TokenBuffer::new_from_mode_relex(
+    source_id,
+    "a",
+    factory~,
+    eof_token=MockToken::EOF,
+  )
+  let before_tokens = buffer.get_tokens()
+  let before_starts = buffer.get_starts()
+  let before_diagnostics = buffer.get_diagnostics().format()
+  let before_source = buffer.get_source()
+  let before_version = buffer.get_version()
+  let failed = try {
+    buffer.update(Edit::replace(0, 1, 1), "b")
+    false
+  } catch {
+    LexError(_) => true
+  }
+  inspect(failed, content="true")
+  inspect(buffer.get_tokens() == before_tokens, content="true")
+  inspect(buffer.get_starts() == before_starts, content="true")
+  inspect(
+    buffer.get_diagnostics().format() == before_diagnostics,
+    content="true",
+  )
+  inspect(buffer.get_source() == before_source, content="true")
+  inspect(buffer.get_version() == before_version, content="true")
+  inspect(session_creations.val, content="2")
+  inspect(partial_calls.val, content="1")
+
+  buffer.update(Edit::replace(0, 1, 1), "c")
+  inspect(session_creations.val, content="3")
+  inspect(partial_calls.val, content="1")
+  let detached = factory.tokenize(source_id, "c")
+  inspect(buffer.get_tokens() == detached.tokens(), content="true")
+  inspect(buffer.get_starts() == detached.starts(), content="true")
+  inspect(
+    buffer.get_diagnostics().equal(detached.diagnostics()),
+    content="true",
+  )
+}
+
+///|
+test "mode relex: context-invalid partial falls back through a fresh session" {
+  let session_creations : Ref[Int] = Ref(0)
+  let partial_calls : Ref[Int] = Ref(0)
+  let factory = ModeRelexFactory::new(new_session=_source_id => {
+    session_creations.val = session_creations.val + 1
+    ModeRelexState::new(
+      tokenize=fn(source) {
+        LexResult::with_starts(
+          [
+            TokenInfo::new(Text(source), source.length()),
+            TokenInfo::new(EOF, 0),
+          ],
+          [0, source.length()],
+          diagnostics=DiagnosticSet::empty(),
+        )
+      },
+      relex_from=(
+        source,
+        _start_offset,
+        _start_tok_idx,
+        old_token_count,
+        _old_starts,
+        _edit_delta,
+        _new_damage_end,
+      ) => {
+        partial_calls.val = partial_calls.val + 1
+        ModeRelexResult::new(
+          [TokenInfo::new(Text(source), source.length())],
+          [0],
+          DiagnosticSet::empty(),
+          converged_at_old_token=old_token_count + 1,
+        )
+      },
+    )
+  })
+  let source_id = SourceId("mode-relex-context-invalid")
+  let buffer = TokenBuffer::new_from_mode_relex(
+    source_id,
+    "a",
+    factory~,
+    eof_token=MockToken::EOF,
+  )
+  buffer.update(Edit::replace(0, 1, 1), "b")
+  inspect(session_creations.val, content="2")
+  inspect(partial_calls.val, content="1")
+  let detached = factory.tokenize(source_id, "b")
+  inspect(buffer.get_tokens() == detached.tokens(), content="true")
+  inspect(buffer.get_starts() == detached.starts(), content="true")
 }
 
 ///|
@@ -235,78 +414,66 @@ test "mode relex: sessions retain independent mode snapshots" {
   )
   let source = "hello\"world\"end"
   let source_id = SourceId("mode-relex-session-source")
-  let control = (factory.new_session)(source_id)
-  let control_initial = (control.tokenize)(source)
-  let expected = (control.relex_from)(
+  let first = TokenBuffer::new_from_mode_relex(
+    source_id,
     source,
-    11,
-    3,
-    control_initial.tokens().length(),
-    control_initial.starts(),
-    0,
-    source.length(),
+    factory~,
+    eof_token=MockToken::EOF,
   )
-  let first = (factory.new_session)(source_id)
-  let second = (factory.new_session)(source_id)
-  let initial = (first.tokenize)(source)
-  ignore((second.tokenize)("x"))
-  let result = (first.relex_from)(
+  let second = TokenBuffer::new_from_mode_relex(
+    source_id,
     source,
-    11,
-    3,
-    initial.tokens().length(),
-    initial.starts(),
-    0,
-    source.length(),
+    factory~,
+    eof_token=MockToken::EOF,
   )
-  inspect(result.tokens == expected.tokens, content="true")
-  inspect(result.starts == expected.starts, content="true")
-  inspect(result.diagnostics.equal(expected.diagnostics), content="true")
-  inspect(
-    result.converged_at_old_token == expected.converged_at_old_token,
-    content="true",
-  )
+  let first_source = "helloworld\"end"
+  let second_source = "hello\"earth\"end"
+  first.update(Edit::delete(5, 6), first_source)
+  second.update(Edit::replace(6, 11, 11), second_source)
+  let first_full = factory.tokenize(source_id, first_source)
+  let second_full = factory.tokenize(source_id, second_source)
+  inspect(first.get_tokens() == first_full.tokens(), content="true")
+  inspect(first.get_starts() == first_full.starts(), content="true")
+  inspect(second.get_tokens() == second_full.tokens(), content="true")
+  inspect(second.get_starts() == second_full.starts(), content="true")
 }
 
 ///|
-test "mode relex validates initial token stream" {
-  let state : ModeRelexState[MockToken] = {
-    tokenize: fn(_source) {
-      LexResult::with_starts(
-        [TokenInfo::new(Text("a"), 2), TokenInfo::new(EOF, 0)],
-        [0, 1],
-        diagnostics=DiagnosticSet::empty(),
-      )
-    },
-    relex_from: fn(
-      _source,
-      _start_offset,
-      _start_tok_idx,
-      old_token_count,
-      _old_starts,
-      _edit_delta,
-      _new_damage_end,
-    ) {
-      let replacement : Array[TokenInfo[MockToken]] = []
-      {
-        tokens: replacement,
-        starts: [],
-        diagnostics: DiagnosticSet::empty(),
-        converged_at_old_token: old_token_count,
-      }
-    },
-  }
-  let buffer = TokenBuffer::new_with_mode_relex(
-    SourceId("mode-relex-invalid-source"),
-    "a",
-    [TokenInfo::new(Text("a"), 2), TokenInfo::new(EOF, 0)],
-    [0, 1],
-    MockToken::EOF,
-    state,
-  )
-  debug_inspect(
-    buffer.get_diagnostics().format(),
-    content="[\"LexResult received overlapping token spans at index 1\"]",
+test "panic mode relex rejects invalid initial token stream" {
+  let factory = ModeRelexFactory::new(new_session=_source_id => {
+    ModeRelexState::new(
+      tokenize=fn(_source) {
+        LexResult::with_starts(
+          [TokenInfo::new(Text("a"), 2), TokenInfo::new(EOF, 0)],
+          [0, 1],
+          diagnostics=DiagnosticSet::empty(),
+        )
+      },
+      relex_from=(
+        _source,
+        _start_offset,
+        _start_tok_idx,
+        old_token_count,
+        _old_starts,
+        _edit_delta,
+        _new_damage_end,
+      ) => {
+        ModeRelexResult::new(
+          [],
+          [],
+          DiagnosticSet::empty(),
+          converged_at_old_token=old_token_count,
+        )
+      },
+    )
+  })
+  ignore(
+    TokenBuffer::new_from_mode_relex(
+      SourceId("mode-relex-invalid-source"),
+      "a",
+      factory~,
+      eof_token=MockToken::EOF,
+    ),
   )
 }
 

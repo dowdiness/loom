@@ -160,6 +160,13 @@ The capability may be retained by a callback, so
 its contract does not promise snapshot stability after the callback returns;
 it guarantees that no mutable array can be recovered from it.
 
+Direct session tests and benchmarks may construct a detached capability with
+`OldTokenStarts::new`; this copies the supplied array once. The normal
+`TokenBuffer` path uses a package-private owned constructor and therefore does
+not copy the complete old-offset array per edit. `ModeRelexState::relex_from`
+is a named low-level operation for such manual sessions; it accepts only the
+opaque capability and cannot expose buffer-owned storage.
+
 Public `ModeRelexResult` construction copies arrays and diagnostics, preventing
 a callback from returning an alias to buffer-owned storage. The built-in mode
 lexer uses the package-private owned path with freshly allocated replacement
@@ -173,6 +180,13 @@ may raise that exact error. `TokenBuffer` catches it as an invalid partial
 attempt. `TokenBuffer` separately validates source bounds, upper convergence
 bounds, damage bounds, and patch eligibility because those depend on the
 invocation.
+
+The package-private built-in mode lexer uses a trusted owned-result constructor
+and does not repeat the intrinsic array scan performed at the public
+construction boundary: the producer creates the parallel arrays together, and
+`TokenBuffer` still applies the invocation-level validation before commit. This
+keeps malformed public callbacks rejectable without charging the built-in hot
+path for duplicate validation.
 
 `TokenBuffer` validates the complete partial result before mutating its tokens,
 starts, diagnostics, source, or version. A valid but non-patchable result takes
@@ -200,9 +214,13 @@ transition function. The `TokenBuffer` shell invokes session/factory closures,
 passes their validated outcomes to that function, and applies the returned
 decision atomically. Validation and transition tests therefore do not depend on
 mutable closure wiring; shell tests cover only factory calls and commit order.
-The implementation groups source, tokens, starts, diagnostics, version, and the
-session slot in one private committed-state value where practical, so a
-successful reset publishes them with one assignment after all fallible work.
+The shell computes and validates every candidate value before beginning a
+synchronous, non-fallible commit phase. The observable token/start fields remain
+flat because profiling showed that a nested committed-state wrapper adds a
+measurable cost to every parser token/start access. Factory, session, and
+invalid-attempt instrumentation live in one private optional mode control, so a
+plain buffer retains the original field count and hot-field order. No callback
+or raising operation runs after the first committed field is assigned.
 
 If fallback tokenization still cannot establish the full-lex invariants,
 `TokenBuffer::update` raises `LexError`, leaves its previously committed
@@ -372,6 +390,7 @@ pub fn EventBuffer::build_tree_fully_interned(
 ) -> CstNode raise EventStreamError
 
 pub struct OldTokenStarts { /* private fields */ }
+pub fn OldTokenStarts::new(Array[Int]) -> OldTokenStarts
 pub fn OldTokenStarts::length(Self) -> Int
 pub fn OldTokenStarts::start_at(Self, Int) -> Int
 
@@ -424,6 +443,16 @@ pub fn[T] ModeRelexState::new(
   ) -> ModeRelexResult[T] raise LexResultError,
 ) -> ModeRelexState[T]
 pub fn[T] ModeRelexState::tokenize(Self[T], String) -> LexResult[T]
+pub fn[T] ModeRelexState::relex_from(
+  Self[T],
+  String,
+  Int,
+  Int,
+  Int,
+  OldTokenStarts,
+  Int,
+  Int,
+) -> ModeRelexResult[T] raise LexResultError
 
 pub struct ModeRelexFactory[T] { /* private fields */ }
 pub fn[T] ModeRelexFactory::new(

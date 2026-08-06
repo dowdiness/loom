@@ -121,7 +121,7 @@ test "erase_mode_lexer tokenize matches tokenize_with_modes" {
     error_token=Error("error"),
     error_token_from_message=Some(msg => Error(msg)),
   )
-  let result = (state.tokenize)(
+  let result = state.tokenize(
     SourceId("mode-lexer-source"),
     "hello\"world\"end",
   )
@@ -154,14 +154,14 @@ test "erase_mode_lexer_factory owns one lexer shell per operation" {
     error_token=Error("error"),
   )
   assert_eq(construction_count.val, 0)
-  ignore((factory.tokenize)(SourceId("detached-a"), "alpha"))
-  ignore((factory.tokenize)(SourceId("detached-b"), "beta"))
+  ignore(factory.tokenize(SourceId("detached-a"), "alpha"))
+  ignore(factory.tokenize(SourceId("detached-b"), "beta"))
   assert_eq(construction_count.val, 2)
-  let session_a = (factory.new_session)(SourceId("session-a"))
-  let session_b = (factory.new_session)(SourceId("session-b"))
+  let session_a = factory.new_session(SourceId("session-a"))
+  let session_b = factory.new_session(SourceId("session-b"))
   assert_eq(construction_count.val, 4)
-  ignore((session_a.tokenize)("alpha"))
-  ignore((session_b.tokenize)("beta"))
+  ignore(session_a.tokenize("alpha"))
+  ignore(session_b.tokenize("beta"))
   assert_eq(construction_count.val, 4)
 }
 
@@ -461,7 +461,7 @@ test "mixed contexts detached tokenization preserves snapshots and spans" {
     EOF,
   )
   let factory = erase_mode_lexer(lexer, EOF, error_token=OpaqueRaw("error"))
-  let result = (factory.tokenize)(
+  let result = factory.tokenize(
     SourceId("mode-lexer-mixed-source"),
     mixed_source(),
   )

@@ -6,6 +6,19 @@
 // last element of the range result is skipped during offset-adjustment.
 
 ///|
+priv enum ModeRelexSession[T] {
+  Ready(ModeRelexState[T])
+  ResetRequired
+}
+
+///|
+priv struct ModeRelexControl[T] {
+  factory : ModeRelexFactory[T]
+  mut session : ModeRelexSession[T]
+  mut invalid_attempts : Int
+}
+
+///|
 pub struct TokenBuffer[T] {
   priv source_id : SourceId
   priv retokenize_full : (String) -> LexResult[T] raise LexError
@@ -14,15 +27,191 @@ pub struct TokenBuffer[T] {
   priv mut tokens : Array[TokenInfo[T]]
   priv mut starts : Array[Int]
   priv mut diagnostics : DiagnosticSet
-  priv mode_relex : ModeRelexState[T]?
-  mut source : String
-  mut version : Int
+  priv mode_relex : ModeRelexControl[T]?
+  priv mut source : String
+  priv mut version : Int
   // Goal-directed tokenization cache. Lazy — populated only by goal queries.
   // Cleared on source edit (see TokenBuffer::update).
   priv goal_cache : GoalCache[T]
   // Goal-aware lex step function. None when the grammar does not use goals.
   // Set via TokenBuffer::set_goal_step.
   priv mut goal_step : ((String, Int, Int) -> LexStep[T])?
+}
+
+///|
+fn[T] token_buffer_from_initial(
+  source_id : SourceId,
+  source : String,
+  retokenize_full : (String) -> LexResult[T] raise LexError,
+  incremental_relex_enabled : Bool,
+  eof_token : T,
+  tokens : Array[TokenInfo[T]],
+  starts : Array[Int],
+  diagnostics : DiagnosticSet,
+  mode_relex : ModeRelexControl[T]?,
+) -> TokenBuffer[T] {
+  {
+    source_id,
+    retokenize_full,
+    incremental_relex_enabled,
+    eof_token,
+    tokens,
+    starts,
+    diagnostics,
+    mode_relex,
+    source,
+    version: 0,
+    goal_cache: GoalCache::new(),
+    goal_step: None,
+  }
+}
+
+///|
+priv enum ModeStartDecision[T] {
+  TryPartial(ModeRelexControl[T], ModeRelexState[T])
+  TryFreshReset(ModeRelexControl[T])
+  UsePlainPath
+}
+
+///|
+fn[T] decide_mode_start(control : ModeRelexControl[T]?) -> ModeStartDecision[T] {
+  match control {
+    Some(control) =>
+      match control.session {
+        Ready(state) => TryPartial(control, state)
+        ResetRequired => TryFreshReset(control)
+      }
+    None => UsePlainPath
+  }
+}
+
+///|
+priv enum ModeStoragePlan[T] {
+  Patch(Array[TokenInfo[T]], Array[Int])
+  Replace(Array[TokenInfo[T]], Array[Int])
+}
+
+///|
+priv struct ModeCommitPlan[T] {
+  storage : ModeStoragePlan[T]
+  diagnostics : DiagnosticSet
+}
+
+///|
+priv enum ModeCandidateOrigin {
+  PartialCandidate
+  ResetCandidate
+}
+
+///|
+priv enum ModeValidationDecision {
+  CommitCandidate
+  CreateFreshSession
+  MarkResetRequired
+} derive(Debug)
+
+///|
+fn decide_mode_validation(
+  origin : ModeCandidateOrigin,
+  valid : Bool,
+) -> ModeValidationDecision {
+  match (origin, valid) {
+    (PartialCandidate, true) | (ResetCandidate, true) => CommitCandidate
+    (PartialCandidate, false) => CreateFreshSession
+    (ResetCandidate, false) => MarkResetRequired
+  }
+}
+
+///|
+test "mode relex validation transition table" {
+  debug_inspect(
+    decide_mode_validation(PartialCandidate, true),
+    content="CommitCandidate",
+  )
+  debug_inspect(
+    decide_mode_validation(PartialCandidate, false),
+    content="CreateFreshSession",
+  )
+  debug_inspect(
+    decide_mode_validation(ResetCandidate, true),
+    content="CommitCandidate",
+  )
+  debug_inspect(
+    decide_mode_validation(ResetCandidate, false),
+    content="MarkResetRequired",
+  )
+}
+
+///|
+fn[T : Eq] full_lex_result_error(
+  result : LexResult[T],
+  source : String,
+  eof_token : T,
+) -> String? {
+  full_lex_arrays_error(result.tokens, result.starts, source, eof_token)
+}
+
+///|
+fn[T : Eq] full_lex_arrays_error(
+  tokens : Array[TokenInfo[T]],
+  starts : Array[Int],
+  source : String,
+  eof_token : T,
+) -> String? {
+  guard tokens.length() == starts.length() else {
+    return Some("tokens and starts are not parallel")
+  }
+  let token_count = tokens.length()
+  guard token_count > 0 else { return Some("missing EOF token") }
+  let source_len = source.length()
+  let eof_index = token_count - 1
+  let eof = tokens[eof_index]
+  guard eof.token == eof_token && eof.len == 0 else {
+    return Some("missing trailing EOF sentinel")
+  }
+  guard starts[eof_index] == source_len else {
+    return Some("EOF start does not match source length")
+  }
+  let mut previous_start = 0
+  let mut previous_end = 0
+  for i in 0..<tokens.length() {
+    let token = tokens[i]
+    let start = starts[i]
+    guard token.len >= 0 else {
+      return Some("negative token length at index " + i.to_string())
+    }
+    guard start >= 0 && start <= source_len else {
+      return Some("token start outside source at index " + i.to_string())
+    }
+    let end = start + token.len
+    guard end <= source_len else {
+      return Some("token end outside source at index " + i.to_string())
+    }
+    if i > 0 {
+      guard start >= previous_start else {
+        return Some("decreasing token start at index " + i.to_string())
+      }
+      guard start >= previous_end else {
+        return Some("overlapping token at index " + i.to_string())
+      }
+    }
+    previous_start = start
+    previous_end = end
+  }
+  None
+}
+
+///|
+fn[T : Eq] abort_on_invalid_initial_result(
+  result : LexResult[T],
+  source : String,
+  eof_token : T,
+  path : String,
+) -> Unit {
+  match full_lex_result_error(result, source, eof_token) {
+    Some(reason) => abort(path + " initial lexer invariant violated: " + reason)
+    None => ()
+  }
 }
 
 ///|
@@ -103,55 +292,42 @@ pub fn[T] TokenBuffer::new(
     let tokens = tokenize_fn(s)
     LexResult(tokens)
   }
-  {
+  token_buffer_from_initial(
     source_id,
+    source,
     retokenize_full,
-    incremental_relex_enabled: true,
+    true,
     eof_token,
     tokens,
     starts,
-    diagnostics: DiagnosticSet::empty(),
-    mode_relex: None,
-    source,
-    version: 0,
-    goal_cache: GoalCache::new(),
-    goal_step: None,
-  }
+    DiagnosticSet::empty(),
+    None,
+  )
 }
 
 ///|
 /// Construct a TokenBuffer from a total structured lexer.
-pub fn[T] TokenBuffer::new_from_lex(
+pub fn[T : Eq] TokenBuffer::new_from_lex(
   source_id : SourceId,
   source : String,
   lex_fn~ : (String) -> LexResult[T],
   eof_token~ : T,
   incremental_relex_enabled? : Bool = true,
-  mode_relex? : ModeRelexState[T]? = None,
 ) -> TokenBuffer[T] {
   let result = lex_fn(source)
-  // Mode-aware updates may patch equal-cardinality replacements in place.
-  // Take ownership at the constructor boundary so arrays retained by a lexer
-  // cannot observe later buffer mutation.
-  let (tokens, starts) = match mode_relex {
-    Some(_) => (result.tokens.copy(), result.starts.copy())
-    None => (result.tokens, result.starts)
-  }
+  abort_on_invalid_initial_result(result, source, eof_token, "plain")
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => lex_fn(s)
-  {
+  token_buffer_from_initial(
     source_id,
+    source,
     retokenize_full,
     incremental_relex_enabled,
     eof_token,
-    tokens,
-    starts,
-    diagnostics: result.diagnostics,
-    mode_relex,
-    source,
-    version: 0,
-    goal_cache: GoalCache::new(),
-    goal_step: None,
-  }
+    result.tokens,
+    result.starts,
+    result.diagnostics,
+    None,
+  )
 }
 
 ///|
@@ -172,20 +348,17 @@ pub fn[T] TokenBuffer::new_resilient(
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
     tokenize_resilient_result(source_id, s, tokenize_fn, eof_token, error_token)
   }
-  {
+  token_buffer_from_initial(
     source_id,
-    retokenize_full,
-    incremental_relex_enabled: true,
-    eof_token,
-    tokens: result.tokens,
-    starts: result.starts,
-    diagnostics: result.diagnostics,
-    mode_relex: None,
     source,
-    version: 0,
-    goal_cache: GoalCache::new(),
-    goal_step: None,
-  }
+    retokenize_full,
+    true,
+    eof_token,
+    result.tokens,
+    result.starts,
+    result.diagnostics,
+    None,
+  )
 }
 
 ///|
@@ -239,20 +412,17 @@ pub fn[T] TokenBuffer::new_from_steps(
       error_token_from_message~,
     )
   }
-  {
+  token_buffer_from_initial(
     source_id,
-    retokenize_full,
-    incremental_relex_enabled: false,
-    eof_token,
-    tokens: result.tokens,
-    starts: result.starts,
-    diagnostics: result.diagnostics,
-    mode_relex: None,
     source,
-    version: 0,
-    goal_cache: GoalCache::new(),
-    goal_step: None,
-  }
+    retokenize_full,
+    false,
+    eof_token,
+    result.tokens,
+    result.starts,
+    result.diagnostics,
+    None,
+  )
 }
 
 ///|
@@ -269,57 +439,50 @@ pub fn[T] TokenBuffer::new_from_steps_strict(
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
     tokenize_from_steps_strict_result(s, lexer, eof_token)
   }
-  {
+  token_buffer_from_initial(
     source_id,
-    retokenize_full,
-    incremental_relex_enabled: false,
-    eof_token,
-    tokens: result.tokens,
-    starts: result.starts,
-    diagnostics: result.diagnostics,
-    mode_relex: None,
     source,
-    version: 0,
-    goal_cache: GoalCache::new(),
-    goal_step: None,
-  }
+    retokenize_full,
+    false,
+    eof_token,
+    result.tokens,
+    result.starts,
+    result.diagnostics,
+    None,
+  )
 }
 
 ///|
-/// Construct a TokenBuffer with mode-aware convergence re-lex support.
-/// Uses convergence-based partial re-lex: only re-lexes the damaged region
-/// and stops when the lexer mode converges with the old mode array.
-pub fn[T] TokenBuffer::new_with_mode_relex(
+/// Construct a factory-backed TokenBuffer with mode-aware convergence re-lex.
+pub fn[T : Eq] TokenBuffer::new_from_mode_relex(
   source_id : SourceId,
   source : String,
-  tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
-  eof_token : T,
-  mode_relex : ModeRelexState[T],
+  factory~ : ModeRelexFactory[T],
+  eof_token~ : T,
 ) -> TokenBuffer[T] {
-  let mode_tokenize = mode_relex.tokenize
-  let initial = LexResult::with_starts(
-    tokens.copy(),
-    starts.copy(),
-    diagnostics=DiagnosticSet::empty(),
-  )
+  let (session, initial) = match
+    factory.new_session_with_initial(source_id, source) {
+    Some(initialized) => initialized
+    None => {
+      let session = factory.new_session(source_id)
+      (session, session.tokenize(source))
+    }
+  }
+  abort_on_invalid_initial_result(initial, source, eof_token, "mode-aware")
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
-    mode_tokenize(s)
+    factory.tokenize(source_id, s)
   }
-  {
+  token_buffer_from_initial(
     source_id,
-    retokenize_full,
-    incremental_relex_enabled: true,
-    eof_token,
-    tokens: initial.tokens,
-    starts: initial.starts,
-    diagnostics: initial.diagnostics,
-    mode_relex: Some(mode_relex),
     source,
-    version: 0,
-    goal_cache: GoalCache::new(),
-    goal_step: None,
-  }
+    retokenize_full,
+    true,
+    eof_token,
+    initial.tokens(),
+    initial.starts(),
+    initial.diagnostics(),
+    Some({ factory, session: Ready(session), invalid_attempts: 0 }),
+  )
 }
 
 ///|
@@ -485,23 +648,225 @@ pub fn[T] TokenBuffer::goal_span_exceeds(
 }
 
 ///|
+fn[T : Eq] TokenBuffer::prepare_mode_commit(
+  self : TokenBuffer[T],
+  edit : Edit,
+  new_source : String,
+  left_tok_idx : Int,
+  relexed : ModeRelexResult[T],
+) -> ModeCommitPlan[T]? {
+  let old_tokens = self.tokens
+  let old_starts = self.starts
+  let old_len = old_tokens.length()
+  let eof_index = old_len - 1
+  let converged_right = relexed.converged_at_old_token
+  let replacement_tokens = relexed.tokens
+  let replacement_starts = relexed.starts
+  guard converged_right >= left_tok_idx && converged_right <= old_len else {
+    return None
+  }
+  guard replacement_tokens.length() == replacement_starts.length() else {
+    return None
+  }
+  let new_len = new_source.length()
+  for i in 0..<replacement_tokens.length() {
+    guard replacement_starts[i] >= 0 && replacement_starts[i] <= new_len else {
+      return None
+    }
+    guard replacement_tokens[i].len >= 0 &&
+      replacement_starts[i] + replacement_tokens[i].len <= new_len else {
+      return None
+    }
+    if i > 0 {
+      guard replacement_starts[i] >=
+        replacement_starts[i - 1] + replacement_tokens[i - 1].len else {
+        return None
+      }
+    }
+  }
+  let delta = edit.delta()
+  let left_clamped = clamp_offset(
+    map_start_pos(old_starts[left_tok_idx], edit),
+    new_len,
+  )
+  if replacement_starts.length() > 0 {
+    guard replacement_starts[0] >= left_clamped else { return None }
+    if left_tok_idx > 0 {
+      guard replacement_starts[0] >=
+        old_starts[left_tok_idx - 1] + old_tokens[left_tok_idx - 1].len else {
+        return None
+      }
+    }
+  }
+  let replacement_end = if replacement_tokens.length() == 0 {
+    left_clamped
+  } else {
+    let last = replacement_tokens.length() - 1
+    replacement_starts[last] + replacement_tokens[last].len
+  }
+  if converged_right < eof_index {
+    guard replacement_end <= old_starts[converged_right] + delta else {
+      return None
+    }
+  } else {
+    guard replacement_end <= new_len else { return None }
+  }
+  if converged_right < old_len {
+    guard replacement_end > edit.new_end() else { return None }
+  }
+  let old_relex_start = old_starts[left_tok_idx]
+  let old_relex_end = if converged_right < old_starts.length() {
+    old_starts[converged_right]
+  } else {
+    self.source.length()
+  }
+  guard old_relex_end >= old_relex_start else { return None }
+  let shifted_diagnostics = self.diagnostics.after_relex(
+    SourceEdit(
+      self.source_id,
+      Edit::new(
+        old_relex_start,
+        old_relex_end - old_relex_start,
+        old_relex_end - old_relex_start + delta,
+      ),
+    ),
+    failure_context="incremental relex",
+  )
+  shifted_diagnostics.add_all(relexed.diagnostics)
+  let replacement_count = replacement_tokens.length()
+  let can_patch_in_place = delta == 0 &&
+    new_len == self.source.length() &&
+    replacement_count == converged_right - left_tok_idx
+  if can_patch_in_place {
+    return Some({
+      storage: Patch(replacement_tokens, replacement_starts),
+      diagnostics: shifted_diagnostics,
+    })
+  }
+  let new_tokens : Array[TokenInfo[T]] = []
+  let new_starts : Array[Int] = []
+  for i in 0..<left_tok_idx {
+    new_tokens.push(old_tokens[i])
+    new_starts.push(old_starts[i])
+  }
+  for i in 0..<replacement_count {
+    new_tokens.push(replacement_tokens[i])
+    new_starts.push(replacement_starts[i])
+  }
+  for i = converged_right; i < eof_index; i = i + 1 {
+    new_tokens.push(old_tokens[i])
+    new_starts.push(clamp_offset(old_starts[i] + delta, new_len))
+  }
+  new_tokens.push(TokenInfo::new(self.eof_token, 0))
+  new_starts.push(new_len)
+  guard full_lex_arrays_error(
+      new_tokens,
+      new_starts,
+      new_source,
+      self.eof_token,
+    )
+    is None else {
+    return None
+  }
+  Some({
+    storage: Replace(new_tokens, new_starts),
+    diagnostics: shifted_diagnostics,
+  })
+}
+
+///|
+fn[T] TokenBuffer::commit_mode_plan(
+  self : TokenBuffer[T],
+  plan : ModeCommitPlan[T],
+  left_tok_idx : Int,
+  new_source : String,
+  control : ModeRelexControl[T],
+  session : ModeRelexState[T],
+) -> Unit {
+  let old_version = self.version
+  let (tokens, starts) = match plan.storage {
+    Patch(replacement_tokens, replacement_starts) => {
+      let tokens = self.tokens
+      let starts = self.starts
+      for i in 0..<replacement_tokens.length() {
+        tokens[left_tok_idx + i] = replacement_tokens[i]
+        starts[left_tok_idx + i] = replacement_starts[i]
+      }
+      (tokens, starts)
+    }
+    Replace(tokens, starts) => (tokens, starts)
+  }
+  self.tokens = tokens
+  self.starts = starts
+  self.diagnostics = plan.diagnostics
+  self.source = new_source
+  self.version = old_version + 1
+  control.session = Ready(session)
+  self.goal_cache.invalidate()
+}
+
+///|
+fn[T : Eq] TokenBuffer::reset_mode_session(
+  self : TokenBuffer[T],
+  control : ModeRelexControl[T],
+  new_source : String,
+) -> Unit raise LexError {
+  let factory = control.factory
+  let (session, result) = match
+    factory.new_session_with_initial(self.source_id, new_source) {
+    Some(initialized) => initialized
+    None => {
+      let session = factory.new_session(self.source_id)
+      (session, session.tokenize(new_source))
+    }
+  }
+  let reset_error = full_lex_result_error(result, new_source, self.eof_token)
+  match decide_mode_validation(ResetCandidate, reset_error is None) {
+    MarkResetRequired => {
+      control.session = ResetRequired
+      raise LexError(
+        "mode relex reset failed: " + reset_error.unwrap_or("unknown invariant"),
+      )
+    }
+    CommitCandidate => {
+      let next_tokens = result.tokens()
+      let next_starts = result.starts()
+      let next_diagnostics = result.diagnostics()
+      self.tokens = next_tokens
+      self.starts = next_starts
+      self.diagnostics = next_diagnostics
+      self.source = new_source
+      self.version = self.version + 1
+      control.session = Ready(session)
+      self.goal_cache.invalidate()
+    }
+    CreateFreshSession =>
+      abort("internal: reset validation requested another reset")
+  }
+}
+
+///|
 pub fn[T : Eq] TokenBuffer::update(
   self : TokenBuffer[T],
   edit : Edit,
   new_source : String,
 ) -> Unit raise LexError {
   let old_tokens = self.tokens
-  // Goal cache invalidated on any edit — offset-based keys shift.
-  self.goal_cache.invalidate()
   let old_starts = self.starts
+  let old_version = self.version
   let old_len = old_tokens.length()
   if !self.incremental_relex_enabled || old_len == 0 {
     let result = (self.retokenize_full)(new_source)
+    match full_lex_result_error(result, new_source, self.eof_token) {
+      Some(reason) => raise LexError("full relex failed: " + reason)
+      None => ()
+    }
     self.tokens = result.tokens
     self.starts = result.starts
     self.diagnostics = result.diagnostics
     self.source = new_source
-    self.version = self.version + 1
+    self.version = old_version + 1
+    self.goal_cache.invalidate()
     return
   }
   let eof_index = old_len - 1
@@ -523,107 +888,55 @@ pub fn[T : Eq] TokenBuffer::update(
   if right_tok_idx < eof_index {
     right_tok_idx = right_tok_idx + 1
   }
-  // Mode-aware convergence re-lex path.
-  // Instead of slicing text and re-lexing without mode context, we re-lex
-  // from the correct mode at left_tok_idx and stop when the mode converges
-  // with the old mode array. This avoids full retokenize for mode-aware lexers.
-  match self.mode_relex {
-    Some(state) => {
+  match decide_mode_start(self.mode_relex) {
+    TryPartial(control, state) => {
       let left_clamped = clamp_offset(
         map_start_pos(old_starts[left_tok_idx], edit),
         new_source.length(),
       )
-      let delta = edit.delta()
-      let relexed = (state.relex_from)(
-        new_source,
-        left_clamped,
-        left_tok_idx,
-        old_len,
-        old_starts,
-        delta,
-        edit.new_end(),
-      )
-      let checked_relex = LexResult::with_starts(
-        relexed.tokens,
-        relexed.starts,
-        diagnostics=relexed.diagnostics,
-      )
-      let replacement_tokens = checked_relex.tokens
-      let replacement_starts = checked_relex.starts
-      let replacement_diagnostics = checked_relex.diagnostics
-      let converged_right = relexed.converged_at_old_token
-      let old_relex_start = old_starts[left_tok_idx]
-      let replacement_count = replacement_tokens.length()
-      let can_patch_in_place = delta == 0 &&
-        new_source.length() == self.source.length() &&
-        replacement_count == converged_right - left_tok_idx &&
-        replacement_starts.length() == replacement_count
-      // Constructor boundaries give the buffer exclusive array ownership.
-      // With unchanged source length and token cardinality, all suffix values
-      // and indices remain valid; only the converged damage slice changes.
-      if can_patch_in_place {
-        for i = 0; i < replacement_count; i = i + 1 {
-          old_tokens[left_tok_idx + i] = replacement_tokens[i]
-          old_starts[left_tok_idx + i] = replacement_starts[i]
-        }
-      } else {
-        let new_tokens : Array[TokenInfo[T]] = []
-        let new_starts : Array[Int] = []
-        // Prefix (unchanged)
-        for i = 0; i < left_tok_idx; i = i + 1 {
-          new_tokens.push(old_tokens[i])
-          new_starts.push(old_starts[i])
-        }
-        // Replacement tokens with explicit starts. Recoverable mode lexers
-        // may report an error after a valid prefix, so starts are not
-        // necessarily a prefix sum from left_clamped.
-        let mut rep_offset = left_clamped
-        for i = 0; i < replacement_count; i = i + 1 {
-          new_tokens.push(replacement_tokens[i])
-          let start = if i < replacement_starts.length() {
-            replacement_starts[i]
-          } else {
-            rep_offset
-          }
-          new_starts.push(start)
-          rep_offset = start + replacement_tokens[i].len
-        }
-        // Suffix (shifted by edit delta)
-        let new_len = new_source.length()
-        for i = converged_right; i < eof_index; i = i + 1 {
-          new_tokens.push(old_tokens[i])
-          new_starts.push(clamp_offset(old_starts[i] + delta, new_len))
-        }
-        // EOF sentinel
-        new_tokens.push(TokenInfo::new(self.eof_token, 0))
-        new_starts.push(new_len)
-        self.tokens = new_tokens
-        self.starts = new_starts
-      }
-      // relex_from already spliced the modes array internally.
-      let old_relex_end = if converged_right < old_starts.length() {
-        old_starts[converged_right]
-      } else {
-        self.source.length()
-      }
-      let shifted_diagnostics = self.diagnostics.after_relex(
-        SourceEdit(
-          self.source_id,
-          Edit::new(
-            old_relex_start,
-            old_relex_end - old_relex_start,
-            old_relex_end - old_relex_start + delta,
-          ),
+      let attempted : Result[ModeRelexResult[T], LexResultError] = Ok(
+        state.relex_from(
+          new_source,
+          left_clamped,
+          left_tok_idx,
+          old_len,
+          OldTokenStarts::from_owned(old_starts),
+          edit.delta(),
+          edit.new_end(),
         ),
-        failure_context="incremental relex",
-      )
-      shifted_diagnostics.add_all(replacement_diagnostics)
-      self.diagnostics = shifted_diagnostics
-      self.source = new_source
-      self.version = self.version + 1
+      ) catch {
+        error => Err(error)
+      }
+      let plan = match attempted {
+        Ok(relexed) =>
+          self.prepare_mode_commit(edit, new_source, left_tok_idx, relexed)
+        Err(_) => None
+      }
+      match decide_mode_validation(PartialCandidate, plan is Some(_)) {
+        CommitCandidate => {
+          self.commit_mode_plan(
+            plan.unwrap(),
+            left_tok_idx,
+            new_source,
+            control,
+            state,
+          )
+          return
+        }
+        CreateFreshSession => {
+          control.invalid_attempts = control.invalid_attempts + 1
+          self.reset_mode_session(control, new_source)
+          return
+        }
+        MarkResetRequired =>
+          abort("internal: partial validation marked reset-required directly")
+      }
+    }
+    TryFreshReset(control) => {
+      self.reset_mode_session(control, new_source)
       return
     }
-    None => ()
+    UsePlainPath => ()
   }
   let mut left_old_offset = old_starts[left_tok_idx]
   if edit.start < left_old_offset {
@@ -669,8 +982,6 @@ pub fn[T : Eq] TokenBuffer::update(
   // EOF sentinel
   new_tokens.push(TokenInfo::new(self.eof_token, 0))
   new_starts.push(new_len)
-  self.tokens = new_tokens
-  self.starts = new_starts
   let updated_diagnostics = self.diagnostics.after_relex(
     SourceEdit(
       self.source_id,
@@ -683,9 +994,12 @@ pub fn[T : Eq] TokenBuffer::update(
     failure_context="incremental relex",
   )
   updated_diagnostics.add_all(replacement_diagnostics)
+  self.tokens = new_tokens
+  self.starts = new_starts
   self.diagnostics = updated_diagnostics
   self.source = new_source
-  self.version = self.version + 1
+  self.version = old_version + 1
+  self.goal_cache.invalidate()
 }
 
 ///|
