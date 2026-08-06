@@ -44,6 +44,9 @@ pub(all) enum SyntaxKind {
   ThematicBreakNode
   HtmlBlockNode
   LinkReferenceDefinitionNode
+  UriAutolinkNode
+  EmailAutolinkNode
+  InlineHtmlNode
 } derive(Debug, Eq)
 
 ///|
@@ -130,6 +133,9 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
       UnderscoreToken => 39
       EmphasisDelimiterToken => 40
       LinkReferenceDefinitionNode => 41
+      UriAutolinkNode => 42
+      EmailAutolinkNode => 43
+      InlineHtmlNode => 44
     },
   )
 }
@@ -179,6 +185,9 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     39 => UnderscoreToken
     40 => EmphasisDelimiterToken
     41 => LinkReferenceDefinitionNode
+    42 => UriAutolinkNode
+    43 => EmailAutolinkNode
+    44 => InlineHtmlNode
     _ => ErrorNode
   }
 }

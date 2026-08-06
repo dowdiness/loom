@@ -149,6 +149,40 @@ fn append_inline_text_ir(
 }
 
 ///|
+fn lower_typed_inline_angle_node(node : @seam.SyntaxNode) -> MarkdownIR {
+  let text = node.text()
+  let origin = origin_from_node(node)
+  guard text.length() >= 2 else { return MarkdownIR::text(text, origin) }
+  let value = text[1:text.length() - 1].to_owned()
+  let value_origin = MarkdownIROrigin(
+    start=origin.start() + 1,
+    end=origin.end() - 1,
+  )
+  match @seam.FromRawKind::from_raw(node.kind()) {
+    UriAutolinkNode =>
+      MarkdownIR::autolink(
+        UriAutolinkKind,
+        value,
+        normalize_autolink_uri_destination(value),
+        origin,
+        Some(value_origin),
+        Some(value_origin),
+      )
+    EmailAutolinkNode =>
+      MarkdownIR::autolink(
+        EmailAutolinkKind,
+        value,
+        "mailto:" + value,
+        origin,
+        Some(value_origin),
+        None,
+      )
+    InlineHtmlNode => MarkdownIR::inline_html(text, origin, Some(origin))
+    _ => MarkdownIR::text(text, origin)
+  }
+}
+
+///|
 fn lower_inline_text_token(token : @seam.SyntaxToken) -> MarkdownIR {
   let origin = origin_from_token(token)
   match classify_inline_angle_text(token.text()) {
@@ -1427,6 +1461,8 @@ fn lower_inline_node_with_diags(
       )
       MarkdownIR::inline_code(value, origin_from_node(node), content_origin)
     }
+    UriAutolinkNode | EmailAutolinkNode | InlineHtmlNode =>
+      lower_typed_inline_angle_node(node)
     LinkNode => lower_link_node_atoms_with_diags(node, newline_text, context)[0]
     ErrorNode => {
       let origin = origin_from_node(node)

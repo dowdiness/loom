@@ -39,6 +39,7 @@ Framework-level:
 - [api/cst-traversal-idioms.md](api/cst-traversal-idioms.md) — the three CST traversal idioms (`SyntaxNode` direct queries / `CstFold` / position-independent `CstElement` combinators) and when to use which
 - [api/authoring-only-integration.md](api/authoring-only-integration.md) — keep Loom-backed editor diagnostics/projections behind an authoring facade without leaking into runtime packages
 - [api/last-good-semantic-attachment.md](api/last-good-semantic-attachment.md) — authoring attachment pattern for immediate parser diagnostics plus last-good semantic document retention
+- [api/markdown-typed-angle-cst-compatibility.md](api/markdown-typed-angle-cst-compatibility.md) — package-wide #891 typed-angle CST compatibility inventory
 - [../loom/pkg.generated.mbti](../loom/pkg.generated.mbti) — generated `.mbti` signatures for the `@loom` facade
 
 Language-specific:
@@ -92,6 +93,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-08-06-markdown-typed-angle-cst-compatibility.md](decisions/2026-08-06-markdown-typed-angle-cst-compatibility.md) — **Accepted** append-only typed angle CST compatibility, lowering as projection, and temporary dual-read ownership (#891)
 - [decisions/2026-08-06-markdown-delimiter-plan-candidate-rejection.md](decisions/2026-08-06-markdown-delimiter-plan-candidate-rejection.md) — **Accepted** reject the online Markdown delimiter resolver after it failed the two-target representative adoption gate; retain the informational oracle matrix (#883)
 - [decisions/2026-08-05-core-collection-ownership-boundary.md](decisions/2026-08-05-core-collection-ownership-boundary.md) — **Accepted** stored CST metadata policy, opaque validated collection values, single-authority mode re-lexing, and measured internal no-copy construction (#783)
 - [decisions/2026-08-04-markdown-ir-exhaustive-read-view.md](decisions/2026-08-04-markdown-ir-exhaustive-read-view.md) — **Accepted** external adapters inspect every MarkdownIR semantic variant through one exhaustive typed view while private storage and common child/origin/diagnostic accessors remain separate (#862)
