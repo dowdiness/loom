@@ -168,6 +168,48 @@ test "experimental MarkdownIR: heading lowers with origin and Block adapter" {
 }
 
 ///|
+test "experimental MarkdownIR: CommonMark example 91 preserves block origins" {
+  let fixture = commonmark_html_fixture_case_by_example(91).unwrap()
+  let source = fixture.source
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-commonmark-example-91"),
+    source,
+  )
+  match ir.children() {
+    [first_heading, backtick_paragraph, html_heading, trailing_paragraph] => {
+      inspect(first_heading.kind_tag(), content="Heading")
+      inspect(
+        origin_source(source, first_heading.origin()),
+        content="`Foo\n----",
+      )
+      match first_heading.content_origin() {
+        Some(origin) => inspect(origin_source(source, origin), content="`Foo")
+        None => inspect("missing", content="first heading content origin")
+      }
+      inspect(backtick_paragraph.kind_tag(), content="Paragraph")
+      inspect(origin_source(source, backtick_paragraph.origin()), content="`\n")
+      inspect(html_heading.kind_tag(), content="Heading")
+      inspect(
+        origin_source(source, html_heading.origin()),
+        content="<a title=\"a lot\n---",
+      )
+      match html_heading.content_origin() {
+        Some(origin) =>
+          inspect(origin_source(source, origin), content="<a title=\"a lot")
+        None =>
+          inspect("missing", content="HTML-looking heading content origin")
+      }
+      inspect(trailing_paragraph.kind_tag(), content="Paragraph")
+      inspect(
+        origin_source(source, trailing_paragraph.origin()),
+        content="of dashes\"/>\n",
+      )
+    }
+    _ => inspect("unexpected child count", content="four example 91 blocks")
+  }
+}
+
+///|
 test "experimental MarkdownIR: paragraph lowers with text origin and Block adapter" {
   let source = "Hello world\n"
   let ir = markdown_ir_from_source(

@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=366, xfail=5, skip=0.
+// Baseline: pass=368, xfail=5, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (367, 5, 0)
+  (368, 5, 0)
 }
 
 ///|
@@ -678,6 +678,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "setext-heading-backslash-line-ending",
       source: "Foo\\\n----\n",
       expected_html: "<h2>Foo\\</h2>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 91,
+      section: "Setext headings",
+      name: "setext-heading-unmatched-code-span-and-multiline-html-looking-text",
+      source: "`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>\n",
+      expected_html: "<h2>`Foo</h2>\n<p>`</p>\n<h2>&lt;a title=&quot;a lot</h2>\n<p>of dashes&quot;/&gt;</p>\n",
       status: CommonMarkHtmlPass,
     },
     {
