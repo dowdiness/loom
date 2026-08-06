@@ -113,6 +113,28 @@ not removed or reused. Consumers that inspect Markdown CST should classify
 editable delimiter roles by the boundary token kind, not by marker spelling or
 by the enclosing `BoldNode` / `ItalicNode` alone.
 
+### Typed angle-node compatibility (#891)
+
+The CST registry now has three append-only node kinds: `UriAutolinkNode`
+(raw kind 42), `EmailAutolinkNode` (43), and `InlineHtmlNode` (44). They are a
+consumer compatibility surface for source-backed typed CST fixtures. Their
+children retain the original spelling and origins, and MarkdownIR lowering
+projects them to the existing `Autolink` and `InlineHtml` variants.
+
+This is intentionally dual-read during migration: legacy collapsed `TextToken`
+angle text remains supported, while production lexer tokenization and parser
+emission remain unchanged. #893 and #894 own production composition, emission,
+and eventual legacy-read removal. The fixtures are standalone constructed
+compatibility inputs using the exact metadata domain produced by
+`LanguageSpec::new(ErrorToken, ErrorNode, ...)`: trivia
+`[ErrorToken.to_raw()]`, error `ErrorNode`, and incomplete `ErrorNode`. The
+canonical policy provenance remains privately owned by `LanguageSpec`/#896;
+the fixture does not expose or access generic policy internals. No token,
+MarkdownIR variant, parser entry point, generic Loom API, or public Markdown
+role was added. See the
+[compatibility inventory](../../docs/api/markdown-typed-angle-cst-compatibility.md)
+and [ADR](../../docs/decisions/2026-08-06-markdown-typed-angle-cst-compatibility.md).
+
 ## Experimental MarkdownIR
 
 The M1 MarkdownIR API is explicitly experimental. It covers the current parser

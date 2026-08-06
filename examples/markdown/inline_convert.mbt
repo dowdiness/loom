@@ -372,6 +372,23 @@ fn convert_direct_inline_children_with_newline(
 
 ///|
 /// Convert an inline CST node to Inline values and push into the inlines array.
+fn convert_typed_inline_angle_node(node : @seam.SyntaxNode) -> Inline {
+  let text = node.text()
+  guard text.length() >= 2 else { return Inline::Text(text) }
+  let value = text[1:text.length() - 1].to_owned()
+  match @seam.FromRawKind::from_raw(node.kind()) {
+    UriAutolinkNode =>
+      Inline::Link(
+        [Inline::Text(value)],
+        normalize_autolink_uri_destination(value),
+      )
+    EmailAutolinkNode => Inline::Link([Inline::Text(value)], "mailto:" + value)
+    InlineHtmlNode => Inline::Text(text)
+    _ => Inline::Text(text)
+  }
+}
+
+///|
 fn convert_inline_node(
   child : @seam.SyntaxNode,
   inlines : Array[Inline],
@@ -398,6 +415,8 @@ fn convert_inline_node(
       let (value, _) = lower_code_span(child)
       inlines.push(Inline::InlineCode(value))
     }
+    UriAutolinkNode | EmailAutolinkNode | InlineHtmlNode =>
+      inlines.push(convert_typed_inline_angle_node(child))
     LinkNode => {
       // Extract display text (inside []) and URL (inside ())
       let display : Array[Inline] = []
