@@ -50,6 +50,27 @@ fn delimiter_performance_plain_control(source : String) -> String {
 }
 
 ///|
+// The control keeps the conflict workload's byte length and delimiter counts,
+// but moves one right bracket out of each code span. It is deliberately named
+// as a token-count control rather than an equivalent Markdown-shape control:
+// the extra closing brackets are part of the measured recovery workload.
+fn delimiter_performance_code_conflict_workloads(
+  repeat_count : Int,
+) -> (String, String) {
+  guard repeat_count > 0 else {
+    abort("delimiter performance conflict repeat count must be positive")
+  }
+  let conflict = "[a `x]` b] [c `y]` d] ![e `z]` f]\n".repeat(repeat_count)
+  let token_count_control = "[a `x` b]] [c `y` d]] ![e `z` f]]\n".repeat(
+    repeat_count,
+  )
+  guard conflict.length() == token_count_control.length() else {
+    abort("delimiter performance conflict control length mismatch")
+  }
+  (conflict, token_count_control)
+}
+
+///|
 fn delimiter_performance_replace_one(
   source : String,
   start : Int,
@@ -319,6 +340,61 @@ test "delimiter performance workload is deterministic and length matched" {
       "y",
     )
   }
+}
+
+///|
+test "delimiter performance conflict workload scales with matched control" {
+  let (small_conflict, small_control) = delimiter_performance_code_conflict_workloads(
+    64,
+  )
+  let (large_conflict, large_control) = delimiter_performance_code_conflict_workloads(
+    256,
+  )
+  assert_eq(small_conflict.length(), small_control.length())
+  assert_eq(large_conflict.length(), large_control.length())
+  assert_eq(large_conflict.length(), small_conflict.length() * 4)
+  assert_eq(large_control.length(), small_control.length() * 4)
+}
+
+///|
+fn benchmark_delimiter_performance_code_conflict(
+  b : @bench.T,
+  source_identity : String,
+  source : String,
+) -> Unit {
+  benchmark_delimiter_performance_full_parse(b, source_identity, source)
+}
+
+///|
+test "markdown code-conflict 64x full parse" (b : @bench.T) {
+  let (conflict, _) = delimiter_performance_code_conflict_workloads(64)
+  benchmark_delimiter_performance_code_conflict(
+    b, "markdown-code-conflict-64-full", conflict,
+  )
+}
+
+///|
+test "markdown code-conflict token-count control 64x full parse" (b : @bench.T) {
+  let (_, control) = delimiter_performance_code_conflict_workloads(64)
+  benchmark_delimiter_performance_code_conflict(
+    b, "markdown-code-conflict-token-count-control-64-full", control,
+  )
+}
+
+///|
+test "markdown code-conflict 256x full parse" (b : @bench.T) {
+  let (conflict, _) = delimiter_performance_code_conflict_workloads(256)
+  benchmark_delimiter_performance_code_conflict(
+    b, "markdown-code-conflict-256-full", conflict,
+  )
+}
+
+///|
+test "markdown code-conflict token-count control 256x full parse" (b : @bench.T) {
+  let (_, control) = delimiter_performance_code_conflict_workloads(256)
+  benchmark_delimiter_performance_code_conflict(
+    b, "markdown-code-conflict-token-count-control-256-full", control,
+  )
 }
 
 ///|
