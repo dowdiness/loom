@@ -80,6 +80,67 @@ fn delimiter_plan_find(source : String, target : String) -> Int {
 }
 
 ///|
+fn delimiter_plan_edit_fixture() -> (String, String, @core.Edit) {
+  let source = delimiter_plan_representative_excerpt()
+  let start = delimiter_plan_find(source, "*ordinary emphasis*")
+  guard start >= 0 else { abort("delimiter-plan edit target not found") }
+  (
+    source,
+    source[:start].to_owned() + "_" + source[start + 1:].to_owned(),
+    @core.Edit::new(start, 1, 1),
+  )
+}
+
+///|
+fn delimiter_plan_new_parser(
+  source_id : @core.SourceId,
+  source : String,
+) -> @loom.SyntaxParser {
+  @loom.new_syntax_parser(
+    source_id,
+    source,
+    markdown_grammar.to_syntax_grammar(),
+  )
+}
+
+///|
+fn delimiter_plan_parser_ir(
+  source_id : @core.SourceId,
+  parser : @loom.SyntaxParser,
+) -> MarkdownIR {
+  experimental_markdown_ir_from_syntax_with_diagnostics(
+    source_id,
+    parser.syntax_tree().read_or_abort(),
+    parser.diagnostics().read_or_abort(),
+  )
+}
+
+///|
+fn assert_delimiter_plan_parser_matches_fresh(
+  source_id : @core.SourceId,
+  label : String,
+  parser : @loom.SyntaxParser,
+  source : String,
+) -> Unit raise {
+  let fresh = delimiter_plan_new_parser(source_id, source)
+  guard parser.source().read_or_abort() == source else {
+    fail("unexpected delimiter-plan source: " + label)
+  }
+  assert_eq(
+    parser.syntax_tree().read_or_abort(),
+    fresh.syntax_tree().read_or_abort(),
+  )
+  assert_eq(
+    parser.diagnostics().read_or_abort(),
+    fresh.diagnostics().read_or_abort(),
+  )
+  assert_eq(
+    delimiter_plan_parser_ir(source_id, parser),
+    delimiter_plan_parser_ir(source_id, fresh),
+  )
+}
+
+///|
 fn delimiter_plan_parse_cst(
   source_id : @core.SourceId,
   source : String,
@@ -121,9 +182,9 @@ fn benchmark_delimiter_plan_cst_ir(
 }
 
 ///|
-test "delimiter candidate: representative oracle is deterministic" {
+test "delimiter prototype: representative oracle is deterministic" {
   let source = delimiter_plan_representative_excerpt()
-  let source_id = @core.SourceId("markdown-delimiter-candidate-oracle")
+  let source_id = @core.SourceId("markdown-delimiter-prototype-oracle")
   let (first_cst, first_diagnostics) = delimiter_plan_parse_cst(
     source_id, source,
   )
@@ -147,62 +208,77 @@ test "delimiter candidate: representative oracle is deterministic" {
 }
 
 ///|
-test "delimiter candidate: representative CST" (b : @bench.T) {
+test "delimiter prototype: incremental edit and restore match fresh parses" {
+  let source_id = @core.SourceId("markdown-delimiter-prototype-incremental")
+  let (source, edited, edit) = delimiter_plan_edit_fixture()
+  let parser = delimiter_plan_new_parser(source_id, source)
+  parser.apply_edit(edit, edited)
+  assert_delimiter_plan_parser_matches_fresh(
+    source_id, "after edit", parser, edited,
+  )
+  parser.apply_edit(edit, source)
+  assert_delimiter_plan_parser_matches_fresh(
+    source_id, "after restore", parser, source,
+  )
+}
+
+///|
+test "delimiter prototype: representative CST" (b : @bench.T) {
   benchmark_delimiter_plan_cst(
     b,
-    @core.SourceId("markdown-delimiter-candidate-representative"),
+    @core.SourceId("markdown-delimiter-prototype-representative"),
     delimiter_plan_representative_excerpt(),
   )
 }
 
 ///|
-test "delimiter candidate: representative CST and MarkdownIR" (b : @bench.T) {
+test "delimiter prototype: representative CST and MarkdownIR" (b : @bench.T) {
   benchmark_delimiter_plan_cst_ir(
     b,
-    @core.SourceId("markdown-delimiter-candidate-representative-ir"),
+    @core.SourceId("markdown-delimiter-prototype-representative-ir"),
     delimiter_plan_representative_excerpt(),
   )
 }
 
 ///|
-test "delimiter candidate: matched plain CST" (b : @bench.T) {
+test "delimiter prototype: matched plain CST" (b : @bench.T) {
   let source = delimiter_plan_representative_excerpt()
   benchmark_delimiter_plan_cst(
     b,
-    @core.SourceId("markdown-delimiter-candidate-plain"),
+    @core.SourceId("markdown-delimiter-prototype-plain"),
     delimiter_plan_plain_control(source),
   )
 }
 
 ///|
-test "delimiter candidate: mixed Markdown CST" (b : @bench.T) {
+test "delimiter prototype: mixed Markdown CST" (b : @bench.T) {
   benchmark_delimiter_plan_cst(
     b,
-    @core.SourceId("markdown-delimiter-candidate-mixed"),
+    @core.SourceId("markdown-delimiter-prototype-mixed"),
     delimiter_plan_mixed_control(64),
   )
 }
 
 ///|
-test "delimiter candidate: HTML control CST" (b : @bench.T) {
+test "delimiter prototype: HTML control CST" (b : @bench.T) {
   benchmark_delimiter_plan_cst(
     b,
-    @core.SourceId("markdown-delimiter-candidate-html"),
+    @core.SourceId("markdown-delimiter-prototype-html"),
     "<div>\nraw <span>payload</span>\n</div>\n\n".repeat(128),
   )
 }
 
 ///|
-test "delimiter candidate: fenced-code control CST" (b : @bench.T) {
+test "delimiter prototype: fenced-code control CST" (b : @bench.T) {
   benchmark_delimiter_plan_cst(
     b,
-    @core.SourceId("markdown-delimiter-candidate-fenced"),
+    @core.SourceId("markdown-delimiter-prototype-fenced"),
     delimiter_plan_fenced_control(128),
   )
 }
 
 ///|
-test "delimiter candidate: representative tokenize only" (b : @bench.T) {
+test "delimiter prototype: representative tokenize only" (b : @bench.T) {
   let source = delimiter_plan_representative_excerpt()
   b.bench(() => {
     let tokens = tokenize(source) catch {
@@ -213,19 +289,12 @@ test "delimiter candidate: representative tokenize only" (b : @bench.T) {
 }
 
 ///|
-test "delimiter candidate: representative incremental edit and restore" (
+test "delimiter prototype: representative incremental edit and restore" (
   b : @bench.T,
 ) {
-  let source = delimiter_plan_representative_excerpt()
-  let start = delimiter_plan_find(source, "*ordinary emphasis*")
-  guard start >= 0 else { abort("delimiter-plan edit target not found") }
-  let edited = source[:start].to_owned() + "_" + source[start + 1:].to_owned()
-  let edit = @core.Edit::new(start, 1, 1)
-  let parser = @loom.new_syntax_parser(
-    @core.SourceId("markdown-delimiter-candidate-incremental"),
-    source,
-    markdown_grammar.to_syntax_grammar(),
-  )
+  let source_id = @core.SourceId("markdown-delimiter-prototype-incremental")
+  let (source, edited, edit) = delimiter_plan_edit_fixture()
+  let parser = delimiter_plan_new_parser(source_id, source)
   ignore(parser.syntax_tree().read_or_abort())
   b.bench(() => {
     parser.apply_edit(edit, edited)

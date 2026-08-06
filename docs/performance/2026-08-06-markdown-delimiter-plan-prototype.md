@@ -159,5 +159,5 @@ of already-defined resolver facts. Remaining mutation was limited to parser
 cursor effects, the existing linked active-run state, scope stack, and benchmark
 builders. No helper or mutation from the candidate remains in production.
 
-No ADR is needed: the prototype rejected its candidate and made no public API,
-architecture policy, or subsystem decision change.
+The decision not to adopt the candidate is recorded in
+[ADR 2026-08-06](../decisions/2026-08-06-markdown-delimiter-plan-candidate-rejection.md).

@@ -91,6 +91,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-08-06-markdown-delimiter-plan-candidate-rejection.md](decisions/2026-08-06-markdown-delimiter-plan-candidate-rejection.md) — **Accepted** reject the online Markdown delimiter resolver after it failed the two-target representative adoption gate; retain the informational oracle matrix (#883)
 - [decisions/2026-08-05-core-collection-ownership-boundary.md](decisions/2026-08-05-core-collection-ownership-boundary.md) — **Accepted** stored CST metadata policy, opaque validated collection values, single-authority mode re-lexing, and measured internal no-copy construction (#783)
 - [decisions/2026-08-04-markdown-ir-exhaustive-read-view.md](decisions/2026-08-04-markdown-ir-exhaustive-read-view.md) — **Accepted** external adapters inspect every MarkdownIR semantic variant through one exhaustive typed view while private storage and common child/origin/diagnostic accessors remain separate (#862)
 - [decisions/2026-08-04-markdown-semantic-attachment-boundary.md](decisions/2026-08-04-markdown-semantic-attachment-boundary.md) — **Accepted** one opaque attachment reads owning MarkdownIR from a caller-owned `Parser[Block]` and performs stale-work collection internally (#863)
