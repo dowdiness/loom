@@ -595,19 +595,6 @@ fn classify_inline_angle_at_with_index(
 }
 
 ///|
-fn classify_inline_angle_at(input : String, start : Int) -> InlineAngleMatch? {
-  classify_inline_angle_at_with_index(input, start, None)
-}
-
-///|
-fn classify_inline_angle_text(text : String) -> InlineAngleMatch? {
-  match classify_inline_angle_at(text, 0) {
-    Some(candidate) if candidate.end == text.length() => Some(candidate)
-    _ => None
-  }
-}
-
-///|
 fn normalize_autolink_uri_destination(value : String) -> String {
   let buf = StringBuilder::StringBuilder()
   for ch in value {

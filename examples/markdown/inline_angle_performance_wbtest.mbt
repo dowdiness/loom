@@ -46,7 +46,7 @@ test "indexed inline angle lexing matches the stateless reference" {
   let cases = [
     "x <!--a--> y\n", "x <![CDATA[a<b]]> y\n", "x <?target a?> y\n", "x <!DOCTYPE html> y\n",
     "x <a title='a<b'>y</a>\n", "x <a title=\"line one\nline two\">y</a>\n", "<a title=\"a lot\n---\nof dashes\"/>\n",
-    "x <!--x<!--x\n",
+    "`<a href=\"`\">`\n", "<a href=\"`\">`\n", "x <!--x<!--x\n",
   ]
   for source in cases {
     let indexed = tokenize(source) catch { _ => fail("indexed lex failed") }
@@ -218,4 +218,95 @@ test "markdown successful multiline inline HTML 512x stateless tokenize" (
     }
     b.keep(tokens)
   })
+}
+
+///|
+fn benchmark_inline_html_cst(
+  b : @bench.T,
+  source_id : @core.SourceId,
+  source : String,
+) -> Unit {
+  b.bench(() => {
+    let (cst, diagnostics) = parse_cst(source_id, source) catch {
+      _ => abort("inline HTML CST benchmark parse failed")
+    }
+    b.keep(cst)
+    b.keep(diagnostics)
+  })
+}
+
+///|
+test "markdown successful single-line inline HTML 512x CST" (b : @bench.T) {
+  benchmark_inline_html_cst(
+    b,
+    @core.SourceId("markdown-inline-html-single-line-cst"),
+    successful_single_line_inline_html_workload(512),
+  )
+}
+
+///|
+test "markdown successful multiline inline HTML 512x CST" (b : @bench.T) {
+  benchmark_inline_html_cst(
+    b,
+    @core.SourceId("markdown-inline-html-multiline-cst"),
+    successful_multiline_inline_html_workload(512),
+  )
+}
+
+///|
+test "markdown backtick-bearing inline HTML 512x CST" (b : @bench.T) {
+  benchmark_inline_html_cst(
+    b,
+    @core.SourceId("markdown-inline-html-backtick-cst"),
+    "prefix <a title=\"`\">` suffix\n".repeat(512),
+  )
+}
+
+///|
+fn benchmark_inline_html_cst_ir(
+  b : @bench.T,
+  source_id : @core.SourceId,
+  source : String,
+) -> Unit {
+  b.bench(() => {
+    let (cst, diagnostics) = parse_cst(source_id, source) catch {
+      _ => abort("inline HTML CST plus IR benchmark parse failed")
+    }
+    let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+      source_id,
+      @seam.SyntaxNode::from_cst(cst),
+      diagnostics,
+    )
+    b.keep(cst)
+    b.keep(ir)
+  })
+}
+
+///|
+test "markdown successful single-line inline HTML 512x CST plus IR" (
+  b : @bench.T,
+) {
+  benchmark_inline_html_cst_ir(
+    b,
+    @core.SourceId("markdown-inline-html-single-line-cst-ir"),
+    successful_single_line_inline_html_workload(512),
+  )
+}
+
+///|
+test "markdown successful multiline inline HTML 512x CST plus IR" (b : @bench.T) {
+  benchmark_inline_html_cst_ir(
+    b,
+    @core.SourceId("markdown-inline-html-multiline-cst-ir"),
+    successful_multiline_inline_html_workload(512),
+  )
+}
+
+///|
+test "markdown backtick-bearing inline HTML 512x CST plus IR" (b : @bench.T) {
+  benchmark_inline_html_cst_ir(
+    b,
+    @core.SourceId("markdown-inline-html-backtick-cst-ir"),
+    "prefix <a title=\"`\">` suffix\n".repeat(512),
+  )
 }
