@@ -106,6 +106,43 @@ test "markdown angle-free 4096x stateless tokenize" (b : @bench.T) {
 }
 
 ///|
+fn greater_than_heavy_inline_workload(repeat_count : Int) -> String {
+  let builder = StringBuilder::StringBuilder()
+  for i = 0; i < repeat_count; i = i + 1 {
+    builder.write_string("plain text > with a marker and >> more >> ")
+  }
+  builder.write_char('\n')
+  builder.to_string()
+}
+
+///|
+// A `>`-heavy, `<`-free control: every `>` becomes a one-character Text token
+// boundary while no angle index or autolink plan is constructed. This measures
+// the unavoidable `>` boundary cost separately from semantic angle planning.
+test "markdown greater-than-heavy 4096x indexed tokenize" (b : @bench.T) {
+  let source = greater_than_heavy_inline_workload(4096)
+  b.bench(() => {
+    let tokens = tokenize(source) catch { _ => abort("indexed lex failed") }
+    b.keep(tokens)
+  })
+}
+
+///|
+test "markdown greater-than-heavy 4096x stateless tokenize" (b : @bench.T) {
+  let source = greater_than_heavy_inline_workload(4096)
+  b.bench(() => {
+    let (tokens, _) = @core.tokenize_with_modes(
+      markdown_mode_lexer,
+      source,
+      EOF,
+    ) catch {
+      _ => abort("stateless lex failed")
+    }
+    b.keep(tokens)
+  })
+}
+
+///|
 fn successful_single_line_inline_html_workload(repeat_count : Int) -> String {
   let builder = StringBuilder::StringBuilder()
   for i = 0; i < repeat_count; i = i + 1 {

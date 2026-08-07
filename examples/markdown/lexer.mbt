@@ -622,7 +622,7 @@ fn lex_block_quote_line_start(
 /// Special characters that terminate a Text run in Inline mode.
 fn is_inline_special(ch : Char) -> Bool {
   match ch {
-    '*' | '_' | '`' | '[' | ']' | '(' | ')' | '<' | '\r' | '\n' => true
+    '*' | '_' | '`' | '[' | ']' | '(' | ')' | '<' | '>' | '\r' | '\n' => true
     _ => false
   }
 }
@@ -658,17 +658,10 @@ fn lex_inline(
     [')', .. rest] => produced_until(RightParen, pos, rest, Inline)
     ['<', ..] =>
       match classify_inline_angle_at_with_index(input, pos, delimiter_index) {
-        Some(candidate) => {
-          let end = match candidate.kind {
-            InlineAngleKind::InlineHtmlAngle =>
-              multiline_inline_html_setext_boundary(
-                input,
-                pos,
-                candidate.end,
-                delimiter_index,
-              ).unwrap_or(candidate.end)
-            _ => candidate.end
-          }
+        Some({ kind: InlineAngleKind::InlineHtmlAngle, end: candidate_end }) => {
+          let end = multiline_inline_html_setext_boundary(
+            input, pos, candidate_end, delimiter_index,
+          ).unwrap_or(candidate_end)
           let text = input[pos:end].to_owned()
           (
             Produced(
@@ -678,12 +671,15 @@ fn lex_inline(
             Inline,
           )
         }
-        None =>
+        Some({ kind: InlineAngleKind::UriAutolink, .. })
+        | Some({ kind: InlineAngleKind::EmailAutolink, .. })
+        | None =>
           (
             Produced(@core.TokenInfo::new(Text("<"), 1), next_offset=pos + 1),
             Inline,
           )
       }
+    ['>', .. rest] => produced_until(Text(">"), pos, rest, Inline)
     _ => {
       // Text run: consume until next special char or newline
       let mut end = @core.next_char_offset(input, pos)
@@ -691,6 +687,7 @@ fn lex_inline(
         match char_at(input, end) {
           Some(ch) if is_inline_special(ch) =>
             if ch != '`' &&
+              ch != '>' &&
               ch != '\r' &&
               ch != '\n' &&
               end > pos &&

@@ -96,6 +96,27 @@ test "incremental inline angle candidates match fresh parsing at every boundary"
       "<p><a href=\"http://foo.bar.baz\">http://foo.bar.baz</a></p>\n",
     ),
     (
+      "code to URI precedence",
+      "`<https://foo.bar.`baz>`\n",
+      @core.Edit::delete(0, 1),
+      "<https://foo.bar.`baz>`\n",
+      "<p><a href=\"https://foo.bar.%60baz\">https://foo.bar.`baz</a>`</p>\n",
+    ),
+    (
+      "URI to code precedence",
+      "<https://foo.bar.`baz>`\n",
+      @core.Edit::insert(0, 1),
+      "`<https://foo.bar.`baz>`\n",
+      "<p><code>&lt;https://foo.bar.</code>baz&gt;`</p>\n",
+    ),
+    (
+      "crossing autolink construction",
+      "[foo<https://example.com/?search=](uri)\n",
+      @core.Edit::insert("[foo<https://example.com/?search=](uri)".length(), 1),
+      "[foo<https://example.com/?search=](uri)>\n",
+      "<p>[foo<a href=\"https://example.com/?search=%5D(uri)\">https://example.com/?search=](uri)</a></p>\n",
+    ),
+    (
       "email destruction",
       "<foo@bar.example.com>\n",
       @core.Edit::delete("<foo".length(), 1),

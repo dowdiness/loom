@@ -183,7 +183,7 @@ test "checked canonical benchmark operation counts stay deterministic" {
       #|bounded failure:3/2/2/3/1/limit-2-1
       #|flat adjacency:4/3/3/4/2/ok
       #|recursive nesting:4/1/1/4/1/ok
-      #|marker-backslash-heavy text:3/2/2/3/2/ok
+      #|marker-backslash-heavy text:6/3/3/6/3/ok
       #|link-code opacity:3/2/2/3/2/ok
       #|Unicode punctuation:3/1/1/3/1/ok
     ),

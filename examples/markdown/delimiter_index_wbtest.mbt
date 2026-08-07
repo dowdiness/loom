@@ -16,6 +16,7 @@ fn benchmark_delimiter_index(b : @bench.T, run_count : Int) -> Unit {
     let index : CodeSpanDelimiterIndex = {
       eligible_openers: Map([]),
       successors: Map([]),
+      has_angle_open: false,
     }
     let previous_by_length : Map[Int, Int] = Map([])
     for i in 0..<run_count {

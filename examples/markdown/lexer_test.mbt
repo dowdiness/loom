@@ -141,6 +141,25 @@ test "lexer: link brackets" {
 }
 
 ///|
+test "lexer: autolinks expose angle and backtick facts without splitting ordinary text" {
+  let uri = tokenize("<https://foo.bar.`baz>`\n")
+  inspect(
+    uri.map(token => @debug.to_string(token.token)).join("|"),
+    content="Text(\"<\")|Text(\"https://foo.bar.\")|Backtick|Text(\"baz\")|Text(\">\")|Backtick|Newline|EOF",
+  )
+  let email = tokenize("<foo@bar.example>\n")
+  inspect(
+    email.map(token => @debug.to_string(token.token)).join("|"),
+    content="Text(\"<\")|Text(\"foo@bar.example\")|Text(\">\")|Newline|EOF",
+  )
+  let inline_html = tokenize("<i>text</i>\n")
+  inspect(
+    inline_html.map(token => @debug.to_string(token.token)).join("|"),
+    content="Text(\"<i>\")|Text(\"text\")|Text(\"</i>\")|Newline|EOF",
+  )
+}
+
+///|
 test "lexer: baseline indentation exposes normal line-start tokens" {
   let tokens = tokenize("    `code`\n  # heading\n")
   inspect(@debug.to_string(tokens[0].token), content="Indentation(\"    \")")

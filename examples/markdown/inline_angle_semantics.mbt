@@ -615,6 +615,7 @@ fn normalize_autolink_uri_destination(value : String) -> String {
       '[' => buf.write_string("%5B")
       '\\' => buf.write_string("%5C")
       ']' => buf.write_string("%5D")
+      '`' => buf.write_string("%60")
       _ => buf.write_char(ch)
     }
   }
