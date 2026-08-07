@@ -269,31 +269,35 @@ fn CstNode::new_owned(
   children : Array[CstElement],
   policy~ : CstMetadataPolicy,
 ) -> CstNode raise Failure {
-  for child in children {
-    match child {
-      Node(node) if !policy_equal(node.policy, policy) =>
-        fail("CstNode: child metadata policy mismatch")
-      _ => ()
-    }
-  }
   let RawKind(k) = kind
+  let is_unclassified = physical_equal(
+    policy,
+    CstMetadataPolicy::unclassified(),
+  )
   let mut text_len = 0
   let mut h = combine_hash(policy.semantic_hash, k)
   let mut token_count = 0
-  let mut has_any_error = policy.is_error_signal(kind)
+  let mut has_any_error = if is_unclassified {
+    false
+  } else {
+    policy.is_error_signal(kind)
+  }
   for child in children {
     text_len = text_len + child.text_len()
     h = combine_hash(h, child_hash(child))
     match child {
       Token(t) => {
-        if !policy.is_trivia(t.kind) {
+        if is_unclassified || !policy.is_trivia(t.kind) {
           token_count = token_count + 1
         }
-        if !has_any_error && policy.is_error_signal(t.kind) {
+        if !is_unclassified && !has_any_error && policy.is_error_signal(t.kind) {
           has_any_error = true
         }
       }
       Node(n) => {
+        if !physical_equal(n.policy, policy) && !policy_equal(n.policy, policy) {
+          fail("CstNode: child metadata policy mismatch")
+        }
         token_count = token_count + n.token_count
         if !has_any_error && n.has_any_error {
           has_any_error = true
