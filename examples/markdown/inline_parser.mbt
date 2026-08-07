@@ -97,9 +97,13 @@ priv struct InlineAnalysisToken {
 ///|
 priv struct InlineLinkDelimiterIndex {
   candidates : Array[InlineLinkCandidate]
+  bracket_matches : Map[Int, InlineBracketMatch]
   candidate_by_opener : Map[Int, Int]
   candidate_by_suffix : Map[Int, Int]
   candidate_by_label_closer : Map[Int, Int]
+  code_conflict_openers : Map[Int, Bool]
+  code_conflict_closers : Map[Int, Bool]
+  code_conflict_parens : Map[Int, Bool]
 }
 
 ///|
@@ -107,6 +111,18 @@ priv enum InlineLinkSyntacticForm {
   InlineTargetForm
   FullReferenceForm
   CollapsedReferenceForm
+}
+
+///|
+priv struct InlineBracketFrame {
+  index : Int
+  code_conflict_generation : Int
+}
+
+///|
+priv struct InlineBracketMatch {
+  closer_index : Int
+  code_conflict : Bool
 }
 
 ///|
@@ -249,6 +265,21 @@ fn finalize_inline_link_candidates(
       links.candidate_by_opener[candidate.opener_start] = index
       links.candidate_by_suffix[candidate.suffix_start] = index
       links.candidate_by_label_closer[candidate.label_closer_start] = index
+    }
+  }
+
+  // A code span may make a matched bracket pair literal even though the
+  // opener was eventually popped by a visible closer. Defer both endpoint
+  // marks until active candidates have claimed their pair; otherwise a later
+  // valid link candidate must remain visible to the parser.
+  for opener_index, bracket_match in links.bracket_matches {
+    if bracket_match.code_conflict {
+      let opener_start = tokens[opener_index].start
+      let closer_start = tokens[bracket_match.closer_index].start
+      if links.candidate_by_opener.get(opener_start) is None {
+        links.code_conflict_openers[opener_start] = true
+        links.code_conflict_closers[closer_start] = true
+      }
     }
   }
 }
@@ -580,19 +611,54 @@ fn index_inline_links(
   tokens : Array[InlineAnalysisToken],
   code_delimiters : CodeSpanDelimiterIndex,
 ) -> InlineLinkDelimiterIndex {
-  let bracket_matches : Map[Int, Int] = Map([])
-  let bracket_stack : Array[Int] = []
+  let bracket_matches : Map[Int, InlineBracketMatch] = Map([])
+  let bracket_stack : Array[InlineBracketFrame] = []
+  // A bracket opened before an opaque code span cannot be closed by a right
+  // bracket inside that span. Keep this fact in the same indexed authority so
+  // the parser can emit the opener literally when no later source closer
+  // makes the label valid. A generation records the fact without walking all
+  // open brackets for every code span.
+  let code_conflict_openers : Map[Int, Bool] = Map([])
+  let code_conflict_closers : Map[Int, Bool] = Map([])
+  let code_conflict_parens : Map[Int, Bool] = Map([])
+  let mut code_conflict_generation = 0
   let mut index = 0
   while index < tokens.length() {
     match analysis_code_closer_index(tokens, index, code_delimiters) {
-      Some(closer) => index = closer + 1
+      Some(closer) => {
+        let mut contains_right_bracket = false
+        for code_index = index + 1
+            code_index < closer
+            code_index = code_index + 1 {
+          if tokens[code_index].kind == AnalysisRightBracket {
+            contains_right_bracket = true
+            break
+          }
+        }
+        if contains_right_bracket && bracket_stack.length() > 0 {
+          code_conflict_generation = code_conflict_generation + 1
+          if closer + 1 < tokens.length() &&
+            tokens[closer + 1].kind == AnalysisRightParen {
+            code_conflict_parens[tokens[closer + 1].start] = true
+          }
+        }
+        index = closer + 1
+      }
       None => {
         match tokens[index].kind {
           AnalysisLineBoundary => ()
-          AnalysisLeftBracket => bracket_stack.push(index)
+          AnalysisLeftBracket =>
+            bracket_stack.push({ index, code_conflict_generation })
           AnalysisRightBracket =>
             match bracket_stack.pop() {
-              Some(opener) => bracket_matches[opener] = index
+              Some(opener) => {
+                let code_conflict = opener.code_conflict_generation <
+                  code_conflict_generation
+                bracket_matches[opener.index] = {
+                  closer_index: index,
+                  code_conflict,
+                }
+              }
               None => ()
             }
           _ => ()
@@ -601,12 +667,21 @@ fn index_inline_links(
       }
     }
   }
+  for opener in bracket_stack {
+    if opener.code_conflict_generation < code_conflict_generation {
+      code_conflict_openers[tokens[opener.index].start] = true
+    }
+  }
   let destination_boundaries = index_inline_destinations(tokens)
   let links : InlineLinkDelimiterIndex = {
     candidates: [],
+    bracket_matches,
     candidate_by_opener: Map([]),
     candidate_by_suffix: Map([]),
     candidate_by_label_closer: Map([]),
+    code_conflict_openers,
+    code_conflict_closers,
+    code_conflict_parens,
   }
   index = 0
   while index < tokens.length() {
@@ -615,8 +690,9 @@ fn index_inline_links(
       None => {
         match tokens[index].kind {
           AnalysisLeftBracket =>
-            match bracket_matches.get(index) {
-              Some(label_closer) => {
+            match links.bracket_matches.get(index) {
+              Some(label_match) => {
+                let label_closer = label_match.closer_index
                 let after_label = label_closer + 1
                 if after_label < tokens.length() &&
                   tokens[after_label].kind == AnalysisLeftParen {
@@ -647,7 +723,9 @@ fn index_inline_links(
                   }
                 } else if after_label < tokens.length() &&
                   tokens[after_label].kind == AnalysisLeftBracket &&
-                  bracket_matches.get(after_label) is Some(reference_closer) {
+                  links.bracket_matches.get(after_label)
+                  is Some(reference_match) {
+                  let reference_closer = reference_match.closer_index
                   let form = if reference_closer == after_label + 1 {
                     CollapsedReferenceForm
                   } else {
@@ -1132,12 +1210,22 @@ fn parse_inline(
   match ctx.peek() {
     Star | StarStar | Underscore => ctx.emit_token(TextToken)
     Backtick => parse_indexed_inline_code(ctx, delimiters, continue_line)
+    RightParen if links.code_conflict_parens
+      .get(ctx.current_token_range().start)
+      .unwrap_or(false) => ctx.emit_token(TextToken)
+    RightBracket if links.code_conflict_closers
+      .get(ctx.current_token_range().start)
+      .unwrap_or(false) => ctx.emit_token(TextToken)
     LeftBracket => {
       let opener_start = ctx.current_token_range().start
       if inline_link_candidate_for_opener(links, opener_start) is Some(_) {
         parse_link(
           ctx, policy, delimiters, links, delimiter_cursor, continue_line,
         )
+      } else if links.code_conflict_openers.get(opener_start).unwrap_or(false) {
+        // The code-span index has already made the crossing link boundary
+        // literal. Do not manufacture recovery for a bracket that code owns.
+        ctx.emit_token(TextToken)
       } else {
         ctx.start_node(ErrorNode)
         ctx.emit_token(LeftBracketToken)
