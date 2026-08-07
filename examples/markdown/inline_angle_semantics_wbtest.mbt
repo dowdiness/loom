@@ -376,6 +376,27 @@ test "issue 893: an autolink deactivates every enclosing ordinary link" {
 }
 
 ///|
+test "issue 893: multiple autolinks deactivate one enclosing link label" {
+  let source = "[<http://a> <http://b>](url)\n"
+  let expected_html = "<p>[<a href=\"http://a\">http://a</a> <a href=\"http://b\">http://b</a>](url)</p>\n"
+  let (cst, diagnostics) = parse_cst(
+    @core.SourceId("issue-893-multi-autolink-label"),
+    source,
+  ) catch {
+    _ => abort("Issue #893 multi-autolink parse failed")
+  }
+  assert_eq(diagnostics.length(), 0)
+  assert_eq(
+    issue_893_inline_node_texts(
+      @seam.SyntaxNode::from_cst(cst),
+      UriAutolinkNode,
+    ),
+    ["<http://a>", "<http://b>"],
+  )
+  assert_inline_angle_html(source, expected_html)
+}
+
+///|
 test "inline angle MarkdownIR uses legacy editor types without changing links" {
   let ordinary_link_source = "x [foo](bar)\n"
   assert_eq(

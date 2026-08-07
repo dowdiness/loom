@@ -983,6 +983,9 @@ fn resolve_inline_autolink_link_conflicts(
               stack_index = stack_index - 1 {
             let link_index = label_stack[stack_index]
             let link = links.candidates[link_index]
+            // All candidates enter `active`; this break only fires for links
+            // already deactivated by an earlier autolink in this same pass,
+            // so every remaining ancestor is inactive too.
             if !link.active {
               break
             }
