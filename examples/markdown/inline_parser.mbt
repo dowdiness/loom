@@ -33,6 +33,7 @@ fn token_is_inline_end(token : Token, policy : InlineParsePolicy) -> Bool {
 priv struct CodeSpanDelimiterIndex {
   eligible_openers : Map[Int, Bool]
   successors : Map[Int, Int]
+  mut has_angle_open : Bool
 }
 
 ///|
@@ -79,6 +80,8 @@ priv enum InlineAnalysisTokenKind {
   AnalysisRightBracket
   AnalysisLeftParen
   AnalysisRightParen
+  AnalysisAngleOpen
+  AnalysisAngleClose
   AnalysisLineBoundary
   AnalysisOther
 } derive(Eq)
@@ -97,6 +100,7 @@ priv struct InlineAnalysisToken {
 ///|
 priv struct InlineLinkDelimiterIndex {
   candidates : Array[InlineLinkCandidate]
+  autolinks : InlineAutolinkIndex?
   bracket_matches : Map[Int, InlineBracketMatch]
   candidate_by_opener : Map[Int, Int]
   candidate_by_suffix : Map[Int, Int]
@@ -141,6 +145,19 @@ priv struct InlineLinkCandidate {
   mut disposition : InlineLinkCandidateDisposition
   is_image : Bool
   mut active : Bool
+}
+
+///|
+priv struct InlineAutolinkCandidate {
+  kind : InlineAngleKind
+  start : Int
+  end : Int
+}
+
+///|
+priv struct InlineAutolinkIndex {
+  candidates : Array[InlineAutolinkCandidate]
+  candidate_by_opener : Map[Int, Int]
 }
 
 ///|
@@ -232,7 +249,8 @@ fn finalize_inline_link_candidates(
       destination_starts.get(offset).unwrap_or(0)
     while candidate_cursor < links.candidates.length() &&
           links.candidates[candidate_cursor].opener_start == offset {
-      links.candidates[candidate_cursor].active = destination_coverage == 0
+      links.candidates[candidate_cursor].active = links.candidates[candidate_cursor].active &&
+        destination_coverage == 0
       candidate_cursor = candidate_cursor + 1
     }
   }
@@ -315,7 +333,24 @@ fn inline_link_candidate_for_suffix(
 }
 
 ///|
-fn inline_analysis_token_kind(token : Token) -> InlineAnalysisTokenKind {
+fn inline_autolink_candidate_for_opener(
+  links : InlineLinkDelimiterIndex,
+  opener_start : Int,
+) -> InlineAutolinkCandidate? {
+  match links.autolinks {
+    Some(autolinks) =>
+      autolinks.candidate_by_opener
+      .get(opener_start)
+      .map(index => autolinks.candidates[index])
+    None => None
+  }
+}
+
+///|
+fn inline_analysis_token_kind(
+  token : Token,
+  text : StringView,
+) -> InlineAnalysisTokenKind {
   match token {
     Star => AnalysisAsterisk
     Underscore => AnalysisUnderscore
@@ -324,6 +359,8 @@ fn inline_analysis_token_kind(token : Token) -> InlineAnalysisTokenKind {
     RightBracket => AnalysisRightBracket
     LeftParen => AnalysisLeftParen
     RightParen => AnalysisRightParen
+    Text(_) if text == "<" => AnalysisAngleOpen
+    Text(_) if text == ">" => AnalysisAngleClose
     _ => AnalysisOther
   }
 }
@@ -340,7 +377,7 @@ fn collect_inline_analysis_tokens(
       let range = ctx.current_token_range()
       let text = ctx.current_token_text()
       tokens.push({
-        kind: inline_analysis_token_kind(ctx.peek()),
+        kind: inline_analysis_token_kind(ctx.peek(), text),
         text: text.to_owned(),
         start: range.start,
         end: range.end,
@@ -372,6 +409,94 @@ fn collect_inline_analysis_tokens(
     }
   }
   tokens
+}
+
+///|
+fn index_inline_autolinks(
+  tokens : Array[InlineAnalysisToken],
+  code_delimiters : CodeSpanDelimiterIndex,
+) -> InlineAutolinkIndex {
+  let raw_candidates : Array[InlineAutolinkCandidate] = []
+  let raw_candidate_by_opener : Map[Int, Int] = Map([])
+  let candidate_text = StringBuilder::StringBuilder()
+  let mut opener_index : Int? = None
+  let mut expected_start = -1
+  for index, token in tokens {
+    if token.kind == AnalysisLineBoundary ||
+      (opener_index is Some(_) && token.start != expected_start) {
+      opener_index = None
+      candidate_text.reset()
+    }
+    match token.kind {
+      AnalysisAngleOpen => {
+        opener_index = Some(index)
+        candidate_text.reset()
+        candidate_text.write_string(token.text)
+        expected_start = token.end
+      }
+      AnalysisAngleClose => {
+        match opener_index {
+          Some(opener) => {
+            candidate_text.write_string(token.text)
+            let text = candidate_text.to_string()
+            match classify_inline_angle_text(text) {
+              Some({ kind: InlineAngleKind::UriAutolink, .. }) => {
+                let candidate : InlineAutolinkCandidate = {
+                  kind: InlineAngleKind::UriAutolink,
+                  start: tokens[opener].start,
+                  end: token.end,
+                }
+                raw_candidate_by_opener[candidate.start] = raw_candidates.length()
+                raw_candidates.push(candidate)
+              }
+              Some({ kind: InlineAngleKind::EmailAutolink, .. }) => {
+                let candidate : InlineAutolinkCandidate = {
+                  kind: InlineAngleKind::EmailAutolink,
+                  start: tokens[opener].start,
+                  end: token.end,
+                }
+                raw_candidate_by_opener[candidate.start] = raw_candidates.length()
+                raw_candidates.push(candidate)
+              }
+              _ => ()
+            }
+          }
+          None => ()
+        }
+        opener_index = None
+        candidate_text.reset()
+      }
+      _ =>
+        if opener_index is Some(_) {
+          candidate_text.write_string(token.text)
+          expected_start = token.end
+        }
+    }
+  }
+  let candidates : Array[InlineAutolinkCandidate] = []
+  let candidate_by_opener : Map[Int, Int] = Map([])
+  let mut index = 0
+  while index < tokens.length() {
+    match raw_candidate_by_opener.get(tokens[index].start) {
+      Some(raw_index) => {
+        let candidate = raw_candidates[raw_index]
+        candidate_by_opener[candidate.start] = candidates.length()
+        candidates.push(candidate)
+        while index < tokens.length() && tokens[index].end <= candidate.end {
+          if tokens[index].kind == AnalysisBacktick {
+            code_delimiters.eligible_openers[tokens[index].start] = false
+          }
+          index = index + 1
+        }
+      }
+      None =>
+        match analysis_code_closer_index(tokens, index, code_delimiters) {
+          Some(closer) => index = closer + 1
+          None => index = index + 1
+        }
+    }
+  }
+  { candidates, candidate_by_opener }
 }
 
 ///|
@@ -621,6 +746,11 @@ fn index_inline_links(
   let code_conflict_openers : Map[Int, Bool] = Map([])
   let code_conflict_closers : Map[Int, Bool] = Map([])
   let code_conflict_parens : Map[Int, Bool] = Map([])
+  let autolinks = if code_delimiters.has_angle_open {
+    Some(index_inline_autolinks(tokens, code_delimiters))
+  } else {
+    None
+  }
   let mut code_conflict_generation = 0
   let mut index = 0
   while index < tokens.length() {
@@ -675,6 +805,7 @@ fn index_inline_links(
   let destination_boundaries = index_inline_destinations(tokens)
   let links : InlineLinkDelimiterIndex = {
     candidates: [],
+    autolinks,
     bracket_matches,
     candidate_by_opener: Map([]),
     candidate_by_suffix: Map([]),
@@ -783,8 +914,100 @@ fn index_inline_links(
       }
     }
   }
+  resolve_inline_autolink_link_conflicts(links, tokens)
   finalize_inline_link_candidates(links, tokens)
   links
+}
+
+///|
+fn mark_inline_link_candidate_literal_boundaries(
+  links : InlineLinkDelimiterIndex,
+  candidate : InlineLinkCandidate,
+) -> Unit {
+  links.code_conflict_openers[candidate.opener_start] = true
+  links.code_conflict_closers[candidate.label_closer_start] = true
+  match candidate.form {
+    InlineTargetForm => {
+      links.code_conflict_parens[candidate.suffix_start] = true
+      links.code_conflict_parens[candidate.suffix_end - 1] = true
+    }
+    FullReferenceForm | CollapsedReferenceForm => {
+      links.code_conflict_openers[candidate.suffix_start] = true
+      links.code_conflict_closers[candidate.suffix_end - 1] = true
+    }
+  }
+}
+
+///|
+fn resolve_inline_autolink_link_conflicts(
+  links : InlineLinkDelimiterIndex,
+  tokens : Array[InlineAnalysisToken],
+) -> Unit {
+  guard links.autolinks is Some(autolinks) else { return }
+  let destination_starts : Map[Int, Int] = Map([])
+  let destination_ends : Map[Int, Int] = Map([])
+  let candidate_by_opener : Map[Int, Int] = Map([])
+  let candidate_by_label_closer : Map[Int, Int] = Map([])
+  for index, candidate in links.candidates {
+    destination_starts[candidate.suffix_start] = destination_starts
+      .get(candidate.suffix_start)
+      .unwrap_or(0) +
+      1
+    destination_ends[candidate.suffix_end] = destination_ends
+      .get(candidate.suffix_end)
+      .unwrap_or(0) +
+      1
+    candidate_by_opener[candidate.opener_start] = index
+    candidate_by_label_closer[candidate.label_closer_start] = index
+  }
+  let label_stack : Array[Int] = []
+  let mut destination_coverage = 0
+  for token in tokens {
+    let offset = token.start
+    destination_coverage = destination_coverage -
+      destination_ends.get(offset).unwrap_or(0)
+    destination_coverage = destination_coverage +
+      destination_starts.get(offset).unwrap_or(0)
+    match candidate_by_opener.get(offset) {
+      Some(index) => label_stack.push(index)
+      None => ()
+    }
+    match autolinks.candidate_by_opener.get(offset) {
+      Some(autolink_index) => {
+        let autolink = autolinks.candidates[autolink_index]
+        if destination_coverage > 0 {
+          autolinks.candidate_by_opener.remove(offset)
+        } else {
+          for stack_index = label_stack.length() - 1
+              stack_index >= 0
+              stack_index = stack_index - 1 {
+            let link_index = label_stack[stack_index]
+            let link = links.candidates[link_index]
+            // All candidates enter `active`; this break only fires for links
+            // already deactivated by an earlier autolink in this same pass,
+            // so every remaining ancestor is inactive too.
+            if !link.active {
+              break
+            }
+            if autolink.end <= link.label_closer_start && link.is_image {
+              break
+            }
+            link.active = false
+            mark_inline_link_candidate_literal_boundaries(links, link)
+          }
+        }
+      }
+      None => ()
+    }
+    match candidate_by_label_closer.get(offset) {
+      Some(index) =>
+        match label_stack.pop() {
+          Some(open_index) if open_index == index => ()
+          _ => abort("link label stack lost source nesting")
+        }
+      None => ()
+    }
+  }
 }
 
 ///|
@@ -808,6 +1031,25 @@ fn build_inline_delimiter_plan(
   let mut previous_char : Char? = None
   let mut index = 0
   while index < tokens.length() {
+    match inline_autolink_candidate_for_opener(links, tokens[index].start) {
+      Some(candidate) => {
+        events.push(
+          OpaqueInlineEvent(
+            DelimiterSourceRange(candidate.start, candidate.end),
+          ),
+        )
+        while index < tokens.length() && tokens[index].end < candidate.end {
+          index = index + 1
+        }
+        guard index < tokens.length() && tokens[index].end == candidate.end else {
+          abort("autolink candidate range points outside its inline container")
+        }
+        previous_char = Some('>')
+        index = index + 1
+        continue
+      }
+      None => ()
+    }
     match analysis_code_closer_index(tokens, index, code_delimiters) {
       Some(closer) => {
         events.push(
@@ -1051,10 +1293,14 @@ fn build_code_span_delimiter_index(
   let index : CodeSpanDelimiterIndex = {
     eligible_openers: Map([]),
     successors: Map([]),
+    has_angle_open: false,
   }
   let previous_by_length : Map[Int, Int] = Map([])
   let mut preceding_text_ends_escaped = false
   for token in tokens {
+    if token.kind == AnalysisAngleOpen {
+      index.has_angle_open = true
+    }
     if token.kind == AnalysisBacktick {
       index_code_span_delimiter_run(
         index,
@@ -1195,6 +1441,33 @@ fn parse_indexed_inline_code(
 }
 
 ///|
+fn parse_indexed_inline_autolink(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  candidate : InlineAutolinkCandidate,
+) -> Unit {
+  guard ctx.current_token_range().start == candidate.start else {
+    abort("indexed autolink did not reach its opening angle")
+  }
+  let kind = match candidate.kind {
+    InlineAngleKind::UriAutolink => UriAutolinkNode
+    InlineAngleKind::EmailAutolink => EmailAutolinkNode
+    InlineAngleKind::InlineHtmlAngle =>
+      abort("inline HTML remains on the legacy lexer path")
+  }
+  ctx.start_node(kind)
+  while ctx.current_token_range().start < candidate.end {
+    guard !is_inline_end(ctx.peek()) else {
+      abort("indexed autolink crossed its inline container boundary")
+    }
+    ctx.emit_current_token()
+  }
+  guard ctx.current_token_range().start == candidate.end else {
+    abort("indexed autolink did not end on a lexer token boundary")
+  }
+  ctx.finish_node()
+}
+
+///|
 /// Parse a single inline element.
 fn parse_inline(
   ctx : @core.ParserContext[Token, SyntaxKind],
@@ -1207,10 +1480,18 @@ fn parse_inline(
   if try_emit_planned_delimiter(ctx, delimiter_cursor) {
     return
   }
+  match
+    inline_autolink_candidate_for_opener(links, ctx.current_token_range().start) {
+    Some(candidate) => {
+      parse_indexed_inline_autolink(ctx, candidate)
+      return
+    }
+    None => ()
+  }
   match ctx.peek() {
     Star | StarStar | Underscore => ctx.emit_token(TextToken)
     Backtick => parse_indexed_inline_code(ctx, delimiters, continue_line)
-    RightParen if links.code_conflict_parens
+    LeftParen | RightParen if links.code_conflict_parens
       .get(ctx.current_token_range().start)
       .unwrap_or(false) => ctx.emit_token(TextToken)
     RightBracket if links.code_conflict_closers

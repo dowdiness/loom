@@ -117,6 +117,30 @@ test "perf residual: inline analysis work scales with token bank" {
 }
 
 ///|
+test "issue 893: angle-free and greater-than-only facts skip autolink indexing" {
+  let angle_free = perf_inline_analysis_tokens(4)
+  let angle_free_code = build_code_span_delimiter_index(angle_free)
+  assert_true(!angle_free_code.has_angle_open)
+  assert_true(index_inline_links(angle_free, angle_free_code).autolinks is None)
+
+  let greater_than_only : Array[InlineAnalysisToken] = []
+  let mut offset = 0
+  for i = 0; i < 64; i = i + 1 {
+    offset = perf_inline_push_token(
+      greater_than_only,
+      AnalysisAngleClose,
+      ">",
+      offset,
+    )
+  }
+  let greater_than_code = build_code_span_delimiter_index(greater_than_only)
+  assert_true(!greater_than_code.has_angle_open)
+  assert_true(
+    index_inline_links(greater_than_only, greater_than_code).autolinks is None,
+  )
+}
+
+///|
 test "perf residual: inline code index 512 motifs" (b : @bench.T) {
   bench_perf_inline_code_index(b, 512)
 }

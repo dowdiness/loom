@@ -250,26 +250,26 @@ test "event attribution: deterministic transcript remains stable" {
   inspect(
     event_attribution_transcript(4),
     content=(
-      #|paragraph|source=422|tokens=57|reads=1733/513/508|token-max=41|diagnostics=0|payload=21/386|payload-units=386/0/0/0/0/0|backticks=0
-      #|mixed|source=640|tokens=173|reads=5126/1400/1376|token-max=76|diagnostics=0|payload=64/492|payload-units=376/0/88/0/28/0|backticks=8
-      #|delimiter-heavy|source=520|tokens=293|reads=9584/3215/3214|token-max=41|diagnostics=0|payload=111/339|payload-units=339/0/0/0/0/0|backticks=8
-      #|recovery-heavy|source=372|tokens=113|reads=3862/1208/1204|token-max=52|diagnostics=0|payload=40/300|payload-units=300/0/0/0/0/0|backticks=0
+      #|paragraph|source=422|tokens=57|reads=1774/554/549|token-max=41|diagnostics=0|payload=21/386|payload-units=386/0/0/0/0/0|backticks=0
+      #|mixed|source=640|tokens=173|reads=5226/1500/1476|token-max=76|diagnostics=0|payload=64/492|payload-units=376/0/88/0/28/0|backticks=8
+      #|delimiter-heavy|source=520|tokens=293|reads=9798/3429/3428|token-max=41|diagnostics=0|payload=111/339|payload-units=339/0/0/0/0/0|backticks=8
+      #|recovery-heavy|source=372|tokens=113|reads=3942/1288/1284|token-max=54|diagnostics=0|payload=40/300|payload-units=300/0/0/0/0/0|backticks=0
       #|html|source=208|tokens=29|reads=182/36/32|token-max=11|diagnostics=0|payload=12/192|payload-units=0/192/0/0/0/0|backticks=0
       #|fenced-code|source=160|tokens=37|reads=222/40/36|token-max=10|diagnostics=0|payload=16/116|payload-units=0/0/88/0/28/0|backticks=0
-      #|nested-container|source=104|tokens=41|reads=933/287/285|token-max=35|diagnostics=0|payload=4/36|payload-units=36/0/0/0/0/0|backticks=0
+      #|nested-container|source=104|tokens=41|reads=938/292/290|token-max=37|diagnostics=0|payload=4/36|payload-units=36/0/0/0/0/0|backticks=0
       #|
     ),
   )
   inspect(
     event_attribution_transcript(64),
     content=(
-      #|paragraph|source=6537|tokens=837|reads=27113/8073/8008|token-max=41|diagnostics=0|payload=321/6021|payload-units=6021/0/0/0/0/0|backticks=0
-      #|mixed|source=10240|tokens=2753|reads=81986/22400/22016|token-max=76|diagnostics=0|payload=1024/7872|payload-units=6016/0/1408/0/448/0|backticks=128
-      #|delimiter-heavy|source=8320|tokens=4673|reads=152864/51455/51454|token-max=41|diagnostics=0|payload=1791/5439|payload-units=5439/0/0/0/0/0|backticks=128
-      #|recovery-heavy|source=5952|tokens=1793|reads=61762/19328/19264|token-max=52|diagnostics=0|payload=640/4800|payload-units=4800/0/0/0/0/0|backticks=0
+      #|paragraph|source=6537|tokens=837|reads=27754/8714/8649|token-max=41|diagnostics=0|payload=321/6021|payload-units=6021/0/0/0/0/0|backticks=0
+      #|mixed|source=10240|tokens=2753|reads=83586/24000/23616|token-max=76|diagnostics=0|payload=1024/7872|payload-units=6016/0/1408/0/448/0|backticks=128
+      #|delimiter-heavy|source=8320|tokens=4673|reads=156318/54909/54908|token-max=41|diagnostics=0|payload=1791/5439|payload-units=5439/0/0/0/0/0|backticks=128
+      #|recovery-heavy|source=5952|tokens=1793|reads=63042/20608/20544|token-max=54|diagnostics=0|payload=640/4800|payload-units=4800/0/0/0/0/0|backticks=0
       #|html|source=3328|tokens=449|reads=2882/576/512|token-max=11|diagnostics=0|payload=192/3072|payload-units=0/3072/0/0/0/0|backticks=0
       #|fenced-code|source=2560|tokens=577|reads=3522/640/576|token-max=10|diagnostics=0|payload=256/1856|payload-units=0/0/1408/0/448/0|backticks=0
-      #|nested-container|source=1718|tokens=641|reads=14793/4727/4725|token-max=35|diagnostics=0|payload=64/630|payload-units=630/0/0/0/0/0|backticks=0
+      #|nested-container|source=1718|tokens=641|reads=14858/4792/4790|token-max=37|diagnostics=0|payload=64/630|payload-units=630/0/0/0/0/0|backticks=0
       #|
     ),
   )

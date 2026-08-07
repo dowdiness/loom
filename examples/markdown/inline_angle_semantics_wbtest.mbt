@@ -69,6 +69,111 @@ test "URI autolink lowers through the public IR and HTML seams" {
 }
 
 ///|
+fn issue_893_inline_node_texts(
+  root : @seam.SyntaxNode,
+  expected_kind : SyntaxKind,
+) -> Array[String] {
+  let texts : Array[String] = []
+  fn walk(node : @seam.SyntaxNode) -> Unit {
+    let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+    if kind == expected_kind {
+      texts.push(node.text())
+    }
+    for child in node.children() {
+      walk(child)
+    }
+  }
+  walk(root)
+  texts
+}
+
+///|
+test "issue 893: CommonMark 345 and 346 resolve code and URI ownership" {
+  let cases : Array[(String, Array[String], Array[String], String)] = [
+    (
+      "`<https://foo.bar.`baz>`\n",
+      [],
+      ["`<https://foo.bar.`"],
+      "<p><code>&lt;https://foo.bar.</code>baz&gt;`</p>\n",
+    ),
+    (
+      "<https://foo.bar.`baz>`\n",
+      ["<https://foo.bar.`baz>"],
+      [],
+      "<p><a href=\"https://foo.bar.%60baz\">https://foo.bar.`baz</a>`</p>\n",
+    ),
+  ]
+  for angle_case in cases {
+    let (source, expected_autolinks, expected_code, expected_html) = angle_case
+    let (cst, diagnostics) = parse_cst(
+      @core.SourceId("markdown-issue-893-code-uri-precedence"),
+      source,
+    ) catch {
+      _ => abort("Issue #893 parse failed")
+    }
+    assert_eq(diagnostics.length(), 0)
+    let syntax = @seam.SyntaxNode::from_cst(cst)
+    assert_eq(
+      issue_893_inline_node_texts(syntax, UriAutolinkNode),
+      expected_autolinks,
+    )
+    assert_eq(
+      issue_893_inline_node_texts(syntax, InlineCodeNode),
+      expected_code,
+    )
+    assert_inline_angle_html(source, expected_html)
+  }
+}
+
+///|
+test "issue 893: link and image suffixes remain structural around autolinks" {
+  let cases : Array[(String, String, Array[String])] = [
+    ("[link](<>)\n", "<p><a href=\"\">link</a></p>\n", []),
+    ("[link](</my uri>)\n", "<p><a href=\"/my%20uri\">link</a></p>\n", []),
+    ("[a](<b)c>)\n", "<p><a href=\"b)c\">a</a></p>\n", []),
+    (
+      "[link](<foo(and(bar)>)\n",
+      "<p><a href=\"foo(and(bar)\">link</a></p>\n",
+      [],
+    ),
+    (
+      "[foo<https://example.com/?search=](uri)>\n",
+      "<p>[foo<a href=\"https://example.com/?search=%5D(uri)\">https://example.com/?search=](uri)</a></p>\n",
+      ["<https://example.com/?search=](uri)>"],
+    ),
+    ("![foo](<url>)\n", "<p><img src=\"url\" alt=\"foo\" /></p>\n", []),
+    (
+      "![<http://example.test>](url)\n",
+      "<p><img src=\"url\" alt=\"http://example.test\" /></p>\n",
+      ["<http://example.test>"],
+    ),
+    (
+      "![foo<https://example.com/?search=](uri)>\n",
+      "<p>![foo<a href=\"https://example.com/?search=%5D(uri)\">https://example.com/?search=](uri)</a></p>\n",
+      ["<https://example.com/?search=](uri)>"],
+    ),
+  ]
+  for angle_case in cases {
+    let (source, expected_html, expected_autolinks) = angle_case
+    let (cst, diagnostics) = parse_cst(
+      @core.SourceId("markdown-issue-893-link-image-controls"),
+      source,
+    ) catch {
+      _ => abort("Issue #893 control parse failed")
+    }
+    assert_eq(diagnostics.length(), 0)
+    assert_eq(
+      issue_893_inline_node_texts(
+        @seam.SyntaxNode::from_cst(cst),
+        UriAutolinkNode,
+      ),
+      expected_autolinks,
+    )
+    assert_inline_angle_html(source, expected_html)
+  }
+}
+
+///|
 test "autolink escaping and inline HTML validity follow CommonMark boundaries" {
   let cases : Array[(String, String)] = [
     (
@@ -203,6 +308,92 @@ test "inline angle semantics cover LF CRLF CR and EOF terminators" {
       _ => fail("inline angle terminator case failed: " + label)
     }
   }
+}
+
+///|
+test "issue 893: an autolink deactivates an enclosing ordinary link" {
+  let source = "[<http://example.test>](outer)\n"
+  let autolink = Inline::Link(
+    [Inline::Text("http://example.test")],
+    "http://example.test",
+  )
+  let expected = Block::Document([
+    Block::Paragraph([
+      Inline::Text("["),
+      autolink,
+      Inline::Text("]"),
+      Inline::Text("("),
+      Inline::Text("outer"),
+      Inline::Text(")"),
+    ]),
+  ])
+  assert_eq(
+    parse(@core.SourceId("issue-893-direct-nested-autolink"), source),
+    expected,
+  )
+  assert_eq(
+    experimental_markdown_ir_to_block(inline_angle_ir_from_source(source)),
+    expected,
+  )
+  assert_inline_angle_html(
+    source, "<p>[<a href=\"http://example.test\">http://example.test</a>](outer)</p>\n",
+  )
+}
+
+///|
+test "issue 893: an autolink deactivates every enclosing ordinary link" {
+  let source = "[[<http://example.test>](inner)](outer)\n"
+  let autolink = Inline::Link(
+    [Inline::Text("http://example.test")],
+    "http://example.test",
+  )
+  let expected = Block::Document([
+    Block::Paragraph([
+      Inline::Text("["),
+      Inline::Text("["),
+      autolink,
+      Inline::Text("]"),
+      Inline::Text("("),
+      Inline::Text("inner"),
+      Inline::Text(")"),
+      Inline::Text("]"),
+      Inline::Text("("),
+      Inline::Text("outer"),
+      Inline::Text(")"),
+    ]),
+  ])
+  assert_eq(
+    parse(@core.SourceId("issue-893-direct-nested-autolink-stack"), source),
+    expected,
+  )
+  assert_eq(
+    experimental_markdown_ir_to_block(inline_angle_ir_from_source(source)),
+    expected,
+  )
+  assert_inline_angle_html(
+    source, "<p>[[<a href=\"http://example.test\">http://example.test</a>](inner)](outer)</p>\n",
+  )
+}
+
+///|
+test "issue 893: multiple autolinks deactivate one enclosing link label" {
+  let source = "[<http://a> <http://b>](url)\n"
+  let expected_html = "<p>[<a href=\"http://a\">http://a</a> <a href=\"http://b\">http://b</a>](url)</p>\n"
+  let (cst, diagnostics) = parse_cst(
+    @core.SourceId("issue-893-multi-autolink-label"),
+    source,
+  ) catch {
+    _ => abort("Issue #893 multi-autolink parse failed")
+  }
+  assert_eq(diagnostics.length(), 0)
+  assert_eq(
+    issue_893_inline_node_texts(
+      @seam.SyntaxNode::from_cst(cst),
+      UriAutolinkNode,
+    ),
+    ["<http://a>", "<http://b>"],
+  )
+  assert_inline_angle_html(source, expected_html)
 }
 
 ///|

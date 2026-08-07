@@ -75,6 +75,18 @@ fn markdown_leaf_kind_signature(source : String) -> Array[String] {
 }
 
 ///|
+test "parse cst: production autolinks use typed angle nodes" {
+  debug_inspect(
+    inline_node_texts_of_kind("<http://foo.bar.baz>\n", UriAutolinkNode),
+    content="[\"<http://foo.bar.baz>\"]",
+  )
+  debug_inspect(
+    inline_node_texts_of_kind("<foo@bar.example.com>\n", EmailAutolinkNode),
+    content="[\"<foo@bar.example.com>\"]",
+  )
+}
+
+///|
 test "parse cst: underscore delimiter run emits italic node" {
   debug_inspect(
     inline_node_texts_of_kind("_italic_\n", ItalicNode),

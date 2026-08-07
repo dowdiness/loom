@@ -269,6 +269,34 @@ test "typed angle CST lowers at the MarkdownIR seam with source origins" {
 }
 
 ///|
+test "issue 893: generic text does not rediscover URI or email autolinks" {
+  let cases = [
+    ("<https://example.test>", "&lt;https://example.test&gt;"),
+    ("<foo@bar.example>", "&lt;foo@bar.example&gt;"),
+  ]
+  for angle_case in cases {
+    let (source, escaped) = angle_case
+    let syntax = typed_angle_fixture_document(source, [])
+    let ir = experimental_markdown_ir_from_syntax(
+      @core.SourceId("issue-893-generic-angle-text"),
+      syntax,
+    )
+    match ir.children() {
+      [paragraph] =>
+        match paragraph.children() {
+          [text] => assert_eq(text.text_value(), Some(source))
+          _ => fail("generic angle text changed inline shape")
+        }
+      _ => fail("generic angle text changed paragraph shape")
+    }
+    assert_eq(
+      experimental_markdown_ir_to_commonmark_html(ir),
+      "<p>" + escaped + "</p>\n",
+    )
+  }
+}
+
+///|
 test "typed angle fixture preserves legacy roles and editor adapter shape" {
   let source = "<http://example.test>"
   let syntax = typed_angle_fixture(source, UriAutolinkNode, [

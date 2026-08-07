@@ -98,7 +98,7 @@ fn trim_inline_text_start_after_newline(child : MarkdownIR) -> MarkdownIR {
 ///|
 
 ///|
-fn append_literal_backtick_ir(
+fn append_escaped_inline_delimiter_ir(
   children : Array[MarkdownIR],
   text : String,
   origin : MarkdownIROrigin,
@@ -183,38 +183,18 @@ fn lower_typed_inline_angle_node(node : @seam.SyntaxNode) -> MarkdownIR {
 }
 
 ///|
+fn lower_legacy_inline_html_text_token(token : @seam.SyntaxToken) -> MarkdownIR {
+  let origin = origin_from_token(token)
+  MarkdownIR::inline_html(token.text(), origin, Some(origin))
+}
+
+///|
 fn lower_inline_text_token(token : @seam.SyntaxToken) -> MarkdownIR {
   let origin = origin_from_token(token)
   match classify_inline_angle_text(token.text()) {
-    Some({ kind: InlineAngleKind::UriAutolink, .. }) => {
-      let value = token.text()[1:token.text().length() - 1].to_owned()
-      let value_origin = MarkdownIROrigin(
-        start=origin.start() + 1,
-        end=origin.end() - 1,
-      )
-      MarkdownIR::autolink(
-        UriAutolinkKind,
-        value,
-        normalize_autolink_uri_destination(value),
-        origin,
-        Some(value_origin),
-        Some(value_origin),
-      )
-    }
-    Some({ kind: InlineAngleKind::EmailAutolink, .. }) => {
-      let value = token.text()[1:token.text().length() - 1].to_owned()
-      MarkdownIR::autolink(
-        EmailAutolinkKind,
-        value,
-        "mailto:" + value,
-        origin,
-        Some(MarkdownIROrigin(start=origin.start() + 1, end=origin.end() - 1)),
-        None,
-      )
-    }
     Some({ kind: InlineHtmlAngle, .. }) =>
-      MarkdownIR::inline_html(token.text(), origin, Some(origin))
-    None => MarkdownIR::text(strip_backslash_escapes(token.text()), origin)
+      lower_legacy_inline_html_text_token(token)
+    _ => MarkdownIR::text(strip_backslash_escapes(token.text()), origin)
   }
 }
 
@@ -477,9 +457,22 @@ fn lower_inline_children_skip_with_diags(
         }
         match token_kind {
           TextToken => {
+            if token.text() == ">" && preceding_text_ends_escaped {
+              append_escaped_inline_delimiter_ir(
+                children,
+                token.text(),
+                origin_from_token(token),
+                true,
+              )
+              preceding_text_ends_escaped = false
+              previous_was_escaped_backtick = false
+              previous_was_literal_emphasis_marker = false
+              continue
+            }
             match classify_inline_angle_text(token.text()) {
-              Some(_) => push_child(lower_inline_text_token(token))
-              None => {
+              Some({ kind: InlineHtmlAngle, .. }) =>
+                push_child(lower_legacy_inline_html_text_token(token))
+              _ => {
                 let origin = origin_from_token(token)
                 let text = strip_backslash_escapes(token.text())
                 let literal_marker = is_literal_emphasis_marker_text(
@@ -507,7 +500,12 @@ fn lower_inline_children_skip_with_diags(
             let origin = origin_from_token(token)
             let escaped = preceding_text_ends_escaped
             if escaped {
-              append_literal_backtick_ir(children, token.text(), origin, true)
+              append_escaped_inline_delimiter_ir(
+                children,
+                token.text(),
+                origin,
+                true,
+              )
             } else {
               push_child(MarkdownIR::text(token.text(), origin))
             }
@@ -696,9 +694,22 @@ fn lower_direct_inline_children_with_newline_and_diags(
         } else {
           match token_kind {
             TextToken => {
+              if token.text() == ">" && preceding_text_ends_escaped {
+                append_escaped_inline_delimiter_ir(
+                  children,
+                  token.text(),
+                  origin_from_token(token),
+                  true,
+                )
+                preceding_text_ends_escaped = false
+                previous_was_escaped_backtick = false
+                previous_was_literal_emphasis_marker = false
+                continue
+              }
               match classify_inline_angle_text(token.text()) {
-                Some(_) => push_child(lower_inline_text_token(token))
-                None => {
+                Some({ kind: InlineHtmlAngle, .. }) =>
+                  push_child(lower_legacy_inline_html_text_token(token))
+                _ => {
                   let origin = origin_from_token(token)
                   let text = strip_backslash_escapes(token.text())
                   let literal_marker = is_literal_emphasis_marker_text(
@@ -726,7 +737,12 @@ fn lower_direct_inline_children_with_newline_and_diags(
               let origin = origin_from_token(token)
               let escaped = preceding_text_ends_escaped
               if escaped {
-                append_literal_backtick_ir(children, token.text(), origin, true)
+                append_escaped_inline_delimiter_ir(
+                  children,
+                  token.text(),
+                  origin,
+                  true,
+                )
               } else {
                 push_child(MarkdownIR::text(token.text(), origin))
               }
@@ -1218,7 +1234,12 @@ fn lower_link_node_atoms_with_diags(
             let origin = origin_from_token(token)
             let escaped = preceding_text_ends_escaped
             if escaped {
-              append_literal_backtick_ir(display, token.text(), origin, true)
+              append_escaped_inline_delimiter_ir(
+                display,
+                token.text(),
+                origin,
+                true,
+              )
             } else {
               display.push(MarkdownIR::text(token.text(), origin))
             }
