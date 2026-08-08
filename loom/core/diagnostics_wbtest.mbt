@@ -277,54 +277,6 @@ test "DiagnosticSet offset_by preserves invalid offset errors" {
 }
 
 ///|
-test "LexResult with_starts records mismatched token and start arrays" {
-  let result = LexResult::with_starts(
-    [TokenInfo::new("A", 1)],
-    [],
-    diagnostics=DiagnosticSet::empty(),
-  )
-  debug_inspect(
-    result.diagnostics().format(),
-    content="[\"LexResult requires `starts` and `tokens` to be parallel\"]",
-  )
-}
-
-///|
-test "LexResult with_starts records negative start offsets" {
-  let result = LexResult::with_starts(
-    [TokenInfo::new("A", 1)],
-    [-1],
-    diagnostics=DiagnosticSet::empty(),
-  )
-  debug_inspect(
-    result.diagnostics().format(),
-    content="[\"LexResult received a negative start offset at index 0\"]",
-  )
-}
-
-///|
-test "LexResult with_starts records invalid start invariants" {
-  let result = LexResult::with_starts(
-    [TokenInfo::new("A", 2), TokenInfo::new("B", 1)],
-    [0, 1],
-    diagnostics=DiagnosticSet::empty(),
-  )
-  debug_inspect(
-    result.diagnostics().format(),
-    content="[\"LexResult received overlapping token spans at index 1\"]",
-  )
-}
-
-///|
-test "LexResult constructor validates generated starts" {
-  let result = LexResult([TokenInfo::new("A", -1)])
-  debug_inspect(
-    result.diagnostics().format(),
-    content="[\"LexResult received a negative token length at index 0\"]",
-  )
-}
-
-///|
 test "LexResult from_located_tokens fills blank gaps" {
   let result = LexResult::from_located_tokens(
     test_source("test"),

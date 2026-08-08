@@ -539,42 +539,101 @@ Phase 5 gate: two complete runs failed closed for sample instability on
 different baseline/candidate rows, so they establish neither a regression nor
 a performance acceptance result.
 
+### Phase 3 caller refresh
+
+The Phase 3 start audit was refreshed at `4a2f421a` on 2026-08-07 rather than
+reusing the issue's earlier counts. `git grep` found 39 raw `LexResult`
+constructor references across 13 files (36 `with_starts` references; the raw
+count includes definitions and constructor syntax) and 39 `LanguageSpec::new`
+references across 25 files.
+
+Current raw-result caller files:
+
+- `examples/graph-dsl/lexer.mbt`, `examples/json/lexer.mbt`,
+  `examples/lambda/lexer/lexer.mbt`
+- `loom/core/core_ownership_bench_wbtest.mbt`, `loom/core/diagnostics.mbt`,
+  `loom/core/diagnostics_wbtest.mbt`, `loom/core/goal_token_source_wbtest.mbt`,
+  `loom/core/mode_lexer.mbt`, `loom/core/mode_relex_wbtest.mbt`,
+  `loom/core/parser_robustness_wbtest.mbt`, `loom/core/token_buffer.mbt`,
+  `loom/core/token_buffer_wbtest.mbt`, `loom/factories_wbtest.mbt`
+
+Current language-spec constructor files:
+
+- `examples/css/spec.g.mbt`, `examples/graph-dsl/parser.mbt`,
+  `examples/html/spec.g.mbt`, `examples/json/spec.g.mbt`,
+  `examples/jsx/spec.g.mbt`, `examples/lambda/spec.g.mbt`,
+  `examples/lambda/spike/e3_oracle_wbtest.mbt`,
+  `examples/lambda/spike/lambda_ir.mbt`, `examples/markdown/markdown_spec.mbt`,
+  `examples/moonbit/grammar.mbt`
+- `loom/core/goal_token_source_wbtest.mbt`, `loom/core/language_spec_wbtest.mbt`,
+  `loom/core/parser.mbt`, `loom/core/parser_context_source_id_test.mbt`,
+  `loom/core/parser_context_wbtest.mbt`,
+  `loom/core/parser_reuse_cursor_wbtest.mbt`,
+  `loom/core/parser_robustness_wbtest.mbt`,
+  `loom/core/parser_test_fixtures_wbtest.mbt`,
+  `loom/core/parser_zero_width_boundary_properties_wbtest.mbt`,
+  `loom/factories_wbtest.mbt`, `loom/grammar/grammar_ir_properties_wbtest.mbt`,
+  `loom/grammar/interpreter_test.mbt`, `loom/grammar/reuse_test.mbt`,
+  `loomgen/emit_spec.mbt`, `loomgen/fixtures/multi_trivia_spec.g.mbt`
+
+The package-private owned-result path is limited to these audited producer
+classes:
+
+| Producer | Exclusive-ownership basis |
+| --- | --- |
+| `LexResult::from_located_tokens` | creates both parallel arrays locally and never passes them to a callback |
+| core step/prefix recovery in `token_buffer.mbt` | uses the owned path only after core allocates and appends the result arrays locally; raw arrays returned directly by `tokenize_fn` use the public copying path |
+| built-in mode recovery in `mode_lexer.mbt` | allocates token/start/mode arrays together and transfers them only after the loop finishes |
+| core white-box lexer fixtures | each fixture allocates fresh literal or local arrays solely for the result under test |
+
+First-party lexers outside `loom/core` cannot use this path. Their total
+callbacks catch `LexResultError` at the adapter boundary and abort explicitly
+for an impossible adapter shape. The legacy `TokenBuffer::new` and resilient
+tokenizer adapters follow the same rule for callback-returned arrays even
+though the callback is installed from inside `loom/core`.
+
 ## Phase 3: seal lexer results and finish language-spec opacity
 
 **Public seam:** mutating arrays passed to `LexResult` constructors after return
 cannot alter the validated value, and `LanguageSpec` exposes only named
 capabilities while preserving its Phase 2-owned trivia/policy kernel.
 
-- [ ] Add black-box retained-input mutation tests for `LexResult::with_starts`;
-  retain the Phase 2 `LanguageSvate; copy public constructor inputs before
+- [x] Add black-box retained-input mutation tests for `LexResult::with_starts`;
+  retain the Phase 2 `LanguageSpec` trivia/policy kernel; copy public
+  constructor inputs before
   validating the owned copies; raise the exact `LexResultError` variants fixed
   by the ADR and retain copy-returning compatibility getters. Prove each failure
   returns no opaque result.
-- [ ] Audit every `LexResult::LexResult` and `LexResult::with_starts` caller.
+- [x] Audit every `LexResult::LexResult` and `LexResult::with_starts` caller.
   Built-in total lexers must use validated internal construction or handle the
-  typed error before installing thpec::new` mutation test in the release suite.
-- [ ] Make `LexResult` fields prieir callbacks; external migration examples
+  typed error before installing their callbacks.
+- [x] Make `LexResult` fields private; external migration examples
   must distinguish adapter-contract failure from user-text diagnostics.
-- [ ] Keep grammar lexer callbacks total. Add an adapter fixture and migration
+- [x] Keep grammar lexer callbacks total. Add an adapter fixture and migration
   example that catches `LexResultError` inside the installed closure and either
   returns a structurally valid language-specific recovery result plus
   diagnostics or explicitly aborts for the adapter defect. Do not add a generic
   fallback token to Loom core.
-- [ ] Preserve `LexResult::from_located_tokens` as a total repair adapter: copy
+- [x] Preserve `LexResult::from_located_tokens` as a total repair adapter: copy
   its positioned input, diagnose and clamp invalid spans, and finish through
   validated package-private owned construction. Retain black-box tests proving
   that repaired spans produce valid arrays and that no `LexResultError` escapes.
-- [ ] Add `length`, `token_at`, `start_at`, and paired read-only iteration.
-- [ ] Add package-private owned construction and migrate arrays produced wholly
+- [x] Add `length`, `token_at`, `start_at`, and paired read-only iteration.
+- [x] Add package-private owned construction and migrate arrays produced wholly
   inside `loom/core`.
-- [ ] Make the remaining `LanguageSpec` fields private. Expose only `eof_token`,
+- [x] Make the remaining `LanguageSpec` fields private. Expose only `eof_token`,
   `reuse_size_threshold`, and the copying `trivia_kinds_raw`; preserve the
   declaration order already owned by the Phase 2 policy kernel, and keep
   parser-only fields and policy private.
-- [ ] Migrate generated specs, grammar interpreter code, examples, and fixtures.
+- [x] Migrate generated specs, grammar interpreter code, examples, and fixtures.
 - [ ] Measure public lexer construction. Propose `LexResultBuilder` only if the
   representative end-to-end benchmark crosses the 5% release gate because of
   copying.
+
+Phase 3 implementation and local correctness verification completed on
+2026-08-08. The release-gated five-sample baseline comparison and external
+consumer fixtures remain pending, so this phase and the overall plan remain
+active.
 
 ## Phase 4: close the mutable-shell representation
 

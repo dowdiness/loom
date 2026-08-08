@@ -7,6 +7,25 @@ enum FTok {
 } derive(Eq, Debug)
 
 ///|
+fn fresult_with_starts(
+  tokens : Array[@core.TokenInfo[FTok]],
+  starts : Array[Int],
+  diagnostics~ : @core.DiagnosticSet,
+) -> @core.LexResult[FTok] {
+  @core.LexResult::with_starts(tokens, starts, diagnostics~) catch {
+    error => abort("fixture lexer adapter defect: " + @debug.to_string(error))
+  }
+}
+
+///|
+fn fresult(
+  tokens : Array[@core.TokenInfo[FTok]],
+  diagnostics? : @core.DiagnosticSet = @core.DiagnosticSet::empty(),
+) -> @core.LexResult[FTok] {
+  fresult_with_starts(tokens, @core.build_starts(tokens), diagnostics~)
+}
+
+///|
 impl @seam.IsTrivia for FTok with fn is_trivia(self) {
   self == Ws
 }
@@ -130,7 +149,7 @@ fn flex_from_tokenize(
 ) -> @core.LexResult[FTok] {
   try tokenize(s) catch {
     @core.LexError(msg) =>
-      @core.LexResult(
+      fresult(
         [
           @core.TokenInfo::new(error_token, s.length()),
           @core.TokenInfo::new(Eof, 0),
@@ -140,7 +159,7 @@ fn flex_from_tokenize(
         ),
       )
   } noraise {
-    tokens => @core.LexResult(tokens)
+    tokens => fresult(tokens)
   }
 }
 
@@ -161,7 +180,7 @@ fn flex_recoverable_steps(
     eof_token=Eof,
     error_token=Err,
   )
-  @core.LexResult::with_starts(
+  fresult_with_starts(
     buffer.get_tokens(),
     buffer.get_starts(),
     diagnostics=buffer.get_diagnostics(),
@@ -185,7 +204,7 @@ fn flex_late_error(
 ) -> @core.LexResult[FTok] {
   match fbang_offset(s) {
     Some(offset) =>
-      @core.LexResult::with_starts(
+      fresult_with_starts(
         [@core.TokenInfo::new(Err, 1), @core.TokenInfo::new(Eof, 0)],
         [offset, s.length()],
         diagnostics=@core.DiagnosticSet::single(
@@ -497,7 +516,7 @@ test "reparse_block preserves block lexer diagnostics" {
         lex_source_id, "block-only lexer diagnostic", 0, 1, "block-lex",
       ),
     )
-    @core.LexResult::with_starts(result.tokens(), result.starts(), diagnostics~)
+    fresult_with_starts(result.tokens(), result.starts(), diagnostics~)
   }
   let result = @core.reparse_block(
     source_id,
@@ -705,7 +724,7 @@ test "create_buffer: mode factory is the sole diagnostics authority" {
     diagnostics.push(
       @core.lexer_diagnostic_at(source_id, "soft mode note", 0, 1, "lex-note"),
     )
-    @core.LexResult::with_starts(result.tokens(), result.starts(), diagnostics~)
+    fresult_with_starts(result.tokens(), result.starts(), diagnostics~)
   }
   let source_id = @core.SourceId("factory-mode-buffer-source")
   let buffer = create_buffer(source_id, "a", lex, Eof, mode_relex=Some(state))
@@ -733,7 +752,7 @@ test "create_buffer: mode path never invokes plain lexer" {
         "lex-note",
       ),
     )
-    @core.LexResult::with_starts(result.tokens(), result.starts(), diagnostics~)
+    fresult_with_starts(result.tokens(), result.starts(), diagnostics~)
   }
   let source_id = @core.SourceId("factory-mode-update-source")
   let buffer = create_buffer(source_id, "a", lex, Eof, mode_relex=Some(state))
