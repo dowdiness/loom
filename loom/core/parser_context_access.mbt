@@ -297,6 +297,20 @@ pub fn[T, K] ParserContext::token_text_at(
 }
 
 ///|
+/// Extract a zero-copy source view for a validated half-open UTF-16 range.
+/// Invalid ranges return an empty view rather than exposing parser internals.
+pub fn[T, K] ParserContext::source_view(
+  self : ParserContext[T, K],
+  start~ : Int,
+  end~ : Int,
+) -> StringView {
+  if start < 0 || end < start || end > self.source.length() {
+    return ""
+  }
+  self.source.view(start_offset=start, end_offset=end)
+}
+
+///|
 /// Extract source text at a token index. Internal alias for token_text_at.
 fn[T, K] ParserContext::text_at(
   self : ParserContext[T, K],

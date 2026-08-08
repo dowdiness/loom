@@ -93,6 +93,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-08-08-markdown-sparse-inline-analysis.md](decisions/2026-08-08-markdown-sparse-inline-analysis.md) — **Accepted, default adoption deferred** retain source-backed sparse Markdown inline analysis as a reusable gated experiment
 - [decisions/2026-08-06-markdown-typed-angle-cst-compatibility.md](decisions/2026-08-06-markdown-typed-angle-cst-compatibility.md) — **Accepted** append-only typed angle CST compatibility, lowering as projection, and temporary dual-read ownership (#891)
 - [decisions/2026-08-06-markdown-delimiter-plan-candidate-rejection.md](decisions/2026-08-06-markdown-delimiter-plan-candidate-rejection.md) — **Accepted** reject the online Markdown delimiter resolver after it failed the two-target representative adoption gate; retain the informational oracle matrix (#883)
 - [decisions/2026-08-05-core-collection-ownership-boundary.md](decisions/2026-08-05-core-collection-ownership-boundary.md) — **Accepted** stored CST metadata policy, opaque validated collection values, single-authority mode re-lexing, and measured internal no-copy construction (#783)
@@ -209,6 +210,7 @@ Point-in-time diagnoses. Dated snapshots — verify against current code before 
 - [performance/2026-03-31-map-specialization.md](performance/2026-03-31-map-specialization.md) — closure specialization vs generic map in wasm-gc (narrower types ≠ faster)
 - [performance/2026-08-05-markdown-event-attribution.md](performance/2026-08-05-markdown-event-attribution.md) — completed #872 point-in-time Markdown event attribution: stage isolation, deterministic work counts, inline analysis microbenchmarks, payload materialization, and decisions (#875, #883)
 - [performance/2026-08-06-markdown-delimiter-plan-prototype.md](performance/2026-08-06-markdown-delimiter-plan-prototype.md) — completed #883 delimiter-plan prototype: calibrated attribution, rejected online-resolver candidate, representative adoption gate, and retained benchmark matrix
+- [../examples/markdown/PROTOTYPE-inline-event-index.md](../examples/markdown/PROTOTYPE-inline-event-index.md) — guarded source-range inline analysis prototype and production-adoption gates
 - [../BENCHMARKS.md](../BENCHMARKS.md) — benchmark results and raw data (root-level)
 - [../bench-check.sh](../bench-check.sh) — regression guard (`--update` to refresh baseline)
 

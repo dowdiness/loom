@@ -1102,6 +1102,21 @@ fn parse_indexed_inline_container_with_continue_line(
   policy : InlineParsePolicy,
   continue_line : () -> Bool,
 ) -> Unit {
+  if try_markdown_sparse_inline_container(ctx, policy, continue_line) {
+    return
+  }
+  parse_indexed_inline_container_full_token_with_continue_line(
+    ctx, policy, continue_line,
+  )
+}
+
+///|
+/// Full-token oracle retained for guarded fallback and prototype comparison.
+fn parse_indexed_inline_container_full_token_with_continue_line(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  policy : InlineParsePolicy,
+  continue_line : () -> Bool,
+) -> Unit {
   let analysis_tokens = ctx.lookahead(() => {
     collect_inline_analysis_tokens(ctx, policy, continue_line)
   })
