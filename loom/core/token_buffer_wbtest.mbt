@@ -15,6 +15,44 @@ test "TokenBuffer::update updates internal state without a return value" {
 }
 
 ///|
+test "TokenBuffer::new detaches arrays returned by tokenize_fn" {
+  let retained = [TokenInfo::new("A", 1), TokenInfo::new("EOF", 0)]
+  let buffer = TokenBuffer::new(
+    SourceId("token-buffer-callback-input"),
+    "a",
+    tokenize_fn=_ => retained,
+    eof_token="EOF",
+  )
+  retained[0] = TokenInfo::new("changed", 7)
+  inspect(buffer.get_token(0), content="A")
+  inspect(buffer.get_start(0), content="0")
+  inspect(buffer.get_end(0), content="1")
+}
+
+///|
+test "TokenBuffer retokenize result detaches callback arrays" {
+  let latest : Ref[Array[TokenInfo[String]]] = Ref([])
+  let buffer = TokenBuffer::new(
+    SourceId("token-buffer-callback-relex"),
+    "a",
+    tokenize_fn=source => {
+      let tokens = [
+        TokenInfo::new(source, source.length()),
+        TokenInfo::new("EOF", 0),
+      ]
+      latest.val = tokens
+      tokens
+    },
+    eof_token="EOF",
+  )
+  let result = (buffer.retokenize_full)("bb")
+  latest.val[0] = TokenInfo::new("changed", 7)
+  inspect(result.token_at(0).unwrap().token, content="bb")
+  inspect(result.token_at(0).unwrap().len, content="2")
+  debug_inspect(result.start_at(0), content="Some(0)")
+}
+
+///|
 fn bang_offset(source : String) -> Int? {
   for i = 0; i < source.length(); i = i + 1 {
     if source.code_unit_at(i).to_int() == 33 {
@@ -28,7 +66,7 @@ fn bang_offset(source : String) -> Int? {
 fn explicit_start_lex(source : String) -> LexResult[String] {
   match bang_offset(source) {
     Some(offset) =>
-      LexResult::with_starts(
+      lex_result_from_owned_or_abort(
         [TokenInfo::new("ERR", 1), TokenInfo::new("EOF", 0)],
         [offset, source.length()],
         diagnostics=DiagnosticSet::single(
@@ -50,7 +88,11 @@ fn explicit_start_lex(source : String) -> LexResult[String] {
       }
       tokens.push(TokenInfo::new("EOF", 0))
       starts.push(source.length())
-      LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+      lex_result_from_owned_or_abort(
+        tokens,
+        starts,
+        diagnostics=DiagnosticSet::empty(),
+      )
     }
   }
 }
@@ -58,7 +100,7 @@ fn explicit_start_lex(source : String) -> LexResult[String] {
 ///|
 fn invalid_range_eof_lex(source : String) -> LexResult[String] {
   if source == "axc" {
-    return LexResult::with_starts(
+    return lex_result_from_owned_or_abort(
       [TokenInfo::new("char", 1), TokenInfo::new("char", 1)],
       [0, 1],
       diagnostics=DiagnosticSet::empty(),
@@ -72,7 +114,11 @@ fn invalid_range_eof_lex(source : String) -> LexResult[String] {
   }
   tokens.push(TokenInfo::new("EOF", 0))
   starts.push(source.length())
-  LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+  lex_result_from_owned_or_abort(
+    tokens,
+    starts,
+    diagnostics=DiagnosticSet::empty(),
+  )
 }
 
 ///|

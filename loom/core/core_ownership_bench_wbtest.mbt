@@ -13,5 +13,10 @@ test "core ownership: LexResult::with_starts 10000 tokens" (b : @bench.T) {
   )
   let starts : Array[Int] = Array::makei(10000, fn(i) { i })
   let diagnostics = DiagnosticSet::empty()
-  b.bench(fn() { b.keep(LexResult::with_starts(tokens, starts, diagnostics~)) })
+  b.bench(fn() {
+    let result = LexResult::with_starts(tokens, starts, diagnostics~) catch {
+      error => abort("benchmark fixture defect: " + @debug.to_string(error))
+    }
+    b.keep(result)
+  })
 }

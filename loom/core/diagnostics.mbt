@@ -34,9 +34,9 @@ pub fn[T] LocatedToken::LocatedToken(
 /// `tokens` remain position-independent. `starts` records the source offset of
 /// each token and must be parallel to `tokens`.
 pub struct LexResult[T] {
-  tokens : Array[TokenInfo[T]]
-  starts : Array[Int]
-  diagnostics : DiagnosticSet
+  priv tokens : Array[TokenInfo[T]]
+  priv starts : Array[Int]
+  priv diagnostics : DiagnosticSet
 } derive(Eq, Debug)
 
 ///|
@@ -55,8 +55,10 @@ pub(all) suberror LexResultError {
 pub fn[T] LexResult::LexResult(
   tokens : Array[TokenInfo[T]],
   diagnostics? : DiagnosticSet = DiagnosticSet::empty(),
-) -> LexResult[T] {
-  LexResult::with_starts(tokens, build_starts(tokens), diagnostics~)
+) -> LexResult[T] raise LexResultError {
+  let tokens = tokens.copy()
+  let starts = build_starts(tokens)
+  lex_result_from_owned(tokens, starts, diagnostics=diagnostics.copy())
 }
 
 ///|
@@ -64,10 +66,58 @@ pub fn[T] LexResult::with_starts(
   tokens : Array[TokenInfo[T]],
   starts : Array[Int],
   diagnostics~ : DiagnosticSet,
-) -> LexResult[T] {
-  let diagnostics = diagnostics.copy()
-  validate_lex_result_starts(tokens, starts, diagnostics)
+) -> LexResult[T] raise LexResultError {
+  let tokens = tokens.copy()
+  let starts = starts.copy()
+  lex_result_from_owned(tokens, starts, diagnostics=diagnostics.copy())
+}
+
+///|
+fn[T] lex_result_from_owned(
+  tokens : Array[TokenInfo[T]],
+  starts : Array[Int],
+  diagnostics~ : DiagnosticSet,
+) -> LexResult[T] raise LexResultError {
+  validate_lex_result_starts(tokens, starts)
   { tokens, starts, diagnostics }
+}
+
+///|
+fn[T] lex_result_from_owned_or_abort(
+  tokens : Array[TokenInfo[T]],
+  starts : Array[Int],
+  diagnostics~ : DiagnosticSet,
+) -> LexResult[T] {
+  lex_result_from_owned(tokens, starts, diagnostics~) catch {
+    error =>
+      abort(
+        "internal LexResult producer violated its ownership contract: " +
+        @debug.to_string(error),
+      )
+  }
+}
+
+///|
+fn[T] lex_result_from_owned_tokens_or_abort(
+  tokens : Array[TokenInfo[T]],
+  diagnostics~ : DiagnosticSet,
+) -> LexResult[T] {
+  let starts = build_starts(tokens)
+  lex_result_from_owned_or_abort(tokens, starts, diagnostics~)
+}
+
+///|
+fn[T] lex_result_from_callback_or_abort(
+  tokens : Array[TokenInfo[T]],
+  diagnostics~ : DiagnosticSet,
+) -> LexResult[T] {
+  LexResult::LexResult(tokens, diagnostics~) catch {
+    error =>
+      abort(
+        "tokenizer adapter returned an invalid token stream: " +
+        @debug.to_string(error),
+      )
+  }
 }
 
 ///|
@@ -87,6 +137,7 @@ pub fn[T] LexResult::from_located_tokens(
   gap_error_code? : String = "loom.lex.unlexed_gap",
   diagnose_nonblank_gaps? : Bool = true,
 ) -> LexResult[T] {
+  let located_tokens = located_tokens.copy()
   let diagnostics = diagnostics.copy()
   let tokens : Array[TokenInfo[T]] = []
   let starts : Array[Int] = []
@@ -99,8 +150,21 @@ pub fn[T] LexResult::from_located_tokens(
       located.end,
       source_len,
     )
-    let start = clamp_lex_offset(located.start, source_len)
+    let clamped_start = clamp_lex_offset(located.start, source_len)
     let clamped_end = clamp_lex_offset(located.end, source_len)
+    if clamped_start < cursor {
+      diagnostics.push(
+        lexer_diagnostic(
+          "LexResult received overlapping located token span at index " +
+          index.to_string() +
+          ": start " +
+          clamped_start.to_string() +
+          " precedes repaired cursor " +
+          cursor.to_string(),
+        ),
+      )
+    }
+    let start = if clamped_start < cursor { cursor } else { clamped_start }
     let end = if clamped_end < start { start } else { clamped_end }
     if start > cursor {
       push_located_gap(
@@ -120,7 +184,45 @@ pub fn[T] LexResult::from_located_tokens(
       gap_error_token, gap_error_code, diagnose_nonblank_gaps,
     )
   }
-  LexResult::with_starts(tokens, starts, diagnostics~)
+  lex_result_from_owned(tokens, starts, diagnostics~) catch {
+    error =>
+      abort(
+        "LexResult::from_located_tokens produced an invalid repaired result: " +
+        @debug.to_string(error),
+      )
+  }
+}
+
+///|
+pub fn[T] LexResult::length(self : LexResult[T]) -> Int {
+  self.tokens.length()
+}
+
+///|
+pub fn[T] LexResult::token_at(
+  self : LexResult[T],
+  index : Int,
+) -> TokenInfo[T]? {
+  self.tokens.get(index)
+}
+
+///|
+pub fn[T] LexResult::start_at(self : LexResult[T], index : Int) -> Int? {
+  self.starts.get(index)
+}
+
+///|
+pub fn[T] LexResult::iter(self : LexResult[T]) -> Iter[(TokenInfo[T], Int)] {
+  let mut index = 0
+  Iter::new(() => {
+    if index < self.tokens.length() {
+      let pair = (self.tokens[index], self.starts[index])
+      index = index + 1
+      Some(pair)
+    } else {
+      None
+    }
+  })
 }
 
 ///|
@@ -229,50 +331,22 @@ fn clamp_lex_offset(offset : Int, source_len : Int) -> Int {
 fn[T] validate_lex_result_starts(
   tokens : Array[TokenInfo[T]],
   starts : Array[Int],
-  diagnostics : DiagnosticSet,
-) -> Unit {
-  if starts.length() != tokens.length() {
-    diagnostics.push(
-      lexer_diagnostic(
-        "LexResult requires `starts` and `tokens` to be parallel",
-      ),
-    )
+) -> Unit raise LexResultError {
+  guard starts.length() == tokens.length() else {
+    raise TokenStartCountMismatch(tokens.length(), starts.length())
   }
-  let count = if starts.length() < tokens.length() {
-    starts.length()
-  } else {
-    tokens.length()
-  }
-  for i = 0; i < count; i = i + 1 {
-    if starts[i] < 0 {
-      diagnostics.push(
-        lexer_diagnostic(
-          "LexResult received a negative start offset at index " + i.to_string(),
-        ),
-      )
+  for i in 0..<tokens.length() {
+    guard tokens[i].len >= 0 else {
+      raise NegativeTokenLength(i, tokens[i].len)
     }
-    if tokens[i].len < 0 {
-      diagnostics.push(
-        lexer_diagnostic(
-          "LexResult received a negative token length at index " + i.to_string(),
-        ),
-      )
-    }
+    guard starts[i] >= 0 else { raise NegativeStart(i, starts[i]) }
     if i > 0 {
-      let prev_end = starts[i - 1] + tokens[i - 1].len
-      if starts[i] < starts[i - 1] {
-        diagnostics.push(
-          lexer_diagnostic(
-            "LexResult requires non-decreasing starts at index " + i.to_string(),
-          ),
-        )
-      } else if starts[i] < prev_end {
-        diagnostics.push(
-          lexer_diagnostic(
-            "LexResult received overlapping token spans at index " +
-            i.to_string(),
-          ),
-        )
+      guard starts[i] >= starts[i - 1] else {
+        raise DecreasingStart(i, starts[i - 1], starts[i])
+      }
+      let previous_end = starts[i - 1] + tokens[i - 1].len
+      guard starts[i] >= previous_end else {
+        raise OverlappingToken(i, previous_end, starts[i])
       }
     }
   }

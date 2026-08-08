@@ -104,7 +104,12 @@ test "mode relex: construction owns initial result arrays" {
           retained_tokens,
           retained_starts,
           diagnostics=DiagnosticSet::empty(),
-        )
+        ) catch {
+          error =>
+            abort(
+              "mode lexer fixture adapter defect: " + @debug.to_string(error),
+            )
+        }
       },
       relex_from=(
         _source,
@@ -144,7 +149,7 @@ test "mode relex: retained old starts cannot mutate committed buffer" {
   let factory = ModeRelexFactory::new(new_session=_source_id => {
     ModeRelexState::new(
       tokenize=fn(source) {
-        LexResult::with_starts(
+        lex_result_from_owned_or_abort(
           [
             TokenInfo::new(Text(source), source.length()),
             TokenInfo::new(EOF, 0),
@@ -212,9 +217,9 @@ test "panic plain lex rejects invalid initial token stream" {
       SourceId("plain-invalid-source"),
       "a",
       lex_fn=_ => {
-        LexResult::with_starts(
+        lex_result_from_owned_or_abort(
           [TokenInfo::new(Text("a"), 1), TokenInfo::new(EOF, 0)],
-          [0],
+          [0, 2],
           diagnostics=DiagnosticSet::empty(),
         )
       },
@@ -237,16 +242,16 @@ test "mode relex: invalid partial and failed reset preserve committed state" {
           abort("mutated mode session was reused for full tokenization")
         }
         if session_number == 2 {
-          LexResult::with_starts(
+          lex_result_from_owned_or_abort(
             [
               TokenInfo::new(Text(source), source.length()),
               TokenInfo::new(EOF, 0),
             ],
-            [0],
+            [0, source.length() + 1],
             diagnostics=DiagnosticSet::empty(),
           )
         } else {
-          LexResult::with_starts(
+          lex_result_from_owned_or_abort(
             [
               TokenInfo::new(Text(source), source.length()),
               TokenInfo::new(EOF, 0),
@@ -321,7 +326,7 @@ test "mode relex: context-invalid partial falls back through a fresh session" {
     session_creations.val = session_creations.val + 1
     ModeRelexState::new(
       tokenize=fn(source) {
-        LexResult::with_starts(
+        lex_result_from_owned_or_abort(
           [
             TokenInfo::new(Text(source), source.length()),
             TokenInfo::new(EOF, 0),
@@ -443,7 +448,7 @@ test "panic mode relex rejects invalid initial token stream" {
   let factory = ModeRelexFactory::new(new_session=_source_id => {
     ModeRelexState::new(
       tokenize=fn(_source) {
-        LexResult::with_starts(
+        lex_result_from_owned_or_abort(
           [TokenInfo::new(Text("a"), 2), TokenInfo::new(EOF, 0)],
           [0, 1],
           diagnostics=DiagnosticSet::empty(),

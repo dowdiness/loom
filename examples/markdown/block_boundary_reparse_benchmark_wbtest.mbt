@@ -240,7 +240,7 @@ fn run_boundary_phase_benchmark(block_count : Int) -> Unit raise {
       i => starts[i],
       i => updated[starts[i]:starts[i] + tokens[i].len],
       markdown_spec,
-      reuse_size_threshold=markdown_spec.reuse_size_threshold,
+      reuse_size_threshold=markdown_spec.reuse_size_threshold(),
       allow_left_adjacent_reuse=false,
     )
     let start_fallback = block_boundary_bench_now_ms()
