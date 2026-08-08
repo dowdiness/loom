@@ -662,14 +662,21 @@ fn lex_inline(
           let end = multiline_inline_html_setext_boundary(
             input, pos, candidate_end, delimiter_index,
           ).unwrap_or(candidate_end)
-          let text = input[pos:end].to_owned()
-          (
-            Produced(
-              @core.TokenInfo::new(Text(text), end - pos),
-              next_offset=end,
-            ),
-            Inline,
-          )
+          if input.view(start_offset=pos, end_offset=end).contains_char('`') {
+            (
+              Produced(@core.TokenInfo::new(Text("<"), 1), next_offset=pos + 1),
+              Inline,
+            )
+          } else {
+            let text = input[pos:end].to_owned()
+            (
+              Produced(
+                @core.TokenInfo::new(Text(text), end - pos),
+                next_offset=end,
+              ),
+              Inline,
+            )
+          }
         }
         Some({ kind: InlineAngleKind::UriAutolink, .. })
         | Some({ kind: InlineAngleKind::EmailAutolink, .. })

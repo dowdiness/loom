@@ -416,61 +416,65 @@ fn index_inline_autolinks(
   tokens : Array[InlineAnalysisToken],
   code_delimiters : CodeSpanDelimiterIndex,
 ) -> InlineAutolinkIndex {
+  let has_exposed_angle = tokens.any(token => token.kind == AnalysisAngleOpen)
   let raw_candidates : Array[InlineAutolinkCandidate] = []
   let raw_candidate_by_opener : Map[Int, Int] = Map([])
-  let candidate_text = StringBuilder::StringBuilder()
-  let mut opener_index : Int? = None
-  let mut expected_start = -1
-  for index, token in tokens {
-    if token.kind == AnalysisLineBoundary ||
-      (opener_index is Some(_) && token.start != expected_start) {
-      opener_index = None
-      candidate_text.reset()
+  let logical_starts : Array[Int] = []
+  let absolute_end_by_logical_end : Map[Int, Int] = Map([])
+  let source = if has_exposed_angle {
+    let buf = StringBuilder::StringBuilder()
+    let mut logical_end = 0
+    for token in tokens {
+      logical_starts.push(logical_end)
+      buf.write_string(token.text)
+      logical_end = logical_end + token.text.length()
+      absolute_end_by_logical_end[logical_end] = token.end
     }
-    match token.kind {
-      AnalysisAngleOpen => {
-        opener_index = Some(index)
-        candidate_text.reset()
-        candidate_text.write_string(token.text)
-        expected_start = token.end
-      }
-      AnalysisAngleClose => {
-        match opener_index {
-          Some(opener) => {
-            candidate_text.write_string(token.text)
-            let text = candidate_text.to_string()
-            match classify_inline_angle_text(text) {
-              Some({ kind: InlineAngleKind::UriAutolink, .. }) => {
-                let candidate : InlineAutolinkCandidate = {
-                  kind: InlineAngleKind::UriAutolink,
-                  start: tokens[opener].start,
-                  end: token.end,
-                }
-                raw_candidate_by_opener[candidate.start] = raw_candidates.length()
-                raw_candidates.push(candidate)
-              }
-              Some({ kind: InlineAngleKind::EmailAutolink, .. }) => {
-                let candidate : InlineAutolinkCandidate = {
-                  kind: InlineAngleKind::EmailAutolink,
-                  start: tokens[opener].start,
-                  end: token.end,
-                }
-                raw_candidate_by_opener[candidate.start] = raw_candidates.length()
-                raw_candidates.push(candidate)
-              }
-              _ => ()
-            }
-          }
-          None => ()
+    buf.to_string()
+  } else {
+    ""
+  }
+  let delimiter_index = if has_exposed_angle {
+    Some(build_inline_angle_delimiter_index(source))
+  } else {
+    None
+  }
+  for index, token in tokens {
+    let candidate = match token.kind {
+      AnalysisAngleOpen =>
+        match
+          classify_inline_angle_at_with_index(
+            source,
+            logical_starts[index],
+            delimiter_index,
+          ) {
+          Some({ kind, end }) =>
+            absolute_end_by_logical_end
+            .get(end)
+            .map(absolute_end => {
+              (
+                { kind, start: token.start, end: absolute_end } :
+                InlineAutolinkCandidate)
+            })
+          None => None
         }
-        opener_index = None
-        candidate_text.reset()
+      AnalysisOther if token.first == Some('<') && token.last == Some('>') =>
+        Some(
+          (
+            {
+              kind: InlineAngleKind::InlineHtmlAngle,
+              start: token.start,
+              end: token.end,
+            } : InlineAutolinkCandidate),
+        )
+      _ => None
+    }
+    match candidate {
+      Some(candidate) => {
+        raw_candidate_by_opener[candidate.start] = raw_candidates.length()
+        raw_candidates.push(candidate)
       }
-      _ =>
-        if opener_index is Some(_) {
-          candidate_text.write_string(token.text)
-          expected_start = token.end
-        }
+      None => ()
     }
   }
   let candidates : Array[InlineAutolinkCandidate] = []
@@ -531,6 +535,7 @@ priv struct InlineDestinationFrame {
   mut prefix_pending : Bool
   mut in_angle : Bool
   mut angle_seen : Bool
+  mut angle_line_break : Bool
   mut escaped : Bool
   mut content_seen : Bool
   mut nested_paren_count : Int
@@ -571,6 +576,11 @@ fn index_inline_destinations(
   for index = 0; index < tokens.length(); index = index + 1 {
     let token = tokens[index]
     if token.kind == AnalysisLineBoundary {
+      match open_frames.last() {
+        Some(frame_index) if frames[frame_index].in_angle =>
+          frames[frame_index].angle_line_break = true
+        _ => ()
+      }
       while queued_frames.pop() is Some(frame_index) {
         let frame = frames[frame_index]
         if !frame.closed &&
@@ -604,6 +614,7 @@ fn index_inline_destinations(
               prefix_pending: true,
               in_angle: false,
               angle_seen: false,
+              angle_line_break: false,
               escaped: false,
               content_seen: false,
               nested_paren_count: 0,
@@ -620,6 +631,7 @@ fn index_inline_destinations(
               prefix_pending: true,
               in_angle: false,
               angle_seen: false,
+              angle_line_break: false,
               escaped: false,
               content_seen: false,
               nested_paren_count: 0,
@@ -638,7 +650,11 @@ fn index_inline_destinations(
               Some(closed_index) => {
                 let closed = frames[closed_index]
                 closed.closed = true
-                boundaries[closed.opener] = Complete(index)
+                boundaries[closed.opener] = if closed.angle_line_break {
+                  Literal(token.end)
+                } else {
+                  Complete(index)
+                }
                 match open_frames.last() {
                   Some(parent_index) => {
                     let parent = frames[parent_index]
@@ -669,6 +685,9 @@ fn index_inline_destinations(
             }
             for ch in token.text {
               if frame.in_angle {
+                if ch == '\n' || ch == '\r' {
+                  frame.angle_line_break = true
+                }
                 if frame.escaped {
                   frame.escaped = false
                 } else if ch == '\\' {
@@ -729,6 +748,31 @@ fn inline_analysis_token_is_spaces(token : InlineAnalysisToken) -> Bool {
   token.kind == AnalysisOther &&
   token.text.length() > 0 &&
   token.text.all(fn(ch) { ch == ' ' || ch == '\t' })
+}
+
+///|
+fn inline_link_target_disposition(
+  tokens : Array[InlineAnalysisToken],
+  content_start : Int,
+  content_end : Int,
+) -> InlineLinkCandidateDisposition {
+  let mut first_content = content_start
+  while first_content < content_end &&
+        inline_analysis_token_is_spaces(tokens[first_content]) {
+    first_content = first_content + 1
+  }
+  guard first_content < content_end && tokens[first_content].first == Some('<') else {
+    return ValidLinkDisposition
+  }
+  let buf = StringBuilder::StringBuilder()
+  for index = content_start; index < content_end; index = index + 1 {
+    buf.write_string(tokens[index].text)
+  }
+  if parse_inline_link_target(buf.to_string()) is Some(_) {
+    ValidLinkDisposition
+  } else {
+    LiteralLinkDisposition
+  }
 }
 
 ///|
@@ -835,7 +879,11 @@ fn index_inline_links(
                         suffix_start: tokens[after_label].start,
                         suffix_end: tokens[destination_end].end,
                         form: InlineTargetForm,
-                        disposition: ValidLinkDisposition,
+                        disposition: inline_link_target_disposition(
+                          tokens,
+                          after_label + 1,
+                          destination_end,
+                        ),
                         is_image: inline_link_candidate_is_image(tokens, index),
                         active: true,
                       })
@@ -944,30 +992,52 @@ fn resolve_inline_autolink_link_conflicts(
   tokens : Array[InlineAnalysisToken],
 ) -> Unit {
   guard links.autolinks is Some(autolinks) else { return }
+  guard links.candidates.length() > 0 else { return }
   let destination_starts : Map[Int, Int] = Map([])
   let destination_ends : Map[Int, Int] = Map([])
+  let literal_destination_starts : Map[Int, Int] = Map([])
+  let literal_destination_ends : Map[Int, Int] = Map([])
   let candidate_by_opener : Map[Int, Int] = Map([])
   let candidate_by_label_closer : Map[Int, Int] = Map([])
   for index, candidate in links.candidates {
-    destination_starts[candidate.suffix_start] = destination_starts
-      .get(candidate.suffix_start)
-      .unwrap_or(0) +
-      1
-    destination_ends[candidate.suffix_end] = destination_ends
-      .get(candidate.suffix_end)
-      .unwrap_or(0) +
-      1
+    match candidate.disposition {
+      ValidLinkDisposition => {
+        destination_starts[candidate.suffix_start] = destination_starts
+          .get(candidate.suffix_start)
+          .unwrap_or(0) +
+          1
+        destination_ends[candidate.suffix_end] = destination_ends
+          .get(candidate.suffix_end)
+          .unwrap_or(0) +
+          1
+      }
+      LiteralLinkDisposition => {
+        literal_destination_starts[candidate.suffix_start] = literal_destination_starts
+          .get(candidate.suffix_start)
+          .unwrap_or(0) +
+          1
+        literal_destination_ends[candidate.suffix_end] = literal_destination_ends
+          .get(candidate.suffix_end)
+          .unwrap_or(0) +
+          1
+      }
+    }
     candidate_by_opener[candidate.opener_start] = index
     candidate_by_label_closer[candidate.label_closer_start] = index
   }
   let label_stack : Array[Int] = []
   let mut destination_coverage = 0
+  let mut literal_destination_coverage = 0
   for token in tokens {
     let offset = token.start
     destination_coverage = destination_coverage -
       destination_ends.get(offset).unwrap_or(0)
     destination_coverage = destination_coverage +
       destination_starts.get(offset).unwrap_or(0)
+    literal_destination_coverage = literal_destination_coverage -
+      literal_destination_ends.get(offset).unwrap_or(0)
+    literal_destination_coverage = literal_destination_coverage +
+      literal_destination_starts.get(offset).unwrap_or(0)
     match candidate_by_opener.get(offset) {
       Some(index) => label_stack.push(index)
       None => ()
@@ -975,7 +1045,11 @@ fn resolve_inline_autolink_link_conflicts(
     match autolinks.candidate_by_opener.get(offset) {
       Some(autolink_index) => {
         let autolink = autolinks.candidates[autolink_index]
-        if destination_coverage > 0 {
+        if destination_coverage > 0 ||
+          (
+            literal_destination_coverage > 0 &&
+            !(autolink.kind is InlineHtmlAngle)
+          ) {
           autolinks.candidate_by_opener.remove(offset)
         } else {
           for stack_index = label_stack.length() - 1
@@ -987,6 +1061,11 @@ fn resolve_inline_autolink_link_conflicts(
             // already deactivated by an earlier autolink in this same pass,
             // so every remaining ancestor is inactive too.
             if !link.active {
+              break
+            }
+            if autolink.kind is InlineHtmlAngle &&
+              autolink.end <= link.label_closer_start {
+              // Inline HTML may nest in eligible link or image label content.
               break
             }
             if autolink.end <= link.label_closer_start && link.is_image {
@@ -1444,6 +1523,7 @@ fn parse_indexed_inline_code(
 fn parse_indexed_inline_autolink(
   ctx : @core.ParserContext[Token, SyntaxKind],
   candidate : InlineAutolinkCandidate,
+  continue_line : () -> Bool,
 ) -> Unit {
   guard ctx.current_token_range().start == candidate.start else {
     abort("indexed autolink did not reach its opening angle")
@@ -1451,20 +1531,75 @@ fn parse_indexed_inline_autolink(
   let kind = match candidate.kind {
     InlineAngleKind::UriAutolink => UriAutolinkNode
     InlineAngleKind::EmailAutolink => EmailAutolinkNode
-    InlineAngleKind::InlineHtmlAngle =>
-      abort("inline HTML remains on the legacy lexer path")
+    InlineAngleKind::InlineHtmlAngle => InlineHtmlNode
   }
   ctx.start_node(kind)
   while ctx.current_token_range().start < candidate.end {
-    guard !is_inline_end(ctx.peek()) else {
-      abort("indexed autolink crossed its inline container boundary")
+    if ctx.peek() is Newline {
+      guard continue_line() else {
+        abort("indexed angle candidate crossed its inline container boundary")
+      }
+    } else {
+      guard !is_inline_end(ctx.peek()) else {
+        abort("indexed angle candidate crossed its inline container boundary")
+      }
+      ctx.emit_current_token()
     }
-    ctx.emit_current_token()
   }
   guard ctx.current_token_range().start == candidate.end else {
     abort("indexed autolink did not end on a lexer token boundary")
   }
   ctx.finish_node()
+}
+
+///|
+/// Preserve a parser-confirmed literal line while still executing the shared
+/// angle plan, so typed angle ownership never falls back to IR reclassification.
+fn emit_collapsed_inline_html_token(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  match ctx.peek() {
+    Text(text) if text.has_prefix("<") && text.has_suffix(">") => {
+      ctx.start_node(InlineHtmlNode)
+      ctx.emit_token(TextToken)
+      ctx.finish_node()
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn parse_indexed_inline_angles_in_literal_line(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  policy : InlineParsePolicy,
+) -> Unit {
+  let analysis_tokens = ctx.lookahead(() => {
+    collect_inline_analysis_tokens(ctx, policy, () => false)
+  })
+  let delimiters = build_code_span_delimiter_index(analysis_tokens)
+  let angles = if delimiters.has_angle_open {
+    Some(index_inline_autolinks(analysis_tokens, delimiters))
+  } else {
+    None
+  }
+  while !token_is_inline_end(ctx.peek(), policy) {
+    let candidate = match angles {
+      Some(angles) =>
+        angles.candidate_by_opener
+        .get(ctx.current_token_range().start)
+        .map(index => angles.candidates[index])
+      None => None
+    }
+    match candidate {
+      Some(candidate) =>
+        parse_indexed_inline_autolink(ctx, candidate, () => false)
+      None =>
+        if !emit_collapsed_inline_html_token(ctx) {
+          ctx.emit_token(TextToken)
+        }
+    }
+  }
 }
 
 ///|
@@ -1483,10 +1618,13 @@ fn parse_inline(
   match
     inline_autolink_candidate_for_opener(links, ctx.current_token_range().start) {
     Some(candidate) => {
-      parse_indexed_inline_autolink(ctx, candidate)
+      parse_indexed_inline_autolink(ctx, candidate, continue_line)
       return
     }
     None => ()
+  }
+  if emit_collapsed_inline_html_token(ctx) {
+    return
   }
   match ctx.peek() {
     Star | StarStar | Underscore => ctx.emit_token(TextToken)
@@ -1636,25 +1774,40 @@ fn parse_link(
             abort("pre-indexed literal link did not reach its suffix start")
           }
           while ctx.current_token_range().start < candidate.suffix_end {
-            if ctx.peek() is Newline {
-              guard continue_line() else {
-                abort("literal link destination crossed its container boundary")
-              }
-            } else {
-              match ctx.peek() {
-                Text(_)
-                | Indentation(_)
-                | Star
-                | StarStar
-                | Underscore
-                | Backtick
-                | LeftBracket
-                | RightBracket
-                | LeftParen
-                | RightParen => ctx.emit_token(TextToken)
-                OrderedListMarker(_) if policy.allows_ordered_marker() =>
-                  ctx.emit_token(TextToken)
-                _ => ctx.bump_error()
+            match
+              inline_autolink_candidate_for_opener(
+                links,
+                ctx.current_token_range().start,
+              ) {
+              Some(angle) if angle.kind is InlineHtmlAngle =>
+                parse_indexed_inline_autolink(ctx, angle, continue_line)
+              _ => {
+                if emit_collapsed_inline_html_token(ctx) {
+                  continue
+                }
+                if ctx.peek() is Newline {
+                  guard continue_line() else {
+                    abort(
+                      "literal link destination crossed its container boundary",
+                    )
+                  }
+                } else {
+                  match ctx.peek() {
+                    Text(_)
+                    | Indentation(_)
+                    | Star
+                    | StarStar
+                    | Underscore
+                    | Backtick
+                    | LeftBracket
+                    | RightBracket
+                    | LeftParen
+                    | RightParen => ctx.emit_token(TextToken)
+                    OrderedListMarker(_) if policy.allows_ordered_marker() =>
+                      ctx.emit_token(TextToken)
+                    _ => ctx.bump_error()
+                  }
+                }
               }
             }
           }

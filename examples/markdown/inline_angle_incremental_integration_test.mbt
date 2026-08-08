@@ -110,6 +110,20 @@ test "incremental inline angle candidates match fresh parsing at every boundary"
       "<p><code>&lt;https://foo.bar.</code>baz&gt;`</p>\n",
     ),
     (
+      "code to inline HTML precedence",
+      "`<a href=\"`\">`\n",
+      @core.Edit::delete(0, 1),
+      "<a href=\"`\">`\n",
+      "<p><a href=\"`\">`</p>\n",
+    ),
+    (
+      "inline HTML to code precedence",
+      "<a href=\"`\">`\n",
+      @core.Edit::insert(0, 1),
+      "`<a href=\"`\">`\n",
+      "<p><code>&lt;a href=&quot;</code>&quot;&gt;`</p>\n",
+    ),
+    (
       "crossing autolink construction",
       "[foo<https://example.com/?search=](uri)\n",
       @core.Edit::insert("[foo<https://example.com/?search=](uri)".length(), 1),

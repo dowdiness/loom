@@ -803,11 +803,10 @@ fn parse_invalid_reference_definition_angle_destination_paragraph(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
   ctx.node(ParagraphNode, fn() {
-    while !(ctx.peek() is Newline) &&
-          !(ctx.peek() is BlankLine) &&
-          ctx.peek() != EOF {
-      ctx.emit_token(TextToken)
-    }
+    parse_indexed_inline_angles_in_literal_line(
+      ctx,
+      InlineParsePolicy::paragraph(),
+    )
     let handler : ContinuationHandler[BlockContinuationAction] = {
       decide: () => decide_root_paragraph_continuation(ctx),
       consume: action => consume_block_continuation(ctx, action),

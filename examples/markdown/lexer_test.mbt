@@ -141,7 +141,7 @@ test "lexer: link brackets" {
 }
 
 ///|
-test "lexer: autolinks expose angle and backtick facts without splitting ordinary text" {
+test "lexer: typed angle candidates expose source facts without splitting ordinary text" {
   let uri = tokenize("<https://foo.bar.`baz>`\n")
   inspect(
     uri.map(token => @debug.to_string(token.token)).join("|"),
@@ -156,6 +156,11 @@ test "lexer: autolinks expose angle and backtick facts without splitting ordinar
   inspect(
     inline_html.map(token => @debug.to_string(token.token)).join("|"),
     content="Text(\"<i>\")|Text(\"text\")|Text(\"</i>\")|Newline|EOF",
+  )
+  let backtick_html = tokenize("<a href=\"`\">`\n")
+  inspect(
+    backtick_html.map(token => @debug.to_string(token.token)).join("|"),
+    content="Text(\"<\")|Text(\"a href=\\\"\")|Backtick|Text(\"\\\"\")|Text(\">\")|Backtick|Newline|EOF",
   )
 }
 

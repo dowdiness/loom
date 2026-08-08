@@ -126,6 +126,77 @@ test "issue 893: CommonMark 345 and 346 resolve code and URI ownership" {
 }
 
 ///|
+test "issue 894: CommonMark 343 and 344 resolve code and HTML ownership" {
+  let cases : Array[(String, Array[String], Array[String], String)] = [
+    (
+      "`<a href=\"`\">`\n",
+      [],
+      ["`<a href=\"`"],
+      "<p><code>&lt;a href=&quot;</code>&quot;&gt;`</p>\n",
+    ),
+    ("<a href=\"`\">`\n", ["<a href=\"`\">"], [], "<p><a href=\"`\">`</p>\n"),
+  ]
+  for angle_case in cases {
+    let (source, expected_html_nodes, expected_code, expected_html) = angle_case
+    let (cst, diagnostics) = parse_cst(
+      @core.SourceId("markdown-issue-894-code-html-precedence"),
+      source,
+    ) catch {
+      _ => abort("Issue #894 parse failed")
+    }
+    assert_eq(diagnostics.length(), 0)
+    let syntax = @seam.SyntaxNode::from_cst(cst)
+    assert_eq(
+      issue_893_inline_node_texts(syntax, InlineHtmlNode),
+      expected_html_nodes,
+    )
+    assert_eq(
+      issue_893_inline_node_texts(syntax, InlineCodeNode),
+      expected_code,
+    )
+    assert_inline_angle_html(source, expected_html)
+  }
+}
+
+///|
+test "issue 894: inline HTML ownership follows label and suffix boundaries" {
+  let cases : Array[(String, Array[String], String)] = [
+    ("x <i>y</i>\n", ["<i>", "</i>"], "<p>x <i>y</i></p>\n"),
+    (
+      "[x <i>y</i>](url)\n",
+      ["<i>", "</i>"],
+      "<p><a href=\"url\">x <i>y</i></a></p>\n",
+    ),
+    ("[x](<i>)\n", [], "<p><a href=\"i\">x</a></p>\n"),
+    (
+      "[foo <bar attr=\"](baz)\">\n",
+      ["<bar attr=\"](baz)\">"],
+      "<p>[foo <bar attr=\"](baz)\"></p>\n",
+    ),
+    ("<i></i>\n", ["<i>", "</i>"], "<p><i></i></p>\n"),
+    ("<i\n", [], "<p>&lt;i</p>\n"),
+  ]
+  for angle_case in cases {
+    let (source, expected_html_nodes, expected_html) = angle_case
+    let (cst, diagnostics) = parse_cst(
+      @core.SourceId("markdown-issue-894-html-boundaries"),
+      source,
+    ) catch {
+      _ => abort("Issue #894 boundary parse failed")
+    }
+    assert_eq(diagnostics.length(), 0)
+    assert_eq(
+      issue_893_inline_node_texts(
+        @seam.SyntaxNode::from_cst(cst),
+        InlineHtmlNode,
+      ),
+      expected_html_nodes,
+    )
+    assert_inline_angle_html(source, expected_html)
+  }
+}
+
+///|
 test "issue 893: link and image suffixes remain structural around autolinks" {
   let cases : Array[(String, String, Array[String])] = [
     ("[link](<>)\n", "<p><a href=\"\">link</a></p>\n", []),
@@ -307,6 +378,106 @@ test "inline angle semantics cover LF CRLF CR and EOF terminators" {
     ) catch {
       _ => fail("inline angle terminator case failed: " + label)
     }
+  }
+}
+
+///|
+test "issue 894: multiline inline HTML preserves spelling and origins" {
+  let cases : Array[(String, String, String)] = [
+    ("LF", "<a title=\"line one\nline two\">", "\n"),
+    ("LF backtick", "<a title=\"line `\nline two\">", "\n"),
+    ("CRLF", "<a title=\"line one\r\nline two\">", "\r\n"),
+    ("CR", "<a title=\"line one\rline two\">", "\r"),
+    ("EOF", "<a title=\"line one\">", ""),
+  ]
+  for angle_case in cases {
+    let (label, candidate, terminator) = angle_case
+    let source = "x " + candidate + terminator
+    let (cst, diagnostics) = parse_cst(
+      @core.SourceId("markdown-issue-894-multiline-" + label),
+      source,
+    ) catch {
+      _ => abort("Issue #894 multiline parse failed")
+    }
+    assert_eq(diagnostics.length(), 0)
+    let syntax = @seam.SyntaxNode::from_cst(cst)
+    assert_eq(syntax.text(), source)
+    assert_eq(issue_893_inline_node_texts(syntax, InlineHtmlNode), [candidate])
+    match inline_angle_ir_from_source(source).children() {
+      [paragraph] =>
+        match paragraph.children() {
+          [text, html] => {
+            assert_eq(text.text_value(), Some("x "))
+            match html.node {
+              InlineHtml(value, Some(origin)) => {
+                assert_eq(value, candidate)
+                assert_eq(
+                  origin,
+                  MarkdownIROrigin(start=2, end=2 + candidate.length()),
+                )
+              }
+              _ => fail("multiline HTML did not retain typed IR ownership")
+            }
+          }
+          _ => fail("multiline HTML changed inline child shape")
+        }
+      _ => fail("multiline HTML changed document child shape")
+    }
+  }
+}
+
+///|
+test "issue 894: container prefixes stay outside multiline HTML semantics" {
+  let source = "> x <a title=\"line `\n> line two\">y\n"
+  let expected = "<blockquote>\n<p>x <a title=\"line `\nline two\">y</p>\n</blockquote>\n"
+  let (cst, diagnostics) = parse_cst(
+    @core.SourceId("markdown-issue-894-container-segments"),
+    source,
+  ) catch {
+    _ => abort("Issue #894 container parse failed")
+  }
+  assert_eq(diagnostics.length(), 0)
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  assert_eq(syntax.text(), source)
+  assert_eq(issue_893_inline_node_texts(syntax, InlineHtmlNode), [
+    "<a title=\"line `\n> line two\">",
+  ])
+  assert_inline_angle_html(source, expected)
+
+  let list_source = "- x <a title=\"line `\n  line two\">y\n"
+  let list_expected = "<ul>\n<li>x <a title=\"line `\nline two\">y</li>\n</ul>\n"
+  let (list_cst, list_diagnostics) = parse_cst(
+    @core.SourceId("markdown-issue-894-list-segments"),
+    list_source,
+  ) catch {
+    _ => abort("Issue #894 list segment parse failed")
+  }
+  assert_eq(list_diagnostics.length(), 0)
+  let list_syntax = @seam.SyntaxNode::from_cst(list_cst)
+  assert_eq(list_syntax.text(), list_source)
+  assert_eq(issue_893_inline_node_texts(list_syntax, InlineHtmlNode), [
+    "<a title=\"line `\n  line two\">",
+  ])
+  assert_inline_angle_html(list_source, list_expected)
+
+  let excess_source = "- x <a title=\"line `\n    line two\">y\n"
+  let excess_expected = "<ul>\n<li>x <a title=\"line `\n  line two\">y</li>\n</ul>\n"
+  assert_inline_angle_html(excess_source, excess_expected)
+  match inline_angle_ir_from_source(excess_source).children() {
+    [list] =>
+      match list.children() {
+        [item] =>
+          match item.children() {
+            [paragraph] =>
+              match paragraph.children() {
+                [_, html, _] => assert_eq(html.content_origin(), None)
+                _ => fail("list HTML changed inline shape")
+              }
+            _ => fail("list HTML changed paragraph shape")
+          }
+        _ => fail("list HTML changed item shape")
+      }
+    _ => fail("list HTML changed list shape")
   }
 }
 

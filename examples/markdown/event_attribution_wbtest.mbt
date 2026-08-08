@@ -5,6 +5,7 @@
 // - mixed: block dispatch, continuation, inline analysis, and event emission
 // - delimiter-heavy: code/link/emphasis analysis and backtick negative control
 // - recovery-heavy: literal fallback, error nodes, and diagnostics
+// - inline HTML: typed backtick-bearing multiline angle ownership
 // - raw HTML: HtmlBlockOpen/HtmlText payload materialization
 // - fenced code: CodeFenceOpen/CodeText payload materialization
 // - nested containers: block-quote dispatch and continuation
@@ -53,6 +54,7 @@ fn event_attribution_corpus_matrix(
     "```moonbit\nfn item() -> Int { 1 }\n```\n\n"
   let recovery_case = "case: \\*literal* \\*\\*literal** \\\\*em* \\*😈* " +
     "\\* literal *unclosed\n[\\*literal*](/) \\*a \\*b***\n\n"
+  let inline_html = "x <a title=\"line `\nline two\">y\n"
   let html_block = "<div data-row=\"x\">\nraw <span>payload</span>\n</div>\n\n"
   let fenced_block = "```moonbit\nfn item() -> Int {\n  1\n}\n```\n"
   [
@@ -60,6 +62,7 @@ fn event_attribution_corpus_matrix(
     { name: "mixed", source: mixed_section.repeat(scale) },
     { name: "delimiter-heavy", source: delimiter.delimiter_heavy.source },
     { name: "recovery-heavy", source: recovery_case.repeat(scale) },
+    { name: "inline-html", source: inline_html.repeat(scale) },
     { name: "html", source: html_block.repeat(scale) },
     { name: "fenced-code", source: fenced_block.repeat(scale) },
     {
@@ -250,26 +253,28 @@ test "event attribution: deterministic transcript remains stable" {
   inspect(
     event_attribution_transcript(4),
     content=(
-      #|paragraph|source=422|tokens=57|reads=1774/554/549|token-max=41|diagnostics=0|payload=21/386|payload-units=386/0/0/0/0/0|backticks=0
-      #|mixed|source=640|tokens=173|reads=5226/1500/1476|token-max=76|diagnostics=0|payload=64/492|payload-units=376/0/88/0/28/0|backticks=8
-      #|delimiter-heavy|source=520|tokens=293|reads=9798/3429/3428|token-max=41|diagnostics=0|payload=111/339|payload-units=339/0/0/0/0/0|backticks=8
-      #|recovery-heavy|source=372|tokens=113|reads=3942/1288/1284|token-max=54|diagnostics=0|payload=40/300|payload-units=300/0/0/0/0/0|backticks=0
+      #|paragraph|source=422|tokens=57|reads=1815/554/549|token-max=41|diagnostics=0|payload=21/386|payload-units=386/0/0/0/0/0|backticks=0
+      #|mixed|source=640|tokens=173|reads=5326/1500/1476|token-max=76|diagnostics=0|payload=64/492|payload-units=376/0/88/0/28/0|backticks=8
+      #|delimiter-heavy|source=520|tokens=293|reads=10012/3429/3428|token-max=41|diagnostics=0|payload=111/339|payload-units=339/0/0/0/0/0|backticks=8
+      #|recovery-heavy|source=372|tokens=113|reads=4022/1288/1284|token-max=56|diagnostics=0|payload=40/300|payload-units=300/0/0/0/0/0|backticks=0
+      #|inline-html|source=124|tokens=37|reads=1458/413/412|token-max=50|diagnostics=0|payload=24/112|payload-units=112/0/0/0/0/0|backticks=4
       #|html|source=208|tokens=29|reads=182/36/32|token-max=11|diagnostics=0|payload=12/192|payload-units=0/192/0/0/0/0|backticks=0
       #|fenced-code|source=160|tokens=37|reads=222/40/36|token-max=10|diagnostics=0|payload=16/116|payload-units=0/0/88/0/28/0|backticks=0
-      #|nested-container|source=104|tokens=41|reads=938/292/290|token-max=37|diagnostics=0|payload=4/36|payload-units=36/0/0/0/0/0|backticks=0
+      #|nested-container|source=104|tokens=41|reads=943/292/290|token-max=39|diagnostics=0|payload=4/36|payload-units=36/0/0/0/0/0|backticks=0
       #|
     ),
   )
   inspect(
     event_attribution_transcript(64),
     content=(
-      #|paragraph|source=6537|tokens=837|reads=27754/8714/8649|token-max=41|diagnostics=0|payload=321/6021|payload-units=6021/0/0/0/0/0|backticks=0
-      #|mixed|source=10240|tokens=2753|reads=83586/24000/23616|token-max=76|diagnostics=0|payload=1024/7872|payload-units=6016/0/1408/0/448/0|backticks=128
-      #|delimiter-heavy|source=8320|tokens=4673|reads=156318/54909/54908|token-max=41|diagnostics=0|payload=1791/5439|payload-units=5439/0/0/0/0/0|backticks=128
-      #|recovery-heavy|source=5952|tokens=1793|reads=63042/20608/20544|token-max=54|diagnostics=0|payload=640/4800|payload-units=4800/0/0/0/0/0|backticks=0
+      #|paragraph|source=6537|tokens=837|reads=28395/8714/8649|token-max=41|diagnostics=0|payload=321/6021|payload-units=6021/0/0/0/0/0|backticks=0
+      #|mixed|source=10240|tokens=2753|reads=85186/24000/23616|token-max=76|diagnostics=0|payload=1024/7872|payload-units=6016/0/1408/0/448/0|backticks=128
+      #|delimiter-heavy|source=8320|tokens=4673|reads=159772/54909/54908|token-max=41|diagnostics=0|payload=1791/5439|payload-units=5439/0/0/0/0/0|backticks=128
+      #|recovery-heavy|source=5952|tokens=1793|reads=64322/20608/20544|token-max=56|diagnostics=0|payload=640/4800|payload-units=4800/0/0/0/0/0|backticks=0
+      #|inline-html|source=1984|tokens=577|reads=23298/6653/6652|token-max=50|diagnostics=0|payload=384/1792|payload-units=1792/0/0/0/0/0|backticks=64
       #|html|source=3328|tokens=449|reads=2882/576/512|token-max=11|diagnostics=0|payload=192/3072|payload-units=0/3072/0/0/0/0|backticks=0
       #|fenced-code|source=2560|tokens=577|reads=3522/640/576|token-max=10|diagnostics=0|payload=256/1856|payload-units=0/0/1408/0/448/0|backticks=0
-      #|nested-container|source=1718|tokens=641|reads=14858/4792/4790|token-max=37|diagnostics=0|payload=64/630|payload-units=630/0/0/0/0/0|backticks=0
+      #|nested-container|source=1718|tokens=641|reads=14923/4792/4790|token-max=39|diagnostics=0|payload=64/630|payload-units=630/0/0/0/0/0|backticks=0
       #|
     ),
   )

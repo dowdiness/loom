@@ -419,27 +419,21 @@ test "reference definition: CommonMark 201 invalid angle destination remains dia
     [paragraph, ..] => {
       let kind : SyntaxKind = @seam.FromRawKind::from_raw(paragraph.kind())
       assert_eq(kind, ParagraphNode)
-      for element in paragraph.all_children() {
-        match element {
-          @seam.SyntaxElement::Token(token) => {
-            let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(
-              token.kind(),
-            )
-            assert_true(token_kind is TextToken || token_kind is NewlineToken)
-          }
-          _ =>
-            fail("CommonMark 201 literal paragraph must contain direct tokens")
-        }
-      }
+      assert_eq(issue_893_inline_node_texts(paragraph, InlineHtmlNode), [
+        "<bar>",
+      ])
     }
     _ => fail("CommonMark 201 must begin with a paragraph")
   }
   let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, syntax, diagnostics,
   )
-  inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
-    content="<p>[foo]: &lt;bar&gt;(baz)</p>\n<p>[foo]</p>\n",
+  assert_eq(
+    experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+      ir,
+      Passthrough,
+    ),
+    Ok("<p>[foo]: <bar>(baz)</p>\n<p>[foo]</p>\n"),
   )
 }
 

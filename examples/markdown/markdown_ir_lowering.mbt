@@ -149,16 +149,72 @@ fn append_inline_text_ir(
 }
 
 ///|
-fn lower_typed_inline_angle_node(node : @seam.SyntaxNode) -> MarkdownIR {
-  let text = node.text()
+fn typed_inline_html_semantic_text(
+  node : @seam.SyntaxNode,
+  source : String,
+) -> (String, Bool) {
+  let content_column = nearest_container_content_column(node, source)
+  if content_column == 0 {
+    return (node.text(), false)
+  }
+  let buf = StringBuilder::StringBuilder()
+  let mut crosses_structural_prefix = false
+  for element in node.direct_elements_iter() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        match kind {
+          BlockQuoteMarkerToken => crosses_structural_prefix = true
+          IndentationToken => {
+            let token_column = visual_column_at_offset(source, token.start())
+            let stripped = strip_visual_columns(
+              token.text(),
+              token_column,
+              (content_column - token_column).max(0),
+            )
+            if stripped != token.text() {
+              crosses_structural_prefix = true
+            }
+            buf.write_string(stripped)
+          }
+          _ => buf.write_string(token.text())
+        }
+      }
+      @seam.SyntaxElement::Node(child) => buf.write_string(child.text())
+    }
+  }
+  (buf.to_string(), crosses_structural_prefix)
+}
+
+///|
+fn lower_typed_inline_angle_node(
+  node : @seam.SyntaxNode,
+  source : String,
+) -> MarkdownIR {
+  let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   let origin = origin_from_node(node)
+  if kind is InlineHtmlNode {
+    let (text, crosses_structural_prefix) = typed_inline_html_semantic_text(
+      node, source,
+    )
+    return MarkdownIR::inline_html(
+      text,
+      origin,
+      if crosses_structural_prefix {
+        None
+      } else {
+        Some(origin)
+      },
+    )
+  }
+  let text = node.text()
   guard text.length() >= 2 else { return MarkdownIR::text(text, origin) }
   let value = text[1:text.length() - 1].to_owned()
   let value_origin = MarkdownIROrigin(
     start=origin.start() + 1,
     end=origin.end() - 1,
   )
-  match @seam.FromRawKind::from_raw(node.kind()) {
+  match kind {
     UriAutolinkNode =>
       MarkdownIR::autolink(
         UriAutolinkKind,
@@ -177,25 +233,18 @@ fn lower_typed_inline_angle_node(node : @seam.SyntaxNode) -> MarkdownIR {
         Some(value_origin),
         None,
       )
-    InlineHtmlNode => MarkdownIR::inline_html(text, origin, Some(origin))
+    InlineHtmlNode =>
+      abort("typed inline HTML returned before autolink lowering")
     _ => MarkdownIR::text(text, origin)
   }
 }
 
 ///|
-fn lower_legacy_inline_html_text_token(token : @seam.SyntaxToken) -> MarkdownIR {
-  let origin = origin_from_token(token)
-  MarkdownIR::inline_html(token.text(), origin, Some(origin))
-}
-
-///|
 fn lower_inline_text_token(token : @seam.SyntaxToken) -> MarkdownIR {
-  let origin = origin_from_token(token)
-  match classify_inline_angle_text(token.text()) {
-    Some({ kind: InlineHtmlAngle, .. }) =>
-      lower_legacy_inline_html_text_token(token)
-    _ => MarkdownIR::text(strip_backslash_escapes(token.text()), origin)
-  }
+  MarkdownIR::text(
+    strip_backslash_escapes(token.text()),
+    origin_from_token(token),
+  )
 }
 
 ///|
@@ -469,28 +518,20 @@ fn lower_inline_children_skip_with_diags(
               previous_was_literal_emphasis_marker = false
               continue
             }
-            match classify_inline_angle_text(token.text()) {
-              Some({ kind: InlineHtmlAngle, .. }) =>
-                push_child(lower_legacy_inline_html_text_token(token))
-              _ => {
-                let origin = origin_from_token(token)
-                let text = strip_backslash_escapes(token.text())
-                let literal_marker = is_literal_emphasis_marker_text(
-                  token.text(),
-                )
-                if pending_newline is None &&
-                  (
-                    previous_was_escaped_backtick ||
-                    previous_was_literal_emphasis_marker ||
-                    literal_marker
-                  ) {
-                  append_inline_text_ir(children, text, origin)
-                } else {
-                  push_child(MarkdownIR::text(text, origin))
-                }
-                previous_was_literal_emphasis_marker = literal_marker
-              }
+            let origin = origin_from_token(token)
+            let text = strip_backslash_escapes(token.text())
+            let literal_marker = is_literal_emphasis_marker_text(token.text())
+            if pending_newline is None &&
+              (
+                previous_was_escaped_backtick ||
+                previous_was_literal_emphasis_marker ||
+                literal_marker
+              ) {
+              append_inline_text_ir(children, text, origin)
+            } else {
+              push_child(MarkdownIR::text(text, origin))
             }
+            previous_was_literal_emphasis_marker = literal_marker
             preceding_text_ends_escaped = text_ends_with_odd_backslashes(
               token.text(),
             )
@@ -706,28 +747,20 @@ fn lower_direct_inline_children_with_newline_and_diags(
                 previous_was_literal_emphasis_marker = false
                 continue
               }
-              match classify_inline_angle_text(token.text()) {
-                Some({ kind: InlineHtmlAngle, .. }) =>
-                  push_child(lower_legacy_inline_html_text_token(token))
-                _ => {
-                  let origin = origin_from_token(token)
-                  let text = strip_backslash_escapes(token.text())
-                  let literal_marker = is_literal_emphasis_marker_text(
-                    token.text(),
-                  )
-                  if pending_newline is None &&
-                    (
-                      previous_was_escaped_backtick ||
-                      previous_was_literal_emphasis_marker ||
-                      literal_marker
-                    ) {
-                    append_inline_text_ir(children, text, origin)
-                  } else {
-                    push_child(MarkdownIR::text(text, origin))
-                  }
-                  previous_was_literal_emphasis_marker = literal_marker
-                }
+              let origin = origin_from_token(token)
+              let text = strip_backslash_escapes(token.text())
+              let literal_marker = is_literal_emphasis_marker_text(token.text())
+              if pending_newline is None &&
+                (
+                  previous_was_escaped_backtick ||
+                  previous_was_literal_emphasis_marker ||
+                  literal_marker
+                ) {
+                append_inline_text_ir(children, text, origin)
+              } else {
+                push_child(MarkdownIR::text(text, origin))
               }
+              previous_was_literal_emphasis_marker = literal_marker
               preceding_text_ends_escaped = text_ends_with_odd_backslashes(
                 token.text(),
               )
@@ -1010,48 +1043,16 @@ fn hide_nested_link_opener(atoms : Array[MarkdownIR]) -> Array[MarkdownIR] {
 fn lower_literal_link_node_atoms(
   node : @seam.SyntaxNode,
   context : MarkdownIRLoweringContext,
-  target_start : Int?,
-  target_end : Int?,
 ) -> Array[MarkdownIR] {
   let atoms : Array[MarkdownIR] = []
   let mut contains_nested_link = false
-  let opaque_target = match (target_start, target_end) {
-    (Some(start), Some(end)) if start <= end =>
-      match classify_inline_angle_text(context.source[start:end].to_owned()) {
-        Some({ kind: InlineHtmlAngle, .. }) =>
-          Some(
-            MarkdownIR::inline_html(
-              context.source[start:end].to_owned(),
-              MarkdownIROrigin(start~, end~),
-              Some(MarkdownIROrigin(start~, end~)),
-            ),
-          )
-        _ => None
-      }
-    _ => None
-  }
-  let mut emitted_opaque_target = false
   for element in node.all_children() {
     match element {
-      @seam.SyntaxElement::Token(token) => {
-        let origin = origin_from_token(token)
-        let in_opaque_target = match (target_start, target_end, opaque_target) {
-          (Some(start), Some(end), Some(_)) =>
-            start <= origin.start() && origin.end() <= end
-          _ => false
+      @seam.SyntaxElement::Token(token) =>
+        match lower_literal_link_token(token, context) {
+          Some(atom) => atoms.push(atom)
+          None => ()
         }
-        if in_opaque_target {
-          if !emitted_opaque_target {
-            atoms.push(opaque_target.unwrap())
-            emitted_opaque_target = true
-          }
-        } else {
-          match lower_literal_link_token(token, context) {
-            Some(atom) => atoms.push(atom)
-            None => ()
-          }
-        }
-      }
       @seam.SyntaxElement::Node(child_node) => {
         let kind : SyntaxKind = @seam.FromRawKind::from_raw(child_node.kind())
         if kind == LinkNode {
@@ -1134,7 +1135,7 @@ fn lower_link_node_atoms_with_diags(
   context : MarkdownIRLoweringContext,
 ) -> Array[MarkdownIR] {
   if is_literal_link_node_envelope(node) {
-    return lower_literal_link_node_atoms(node, context, None, None)
+    return lower_literal_link_node_atoms(node, context)
   }
   let display : Array[MarkdownIR] = []
   let destination_buf = StringBuilder::StringBuilder()
@@ -1329,8 +1330,7 @@ fn lower_link_node_atoms_with_diags(
               },
             ),
           ]
-        None =>
-          lower_literal_link_node_atoms(node, context, target_start, target_end)
+        None => lower_literal_link_node_atoms(node, context)
       }
     _ => {
       let reference_candidate = match
@@ -1380,7 +1380,7 @@ fn lower_link_node_atoms_with_diags(
                   candidates,
                   bounded_link_reference_label(context, lookup_origin),
                   normalized_display,
-                  lower_literal_link_node_atoms(node, context, None, None),
+                  lower_literal_link_node_atoms(node, context),
                   form,
                   origin_from_node(node),
                   label_origin,
@@ -1404,10 +1404,10 @@ fn lower_link_node_atoms_with_diags(
                       definition.title_value_origin,
                     ),
                   ]
-                None => lower_literal_link_node_atoms(node, context, None, None)
+                None => lower_literal_link_node_atoms(node, context)
               }
           }
-        None => lower_literal_link_node_atoms(node, context, None, None)
+        None => lower_literal_link_node_atoms(node, context)
       }
     }
   }
@@ -1483,7 +1483,7 @@ fn lower_inline_node_with_diags(
       MarkdownIR::inline_code(value, origin_from_node(node), content_origin)
     }
     UriAutolinkNode | EmailAutolinkNode | InlineHtmlNode =>
-      lower_typed_inline_angle_node(node)
+      lower_typed_inline_angle_node(node, context.source)
     LinkNode => lower_link_node_atoms_with_diags(node, newline_text, context)[0]
     ErrorNode => {
       let origin = origin_from_node(node)
