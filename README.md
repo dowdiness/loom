@@ -12,9 +12,9 @@ Monorepo — no root `moon.mod.json`; run `moon` from each module's directory. `
 ```bash
 git clone --recursive https://github.com/dowdiness/loom.git && cd loom
 moon update                               # fetch the package registry index
-(cd loom && moon test)                    # framework module (loom/)
-(cd examples/lambda && moon test)         # lambda example
-(cd examples/lambda && moon bench --release)
+cd loom && moon test                    # framework module (loom/)
+cd examples/lambda && moon test         # lambda example
+cd examples/lambda && moon bench --release
 ```
 
 Multi-module development workflow: [docs/development/managing-modules.md](docs/development/managing-modules.md).
