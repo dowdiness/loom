@@ -886,6 +886,35 @@ test "experimental MarkdownIR: loose list separator sets list spread" {
 }
 
 ///|
+test "experimental MarkdownIR: CRLF loose list separator sets list spread" {
+  let source = "- one\r\n\r\n- two\r\n"
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-crlf-loose-list"),
+    source,
+  )
+  match ir.children() {
+    [list] => {
+      debug_inspect(list.spread(), content="Some(true)")
+      inspect(
+        experimental_markdown_ir_to_commonmark_html(ir),
+        content=(
+          #|<ul>
+          #|<li>
+          #|<p>one</p>
+          #|</li>
+          #|<li>
+          #|<p>two</p>
+          #|</li>
+          #|</ul>
+          #|
+        ),
+      )
+    }
+    _ => inspect("unexpected document children", content="one list")
+  }
+}
+
+///|
 test "experimental MarkdownIR: same-marker loose list carries marker metadata" {
   let source = "- one\n\n- two\n"
   let ir = markdown_ir_from_source(

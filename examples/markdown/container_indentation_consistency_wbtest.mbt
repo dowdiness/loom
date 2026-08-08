@@ -60,6 +60,41 @@ fn assert_container_indentation_case(
 }
 
 ///|
+test "container indentation: list-owned fences preserve close and content columns" {
+  let cases : Array[(String, Array[String], String)] = [
+    (
+      "- a\n  - b\n      ~~~~\n      code\n      ~~~~\n",
+      ["code"],
+      "<ul>\n<li>a\n<ul>\n<li>b\n<pre><code>code\n</code></pre>\n</li>\n</ul>\n</li>\n</ul>\n",
+    ),
+    (
+      "- item\n    ```\n      code\n    ```\n",
+      ["  code"],
+      "<ul>\n<li>item\n<pre><code>  code\n</code></pre>\n</li>\n</ul>\n",
+    ),
+  ]
+  for index, case in cases {
+    let (source, expected_values, expected_html) = case
+    let source_id = @core.SourceId(
+      "markdown-list-owned-fence-regression-" + index.to_string(),
+    )
+    let (cst, diagnostics) = try! parse_cst(source_id, source)
+    assert_true(diagnostics.is_empty())
+    let syntax = @seam.SyntaxNode::from_cst(cst)
+    let syntax_values : Array[String] = []
+    collect_syntax_code_block_values(syntax, syntax_values)
+    assert_eq(syntax_values, expected_values)
+    let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+      source_id, syntax, diagnostics,
+    )
+    let ir_values : Array[String] = []
+    collect_ir_code_block_facts(ir, ir_values, [])
+    assert_eq(ir_values, expected_values)
+    assert_eq(experimental_markdown_ir_to_commonmark_html(ir), expected_html)
+  }
+}
+
+///|
 test "container indentation: parser classification and MarkdownIR deindent share effective columns" {
   let cases : Array[ContainerIndentationCase] = [
     {

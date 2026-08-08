@@ -377,6 +377,10 @@ fn consume_block_continuation(
     ContinueIndentationPrefix => {
       ctx.emit_token(NewlineToken)
       ctx.emit_token(IndentationToken)
+      match ctx.peek() {
+        ListMarker | OrderedListMarker(_) => ctx.emit_token(TextToken)
+        _ => ()
+      }
     }
     ContinueOrderedMarkerAsText => {
       ctx.emit_token(NewlineToken)
@@ -384,6 +388,11 @@ fn consume_block_continuation(
     }
     ContinueQuoteMarker(prefix) => {
       ctx.emit_token(NewlineToken)
+      match ctx.peek() {
+        Indentation(_) if ctx.peek_nth(1) is BlockQuoteMarker =>
+          ctx.emit_token(IndentationToken)
+        _ => ()
+      }
       ctx.emit_token(BlockQuoteMarkerToken)
       emit_paragraph_continuation_prefix(ctx, prefix)
     }
@@ -466,24 +475,58 @@ fn parse_paragraph(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
+fn block_quote_marker_offset_after_newline(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  next : Token,
+) -> Int? {
+  match next {
+    BlockQuoteMarker => Some(2)
+    Indentation(_) if ctx.peek_nth(2) is BlockQuoteMarker => Some(3)
+    _ => None
+  }
+}
+
+///|
+fn block_quote_prefixed_block_start(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  match ctx.peek_nth(1) {
+    Indentation(_) =>
+      match ctx.peek_nth(2) {
+        CodeFenceOpen(_, _) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn decide_block_quote_paragraph_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> ContinuationDecision[BlockContinuationAction] {
   let at_newline = ctx.peek() is Newline
   let next = ctx.peek_nth(1)
-  let marked_line_continues = at_newline &&
-    next is BlockQuoteMarker &&
-    token_continues_paragraph_after_softbreak(ctx.peek_nth(2))
+  let marker_offset = if at_newline {
+    block_quote_marker_offset_after_newline(ctx, next)
+  } else {
+    None
+  }
+  let marked_line_continues = match marker_offset {
+    Some(offset) =>
+      token_continues_paragraph_after_softbreak(ctx.peek_nth(offset))
+    None => false
+  }
   let facts = BlockQuoteContinuation(BlockQuoteContinuationFacts::{
     at_newline,
     setext_underline: false,
     marked_line_continues,
-    marked_prefix: if at_newline {
-      observe_continuation_prefix(ctx, 2)
-    } else {
-      NoPrefix
+    marked_prefix: match marker_offset {
+      Some(offset) => observe_continuation_prefix(ctx, offset)
+      None => NoPrefix
     },
     unquoted_line_continues: at_newline &&
+    marker_offset is None &&
+    !block_quote_prefixed_block_start(ctx) &&
     token_continues_paragraph_after_softbreak(next),
     unquoted_prefix: if at_newline {
       observe_continuation_prefix(ctx, 1)
@@ -491,6 +534,7 @@ fn decide_block_quote_paragraph_continuation(
       NoPrefix
     },
     unquoted_thematic_break: at_newline &&
+    marker_offset is None &&
     next_unquoted_line_is_thematic_break(ctx),
   })
   continuation_decision_from_transition(
@@ -523,18 +567,25 @@ fn decide_block_quote_heading_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> ContinuationDecision[BlockContinuationAction] {
   let at_newline = ctx.peek() is Newline
-  let marked_line_continues = at_newline &&
-    ctx.peek_nth(1) is BlockQuoteMarker &&
-    token_continues_paragraph_after_softbreak(ctx.peek_nth(2))
+  let next = ctx.peek_nth(1)
+  let marker_offset = if at_newline {
+    block_quote_marker_offset_after_newline(ctx, next)
+  } else {
+    None
+  }
+  let marked_line_continues = match marker_offset {
+    Some(offset) =>
+      token_continues_paragraph_after_softbreak(ctx.peek_nth(offset))
+    None => false
+  }
   let facts = BlockQuoteContinuation(BlockQuoteContinuationFacts::{
     at_newline,
     setext_underline: at_newline &&
     quoted_setext_underline_depth_after_newline(ctx) is Some(_),
     marked_line_continues,
-    marked_prefix: if at_newline {
-      observe_continuation_prefix(ctx, 2)
-    } else {
-      NoPrefix
+    marked_prefix: match marker_offset {
+      Some(offset) => observe_continuation_prefix(ctx, offset)
+      None => NoPrefix
     },
     unquoted_line_continues: false,
     unquoted_prefix: NoPrefix,
@@ -1040,7 +1091,8 @@ fn next_list_marker_indent(
 fn parse_nested_list_item_flow(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_indent : Int,
-) -> Unit {
+) -> Bool {
+  let mut consumed = false
   while true {
     match ctx.peek() {
       Newline =>
@@ -1048,17 +1100,22 @@ fn parse_nested_list_item_flow(
             indent >= content_indent && indent <= content_indent + 3
           }) {
           ctx.emit_token(NewlineToken)
-          ignore(parse_nested_list_at_current_marker(ctx, content_indent))
+          if parse_nested_list_at_current_marker(ctx, content_indent) {
+            consumed = true
+          }
         } else {
           break
         }
       ListMarker | OrderedListMarker(_) | Indentation(_) =>
-        if !parse_nested_list_at_current_marker(ctx, content_indent) {
+        if parse_nested_list_at_current_marker(ctx, content_indent) {
+          consumed = true
+        } else {
           break
         }
       _ => break
     }
   }
+  consumed
 }
 
 ///|
@@ -1090,28 +1147,48 @@ fn token_can_continue_list_item_paragraph_after_newline(
 }
 
 ///|
+/// Immutable facts shared by list-item continuation decisions. ParserContext
+/// effects remain in the functions below; this keeps their call sites small
+/// without exposing a new public parser API.
+priv struct ListItemFlowContext {
+  content_indent : Int
+  marker_end_column : Int
+  allow_ordered_marker : Bool
+}
+
+///|
 fn try_continue_empty_list_item_after_newline(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  content_indent : Int,
+  context : ListItemFlowContext,
 ) -> Bool {
   guard ctx.peek() is Newline else { return false }
   let starts_continuation = token_can_start_list_item_continuation_paragraph(
       ctx.peek_nth(1),
-      content_indent,
+      context.content_indent,
     ) ||
     next_indented_text_indent_after_newline(ctx).map_or(false, indent => {
-      indent >= content_indent
+      indent >= context.content_indent
     })
   let is_prefixed_thematic_break = match ctx.peek_nth(1) {
     Indentation(text) =>
-      count_indent_columns(text, 0, text.length()) < content_indent + 4 &&
+      count_indent_columns(text, 0, text.length()) < context.content_indent + 4 &&
       ctx.peek_nth(2) is ThematicBreak
     _ => false
   }
   guard starts_continuation && !is_prefixed_thematic_break else { return false }
   ctx.emit_token(NewlineToken)
-  if !try_parse_list_item_indented_flow(ctx, content_indent) {
-    parse_paragraph(ctx)
+  if current_line_is_link_reference_definition(ctx) {
+    parse_link_reference_definition(ctx)
+  } else if !try_parse_list_item_indented_flow_at(
+      ctx,
+      context,
+      context.content_indent + 4,
+    ) {
+    parse_list_item_prefixed_paragraph(
+      ctx,
+      context.content_indent,
+      allow_ordered_marker=context.allow_ordered_marker,
+    )
   }
   true
 }
@@ -1119,7 +1196,8 @@ fn try_continue_empty_list_item_after_newline(
 ///|
 fn try_continue_list_item_after_blank_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  content_indent : Int,
+  context : ListItemFlowContext,
+  allow_paragraph_continuation~ : Bool,
 ) -> Bool {
   guard ctx.peek() is BlankLine ||
     (ctx.peek() is Newline && ctx.peek_nth(1) is BlankLine) else {
@@ -1134,39 +1212,76 @@ fn try_continue_list_item_after_blank_line(
   }
   match ctx.peek() {
     BlockQuoteMarker if current_token_text_has_min_leading_spaces(
-        ctx, content_indent,
+        ctx,
+        context.content_indent,
       ) => {
       parse_block_quote(ctx)
       true
     }
-    Indentation(_) if prefixed_list_item_block_starts(ctx, content_indent) => {
-      parse_list_item_prefixed_block(ctx, content_indent)
+    Indentation(_) if prefixed_list_item_block_starts(
+        ctx,
+        context.content_indent,
+      ) => {
+      parse_list_item_prefixed_block(ctx, context.content_indent)
       true
     }
     Indentation(_) => {
       let indent = current_token_leading_indent(ctx)
-      if indent >= content_indent + 4 {
-        parse_indented_code_block_at_min_indent(ctx, content_indent + 4)
+      if indent >= context.marker_end_column + 4 {
+        parse_indented_code_block_at_min_indent(
+          ctx,
+          context.marker_end_column + 4,
+        )
         true
-      } else if indent >= content_indent {
-        parse_paragraph(ctx)
+      } else if indent >= context.content_indent &&
+        prefixed_list_item_block_starts(ctx, context.content_indent) {
+        parse_list_item_prefixed_block(ctx, context.content_indent)
         true
-      } else if token_can_start_list_item_continuation_paragraph(
-          ctx.peek(),
-          content_indent,
+      } else if indent >= context.content_indent &&
+        (
+          ctx.peek_nth(1) is ListMarker ||
+          ctx.peek_nth(1) is OrderedListMarker(_)
         ) {
-        parse_paragraph(ctx)
+        match parse_nested_list_at_current_marker(ctx, context.content_indent) {
+          true => true
+          false => {
+            ctx.restore(checkpoint)
+            false
+          }
+        }
+      } else if allow_paragraph_continuation && indent >= context.content_indent {
+        parse_list_item_prefixed_paragraph(
+          ctx,
+          context.content_indent,
+          allow_ordered_marker=context.allow_ordered_marker,
+        )
+        true
+      } else if allow_paragraph_continuation &&
+        token_can_start_list_item_continuation_paragraph(
+          ctx.peek(),
+          context.content_indent,
+        ) {
+        parse_list_item_prefixed_paragraph(
+          ctx,
+          context.content_indent,
+          allow_ordered_marker=context.allow_ordered_marker,
+        )
         true
       } else {
         ctx.restore(checkpoint)
         false
       }
     }
-    _ if token_can_start_list_item_continuation_paragraph(
+    _ if allow_paragraph_continuation &&
+      token_can_start_list_item_continuation_paragraph(
         ctx.peek(),
-        content_indent,
+        context.content_indent,
       ) => {
-      parse_paragraph(ctx)
+      parse_list_item_prefixed_paragraph(
+        ctx,
+        context.content_indent,
+        allow_ordered_marker=context.allow_ordered_marker,
+      )
       true
     }
     _ => {
@@ -1174,6 +1289,49 @@ fn try_continue_list_item_after_blank_line(
       false
     }
   }
+}
+
+///|
+fn try_parse_list_item_quoted_blank_line_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  context : ListItemFlowContext,
+) -> Bool {
+  guard ctx.peek() is Newline && ctx.peek_nth(1) is BlockQuoteMarker else {
+    return false
+  }
+  let checkpoint = ctx.checkpoint()
+  ctx.emit_token(NewlineToken)
+  let mut saw_blank_line = false
+  let mut marker_count = 0
+  while ctx.peek() is BlockQuoteMarker {
+    ctx.emit_token(BlockQuoteMarkerToken)
+    marker_count = marker_count + 1
+    if ctx.peek() is BlankLine {
+      saw_blank_line = true
+      while ctx.peek() is BlankLine {
+        ctx.emit_token(BlankLineToken)
+      }
+      break
+    }
+  }
+  guard saw_blank_line && marker_count >= 2 && ctx.peek() is BlockQuoteMarker else {
+    ctx.restore(checkpoint)
+    return false
+  }
+  while ctx.peek() is BlockQuoteMarker {
+    ctx.emit_token(BlockQuoteMarkerToken)
+  }
+  ctx.node(ParagraphNode, fn() {
+    parse_list_item_inline_content(
+      ctx,
+      context.content_indent,
+      allow_ordered_marker=context.allow_ordered_marker,
+    )
+    if ctx.peek() is Newline {
+      ctx.emit_token(NewlineToken)
+    }
+  })
+  true
 }
 
 ///|
@@ -1242,7 +1400,7 @@ fn next_prefix_is_list_marker_boundary(
   match ctx.peek_nth(1) {
     Indentation(text) => {
       let indent = count_indent_columns(text, 0, text.length())
-      if indent >= content_indent + 4 {
+      if indent >= content_indent + 4 || (indent > 3 && indent < content_indent) {
         false
       } else {
         match ctx.peek_nth(2) {
@@ -1618,26 +1776,72 @@ fn parse_list_item_prefixed_block(
 }
 
 ///|
-fn try_parse_list_item_indented_flow(
+fn parse_list_item_prefixed_paragraph(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_indent : Int,
+  allow_ordered_marker~ : Bool,
+) -> Unit {
+  ctx.node(ParagraphNode, fn() {
+    ctx.emit_token(IndentationToken)
+    parse_list_item_inline_content(ctx, content_indent, allow_ordered_marker~)
+    if ctx.peek() is Newline {
+      ctx.emit_token(NewlineToken)
+    }
+  })
+}
+
+///|
+fn try_parse_list_item_indented_flow_at(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  context : ListItemFlowContext,
+  code_indent : Int,
 ) -> Bool {
-  match ctx.peek() {
-    Indentation(_) if current_token_leading_indent(ctx) >= content_indent + 4 => {
-      parse_indented_code_block_at_min_indent(ctx, content_indent + 4)
+  let current = ctx.peek()
+  let indent = match current {
+    Indentation(_) => Some(current_token_leading_indent(ctx))
+    _ => None
+  }
+  // Preserve the old shell's lazy lookahead: code and stop branches never
+  // needed the next token, while prefixed flow does.
+  let next = match indent {
+    Some(indent) if indent >= context.content_indent && indent < code_indent =>
+      ctx.peek_nth(1)
+    _ => EOF
+  }
+  match
+    decide_list_item_indented_flow(current, next, indent, context, code_indent) {
+    Stop => false
+    IndentedCode => {
+      parse_indented_code_block_at_min_indent(ctx, code_indent)
       true
     }
-    Indentation(_) if current_token_leading_indent(ctx) >= content_indent =>
-      match ctx.peek_nth(1) {
-        ListMarker | OrderedListMarker(_) =>
-          parse_nested_list_at_current_marker(ctx, content_indent)
-        _ => {
-          parse_list_item_prefixed_block(ctx, content_indent)
-          true
-        }
-      }
-    _ => false
+    NestedList =>
+      parse_nested_list_at_current_marker(ctx, context.content_indent)
+    PrefixedBlock => {
+      parse_list_item_prefixed_block(ctx, context.content_indent)
+      true
+    }
+    PrefixedParagraph => {
+      parse_list_item_prefixed_paragraph(
+        ctx,
+        context.content_indent,
+        allow_ordered_marker=context.allow_ordered_marker,
+      )
+      true
+    }
   }
+}
+
+///|
+fn try_parse_list_item_indented_flow(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  context : ListItemFlowContext,
+) -> Bool {
+  try_parse_list_item_indented_flow_at(
+    ctx,
+    context,
+    context.marker_end_column + 4,
+  )
 }
 
 ///|
@@ -1686,12 +1890,78 @@ fn parse_indented_code_block_from_current_line(
 }
 
 ///|
+/// Parse continuation blocks after the inline body. The order is the
+/// container grammar: newline-prefixed blocks, indented flow, blank-line
+/// continuation, another indented flow, then nested lists.
+fn parse_list_item_flow_after_body(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  context : ListItemFlowContext,
+  has_paragraph_content : Bool,
+) -> Unit {
+  while try_parse_list_item_block_after_newline(
+          ctx,
+          context.content_indent,
+          allow_prefixed_blocks=has_paragraph_content,
+        ) {
+    ()
+  }
+  while try_parse_list_item_indented_flow(ctx, context) {
+    ()
+  }
+  while try_continue_list_item_after_blank_line(
+          ctx,
+          context,
+          allow_paragraph_continuation=has_paragraph_content,
+        ) {
+    ()
+  }
+  while try_parse_list_item_indented_flow(ctx, context) {
+    ()
+  }
+  let nested_flow_consumed = parse_nested_list_item_flow(
+    ctx,
+    context.content_indent,
+  )
+  if nested_flow_consumed {
+    while try_continue_list_item_after_blank_line(
+            ctx,
+            context,
+            allow_paragraph_continuation=true,
+          ) {
+      ()
+    }
+  }
+}
+
+///|
+fn parse_list_item_code_fence_tail(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  context : ListItemFlowContext,
+) -> Unit {
+  while try_continue_list_item_after_blank_line(
+          ctx,
+          context,
+          allow_paragraph_continuation=true,
+        ) {
+    ()
+  }
+  while try_parse_list_item_indented_flow(ctx, context) {
+    ()
+  }
+}
+
+///|
 fn parse_list_item_body(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_indent : Int,
   marker_end_column : Int,
   allow_ordered_marker~ : Bool,
 ) -> Unit {
+  let context = ListItemFlowContext::{
+    content_indent,
+    marker_end_column,
+    allow_ordered_marker,
+  }
   let starts_reference_definition = current_line_is_link_reference_definition(
     ctx,
   )
@@ -1706,6 +1976,19 @@ fn parse_list_item_body(
       parse_ordered_list_at_min_indent(ctx, 0)
       return
     }
+    BlockQuoteMarker => {
+      parse_block_quote(ctx)
+      return
+    }
+    CodeFenceOpen(_, _) => {
+      parse_code_block(ctx)
+      parse_list_item_code_fence_tail(ctx, context)
+      return
+    }
+    HeadingMarker(_) => {
+      parse_heading(ctx)
+      return
+    }
     _ => ()
   }
   if starts_reference_definition {
@@ -1715,7 +1998,7 @@ fn parse_list_item_body(
     ) {
     parse_indented_code_block_from_current_line(
       ctx,
-      min_indent=content_indent + 4,
+      min_indent=marker_end_column + 4,
     )
   } else if line_at_offset_is_thematic_break(ctx, 0) {
     parse_inline_thematic_break(ctx)
@@ -1728,24 +2011,14 @@ fn parse_list_item_body(
     parse_list_item_inline_content(ctx, content_indent, allow_ordered_marker~)
   }
   if !has_paragraph_content {
-    ignore(try_continue_empty_list_item_after_newline(ctx, content_indent))
+    ignore(try_continue_empty_list_item_after_newline(ctx, context))
   }
-  while try_parse_list_item_block_after_newline(
-          ctx,
-          content_indent,
-          allow_prefixed_blocks=has_paragraph_content,
-        ) {
-    ()
+  if ctx.peek() is Newline &&
+    ctx.peek_nth(1) is BlockQuoteMarker &&
+    ctx.peek_nth(2) is BlockQuoteMarker {
+    ignore(try_parse_list_item_quoted_blank_line_continuation(ctx, context))
   }
-  if has_paragraph_content {
-    while try_continue_list_item_after_blank_line(ctx, content_indent) {
-      ()
-    }
-  }
-  while try_parse_list_item_indented_flow(ctx, content_indent) {
-    ()
-  }
-  parse_nested_list_item_flow(ctx, content_indent)
+  parse_list_item_flow_after_body(ctx, context, has_paragraph_content)
 }
 
 ///|
@@ -1932,8 +2205,6 @@ fn parse_code_block_with_prefix(
     }
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
-    } else if ctx.peek() is BlankLine {
-      ctx.emit_token(BlankLineToken)
     }
   })
 }

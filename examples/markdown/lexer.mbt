@@ -571,59 +571,90 @@ fn lex_inline(
   if pos >= input.length() {
     return (Done, Inline)
   }
-  match input.view(start_offset=pos) {
-    ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
-      produced_until(Newline, pos, rest, LineStart)
-    ['*', .. rest] => produced_until(Star, pos, rest, Inline)
-    ['_', .. rest] => produced_until(Underscore, pos, rest, Inline)
-    ['`', ..] => {
-      let run_len = count_backticks(input, pos)
-      (
-        Produced(
-          @core.TokenInfo::new(Backtick, run_len),
-          next_offset=pos + run_len,
-        ),
-        Inline,
-      )
-    }
-    ['[', .. rest] => produced_until(LeftBracket, pos, rest, Inline)
-    [']', .. rest] => produced_until(RightBracket, pos, rest, Inline)
-    ['(', .. rest] => produced_until(LeftParen, pos, rest, Inline)
-    [')', .. rest] => produced_until(RightParen, pos, rest, Inline)
-    ['<', ..] =>
-      (
-        Produced(@core.TokenInfo::new(Text("<"), 1), next_offset=pos + 1),
-        Inline,
-      )
-    ['>', .. rest] => produced_until(Text(">"), pos, rest, Inline)
-    _ => {
-      // Text run: consume until next special char or newline
-      let mut end = @core.next_char_offset(input, pos)
-      while end < input.length() {
-        match char_at(input, end) {
-          Some(ch) if is_inline_special(ch) =>
-            if ch != '`' &&
-              ch != '>' &&
-              ch != '\r' &&
-              ch != '\n' &&
-              end > pos &&
-              preceded_by_odd_backslashes(input, end) {
-              end = @core.next_char_offset(input, end)
-            } else {
-              break
-            }
-          None => break
-          _ => end = @core.next_char_offset(input, end)
+  if same_line_list_item_block_start(input, pos) &&
+    same_line_list_item_prefix(input, pos) &&
+    !same_line_list_item_line_is_thematic_break(input, pos) {
+    match input.view(start_offset=pos) {
+      ['-' | '*' | '+', ' ' | '\t', .. rest] =>
+        produced_until(ListMarker, pos, rest, Inline)
+      [ch, ..] if is_decimal_digit(ch) =>
+        match ordered_list_marker_at(input, pos) {
+          Some(marker) => {
+            let marker_len = count_ordered_marker_digits(input, pos) + 2
+            (
+              Produced(
+                @core.TokenInfo::new(OrderedListMarker(marker), marker_len),
+                next_offset=pos + marker_len,
+              ),
+              Inline,
+            )
+          }
+          None => lex_inline(input, pos)
         }
+      ['#', ..] => lex_heading_marker(input, pos, pos)
+      ['>', ' ' | '\t', .. rest] =>
+        produced_until(BlockQuoteMarker, pos, rest, BlockQuoteLineStart)
+      ['>', ..] =>
+        produce_token_from(BlockQuoteMarker, pos, 1, BlockQuoteLineStart)
+      ['`', ..] => lex_code_fence(input, pos, '`')
+      ['~', ..] => lex_code_fence(input, pos, '~')
+      _ => lex_inline(input, pos)
+    }
+  } else {
+    match input.view(start_offset=pos) {
+      ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
+        produced_until(Newline, pos, rest, LineStart)
+      ['*', .. rest] => produced_until(Star, pos, rest, Inline)
+      ['_', .. rest] => produced_until(Underscore, pos, rest, Inline)
+      ['`', ..] => {
+        let run_len = count_backticks(input, pos)
+        (
+          Produced(
+            @core.TokenInfo::new(Backtick, run_len),
+            next_offset=pos + run_len,
+          ),
+          Inline,
+        )
       }
-      let text : StringView = input[pos:end]
-      (
-        Produced(
-          @core.TokenInfo::new(Text(text.to_owned()), end - pos),
-          next_offset=end,
-        ),
-        Inline,
-      )
+      ['[', .. rest] => produced_until(LeftBracket, pos, rest, Inline)
+      [']', .. rest] => produced_until(RightBracket, pos, rest, Inline)
+      ['(', .. rest] => produced_until(LeftParen, pos, rest, Inline)
+      [')', .. rest] => produced_until(RightParen, pos, rest, Inline)
+      ['<', ..] =>
+        (
+          Produced(@core.TokenInfo::new(Text("<"), 1), next_offset=pos + 1),
+          Inline,
+        )
+      ['>', .. rest] => produced_until(Text(">"), pos, rest, Inline)
+      _ => {
+        // Text run: consume until next special char or newline
+        let mut end = @core.next_char_offset(input, pos)
+        while end < input.length() {
+          match char_at(input, end) {
+            Some(ch) if is_inline_special(ch) =>
+              if ch != '`' &&
+                ch != '>' &&
+                ch != '\r' &&
+                ch != '\n' &&
+                end > pos &&
+                preceded_by_odd_backslashes(input, end) {
+                end = @core.next_char_offset(input, end)
+              } else {
+                break
+              }
+            None => break
+            _ => end = @core.next_char_offset(input, end)
+          }
+        }
+        let text : StringView = input[pos:end]
+        (
+          Produced(
+            @core.TokenInfo::new(Text(text.to_owned()), end - pos),
+            next_offset=end,
+          ),
+          Inline,
+        )
+      }
     }
   }
 }
@@ -693,13 +724,19 @@ fn lex_code_block(
   pos : Int,
   fence_len : Int,
   fence_character : Char,
+  opening_indent : Int?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, CodeBlock(fence_len, fence_character))
   }
+  let max_leading_spaces = match opening_indent {
+    Some(indent) if indent >= 4 => indent
+    _ => 3
+  }
   let mut fence_start = pos
   let mut leading_spaces = 0
-  while leading_spaces < 3 && char_at(input, fence_start) is Some(' ') {
+  while leading_spaces < max_leading_spaces &&
+        char_at(input, fence_start) is Some(' ') {
     fence_start = fence_start + 1
     leading_spaces = leading_spaces + 1
   }
@@ -839,12 +876,13 @@ fn lex_html_block_until(
 }
 
 ///|
-/// Mode-aware lex step with an optional line-end hint.
-fn markdown_lex_step_inner(
+/// Mode-aware lex step with private context supplied by the imperative shell.
+fn markdown_lex_step_inner_with_context(
   input : String,
   pos : Int,
   mode : MarkdownLexMode,
   line_end_hint : Int?,
+  opening_indent : Int?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, mode)
@@ -854,11 +892,32 @@ fn markdown_lex_step_inner(
     BlockQuoteLineStart => lex_block_quote_line_start(input, pos, line_end_hint)
     Inline => lex_inline(input, pos)
     CodeBlock(n, fence_character) =>
-      lex_code_block(input, pos, n, fence_character)
+      lex_code_block(
+        input,
+        pos,
+        n,
+        fence_character,
+        match opening_indent {
+          Some(_) => opening_indent
+          None =>
+            source_derived_code_block_indent(input, pos, n, fence_character)
+        },
+      )
     HtmlBlockRaw => lex_html_block_raw(input, pos)
     HtmlBlockUntil(delimiter) => lex_html_block_until(input, pos, delimiter)
     HtmlBlockEndLine => lex_html_block_end_line(input, pos)
   }
+}
+
+///|
+/// Mode-aware lex step with an optional line-end hint.
+fn markdown_lex_step_inner(
+  input : String,
+  pos : Int,
+  mode : MarkdownLexMode,
+  line_end_hint : Int?,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  markdown_lex_step_inner_with_context(input, pos, mode, line_end_hint, None)
 }
 
 ///|
@@ -881,6 +940,7 @@ fn new_markdown_mode_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] {
   let source_ref : Ref[String?] = Ref(None)
   let line_end_cache_start_ref : Ref[Int] = Ref(-1)
   let line_end_cache_end_ref : Ref[Int] = Ref(-1)
+  let opening_indent_ref : Ref[Int?] = Ref(None)
   let lex_step = fn(input : String, pos : Int, mode : MarkdownLexMode) {
     let same_source = match source_ref.val {
       Some(source) => physical_equal(source, input)
@@ -890,6 +950,7 @@ fn new_markdown_mode_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] {
       source_ref.val = Some(input)
       line_end_cache_start_ref.val = -1
       line_end_cache_end_ref.val = -1
+      opening_indent_ref.val = None
     }
     let should_cache_line_end = pos < input.length() &&
       (match mode {
@@ -911,7 +972,26 @@ fn new_markdown_mode_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] {
     } else {
       None
     }
-    markdown_lex_step_inner(input, pos, mode, line_end_hint)
+    let context = match mode {
+      CodeBlock(_, _) => opening_indent_ref.val
+      _ => None
+    }
+    let result = markdown_lex_step_inner_with_context(
+      input, pos, mode, line_end_hint, context,
+    )
+    let (step, next_mode) = result
+    match (mode, next_mode) {
+      (CodeBlock(length, character), CodeBlock(_, _)) =>
+        if opening_indent_ref.val is None {
+          opening_indent_ref.val = source_derived_code_block_indent(
+            input, pos, length, character,
+          )
+        }
+      (_, CodeBlock(_, _)) =>
+        opening_indent_ref.val = Some(visual_column_at_offset(input, pos))
+      _ => opening_indent_ref.val = None
+    }
+    (step, next_mode)
   }
   { lex_step, initial_mode: LineStart }
 }

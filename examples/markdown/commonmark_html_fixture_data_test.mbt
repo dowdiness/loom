@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=369, xfail=5, skip=0.
+// Baseline: pass=385, xfail=5, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (369, 5, 0)
+  (385, 5, 0)
 }
 
 ///|
@@ -1775,6 +1775,86 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlPass,
     },
     {
+      example: 259,
+      section: "List items",
+      name: "list-items-259",
+      source: "   > > 1.  one\n>>\n>>     two\n",
+      expected_html: "<blockquote>\n<blockquote>\n<ol>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ol>\n</blockquote>\n</blockquote>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 263,
+      section: "List items",
+      name: "list-items-263",
+      source: "1.  foo\n\n    ```\n    bar\n    ```\n\n    baz\n\n    > bam\n",
+      expected_html: "<ol>\n<li>\n<p>foo</p>\n<pre><code>bar\n</code></pre>\n<p>baz</p>\n<blockquote>\n<p>bam</p>\n</blockquote>\n</li>\n</ol>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 273,
+      section: "List items",
+      name: "list-items-273",
+      source: "1.     indented code\n\n   paragraph\n\n       more code\n",
+      expected_html: "<ol>\n<li>\n<pre><code>indented code\n</code></pre>\n<p>paragraph</p>\n<pre><code>more code\n</code></pre>\n</li>\n</ol>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 274,
+      section: "List items",
+      name: "list-items-274",
+      source: "1.      indented code\n\n   paragraph\n\n       more code\n",
+      expected_html: "<ol>\n<li>\n<pre><code> indented code\n</code></pre>\n<p>paragraph</p>\n<pre><code>more code\n</code></pre>\n</li>\n</ol>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 278,
+      section: "List items",
+      name: "list-items-278",
+      source: "-\n  foo\n-\n  ```\n  bar\n  ```\n-\n      baz\n",
+      expected_html: "<ul>\n<li>foo</li>\n<li>\n<pre><code>bar\n</code></pre>\n</li>\n<li>\n<pre><code>baz\n</code></pre>\n</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 292,
+      section: "List items",
+      name: "list-items-292",
+      source: "> 1. > Blockquote\ncontinued here.\n",
+      expected_html: "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote\ncontinued here.</p>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 293,
+      section: "List items",
+      name: "list-items-293",
+      source: "> 1. > Blockquote\n> continued here.\n",
+      expected_html: "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote\ncontinued here.</p>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 298,
+      section: "List items",
+      name: "list-items-298",
+      source: "- - foo\n",
+      expected_html: "<ul>\n<li>\n<ul>\n<li>foo</li>\n</ul>\n</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 299,
+      section: "List items",
+      name: "list-items-299",
+      source: "1. - 2. foo\n",
+      expected_html: "<ol>\n<li>\n<ul>\n<li>\n<ol start=\"2\">\n<li>foo</li>\n</ol>\n</li>\n</ul>\n</li>\n</ol>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 300,
+      section: "List items",
+      name: "list-items-300",
+      source: "- # Foo\n- Bar\n  ---\n  baz\n",
+      expected_html: "<ul>\n<li>\n<h1>Foo</h1>\n</li>\n<li>\n<h2>Bar</h2>\nbaz</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 261,
       section: "List items",
       name: "list-items-261",
@@ -1852,6 +1932,54 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "list-items-297",
       source: "10) foo\n   - bar\n",
       expected_html: "<ol start=\"10\">\n<li>foo</li>\n</ol>\n<ul>\n<li>bar</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 312,
+      section: "Lists",
+      name: "lists-312",
+      source: "- a\n - b\n  - c\n   - d\n    - e\n",
+      expected_html: "<ul>\n<li>a</li>\n<li>b</li>\n<li>c</li>\n<li>d\n- e</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 318,
+      section: "Lists",
+      name: "lists-318",
+      source: "- a\n- ```\n  b\n\n\n  ```\n- c\n",
+      expected_html: "<ul>\n<li>a</li>\n<li>\n<pre><code>b\n\n\n</code></pre>\n</li>\n<li>c</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 320,
+      section: "Lists",
+      name: "lists-320",
+      source: "* a\n  > b\n  >\n* c\n",
+      expected_html: "<ul>\n<li>a\n<blockquote>\n<p>b</p>\n</blockquote>\n</li>\n<li>c</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 321,
+      section: "Lists",
+      name: "lists-321",
+      source: "- a\n  > b\n  ```\n  c\n  ```\n- d\n",
+      expected_html: "<ul>\n<li>a\n<blockquote>\n<p>b</p>\n</blockquote>\n<pre><code>c\n</code></pre>\n</li>\n<li>d</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 324,
+      section: "Lists",
+      name: "lists-324",
+      source: "1. ```\n   foo\n   ```\n\n   bar\n",
+      expected_html: "<ol>\n<li>\n<pre><code>foo\n</code></pre>\n<p>bar</p>\n</li>\n</ol>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 325,
+      section: "Lists",
+      name: "lists-325",
+      source: "* foo\n  * bar\n\n  baz\n",
+      expected_html: "<ul>\n<li>\n<p>foo</p>\n<ul>\n<li>bar</li>\n</ul>\n<p>baz</p>\n</li>\n</ul>\n",
       status: CommonMarkHtmlPass,
     },
     {

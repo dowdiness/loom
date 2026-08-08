@@ -2216,11 +2216,42 @@ fn lower_block_quote_children(
 }
 
 ///|
+fn list_node_has_structural_blank_line(node : @seam.SyntaxNode) -> Bool {
+  let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+  guard kind is (UnorderedListNode | OrderedListNode | ListItemNode) else {
+    return false
+  }
+  let mut previous_was_setext_heading = false
+  let mut found_structural_blank = false
+  for element in node.direct_elements_iter() {
+    match element {
+      @seam.SyntaxElement::Node(child) =>
+        previous_was_setext_heading = child.direct_token_of_kind(
+            SetextHeadingUnderlineToken.to_raw(),
+          )
+          is Some(_)
+      @seam.SyntaxElement::Token(token) => {
+        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        if token_kind is BlankLineToken {
+          // A BlankLineToken immediately after a setext heading is the
+          // heading's structural line ending, not a loose-list separator.
+          if !previous_was_setext_heading {
+            found_structural_blank = true
+          }
+        }
+        previous_was_setext_heading = false
+      }
+    }
+  }
+  found_structural_blank
+}
+
+///|
 fn list_spread_from_node(
   node : @seam.SyntaxNode,
   children : Array[MarkdownIR],
 ) -> Bool {
-  node.direct_token_of_kind(BlankLineToken.to_raw()) is Some(_) ||
+  list_node_has_structural_blank_line(node) ||
   children.iter().any(child => child.spread() == Some(true))
 }
 
@@ -2311,7 +2342,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
       let (children, content_origin) = lower_list_item_flow_children_with_diags(
         node, recurse, context,
       )
-      let spread = node.direct_token_of_kind(BlankLineToken.to_raw()) is Some(_)
+      let spread = list_node_has_structural_blank_line(node)
       match ordered_list_marker_from_node(node) {
         Some(marker) =>
           MarkdownIR::ordered_list_item(
