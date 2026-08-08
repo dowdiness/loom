@@ -42,14 +42,16 @@ test "unterminated inline comment index has one bounded lookup per candidate" {
 }
 
 ///|
-test "indexed inline angle lexing matches the stateless reference" {
+test "production inline angle lexing matches the stateless reference" {
   let cases = [
     "x <!--a--> y\n", "x <![CDATA[a<b]]> y\n", "x <?target a?> y\n", "x <!DOCTYPE html> y\n",
     "x <a title='a<b'>y</a>\n", "x <a title=\"line one\nline two\">y</a>\n", "<a title=\"a lot\n---\nof dashes\"/>\n",
     "`<a href=\"`\">`\n", "<a href=\"`\">`\n", "x <!--x<!--x\n",
   ]
   for source in cases {
-    let indexed = tokenize(source) catch { _ => fail("indexed lex failed") }
+    let production = tokenize(source) catch {
+      _ => fail("production lex failed")
+    }
     let (reference, _) = @core.tokenize_with_modes(
       markdown_mode_lexer,
       source,
@@ -57,7 +59,7 @@ test "indexed inline angle lexing matches the stateless reference" {
     ) catch {
       _ => fail("stateless reference lex failed")
     }
-    assert_eq(indexed, reference)
+    assert_eq(production, reference)
   }
 }
 
@@ -82,10 +84,10 @@ fn angle_free_inline_workload(repeat_count : Int) -> String {
 }
 
 ///|
-test "markdown angle-free 4096x indexed tokenize" (b : @bench.T) {
+test "markdown angle-free 4096x production tokenize" (b : @bench.T) {
   let source = angle_free_inline_workload(4096)
   b.bench(() => {
-    let tokens = tokenize(source) catch { _ => abort("indexed lex failed") }
+    let tokens = tokenize(source) catch { _ => abort("production lex failed") }
     b.keep(tokens)
   })
 }
@@ -119,10 +121,10 @@ fn greater_than_heavy_inline_workload(repeat_count : Int) -> String {
 // A `>`-heavy, `<`-free control: every `>` becomes a one-character Text token
 // boundary while no angle index or autolink plan is constructed. This measures
 // the unavoidable `>` boundary cost separately from semantic angle planning.
-test "markdown greater-than-heavy 4096x indexed tokenize" (b : @bench.T) {
+test "markdown greater-than-heavy 4096x production tokenize" (b : @bench.T) {
   let source = greater_than_heavy_inline_workload(4096)
   b.bench(() => {
-    let tokens = tokenize(source) catch { _ => abort("indexed lex failed") }
+    let tokens = tokenize(source) catch { _ => abort("production lex failed") }
     b.keep(tokens)
   })
 }
@@ -154,12 +156,12 @@ fn successful_single_line_inline_html_workload(repeat_count : Int) -> String {
 }
 
 ///|
-test "markdown successful single-line inline HTML 512x indexed tokenize" (
+test "markdown successful single-line inline HTML 512x production tokenize" (
   b : @bench.T,
 ) {
   let source = successful_single_line_inline_html_workload(512)
   b.bench(() => {
-    let tokens = tokenize(source) catch { _ => abort("indexed lex failed") }
+    let tokens = tokenize(source) catch { _ => abort("production lex failed") }
     b.keep(tokens)
   })
 }
@@ -193,12 +195,12 @@ fn successful_multiline_inline_html_workload(repeat_count : Int) -> String {
 }
 
 ///|
-test "markdown successful multiline inline HTML 512x indexed tokenize" (
+test "markdown successful multiline inline HTML 512x production tokenize" (
   b : @bench.T,
 ) {
   let source = successful_multiline_inline_html_workload(512)
   b.bench(() => {
-    let tokens = tokenize(source) catch { _ => abort("indexed lex failed") }
+    let tokens = tokenize(source) catch { _ => abort("production lex failed") }
     b.keep(tokens)
   })
 }

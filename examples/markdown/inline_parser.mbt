@@ -89,7 +89,8 @@ priv enum InlineAnalysisTokenKind {
 ///|
 priv struct InlineAnalysisToken {
   kind : InlineAnalysisTokenKind
-  text : String
+  // Borrowed from the parser's immutable source for this analysis pass.
+  text : StringView
   start : Int
   end : Int
   first : Char?
@@ -152,12 +153,14 @@ priv struct InlineAutolinkCandidate {
   kind : InlineAngleKind
   start : Int
   end : Int
+  mut active : Bool
 }
 
 ///|
 priv struct InlineAutolinkIndex {
+  // Source-ordered; lookup uses binary search and keeps conflict deactivation
+  // local to the candidate array instead of maintaining a parallel hash map.
   candidates : Array[InlineAutolinkCandidate]
-  candidate_by_opener : Map[Int, Int]
 }
 
 ///|
@@ -333,17 +336,37 @@ fn inline_link_candidate_for_suffix(
 }
 
 ///|
+fn inline_autolink_candidate_index_for_opener(
+  autolinks : InlineAutolinkIndex,
+  opener_start : Int,
+) -> Int? {
+  match
+    autolinks.candidates[:].binary_search_by(candidate => {
+      candidate.start.compare(opener_start)
+    }) {
+    Ok(index) if autolinks.candidates[index].active => Some(index)
+    _ => None
+  }
+}
+
+///|
+fn inline_autolink_candidate_at(
+  autolinks : InlineAutolinkIndex,
+  opener_start : Int,
+) -> InlineAutolinkCandidate? {
+  inline_autolink_candidate_index_for_opener(autolinks, opener_start).map(index => {
+    autolinks.candidates[index]
+  })
+}
+
+///|
 fn inline_autolink_candidate_for_opener(
   links : InlineLinkDelimiterIndex,
   opener_start : Int,
 ) -> InlineAutolinkCandidate? {
-  match links.autolinks {
-    Some(autolinks) =>
-      autolinks.candidate_by_opener
-      .get(opener_start)
-      .map(index => autolinks.candidates[index])
-    None => None
-  }
+  links.autolinks.bind(autolinks => {
+    inline_autolink_candidate_at(autolinks, opener_start)
+  })
 }
 
 ///|
@@ -378,7 +401,7 @@ fn collect_inline_analysis_tokens(
       let text = ctx.current_token_text()
       tokens.push({
         kind: inline_analysis_token_kind(ctx.peek(), text),
-        text: text.to_owned(),
+        text,
         start: range.start,
         end: range.end,
         first: first_char_in_inline_text(text),
@@ -412,27 +435,90 @@ fn collect_inline_analysis_tokens(
 }
 
 ///|
+fn source_view_is_line_ending(view : StringView) -> Bool {
+  (
+    view.length() == 1 &&
+    (
+      view.code_unit_at(0).to_int() == 0x0A ||
+      view.code_unit_at(0).to_int() == 0x0D
+    )
+  ) ||
+  (
+    view.length() == 2 &&
+    view.code_unit_at(0).to_int() == 0x0D &&
+    view.code_unit_at(1).to_int() == 0x0A
+  )
+}
+
+///|
+/// Return a direct view only when every analysis token is an exact continuation
+/// in one backing source. A normalized line-boundary fact is accepted only when
+/// its absolute span contains exactly LF, CRLF, or CR; container prefixes make
+/// that span wider and deliberately select fallback reconstruction.
+fn contiguous_inline_analysis_source(
+  tokens : Array[InlineAnalysisToken],
+) -> (StringView, Int)? {
+  guard tokens.length() > 0 else { return None }
+  let first = tokens[0]
+  guard first.kind != AnalysisLineBoundary else { return None }
+  let backing = first.text.data()
+  let source_start = first.start
+  let mut expected_start = source_start
+  for token in tokens {
+    guard token.start == expected_start else { return None }
+    if token.kind == AnalysisLineBoundary {
+      guard source_view_is_line_ending(
+        backing.view(start_offset=token.start, end_offset=token.end),
+      ) else {
+        return None
+      }
+    } else {
+      guard token.text.start_offset() == token.start &&
+        token.text.length() == token.end - token.start &&
+        physical_equal(token.text.data(), backing) else {
+        return None
+      }
+    }
+    expected_start = token.end
+  }
+  Some(
+    (
+      backing.view(start_offset=source_start, end_offset=expected_start),
+      source_start,
+    ),
+  )
+}
+
+///|
 fn index_inline_autolinks(
   tokens : Array[InlineAnalysisToken],
   code_delimiters : CodeSpanDelimiterIndex,
 ) -> InlineAutolinkIndex {
   let has_exposed_angle = tokens.any(token => token.kind == AnalysisAngleOpen)
   let raw_candidates : Array[InlineAutolinkCandidate] = []
-  let raw_candidate_by_opener : Map[Int, Int] = Map([])
+  let contiguous_source = if has_exposed_angle {
+    contiguous_inline_analysis_source(tokens)
+  } else {
+    None
+  }
   let logical_starts : Array[Int] = []
-  let absolute_end_by_logical_end : Map[Int, Int] = Map([])
-  let source = if has_exposed_angle {
+  let logical_ends : Array[Int] = []
+  let reconstructed_source = if has_exposed_angle && contiguous_source is None {
     let buf = StringBuilder::StringBuilder()
     let mut logical_end = 0
     for token in tokens {
       logical_starts.push(logical_end)
-      buf.write_string(token.text)
+      buf.write_stringview(token.text)
       logical_end = logical_end + token.text.length()
-      absolute_end_by_logical_end[logical_end] = token.end
+      logical_ends.push(logical_end)
     }
     buf.to_string()
   } else {
     ""
+  }
+  let source = match contiguous_source {
+    Some((view, _)) => view
+    None => reconstructed_source.view()
   }
   let delimiter_index = if has_exposed_angle {
     Some(build_inline_angle_delimiter_index(source))
@@ -440,67 +526,67 @@ fn index_inline_autolinks(
     None
   }
   for index, token in tokens {
+    let logical_start = match contiguous_source {
+      Some((_, source_start)) => token.start - source_start
+      None => logical_starts[index]
+    }
     let candidate = match token.kind {
       AnalysisAngleOpen =>
         match
           classify_inline_angle_at_with_index(
-            source,
-            logical_starts[index],
-            delimiter_index,
+            source, logical_start, delimiter_index,
           ) {
-          Some({ kind, end }) =>
-            absolute_end_by_logical_end
-            .get(end)
-            .map(absolute_end => {
+          Some({ kind, end }) => {
+            let absolute_end = match contiguous_source {
+              Some((_, source_start)) => Some(source_start + end)
+              None =>
+                match logical_ends[:].binary_search(end) {
+                  Ok(end_index) => Some(tokens[end_index].end)
+                  Err(_) => None
+                }
+            }
+            absolute_end.map(absolute_end => {
               (
-                { kind, start: token.start, end: absolute_end } :
+                { kind, start: token.start, end: absolute_end, active: true } :
                 InlineAutolinkCandidate)
             })
+          }
           None => None
         }
-      AnalysisOther if token.first == Some('<') && token.last == Some('>') =>
-        Some(
-          (
-            {
-              kind: InlineAngleKind::InlineHtmlAngle,
-              start: token.start,
-              end: token.end,
-            } : InlineAutolinkCandidate),
-        )
       _ => None
     }
     match candidate {
-      Some(candidate) => {
-        raw_candidate_by_opener[candidate.start] = raw_candidates.length()
-        raw_candidates.push(candidate)
-      }
+      Some(candidate) => raw_candidates.push(candidate)
       None => ()
     }
   }
   let candidates : Array[InlineAutolinkCandidate] = []
-  let candidate_by_opener : Map[Int, Int] = Map([])
+  let mut raw_index = 0
   let mut index = 0
   while index < tokens.length() {
-    match raw_candidate_by_opener.get(tokens[index].start) {
-      Some(raw_index) => {
-        let candidate = raw_candidates[raw_index]
-        candidate_by_opener[candidate.start] = candidates.length()
-        candidates.push(candidate)
-        while index < tokens.length() && tokens[index].end <= candidate.end {
-          if tokens[index].kind == AnalysisBacktick {
-            code_delimiters.eligible_openers[tokens[index].start] = false
-          }
-          index = index + 1
+    while raw_index < raw_candidates.length() &&
+          raw_candidates[raw_index].start < tokens[index].start {
+      raw_index = raw_index + 1
+    }
+    if raw_index < raw_candidates.length() &&
+      raw_candidates[raw_index].start == tokens[index].start {
+      let candidate = raw_candidates[raw_index]
+      raw_index = raw_index + 1
+      candidates.push(candidate)
+      while index < tokens.length() && tokens[index].end <= candidate.end {
+        if tokens[index].kind == AnalysisBacktick {
+          code_delimiters.eligible_openers[tokens[index].start] = false
         }
+        index = index + 1
       }
-      None =>
-        match analysis_code_closer_index(tokens, index, code_delimiters) {
-          Some(closer) => index = closer + 1
-          None => index = index + 1
-        }
+    } else {
+      match analysis_code_closer_index(tokens, index, code_delimiters) {
+        Some(closer) => index = closer + 1
+        None => index = index + 1
+      }
     }
   }
-  { candidates, candidate_by_opener }
+  { candidates, }
 }
 
 ///|
@@ -766,7 +852,7 @@ fn inline_link_target_disposition(
   }
   let buf = StringBuilder::StringBuilder()
   for index = content_start; index < content_end; index = index + 1 {
-    buf.write_string(tokens[index].text)
+    buf.write_stringview(tokens[index].text)
   }
   if parse_inline_link_target(buf.to_string()) is Some(_) {
     ValidLinkDisposition
@@ -1042,7 +1128,7 @@ fn resolve_inline_autolink_link_conflicts(
       Some(index) => label_stack.push(index)
       None => ()
     }
-    match autolinks.candidate_by_opener.get(offset) {
+    match inline_autolink_candidate_index_for_opener(autolinks, offset) {
       Some(autolink_index) => {
         let autolink = autolinks.candidates[autolink_index]
         if destination_coverage > 0 ||
@@ -1050,7 +1136,7 @@ fn resolve_inline_autolink_link_conflicts(
             literal_destination_coverage > 0 &&
             !(autolink.kind is InlineHtmlAngle)
           ) {
-          autolinks.candidate_by_opener.remove(offset)
+          autolinks.candidates[autolink_index].active = false
         } else {
           for stack_index = label_stack.length() - 1
               stack_index >= 0
@@ -1553,23 +1639,6 @@ fn parse_indexed_inline_autolink(
 }
 
 ///|
-/// Preserve a parser-confirmed literal line while still executing the shared
-/// angle plan, so typed angle ownership never falls back to IR reclassification.
-fn emit_collapsed_inline_html_token(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-) -> Bool {
-  match ctx.peek() {
-    Text(text) if text.has_prefix("<") && text.has_suffix(">") => {
-      ctx.start_node(InlineHtmlNode)
-      ctx.emit_token(TextToken)
-      ctx.finish_node()
-      true
-    }
-    _ => false
-  }
-}
-
-///|
 fn parse_indexed_inline_angles_in_literal_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
@@ -1586,18 +1655,13 @@ fn parse_indexed_inline_angles_in_literal_line(
   while !token_is_inline_end(ctx.peek(), policy) {
     let candidate = match angles {
       Some(angles) =>
-        angles.candidate_by_opener
-        .get(ctx.current_token_range().start)
-        .map(index => angles.candidates[index])
+        inline_autolink_candidate_at(angles, ctx.current_token_range().start)
       None => None
     }
     match candidate {
       Some(candidate) =>
         parse_indexed_inline_autolink(ctx, candidate, () => false)
-      None =>
-        if !emit_collapsed_inline_html_token(ctx) {
-          ctx.emit_token(TextToken)
-        }
+      None => ctx.emit_token(TextToken)
     }
   }
 }
@@ -1622,9 +1686,6 @@ fn parse_inline(
       return
     }
     None => ()
-  }
-  if emit_collapsed_inline_html_token(ctx) {
-    return
   }
   match ctx.peek() {
     Star | StarStar | Underscore => ctx.emit_token(TextToken)
@@ -1781,10 +1842,7 @@ fn parse_link(
               ) {
               Some(angle) if angle.kind is InlineHtmlAngle =>
                 parse_indexed_inline_autolink(ctx, angle, continue_line)
-              _ => {
-                if emit_collapsed_inline_html_token(ctx) {
-                  continue
-                }
+              _ =>
                 if ctx.peek() is Newline {
                   guard continue_line() else {
                     abort(
@@ -1808,7 +1866,6 @@ fn parse_link(
                     _ => ctx.bump_error()
                   }
                 }
-              }
             }
           }
           guard ctx.current_token_range().start == candidate.suffix_end else {

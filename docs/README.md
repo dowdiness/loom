@@ -93,6 +93,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-08-08-markdown-inline-angle-parser-ownership.md](decisions/2026-08-08-markdown-inline-angle-parser-ownership.md) — **Accepted** source-faithful inline-angle lexing and one container-local typed ownership authority (#895)
 - [decisions/2026-08-06-markdown-typed-angle-cst-compatibility.md](decisions/2026-08-06-markdown-typed-angle-cst-compatibility.md) — **Accepted** append-only typed angle CST compatibility, lowering as projection, and temporary dual-read ownership (#891)
 - [decisions/2026-08-06-markdown-delimiter-plan-candidate-rejection.md](decisions/2026-08-06-markdown-delimiter-plan-candidate-rejection.md) — **Accepted** reject the online Markdown delimiter resolver after it failed the two-target representative adoption gate; retain the informational oracle matrix (#883)
 - [decisions/2026-08-05-core-collection-ownership-boundary.md](decisions/2026-08-05-core-collection-ownership-boundary.md) — **Accepted** stored CST metadata policy, opaque validated collection values, single-authority mode re-lexing, and measured internal no-copy construction (#783)

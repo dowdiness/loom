@@ -118,7 +118,7 @@ boundary for persistent lexical modes. The rationale is recorded in the
 The checked mixed-context recipe is in the [mode lexer fixture](../../loom/core/mode_lexer_wbtest.mbt)
 and its [incremental re-lex test](../../loom/core/mode_relex_wbtest.mbt).
 Related in-repository recipes cover [Markdown code fences](../../examples/markdown/lexer.mbt),
-[Markdown's session-owned inline-angle index](../../examples/markdown/grammar.mbt),
+[Markdown's container-local parser angle plan](../../examples/markdown/inline_parser.mbt),
 [HTML raw text](../../examples/html/lexer.mbt), and [JSX opaque braces](../../examples/jsx/lexer.mbt).
 
 ## Recovery And Progress
