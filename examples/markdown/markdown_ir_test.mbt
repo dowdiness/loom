@@ -347,6 +347,52 @@ test "experimental MarkdownIR: escaped delimiter tails stay semantic text" {
 }
 
 ///|
+test "experimental MarkdownIR: literal angle link unescapes split escaped closer" {
+  let source = "[link](<foo\\>)\n"
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-literal-angle-link"),
+    source,
+  )
+  match ir.children() {
+    [paragraph] =>
+      match
+        paragraph
+        .children()
+        .search_by(child => child.text_value() == Some("foo>")) {
+        Some(index) =>
+          inspect(
+            origin_source(source, paragraph.children()[index].origin()),
+            content="foo\\>",
+          )
+        None => inspect("missing", content="literal angle destination text")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: literal link unescapes split escaped backtick" {
+  let source = "[\\`x](<foo\\>)\n"
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-literal-escaped-backtick"),
+    source,
+  )
+  match ir.children() {
+    [paragraph] =>
+      match
+        paragraph.children().search_by(child => child.text_value() == Some("`")) {
+        Some(index) =>
+          inspect(
+            origin_source(source, paragraph.children()[index].origin()),
+            content="\\`",
+          )
+        None => inspect("missing", content="literal escaped backtick text")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
 test "experimental MarkdownIR: escaped emphasis recovery handles non-BMP flanking text" {
   let source = "\\*😈*\n"
   let ir = markdown_ir_from_source(
