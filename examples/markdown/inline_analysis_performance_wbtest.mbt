@@ -76,6 +76,41 @@ test "inline analysis source fast path requires contiguous backing" {
       expected,
     )
   }
+  for fixture in [("\n<i>", 1), ("\r\n<i>", 2)] {
+    let (fixture_source, content_start) = fixture
+    let leading_boundary_tokens = [
+      inline_analysis_fixture_token(
+        fixture_source,
+        AnalysisLineBoundary,
+        0,
+        content_start,
+      ),
+      inline_analysis_fixture_token(
+        fixture_source,
+        AnalysisAngleOpen,
+        content_start,
+        content_start + 1,
+      ),
+      inline_analysis_fixture_token(
+        fixture_source,
+        AnalysisOther,
+        content_start + 1,
+        content_start + 2,
+      ),
+      inline_analysis_fixture_token(
+        fixture_source,
+        AnalysisAngleClose,
+        content_start + 2,
+        content_start + 3,
+      ),
+    ]
+    assert_eq(contiguous_inline_analysis_source(leading_boundary_tokens), None)
+    let code = build_code_span_delimiter_index(leading_boundary_tokens)
+    let angles = index_inline_autolinks(leading_boundary_tokens, code)
+    assert_eq(angles.candidates.length(), 1)
+    assert_eq(angles.candidates[0].start, content_start)
+    assert_eq(angles.candidates[0].end, content_start + 3)
+  }
 }
 
 ///|

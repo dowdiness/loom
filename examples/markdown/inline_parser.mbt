@@ -460,6 +460,7 @@ fn contiguous_inline_analysis_source(
 ) -> (StringView, Int)? {
   guard tokens.length() > 0 else { return None }
   let first = tokens[0]
+  guard first.kind != AnalysisLineBoundary else { return None }
   let backing = first.text.data()
   let source_start = first.start
   let mut expected_start = source_start
