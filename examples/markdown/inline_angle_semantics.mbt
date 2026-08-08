@@ -31,7 +31,7 @@ priv struct InlineAngleDelimiterIndex {
 
 ///|
 fn ascii_delimiter_matches_at(
-  input : String,
+  input : StringView,
   start : Int,
   delimiter : String,
 ) -> Bool {
@@ -48,7 +48,7 @@ fn ascii_delimiter_matches_at(
 
 ///|
 fn build_inline_angle_delimiter_index(
-  input : String,
+  input : StringView,
 ) -> InlineAngleDelimiterIndex {
   let angle_delimiters : Map[Int, InlineAngleDelimiterSnapshot] = Map([])
   let single_quote_closers : Map[Int, Int] = Map([])
@@ -161,7 +161,7 @@ fn is_email_domain_code_unit(code_unit : Int) -> Bool {
 }
 
 ///|
-fn consume_email_domain_label(input : String, start : Int) -> Int? {
+fn consume_email_domain_label(input : StringView, start : Int) -> Int? {
   guard start < input.length() &&
     (
       is_ascii_letter_code_unit(input.code_unit_at(start).to_int()) ||
@@ -180,7 +180,10 @@ fn consume_email_domain_label(input : String, start : Int) -> Int? {
 }
 
 ///|
-fn classify_email_autolink_at(input : String, start : Int) -> InlineAngleMatch? {
+fn classify_email_autolink_at(
+  input : StringView,
+  start : Int,
+) -> InlineAngleMatch? {
   guard start + 5 <= input.length() &&
     input.code_unit_at(start).to_int() == 0x3C else {
     return None
@@ -244,7 +247,7 @@ fn is_html_attribute_name_code_unit(code_unit : Int) -> Bool {
 }
 
 ///|
-fn skip_html_whitespace(input : String, start : Int) -> Int {
+fn skip_html_whitespace(input : StringView, start : Int) -> Int {
   let mut cursor = start
   while cursor < input.length() &&
         is_html_whitespace_code_unit(input.code_unit_at(cursor).to_int()) {
@@ -254,7 +257,7 @@ fn skip_html_whitespace(input : String, start : Int) -> Int {
 }
 
 ///|
-fn consume_html_tag_name(input : String, start : Int) -> Int? {
+fn consume_html_tag_name(input : StringView, start : Int) -> Int? {
   guard start < input.length() &&
     is_ascii_letter_code_unit(input.code_unit_at(start).to_int()) else {
     return None
@@ -275,7 +278,7 @@ fn consume_html_tag_name(input : String, start : Int) -> Int? {
 
 ///|
 fn consume_html_attribute_value(
-  input : String,
+  input : StringView,
   start : Int,
   delimiter_index : InlineAngleDelimiterIndex?,
 ) -> Int? {
@@ -329,7 +332,7 @@ fn consume_html_attribute_value(
 
 ///|
 fn classify_inline_open_tag_at(
-  input : String,
+  input : StringView,
   start : Int,
   delimiter_index : InlineAngleDelimiterIndex?,
 ) -> Int? {
@@ -377,7 +380,7 @@ fn classify_inline_open_tag_at(
 }
 
 ///|
-fn classify_inline_close_tag_at(input : String, start : Int) -> Int? {
+fn classify_inline_close_tag_at(input : StringView, start : Int) -> Int? {
   guard start + 3 < input.length() &&
     input.code_unit_at(start + 1).to_int() == 0x2F &&
     consume_html_tag_name(input, start + 2) is Some(name_end) else {
@@ -393,7 +396,7 @@ fn classify_inline_close_tag_at(input : String, start : Int) -> Int? {
 
 ///|
 fn find_ascii_delimiter(
-  input : String,
+  input : StringView,
   start : Int,
   delimiter : String,
   candidate_start : Int,
@@ -427,7 +430,7 @@ fn find_ascii_delimiter(
 
 ///|
 fn classify_inline_comment_at(
-  input : String,
+  input : StringView,
   start : Int,
   delimiter_index : InlineAngleDelimiterIndex?,
 ) -> Int? {
@@ -460,7 +463,7 @@ fn classify_inline_comment_at(
 
 ///|
 fn classify_inline_declaration_at(
-  input : String,
+  input : StringView,
   start : Int,
   delimiter_index : InlineAngleDelimiterIndex?,
 ) -> Int? {
@@ -488,7 +491,7 @@ fn classify_inline_declaration_at(
 
 ///|
 fn classify_inline_html_at(
-  input : String,
+  input : StringView,
   start : Int,
   delimiter_index : InlineAngleDelimiterIndex?,
 ) -> InlineAngleMatch? {
@@ -517,7 +520,10 @@ fn classify_inline_html_at(
 }
 
 ///|
-fn classify_uri_autolink_at(input : String, start : Int) -> InlineAngleMatch? {
+fn classify_uri_autolink_at(
+  input : StringView,
+  start : Int,
+) -> InlineAngleMatch? {
   guard start + 4 <= input.length() &&
     input.code_unit_at(start).to_int() == 0x3C &&
     is_ascii_letter_code_unit(input.code_unit_at(start + 1).to_int()) else {
@@ -550,7 +556,7 @@ fn classify_uri_autolink_at(input : String, start : Int) -> InlineAngleMatch? {
 
 ///|
 fn classify_inline_angle_at_with_index(
-  input : String,
+  input : StringView,
   start : Int,
   delimiter_index : InlineAngleDelimiterIndex?,
 ) -> InlineAngleMatch? {

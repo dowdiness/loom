@@ -5,6 +5,80 @@
 // emphasis planning are measured independently and as one pipeline.
 
 ///|
+fn inline_analysis_fixture_token(
+  source : String,
+  kind : InlineAnalysisTokenKind,
+  start : Int,
+  end : Int,
+) -> InlineAnalysisToken {
+  let text : StringView = if kind == AnalysisLineBoundary {
+    "\n"
+  } else {
+    source.view(start_offset=start, end_offset=end)
+  }
+  {
+    kind,
+    text,
+    start,
+    end,
+    first: first_char_in_inline_text(text),
+    last: last_char_in_inline_text(text),
+    ends_with_odd_backslashes: text_ends_with_odd_backslashes(text),
+  }
+}
+
+///|
+test "inline analysis source fast path requires contiguous backing" {
+  let source = "<i>"
+  let tokens = [
+    inline_analysis_fixture_token(source, AnalysisAngleOpen, 0, 1),
+    inline_analysis_fixture_token(source, AnalysisOther, 1, 2),
+    inline_analysis_fixture_token(source, AnalysisAngleClose, 2, 3),
+  ]
+  match contiguous_inline_analysis_source(tokens) {
+    Some((view, start)) => {
+      assert_eq(start, 0)
+      assert_eq(view.to_owned(), source)
+    }
+    None => fail("contiguous source-backed facts must use the direct view")
+  }
+  for
+    fixture in [
+      ("a\nb", 1, 2, true),
+      ("a\r\nb", 1, 3, true),
+      ("a\rb", 1, 2, true),
+      ("a\n> b", 1, 4, false),
+      ("a\n  b", 1, 4, false),
+    ] {
+    let (fixture_source, boundary_start, boundary_end, expected) = fixture
+    let boundary_tokens = [
+      inline_analysis_fixture_token(
+        fixture_source,
+        AnalysisOther,
+        0,
+        boundary_start,
+      ),
+      inline_analysis_fixture_token(
+        fixture_source,
+        AnalysisLineBoundary,
+        boundary_start,
+        boundary_end,
+      ),
+      inline_analysis_fixture_token(
+        fixture_source,
+        AnalysisOther,
+        boundary_end,
+        fixture_source.length(),
+      ),
+    ]
+    assert_eq(
+      contiguous_inline_analysis_source(boundary_tokens) is Some(_),
+      expected,
+    )
+  }
+}
+
+///|
 fn perf_inline_push_token(
   tokens : Array[InlineAnalysisToken],
   kind : InlineAnalysisTokenKind,
