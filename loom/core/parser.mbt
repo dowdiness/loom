@@ -66,19 +66,18 @@ impl[T, K] OffsetIndexed for ParserContext[T, K] with fn offset_at(self, i) {
 ///   K must implement ToRawKind (enforced on functions that call k.to_raw())
 ///   T must implement Eq + IsTrivia + IsEof (enforced on functions that use them)
 pub struct LanguageSpec[T, K] {
-  whitespace_kind : K
-  error_kind : K
-  incomplete_kind : K
-  root_kind : K
-  eof_token : T
+  priv error_kind : K
+  priv incomplete_kind : K
+  priv root_kind : K
+  priv eof_token : T
   /// All trivia kinds (including whitespace_kind). Used by the reuse cursor
   /// to skip all trivia leaf tokens when walking the old CST.
   /// Populated from all `#loom.trivia`-annotated variants in the language spec.
   priv trivia_kinds_spec : Array[K]
   /// Canonical CST metadata domain shared by every tree built from this spec.
   priv cst_metadata_policy : @seam.CstMetadataPolicy
-  parse_root : (ParserContext[T, K]) -> Unit
-  reuse_size_threshold : Int
+  priv parse_root : (ParserContext[T, K]) -> Unit
+  priv reuse_size_threshold : Int
 }
 
 ///|
@@ -100,7 +99,6 @@ pub fn[T, K : @seam.ToRawKind] LanguageSpec::new(
     incomplete_kind=Some(incomplete_kind.to_raw()),
   )
   {
-    whitespace_kind,
     error_kind,
     incomplete_kind,
     root_kind,
@@ -178,4 +176,16 @@ pub fn[T, K : @seam.ToRawKind] LanguageSpec::trivia_kinds_raw(
   self : LanguageSpec[T, K],
 ) -> Array[@seam.RawKind] {
   self.trivia_kinds_spec.map(fn(k) { k.to_raw() })
+}
+
+///|
+pub fn[T, K] LanguageSpec::eof_token(self : LanguageSpec[T, K]) -> T {
+  self.eof_token
+}
+
+///|
+pub fn[T, K] LanguageSpec::reuse_size_threshold(
+  self : LanguageSpec[T, K],
+) -> Int {
+  self.reuse_size_threshold
 }

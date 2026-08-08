@@ -398,7 +398,7 @@ fn[T, M] tokenize_with_modes_recovering(
   starts.push(input.length())
   modes.push(mode)
   tokens.push(TokenInfo::new(eof_token, 0))
-  (LexResult::with_starts(tokens, starts, diagnostics~), modes)
+  (lex_result_from_owned_or_abort(tokens, starts, diagnostics~), modes)
 }
 
 ///|

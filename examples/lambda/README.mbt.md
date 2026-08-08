@@ -61,6 +61,24 @@ Lambda's `@lexer.lex` helper wraps the step lexer in a total `LexResult`
 boundary. Invalid steps become error tokens plus structured lexer diagnostics;
 strict `tokenize` remains available for low-level tests and batch consumers.
 
+A custom lexer that adapts raw parallel arrays must keep the grammar callback
+total. Catch `LexResultError` inside the installed callback: malformed user
+text should already have been converted to language-specific error tokens and
+diagnostics, while an invalid token/start shape is an adapter defect.
+
+```mbt nocheck
+///|
+let lex = (source_id : @core.SourceId, source : String) => {
+  let (tokens, starts, diagnostics) = lex_with_recovery(source_id, source)
+  @core.LexResult::with_starts(tokens, starts, diagnostics~) catch {
+    error => abort("lambda lexer adapter defect: " + @debug.to_string(error))
+  }
+}
+```
+
+Loom does not invent a generic fallback token because only the language adapter
+knows which token and diagnostic preserve its recovery contract.
+
 See [`@loom`'s Quick Start](../../loom/README.md#quick-start) for the
 full consumer-side flow, including `apply_edit`.
 

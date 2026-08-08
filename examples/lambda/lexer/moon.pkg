@@ -1,10 +1,10 @@
 import {
   "dowdiness/lambda/token",
   "dowdiness/loom/core",
+  "moonbitlang/core/debug",
 }
 
 import {
   "dowdiness/diagnostic",
-  "moonbitlang/core/debug",
   "moonbitlang/quickcheck" @qc,
 } for "test"
