@@ -121,19 +121,23 @@ consumer compatibility surface for source-backed typed CST fixtures. Their
 children retain the original spelling and origins, and MarkdownIR lowering
 projects them to the existing `Autolink` and `InlineHtml` variants.
 
-This is intentionally dual-read during migration: legacy collapsed `TextToken`
-angle text remains supported, while production lexer tokenization and parser
-emission remain unchanged. #893 and #894 own production composition, emission,
-and eventual legacy-read removal. The fixtures are standalone constructed
-compatibility inputs using the exact metadata domain produced by
-`LanguageSpec::new(ErrorToken, ErrorNode, ...)`: trivia
-`[ErrorToken.to_raw()]`, error `ErrorNode`, and incomplete `ErrorNode`. The
-canonical policy provenance remains privately owned by `LanguageSpec`/#896;
-the fixture does not expose or access generic policy internals. No token,
-MarkdownIR variant, parser entry point, generic Loom API, or public Markdown
-role was added. See the
-[compatibility inventory](../../docs/api/markdown-typed-angle-cst-compatibility.md)
-and [ADR](../../docs/decisions/2026-08-06-markdown-typed-angle-cst-compatibility.md).
+Production ownership is now singular. Inline lexing emits source-faithful
+one-character `Text` boundaries for unescaped `<` and every `>`, preserves
+backtick runs, and keeps escaped `<` inside maximal literal text so it cannot
+open a candidate. The container-local
+inline plan alone classifies URI autolinks, email autolinks, and inline HTML,
+then emits the typed nodes after resolving code, link, and destination
+precedence. Block-HTML opening remains lexer-owned because it selects a lexical
+mode. Generic `TextToken` lowering never reclassifies angle spelling.
+
+The source-wide lexer angle index and parser branches for collapsed `<...>`
+tokens have been removed. The standalone compatibility fixtures still use the
+exact metadata domain produced by `LanguageSpec::new(ErrorToken, ErrorNode,
+...)`; no token, raw kind, MarkdownIR variant, parser entry point, generic Loom
+API, or public Markdown role changed. See the
+[compatibility inventory](../../docs/api/markdown-typed-angle-cst-compatibility.md),
+the [typed CST compatibility ADR](../../docs/decisions/2026-08-06-markdown-typed-angle-cst-compatibility.md),
+and the [final ownership ADR](../../docs/decisions/2026-08-08-markdown-inline-angle-parser-ownership.md).
 
 ## Experimental MarkdownIR
 

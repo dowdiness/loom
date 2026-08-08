@@ -458,15 +458,6 @@ fn index_inline_autolinks(
             })
           None => None
         }
-      AnalysisOther if token.first == Some('<') && token.last == Some('>') =>
-        Some(
-          (
-            {
-              kind: InlineAngleKind::InlineHtmlAngle,
-              start: token.start,
-              end: token.end,
-            } : InlineAutolinkCandidate),
-        )
       _ => None
     }
     match candidate {
@@ -1553,23 +1544,6 @@ fn parse_indexed_inline_autolink(
 }
 
 ///|
-/// Preserve a parser-confirmed literal line while still executing the shared
-/// angle plan, so typed angle ownership never falls back to IR reclassification.
-fn emit_collapsed_inline_html_token(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-) -> Bool {
-  match ctx.peek() {
-    Text(text) if text.has_prefix("<") && text.has_suffix(">") => {
-      ctx.start_node(InlineHtmlNode)
-      ctx.emit_token(TextToken)
-      ctx.finish_node()
-      true
-    }
-    _ => false
-  }
-}
-
-///|
 fn parse_indexed_inline_angles_in_literal_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
@@ -1594,10 +1568,7 @@ fn parse_indexed_inline_angles_in_literal_line(
     match candidate {
       Some(candidate) =>
         parse_indexed_inline_autolink(ctx, candidate, () => false)
-      None =>
-        if !emit_collapsed_inline_html_token(ctx) {
-          ctx.emit_token(TextToken)
-        }
+      None => ctx.emit_token(TextToken)
     }
   }
 }
@@ -1622,9 +1593,6 @@ fn parse_inline(
       return
     }
     None => ()
-  }
-  if emit_collapsed_inline_html_token(ctx) {
-    return
   }
   match ctx.peek() {
     Star | StarStar | Underscore => ctx.emit_token(TextToken)
@@ -1781,10 +1749,7 @@ fn parse_link(
               ) {
               Some(angle) if angle.kind is InlineHtmlAngle =>
                 parse_indexed_inline_autolink(ctx, angle, continue_line)
-              _ => {
-                if emit_collapsed_inline_html_token(ctx) {
-                  continue
-                }
+              _ =>
                 if ctx.peek() is Newline {
                   guard continue_line() else {
                     abort(
@@ -1808,7 +1773,6 @@ fn parse_link(
                     _ => ctx.bump_error()
                   }
                 }
-              }
             }
           }
           guard ctx.current_token_range().start == candidate.suffix_end else {

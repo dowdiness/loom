@@ -20,7 +20,6 @@ priv struct InlineAngleDelimiterSnapshot {
   cdata_end : Int?
   processing_instruction_end : Int?
   greater_than_end : Int?
-  first_line_break : Int?
 }
 
 ///|
@@ -60,7 +59,6 @@ fn build_inline_angle_delimiter_index(
   let mut next_greater_than_end : Int? = None
   let mut next_single_quote : Int? = None
   let mut next_double_quote : Int? = None
-  let mut next_line_break : Int? = None
   for cursor = input.length() - 1; cursor >= 0; cursor = cursor - 1 {
     if ascii_delimiter_matches_at(input, cursor, "-->") {
       next_comment_end = Some(cursor + 3)
@@ -72,20 +70,6 @@ fn build_inline_angle_delimiter_index(
       next_processing_instruction_end = Some(cursor + 2)
     }
     let code_unit = input.code_unit_at(cursor).to_int()
-    if code_unit == 0x0A {
-      next_line_break = if cursor > 0 &&
-        input.code_unit_at(cursor - 1).to_int() == 0x0D {
-        Some(cursor - 1)
-      } else {
-        Some(cursor)
-      }
-    } else if code_unit == 0x0D &&
-      (
-        cursor + 1 >= input.length() ||
-        input.code_unit_at(cursor + 1).to_int() != 0x0A
-      ) {
-      next_line_break = Some(cursor)
-    }
     if code_unit == 0x3E {
       next_greater_than_end = Some(cursor + 1)
     }
@@ -109,24 +93,10 @@ fn build_inline_angle_delimiter_index(
         cdata_end: next_cdata_end,
         processing_instruction_end: next_processing_instruction_end,
         greater_than_end: next_greater_than_end,
-        first_line_break: next_line_break,
       }
     }
   }
   { angle_delimiters, single_quote_closers, double_quote_closers }
-}
-
-///|
-fn InlineAngleDelimiterIndex::first_line_break_before(
-  self : InlineAngleDelimiterIndex,
-  start : Int,
-  end : Int,
-) -> Int? {
-  match self.angle_delimiters.get(start) {
-    Some({ first_line_break: Some(boundary), .. }) if boundary < end =>
-      Some(boundary)
-    _ => None
-  }
 }
 
 ///|

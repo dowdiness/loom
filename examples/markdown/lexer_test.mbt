@@ -155,12 +155,17 @@ test "lexer: typed angle candidates expose source facts without splitting ordina
   let inline_html = tokenize("<i>text</i>\n")
   inspect(
     inline_html.map(token => @debug.to_string(token.token)).join("|"),
-    content="Text(\"<i>\")|Text(\"text\")|Text(\"</i>\")|Newline|EOF",
+    content="Text(\"<\")|Text(\"i\")|Text(\">\")|Text(\"text\")|Text(\"<\")|Text(\"/i\")|Text(\">\")|Newline|EOF",
   )
   let backtick_html = tokenize("<a href=\"`\">`\n")
   inspect(
     backtick_html.map(token => @debug.to_string(token.token)).join("|"),
     content="Text(\"<\")|Text(\"a href=\\\"\")|Backtick|Text(\"\\\"\")|Text(\">\")|Backtick|Newline|EOF",
+  )
+  let escaped_html = tokenize("\\<i>\n")
+  inspect(
+    escaped_html.map(token => @debug.to_string(token.token)).join("|"),
+    content="Text(\"\\\\<i\")|Text(\">\")|Newline|EOF",
   )
 }
 
