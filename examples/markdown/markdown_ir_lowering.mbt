@@ -1046,14 +1046,38 @@ fn lower_literal_link_node_atoms(
 ) -> Array[MarkdownIR] {
   let atoms : Array[MarkdownIR] = []
   let mut contains_nested_link = false
+  let mut preceding_text_ends_escaped = false
   for element in node.all_children() {
     match element {
-      @seam.SyntaxElement::Token(token) =>
-        match lower_literal_link_token(token, context) {
-          Some(atom) => atoms.push(atom)
-          None => ()
+      @seam.SyntaxElement::Token(token) => {
+        let kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        if preceding_text_ends_escaped &&
+          (kind == BacktickToken || (kind == TextToken && token.text() == ">")) {
+          // The lexer may split an escaped inline delimiter from the
+          // preceding TextToken. Reuse the normal inline recovery path so the
+          // escape is removed while the merged origin still covers both
+          // source tokens.
+          append_escaped_inline_delimiter_ir(
+            atoms,
+            token.text(),
+            origin_from_token(token),
+            true,
+          )
+          preceding_text_ends_escaped = false
+        } else {
+          match lower_literal_link_token(token, context) {
+            Some(atom) => atoms.push(atom)
+            None => ()
+          }
+          preceding_text_ends_escaped = if kind == TextToken {
+            text_ends_with_odd_backslashes(token.text())
+          } else {
+            false
+          }
         }
+      }
       @seam.SyntaxElement::Node(child_node) => {
+        preceding_text_ends_escaped = false
         let kind : SyntaxKind = @seam.FromRawKind::from_raw(child_node.kind())
         if kind == LinkNode {
           for
