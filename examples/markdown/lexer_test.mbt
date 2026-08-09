@@ -250,6 +250,146 @@ test "lexer: three-space-prefixed closing fence closes code block" {
 }
 
 ///|
+test "lexer: public code-block mode keeps the positive fence length" {
+  let (_, mode) = markdown_lex_step("      ~~~~\n", 6, LineStart)
+  match mode {
+    CodeBlock(length, '~') => inspect(length, content="4")
+    _ => fail("expected public CodeBlock mode")
+  }
+}
+
+///|
+test "lexer: deeply nested list fence closes beyond column four" {
+  let tokens = tokenize("- a\n  - b\n      ~~~~\n      code\n      ~~~~\n")
+  inspect(
+    tokens.map(token => @debug.to_string(token.token)).join("|"),
+    content="ListMarker|Text(\"a\")|Newline|Indentation(\"  \")|ListMarker|Text(\"b\")|Newline|Indentation(\"      \")|CodeFenceOpen(4, \"\")|Newline|CodeText(\"      code\")|Newline|CodeFenceClose|EOF",
+  )
+}
+
+///|
+test "lexer: public mode recovers deeply nested fence indentation" {
+  let source = "- a\n  - b\n      ~~~~\n      code\n      ~~~~\n"
+  let (tokens, _) = @core.tokenize_with_modes(markdown_mode_lexer, source, EOF)
+  inspect(
+    tokens.map(token => @debug.to_string(token.token)).join("|"),
+    content="ListMarker|Text(\"a\")|Newline|Indentation(\"  \")|ListMarker|Text(\"b\")|Newline|Indentation(\"      \")|CodeFenceOpen(4, \"\")|Newline|CodeText(\"      code\")|Newline|CodeFenceClose|EOF",
+  )
+}
+
+///|
+test "lexer: detached mode recovers list-owned opening indent" {
+  let source = "- a\n    ~~~~\n    code\n    ~~~~\n"
+  let content_pos = "- a\n    ~~~~\n".length()
+  let close_pos = content_pos + "    code\n".length()
+  let (_, mode) = markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (step, _) = markdown_lex_step(source, close_pos, mode)
+  match step {
+    @core.LexStep::Produced(info, next_offset~) => {
+      ignore(next_offset)
+      inspect(@debug.to_string(info.token), content="CodeFenceClose")
+    }
+    _ => fail("expected detached list-owned fence to close")
+  }
+}
+
+///|
+test "lexer: detached mode ignores root indented code before nested fence" {
+  let source = "    ~~~~\n- a\n    ~~~~\n    code\n    ~~~~\n"
+  let content_pos = "    ~~~~\n- a\n    ~~~~\n".length()
+  let close_pos = content_pos + "    code\n".length()
+  let (_, mode) = markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (step, _) = markdown_lex_step(source, close_pos, mode)
+  match step {
+    @core.LexStep::Produced(info, next_offset~) => {
+      ignore(next_offset)
+      inspect(@debug.to_string(info.token), content="CodeFenceClose")
+    }
+    _ => fail("expected detached nested fence to close")
+  }
+}
+
+///|
+test "lexer: detached mode rejects root code after wide ordered marker" {
+  let source = "1234. a\n    ~~~~\n    code\n    ~~~~\n"
+  let content_pos = "1234. a\n    ~~~~\n".length()
+  let close_pos = content_pos + "    code\n".length()
+  let (_, mode) = markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (step, _) = markdown_lex_step(source, close_pos, mode)
+  match step {
+    @core.LexStep::Produced(info, next_offset~) => {
+      ignore(next_offset)
+      inspect(@debug.to_string(info.token), content="CodeText(\"    ~~~~\")")
+    }
+    _ => fail("expected root indented code to remain code text")
+  }
+}
+
+///|
+test "lexer: detached mode rejects malformed ordered marker ownership" {
+  let source = "1234.foo\n      ~~~~\n      code\n      ~~~~\n"
+  let content_pos = "1234.foo\n      ~~~~\n".length()
+  let close_pos = content_pos + "      code\n".length()
+  let (_, mode) = markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (step, _) = markdown_lex_step(source, close_pos, mode)
+  match step {
+    @core.LexStep::Produced(info, next_offset~) => {
+      ignore(next_offset)
+      inspect(@debug.to_string(info.token), content="CodeText(\"      ~~~~\")")
+    }
+    _ => fail("expected malformed marker context to remain code text")
+  }
+}
+
+///|
+test "lexer: detached public mode recovers repeated list fence indentation" {
+  let source = "- - ```\n>>```\n     ```\n"
+  let (_, mode0) = markdown_lex_step(source, 4, LineStart)
+  let (_, mode1) = markdown_lex_step(source, 7, mode0)
+  let (content_step, mode2) = markdown_lex_step(source, 8, mode1)
+  match content_step {
+    @core.LexStep::Produced(info, next_offset~) => {
+      inspect(@debug.to_string(info.token), content="CodeText(\">>```\")")
+      inspect(next_offset, content="13")
+    }
+    _ => fail("expected quote-like code content")
+  }
+  let (_, mode3) = markdown_lex_step(source, 13, mode2)
+  let (step, _) = markdown_lex_step(source, 14, mode3)
+  match step {
+    @core.LexStep::Produced(info, next_offset~) => {
+      inspect(@debug.to_string(info.token), content="CodeText(\"     ```\")")
+      inspect(next_offset, content="22")
+    }
+    _ => fail("expected over-indented fence to remain code text")
+  }
+}
+
+///|
+test "lexer: detached public mode ignores repeated-list code content" {
+  let source = "- - ```\n- - ```\n    ```\n"
+  let (_, mode0) = markdown_lex_step(source, 4, LineStart)
+  let (_, mode1) = markdown_lex_step(source, 7, mode0)
+  let (content_step, mode2) = markdown_lex_step(source, 8, mode1)
+  match content_step {
+    @core.LexStep::Produced(info, next_offset~) => {
+      inspect(@debug.to_string(info.token), content="CodeText(\"- - ```\")")
+      inspect(next_offset, content="15")
+    }
+    _ => fail("expected repeated-list code content")
+  }
+  let (_, mode3) = markdown_lex_step(source, 15, mode2)
+  let (close_step, _) = markdown_lex_step(source, 16, mode3)
+  match close_step {
+    @core.LexStep::Produced(info, next_offset~) => {
+      inspect(@debug.to_string(info.token), content="CodeFenceClose")
+      inspect(next_offset, content="24")
+    }
+    _ => fail("expected literal-indentation fence close")
+  }
+}
+
+///|
 test "lexer: inline backtick runs are maximal and escaped runs remain visible" {
   let runs = tokenize("``code```\n")
   inspect(@debug.to_string(runs[0].token), content="Backtick")

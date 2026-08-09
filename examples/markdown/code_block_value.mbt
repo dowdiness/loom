@@ -134,8 +134,37 @@ fn trim_code_boundary_newlines(value : String, fenced~ : Bool) -> String {
 }
 
 ///|
-fn fenced_code_block_value(node : @seam.SyntaxNode) -> String {
+fn fenced_code_block_is_list_owned(node : @seam.SyntaxNode) -> Bool {
+  match node.parent() {
+    Some(parent) => {
+      let kind : SyntaxKind = @seam.FromRawKind::from_raw(parent.kind())
+      kind is ListItemNode
+    }
+    None => false
+  }
+}
+
+///|
+fn fenced_code_block_structural_indent(
+  node : @seam.SyntaxNode,
+  source : String,
+) -> Int {
+  match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
+    Some(opening) => visual_column_at_offset(source, opening.start())
+    None => 0
+  }
+}
+
+///|
+fn fenced_code_block_value(node : @seam.SyntaxNode, source : String) -> String {
   let buf = StringBuilder::StringBuilder()
+  let strip_list_owned_content = source.length() > 0 &&
+    fenced_code_block_is_list_owned(node)
+  let structural_indent = if strip_list_owned_content {
+    fenced_code_block_structural_indent(node, source)
+  } else {
+    0
+  }
   let mut in_code = false
   for element in node.all_children() {
     match element {
@@ -144,7 +173,19 @@ fn fenced_code_block_value(node : @seam.SyntaxNode) -> String {
         match token_kind {
           CodeFenceOpenToken => in_code = true
           CodeFenceCloseToken => in_code = false
-          CodeTextToken if in_code => buf.write_string(token.text())
+          CodeTextToken if in_code =>
+            if !strip_list_owned_content {
+              buf.write_string(token.text())
+            } else {
+              let token_column = visual_column_at_offset(source, token.start())
+              buf.write_string(
+                strip_visual_columns(
+                  token.text(),
+                  token_column,
+                  (structural_indent - token_column).max(0),
+                ),
+              )
+            }
           NewlineToken | BlankLineToken if in_code => buf.write_string("\n")
           _ => ()
         }
@@ -209,7 +250,7 @@ fn code_block_value_with_source(
   source : String,
 ) -> String {
   if node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_) {
-    fenced_code_block_value(node)
+    fenced_code_block_value(node, source)
   } else {
     indented_code_block_value(node, source)
   }
@@ -217,15 +258,23 @@ fn code_block_value_with_source(
 
 ///|
 /// Demand-driven compatibility boundary for callers that only own a syntax
-/// node. Fenced blocks never invoke `load_source`; indented blocks invoke it
-/// exactly once. Top-level lowering paths should prefer
-/// `code_block_value_with_source` and supply their existing source snapshot.
+/// node. Root and blockquote fences never invoke `load_source`; list-owned
+/// fences do so only when their source-backed CST cannot provide the source.
+/// Indented blocks invoke it exactly once. Top-level lowering paths should
+/// prefer `code_block_value_with_source` and supply their existing snapshot.
 fn code_block_value_with_source_loader(
   node : @seam.SyntaxNode,
   load_source : () -> String,
 ) -> String {
   if node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_) {
-    fenced_code_block_value(node)
+    if fenced_code_block_is_list_owned(node) {
+      fenced_code_block_value(
+        node,
+        code_block_source_with_fallback(node, load_source),
+      )
+    } else {
+      fenced_code_block_value(node, "")
+    }
   } else {
     indented_code_block_value(node, load_source())
   }

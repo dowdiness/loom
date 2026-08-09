@@ -223,6 +223,19 @@ test "continuation decisions: block-quote variants" {
     }
   })
 
+  // Four or more literal columns before `>` are not an explicit quote
+  // continuation marker.
+  let over_indented_marker = continuation_context_at_newline(
+    source_id, "para\n    > bar\n",
+  )
+  assert_decision_public_state_pure(over_indented_marker, () => {
+    match decide_block_quote_paragraph_continuation(over_indented_marker) {
+      Continue(ContinueQuoteMarker(_)) =>
+        abort("over-indented quote must not be an explicit marker")
+      _ => ()
+    }
+  })
+
   let prefix_only = continuation_context_at_newline(source_id, "para\nbar\n")
   assert_decision_public_state_pure(prefix_only, () => {
     match decide_block_quote_paragraph_continuation(prefix_only) {
