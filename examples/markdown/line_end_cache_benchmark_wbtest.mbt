@@ -5,7 +5,7 @@
 // benchmark isolates physical-line-end reuse from inline-angle ownership.
 fn line_end_cache_uncached_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] {
   let lex_step = fn(input : String, pos : Int, mode : MarkdownLexMode) {
-    markdown_lex_step_inner(input, pos, mode, None)
+    markdown_lex_step(input, pos, mode)
   }
   { lex_step, initial_mode: LineStart }
 }

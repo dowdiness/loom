@@ -457,12 +457,14 @@ an explicit one-way export via `export_markdown_role_spans(spans)`. The
 ordered links and nested precedence. Do not introduce a shared role or
 role-span API yet.
 
-Mode-aware lexing is wired via `mode_relex` on `Grammar::new`:
+The stateless compatibility lexer can be wrapped for isolated experiments.
+Production mode-aware lexing is wired via the session-owning `mode_relex`
+factory in `grammar.mbt` and `Grammar::new`:
 
 ```mbt nocheck
 ///|
-let mode_factory : @core.ModeRelexFactory[Token] = @core.erase_mode_lexer(
-  markdown_mode_lexer,
+let mode_factory : @core.ModeRelexFactory[Token] = @core.erase_mode_lexer_factory(
+  new_markdown_mode_lexer,
   EOF,
   error_token=Error("lex error"),
   error_token_from_message=Some(msg => Error(msg)),
@@ -492,7 +494,21 @@ pub(all) enum MarkdownLexMode {
 
 `markdown_lex_step(source, offset, mode)` returns `(LexStep[Token],
 MarkdownLexMode)` — the next token plus the mode to use for the
-following token.
+following token. This is the stateless compatibility API.
+
+For repeated detached stepping, use an opaque `MarkdownLexSession`. It owns
+replay and line-fact caches for one lexer lifecycle without changing token
+semantics:
+
+```mbt nocheck
+///|
+let session = MarkdownLexSession()
+let (step, next_mode) = session.step(source, offset, mode)
+```
+
+A session automatically invalidates source-derived state when the source
+changes. Call `session.reset()` when the caller explicitly ends a lifecycle.
+Do not share a session between independent source streams.
 
 ## AST
 

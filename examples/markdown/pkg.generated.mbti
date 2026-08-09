@@ -194,6 +194,13 @@ pub(all) enum MarkdownLexMode {
   HtmlBlockEndLine
 } derive(Eq, @debug.Debug)
 
+pub struct MarkdownLexSession {
+  // private fields
+}
+pub fn MarkdownLexSession::MarkdownLexSession() -> Self
+pub fn MarkdownLexSession::reset(Self) -> Unit
+pub fn MarkdownLexSession::step(Self, String, Int, MarkdownLexMode) -> (@core.LexStep[Token], MarkdownLexMode)
+
 pub struct MarkdownProjectionAttachment {
   // private fields
 }

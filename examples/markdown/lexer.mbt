@@ -334,6 +334,7 @@ fn lex_heading_marker(
   input : String,
   token_pos : Int,
   marker_pos : Int,
+  same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   match @payload_lexer.step_lex(input, marker_pos) {
     @core.LexStep::Produced(info, next_offset=next) =>
@@ -349,7 +350,7 @@ fn lex_heading_marker(
             ),
             Inline,
           )
-        _ => lex_inline(input, token_pos)
+        _ => lex_inline(input, token_pos, same_line_cache)
       }
     _ => {
       let n = count_hashes(input, marker_pos)
@@ -366,10 +367,10 @@ fn lex_heading_marker(
               ),
               Inline,
             )
-          _ => lex_inline(input, token_pos)
+          _ => lex_inline(input, token_pos, same_line_cache)
         }
       } else {
-        lex_inline(input, token_pos)
+        lex_inline(input, token_pos, same_line_cache)
       }
     }
   }
@@ -381,6 +382,7 @@ fn lex_line_start(
   input : String,
   pos : Int,
   line_end_hint : Int?,
+  same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, LineStart)
@@ -430,7 +432,7 @@ fn lex_line_start(
         )
       }
     }
-    ['#', ..] => lex_heading_marker(input, pos, pos)
+    ['#', ..] => lex_heading_marker(input, pos, pos, same_line_cache)
     ['>', ' ' | '\t', .. rest] =>
       produced_until(BlockQuoteMarker, pos, rest, BlockQuoteLineStart)
     ['>', ..] =>
@@ -444,7 +446,7 @@ fn lex_line_start(
       match char_at(input, pos + 1) {
         Some('\n') | Some('\r') | None =>
           produce_token_from(ListMarker, pos, 1, Inline)
-        _ => lex_inline(input, pos)
+        _ => lex_inline(input, pos, same_line_cache)
       }
     [ch, ..] if is_decimal_digit(ch) =>
       match ordered_list_marker_at(input, pos) {
@@ -474,9 +476,9 @@ fn lex_line_start(
                     digits + 1,
                     Inline,
                   )
-                None => lex_inline(input, pos)
+                None => lex_inline(input, pos, same_line_cache)
               }
-            _ => lex_inline(input, pos)
+            _ => lex_inline(input, pos, same_line_cache)
           }
         }
       }
@@ -485,14 +487,14 @@ fn lex_line_start(
       match classify_html_block_opening(line) {
         Some(block_type) =>
           produce_html_block_open(input, pos, line_end, block_type)
-        None => lex_inline(input, pos)
+        None => lex_inline(input, pos, same_line_cache)
       }
     }
-    ['`', ..] => lex_code_fence(input, pos, '`')
-    ['~', ..] => lex_code_fence(input, pos, '~')
+    ['`', ..] => lex_code_fence(input, pos, '`', same_line_cache)
+    ['~', ..] => lex_code_fence(input, pos, '~', same_line_cache)
     _ =>
       // No block marker recognized — switch to inline for paragraph content
-      lex_inline(input, pos)
+      lex_inline(input, pos, same_line_cache)
   }
 }
 
@@ -501,6 +503,7 @@ fn lex_code_fence(
   input : String,
   pos : Int,
   fence_character : Char,
+  same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if fence_character == '`' {
     match @payload_lexer.step_lex(input, pos) {
@@ -514,14 +517,14 @@ fn lex_code_fence(
               ),
               CodeBlock(length, fence_character),
             )
-          _ => lex_inline(input, pos)
+          _ => lex_inline(input, pos, same_line_cache)
         }
-      _ => lex_inline(input, pos)
+      _ => lex_inline(input, pos, same_line_cache)
     }
   } else {
     let n = count_fence_characters(input, pos, fence_character)
     if n < 3 {
-      return lex_inline(input, pos)
+      return lex_inline(input, pos, same_line_cache)
     }
     let mut info_end = pos + n
     while info_end < input.length() {
@@ -546,10 +549,11 @@ fn lex_block_quote_line_start(
   input : String,
   pos : Int,
   line_end_hint : Int?,
+  same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   match input.view(start_offset=pos) {
-    ['`', ..] => lex_inline(input, pos)
-    _ => lex_line_start(input, pos, line_end_hint)
+    ['`', ..] => lex_inline(input, pos, same_line_cache)
+    _ => lex_line_start(input, pos, line_end_hint, same_line_cache)
   }
 }
 
@@ -567,11 +571,16 @@ fn is_inline_special(ch : Char) -> Bool {
 fn lex_inline(
   input : String,
   pos : Int,
+  same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, Inline)
   }
-  let same_line_facts = same_line_list_item_prefix_facts(input, pos)
+  let same_line_facts = match same_line_cache {
+    Some(cache) =>
+      same_line_list_item_prefix_facts_with_cache(cache, input, pos)
+    None => same_line_list_item_prefix_facts(input, pos)
+  }
   if same_line_facts.list_marker_count > 0 &&
     pos <= same_line_facts.prefix_end &&
     same_line_list_item_block_start_with_facts(input, pos, same_line_facts) &&
@@ -591,16 +600,16 @@ fn lex_inline(
               Inline,
             )
           }
-          None => lex_inline(input, pos)
+          None => lex_inline(input, pos, same_line_cache)
         }
-      ['#', ..] => lex_heading_marker(input, pos, pos)
+      ['#', ..] => lex_heading_marker(input, pos, pos, same_line_cache)
       ['>', ' ' | '\t', .. rest] =>
         produced_until(BlockQuoteMarker, pos, rest, BlockQuoteLineStart)
       ['>', ..] =>
         produce_token_from(BlockQuoteMarker, pos, 1, BlockQuoteLineStart)
-      ['`', ..] => lex_code_fence(input, pos, '`')
-      ['~', ..] => lex_code_fence(input, pos, '~')
-      _ => lex_inline(input, pos)
+      ['`', ..] => lex_code_fence(input, pos, '`', same_line_cache)
+      ['~', ..] => lex_code_fence(input, pos, '~', same_line_cache)
+      _ => lex_inline(input, pos, same_line_cache)
     }
   } else {
     match input.view(start_offset=pos) {
@@ -838,7 +847,7 @@ fn lex_html_block_raw(
         lex_html_block_raw_newline_mode(input, rest.start_offset()),
       )
     _ if line_is_blank(input, pos, line_end) =>
-      lex_line_start(input, pos, Some(line_end))
+      lex_line_start(input, pos, Some(line_end), None)
     _ => emit_html_text_line(input, pos, line_end, HtmlBlockRaw)
   }
 }
@@ -882,14 +891,16 @@ fn markdown_lex_step_inner_with_context(
   mode : MarkdownLexMode,
   line_end_hint : Int?,
   opening_indent : Int?,
+  same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, mode)
   }
   match mode {
-    LineStart => lex_line_start(input, pos, line_end_hint)
-    BlockQuoteLineStart => lex_block_quote_line_start(input, pos, line_end_hint)
-    Inline => lex_inline(input, pos)
+    LineStart => lex_line_start(input, pos, line_end_hint, same_line_cache)
+    BlockQuoteLineStart =>
+      lex_block_quote_line_start(input, pos, line_end_hint, same_line_cache)
+    Inline => lex_inline(input, pos, same_line_cache)
     CodeBlock(n, fence_character) =>
       lex_code_block(
         input,
@@ -909,17 +920,6 @@ fn markdown_lex_step_inner_with_context(
 }
 
 ///|
-/// Mode-aware lex step with an optional line-end hint.
-fn markdown_lex_step_inner(
-  input : String,
-  pos : Int,
-  mode : MarkdownLexMode,
-  line_end_hint : Int?,
-) -> (@core.LexStep[Token], MarkdownLexMode) {
-  markdown_lex_step_inner_with_context(input, pos, mode, line_end_hint, None)
-}
-
-///|
 fn next_lex_step_offset(step : @core.LexStep[Token], input : String) -> Int {
   match step {
     @core.LexStep::Produced(_, next_offset~) => next_offset
@@ -930,7 +930,8 @@ fn next_lex_step_offset(step : @core.LexStep[Token], input : String) -> Int {
 }
 
 ///|
-/// Mode-aware lex step. Dispatches to mode-specific lexer.
+/// Stateless compatibility step. Reusable replay belongs to
+/// `MarkdownLexSession::step`; this function never mutates cache state.
 pub fn markdown_lex_step(
   input : String,
   pos : Int,
@@ -939,107 +940,30 @@ pub fn markdown_lex_step(
   let opening_indent = match mode {
     CodeBlock(fence_length, fence_character) =>
       Some(
-        detached_code_block_indent_for_step(
+        source_derived_code_block_indent(
           input, pos, fence_length, fence_character,
-        ),
+        ).unwrap_or(0),
       )
     _ => None
   }
-  let (step, next_mode) = match mode {
-    CodeBlock(_, _) =>
-      markdown_lex_step_inner_with_context(
-        input,
-        pos,
-        mode,
-        None,
-        opening_indent,
-      )
-    _ => markdown_lex_step_inner(input, pos, mode, None)
-  }
-  let next_pos = next_lex_step_offset(step, input)
-  match next_mode {
-    CodeBlock(fence_length, fence_character) => {
-      let indent = match mode {
-        CodeBlock(_, _) => opening_indent.unwrap_or(0)
-        _ => visual_column_at_offset(input, pos)
-      }
-      remember_detached_code_block_step(
-        input, fence_length, fence_character, indent, next_pos,
-      )
-    }
-    _ => clear_detached_code_block_step()
-  }
-  if next_pos >= input.length() {
-    clear_same_line_list_item_prefix_cache()
-  }
-  (step, next_mode)
+  markdown_lex_step_inner_with_context(
+    input,
+    pos,
+    mode,
+    None,
+    opening_indent,
+    None,
+  )
 }
 
 ///|
-/// Build one lexer shell with a line-end cache. The grammar's mode-relex
-/// factory creates one shell per parser session, while detached tokenization
-/// creates a short-lived shell per operation. Source replacement invalidates
-/// the cache before lexing new text. The Refs only own that lifecycle; lexing
-/// stays in the functional core.
+/// Build one lexer shell with all derived state owned by one Markdown session.
+/// The core lexer remains pure; this shell only handles lifecycle and cache
+/// reuse. `ModeRelexFactory` calls this builder once per parser session.
 fn new_markdown_mode_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] {
-  let source_ref : Ref[String?] = Ref(None)
-  let line_end_cache_start_ref : Ref[Int] = Ref(-1)
-  let line_end_cache_end_ref : Ref[Int] = Ref(-1)
-  let opening_indent_ref : Ref[Int?] = Ref(None)
+  let session = MarkdownLexSession()
   let lex_step = fn(input : String, pos : Int, mode : MarkdownLexMode) {
-    let same_source = match source_ref.val {
-      Some(source) => physical_equal(source, input)
-      None => false
-    }
-    if !same_source {
-      source_ref.val = Some(input)
-      line_end_cache_start_ref.val = -1
-      line_end_cache_end_ref.val = -1
-      opening_indent_ref.val = None
-    }
-    let should_cache_line_end = pos < input.length() &&
-      (match mode {
-        LineStart => char_at(input, pos) == Some('>')
-        BlockQuoteLineStart => true
-        _ => false
-      })
-    let line_end_hint = if should_cache_line_end {
-      let cached_start = line_end_cache_start_ref.val
-      let cached_end = line_end_cache_end_ref.val
-      if pos >= cached_start && pos <= cached_end {
-        Some(cached_end)
-      } else {
-        let line_end = find_line_end(input, pos)
-        line_end_cache_start_ref.val = pos
-        line_end_cache_end_ref.val = line_end
-        Some(line_end)
-      }
-    } else {
-      None
-    }
-    let context = match mode {
-      CodeBlock(_, _) => opening_indent_ref.val
-      _ => None
-    }
-    let result = markdown_lex_step_inner_with_context(
-      input, pos, mode, line_end_hint, context,
-    )
-    let (step, next_mode) = result
-    match (mode, next_mode) {
-      (CodeBlock(length, character), CodeBlock(_, _)) =>
-        if opening_indent_ref.val is None {
-          opening_indent_ref.val = source_derived_code_block_indent(
-            input, pos, length, character,
-          )
-        }
-      (_, CodeBlock(_, _)) =>
-        opening_indent_ref.val = Some(visual_column_at_offset(input, pos))
-      _ => opening_indent_ref.val = None
-    }
-    if next_lex_step_offset(step, input) >= input.length() {
-      clear_same_line_list_item_prefix_cache()
-    }
-    (step, next_mode)
+    session.step(input, pos, mode)
   }
   { lex_step, initial_mode: LineStart }
 }

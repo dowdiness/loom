@@ -20,9 +20,23 @@ fn same_line_list_facts_workload(
   source : String,
   positions : Array[Int],
 ) -> Int {
+  let session = MarkdownLexSession()
   let mut checksum = 0
   for pos in positions {
-    let (step, _) = lex_inline(source, pos)
+    let (step, _) = session.step(source, pos, Inline)
+    checksum += next_lex_step_offset(step, source)
+  }
+  checksum
+}
+
+///|
+fn same_line_list_facts_stateless_workload(
+  source : String,
+  positions : Array[Int],
+) -> Int {
+  let mut checksum = 0
+  for pos in positions {
+    let (step, _) = markdown_lex_step(source, pos, Inline)
     checksum += next_lex_step_offset(step, source)
   }
   checksum
@@ -32,4 +46,12 @@ fn same_line_list_facts_workload(
 test "same-line list facts: 1024 markers" (b : @bench.T) {
   let (source, positions) = same_line_list_facts_benchmark_input(1024)
   b.bench(() => b.keep(same_line_list_facts_workload(source, positions)))
+}
+
+///|
+test "same-line list facts: 1024 markers stateless control" (b : @bench.T) {
+  let (source, positions) = same_line_list_facts_benchmark_input(1024)
+  b.bench(() => {
+    b.keep(same_line_list_facts_stateless_workload(source, positions))
+  })
 }

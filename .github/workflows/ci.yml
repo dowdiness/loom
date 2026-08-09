@@ -308,6 +308,96 @@ jobs:
             "$output_dir/base-2.txt" "$output_dir/head-2.txt" \
             "$output_dir/base-3.txt" "$output_dir/head-3.txt"
 
+  markdown-session-benchmark:
+    name: Markdown Lexer Session Benchmark (${{ matrix.target }})
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [wasm-gc, js]
+    env:
+      BENCH_TARGET: ${{ matrix.target }}
+      NEW_MOON_MOD: '0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Verify MoonBit
+        run: moon version --all
+      - name: moon update
+        run: moon update
+      - name: Run informational session benchmark
+        shell: bash
+        run: |
+          set +e
+          output="$RUNNER_TEMP/markdown-lexer-session-$BENCH_TARGET.txt"
+          moon bench --release --target "$BENCH_TARGET" \
+            -p dowdiness/markdown -f markdown_lex_session_wbtest.mbt \
+            > "$output" 2>&1
+          status=$?
+
+          summary=$(awk '
+            /\) ok$/ {
+              name = $0
+              sub(/.*\("/, "", name)
+              sub(/"\).*/, "", name)
+              next
+            }
+            name != "" && /^[[:space:]]+[0-9]/ {
+              if (name == "integrated session replay: 1024 lines") {
+                count[name]++
+                if (count[name] == 1) {
+                  printf "| Session replay | `%s %s` |\n", $1, $2
+                }
+              } else if (name == "integrated stateless replay control: 1024 lines") {
+                count[name]++
+                if (count[name] == 1) {
+                  printf "| Stateless control | `%s %s` |\n", $1, $2
+                }
+              }
+              name = ""
+            }
+            END {
+              exit !(count["integrated session replay: 1024 lines"] == 1 &&
+                count["integrated stateless replay control: 1024 lines"] == 1)
+            }
+          ' "$output")
+          summary_status=$?
+
+          {
+            echo "### Markdown lexer session benchmark ($BENCH_TARGET)"
+            echo
+            if [[ "$status" -eq 0 && "$summary_status" -eq 0 ]]; then
+              echo '| Workload | Mean |'
+              echo '| --- | ---: |'
+              printf '%s\n' "$summary"
+              echo
+              echo '> Informational only: benchmark variance does not fail the PR.'
+            else
+              echo '> ⚠️ Benchmark command failed or produced no expected rows; this job is informational and does not gate the PR.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$status" -ne 0 || "$summary_status" -ne 0 ]]; then
+            echo "::warning title=Markdown lexer session benchmark::${BENCH_TARGET} benchmark failed or produced no expected rows; see step summary"
+            tail -40 "$output"
+          fi
+          exit 0
+
   docs-check:
     name: Docs Health Check
     runs-on: ubuntu-latest
@@ -880,6 +970,7 @@ jobs:
       - agent-readiness-selftest
       - bench-detector-selftest
       - markdown-ir-perf-guard
+      - markdown-session-benchmark
       - dep-check
       - docs-check
       - mbti-check
@@ -904,6 +995,11 @@ jobs:
           if [[ "${{ needs.markdown-ir-perf-guard.result }}" != "success" && \
                 "${{ needs.markdown-ir-perf-guard.result }}" != "skipped" ]]; then
             echo "markdown-ir-perf-guard job failed"
+            exit 1
+          fi
+          if [[ "${{ needs.markdown-session-benchmark.result }}" != "success" && \
+                "${{ needs.markdown-session-benchmark.result }}" != "skipped" ]]; then
+            echo "markdown-session-benchmark job failed"
             exit 1
           fi
           if [[ "${{ needs.dep-check.result }}" != "success" ]]; then
