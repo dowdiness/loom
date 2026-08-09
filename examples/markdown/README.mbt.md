@@ -457,11 +457,13 @@ an explicit one-way export via `export_markdown_role_spans(spans)`. The
 ordered links and nested precedence. Do not introduce a shared role or
 role-span API yet.
 
-Mode-aware lexing is wired via `mode_relex` on `Grammar::new`:
+The stateless compatibility lexer can be wrapped for isolated experiments.
+Production mode-aware lexing is wired via the session-owning `mode_relex`
+factory in `grammar.mbt` and `Grammar::new`:
 
 ```mbt nocheck
 ///|
-let mode_factory : @core.ModeRelexFactory[Token] = @core.erase_mode_lexer(
+let compatibility_mode_factory : @core.ModeRelexFactory[Token] = @core.erase_mode_lexer(
   markdown_mode_lexer,
   EOF,
   error_token=Error("lex error"),
@@ -473,7 +475,7 @@ pub let markdown_grammar : @loom.Grammar[Token, SyntaxKind, Block] = @loom.Gramm
   spec=markdown_spec,
   lex=lex_for_grammar,
   fold_node=markdown_fold_node,
-  mode_relex=Some(mode_factory),
+  mode_relex=Some(compatibility_mode_factory),
 )
 ```
 
