@@ -71,12 +71,12 @@ fn is_posix_allowed(name : String) -> Bool {
 
 ///|
 fn PatternParser::parse_escape(self : PatternParser) -> Pattern {
+  let open = self.pos
   if self.pos + 1 >= self.length {
     self.note_malformed(self.pos)
     self.bump(1)
-    return Escape
+    return Escape(PatternSpan(open, self.pos))
   }
-  let open = self.pos
   let esc = self.pattern[self.pos + 1]
   if esc == 'x' {
     if self.pos + 3 >= self.length {
@@ -89,7 +89,7 @@ fn PatternParser::parse_escape(self : PatternParser) -> Pattern {
       self.note_malformed(open)
       self.bump(4)
     }
-    return Escape
+    return Escape(PatternSpan(open, self.pos))
   }
   match esc {
     'b' | 'B' | 'A' | 'z' | 'Z' | 'G' | 'd' | 'D' | 's' | 'S' | 'w' | 'W' => {
@@ -105,7 +105,7 @@ fn PatternParser::parse_escape(self : PatternParser) -> Pattern {
         self.bump(2)
       }
   }
-  Escape
+  Escape(PatternSpan(open, self.pos))
 }
 
 ///|
@@ -125,7 +125,7 @@ fn PatternParser::parse_class(self : PatternParser) -> Pattern {
           self.note_malformed(open)
         }
         self.bump(1)
-        return Class
+        return Class(PatternSpan(open, self.pos))
       }
       Some('\\') => {
         let _ = self.parse_escape()
@@ -204,7 +204,7 @@ fn PatternParser::parse_class(self : PatternParser) -> Pattern {
     }
   }
   self.note_malformed(open)
-  Class
+  Class(PatternSpan(open, self.pos))
 }
 
 ///|

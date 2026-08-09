@@ -22,9 +22,9 @@ fn Pattern::is_nullable(self : Pattern) -> Bool {
       all
     }
     Anchor => true
-    Literal => false
-    Escape => false
-    Class => false
+    Literal(_) => false
+    Escape(_) => false
+    Class(_) => false
     Group(inner) => inner.is_nullable()
     Quantified(inner, quantifier) =>
       quantifier.is_nullable() || inner.is_nullable()

@@ -209,6 +209,71 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
 }
 
 ///|
+fn first_guard_condition(units : FirstCodeUnits) -> String? {
+  match units {
+    FirstCodeUnits::Any => None
+    FirstCodeUnits::Finite(ranges) =>
+      if ranges.length() == 0 {
+        None
+      } else {
+        let conditions = ranges
+          .map(range => {
+            if range.0 == range.1 {
+              "source[pos] == " + range.0.to_string()
+            } else {
+              "source[pos] >= " +
+              range.0.to_string() +
+              " && source[pos] <= " +
+              range.1.to_string()
+            }
+          })
+          .join(" || ")
+        Some(
+          if ranges.length() == 1 {
+            conditions
+          } else {
+            "(" + conditions + ")"
+          },
+        )
+      }
+  }
+}
+
+///|
+fn emit_first_guard(b : StringBuilder, units : FirstCodeUnits) -> Bool {
+  match first_guard_condition(units) {
+    None => false
+    Some(condition) => {
+      b.write_string("  if " + condition + " {\n")
+      true
+    }
+  }
+}
+
+///|
+fn emit_first_region_start(
+  b : StringBuilder,
+  units : FirstCodeUnits,
+  first : Bool,
+) -> Bool {
+  match first_guard_condition(units) {
+    None => false
+    Some(condition) => {
+      let prefix = if first { "  if " } else { "  } else if " }
+      b.write_string(prefix + condition + " {\n")
+      true
+    }
+  }
+}
+
+///|
+fn emit_first_guard_end(b : StringBuilder, guarded : Bool) -> Unit {
+  if guarded {
+    b.write_string("  }\n")
+  }
+}
+
+///|
 /// Emit a regex `view =~ (re"^(?:PATTERN)", after=rest)` match branch for a
 /// pattern-backed token variant.  Updates `best_len`, `best`, and (when
 /// `has_keywords`) `best_ident` if the match beats the current best.
@@ -221,6 +286,7 @@ fn emit_pattern_check(
   variant : VariantDecl,
   is_ident : Bool,
   has_keywords : Bool,
+  indent : String,
 ) -> Result[Unit, String] {
   let variant_name = variant.name
   if variant.payloads.length() == variant.arg_count && variant.arg_count > 0 {
@@ -233,30 +299,52 @@ fn emit_pattern_check(
     }
     let arg_text = format_payload_constructor(variant_name, args)
     b.write_string(
-      "  match re\"^(?:" + pattern + ")\".execute(view) {\n    Some(m) => {\n",
+      indent +
+      "match re\"^(?:" +
+      pattern +
+      ")\".execute(view) {\n" +
+      indent +
+      "  Some(m) => {\n",
     )
-    b.write_string("    let len = m.content().length()\n")
-    b.write_string("    if len > best_len {\n")
-    b.write_string("      best_len = len\n")
-    b.write_string("      best = Some(" + arg_text + ")\n")
+    b.write_string(indent + "    let len = m.content().length()\n")
+    b.write_string(indent + "    if len > best_len {\n")
+    b.write_string(indent + "      best_len = len\n")
+    b.write_string(indent + "      best = Some(" + arg_text + ")\n")
     if has_keywords {
       b.write_string(
-        "      best_ident = " + (if is_ident { "true" } else { "false" }) + "\n",
+        indent +
+        "      best_ident = " +
+        (if is_ident { "true" } else { "false" }) +
+        "\n",
       )
     }
-    b.write_string("    }\n  }\n    None => ()\n  }\n")
+    b.write_string(
+      indent +
+      "    }\n" +
+      indent +
+      "  }\n" +
+      indent +
+      "  None => ()\n" +
+      indent +
+      "}\n",
+    )
   } else {
-    b.write_string("  if view =~ (re\"^(?:" + pattern + ")\", after=rest) {\n")
-    b.write_string("    let len = view.length() - rest.length()\n")
-    b.write_string("    if len > best_len {\n")
-    b.write_string("      best_len = len\n")
-    b.write_string("      best = Some(" + variant_name + ")\n")
+    b.write_string(
+      indent + "if view =~ (re\"^(?:" + pattern + ")\", after=rest) {\n",
+    )
+    b.write_string(indent + "  let len = view.length() - rest.length()\n")
+    b.write_string(indent + "  if len > best_len {\n")
+    b.write_string(indent + "    best_len = len\n")
+    b.write_string(indent + "    best = Some(" + variant_name + ")\n")
     if has_keywords {
       b.write_string(
-        "      best_ident = " + (if is_ident { "true" } else { "false" }) + "\n",
+        indent +
+        "    best_ident = " +
+        (if is_ident { "true" } else { "false" }) +
+        "\n",
       )
     }
-    b.write_string("    }\n  }\n")
+    b.write_string(indent + "  }\n" + indent + "}\n")
   }
   Ok(())
 }
@@ -270,21 +358,51 @@ fn emit_punct_check(
   lit : String,
   variant_name : String,
   has_keywords : Bool,
+  indent : String,
 ) -> Unit {
   let len = lit.length().to_string()
   b.write_string(
-    "  if cursor.starts_with(\"" +
+    indent +
+    "if cursor.starts_with(\"" +
     escape_string(lit) +
     "\") && " +
     len +
     " > best_len {\n",
   )
-  b.write_string("    best_len = " + len + "\n")
-  b.write_string("    best = Some(" + variant_name + ")\n")
+  b.write_string(indent + "  best_len = " + len + "\n")
+  b.write_string(indent + "  best = Some(" + variant_name + ")\n")
   if has_keywords {
-    b.write_string("    best_ident = false\n")
+    b.write_string(indent + "  best_ident = false\n")
   }
-  b.write_string("  }\n")
+  b.write_string(indent + "}\n")
+}
+
+///|
+fn emit_lexer_candidate(
+  b : StringBuilder,
+  variant : VariantDecl,
+  has_keywords : Bool,
+  indent : String,
+) -> Result[Unit, String] {
+  match effective_pattern(variant) {
+    Some(pattern) =>
+      emit_pattern_check(
+        b,
+        pattern,
+        variant,
+        variant.role is Some(Ident),
+        has_keywords,
+        indent,
+      )
+    None =>
+      match variant.role {
+        Some(Punct(lit)) => {
+          emit_punct_check(b, lit, variant.name, has_keywords, indent)
+          Ok(())
+        }
+        _ => Ok(())
+      }
+  }
 }
 
 ///|
@@ -304,6 +422,9 @@ fn emit_lexer(
   let has_patterns = inputs.variants
     .iter()
     .any(fn(v) { effective_pattern(v) is Some(_) })
+  let first_plan = first_dispatch_plan(inputs.variants)
+  let use_first_guards = first_plan is None &&
+    should_emit_first_guards(inputs.variants)
   let b = StringBuilder()
   b.write_string("// Generated by loomgen (#521) — do not edit.\n\n")
   b.write_string("///|\n")
@@ -345,21 +466,50 @@ fn emit_lexer(
   if has_keywords {
     b.write_string("  let mut best_ident = false\n")
   }
-  // Candidate checks in declaration order; strict `>` keeps the earlier
+  // Candidate checks remain in declaration order; strict `>` keeps the earlier
   // declaration on equal-length ties.
-  for v in inputs.variants {
-    match effective_pattern(v) {
-      Some(p) =>
-        match emit_pattern_check(b, p, v, v.role is Some(Ident), has_keywords) {
+  match first_plan {
+    Some(plan) => {
+      // A region plan is emitted only for pairwise-disjoint finite FIRST sets.
+      // Any candidates are replayed in every region and in the fallback branch
+      // so the original candidate order remains observable.
+      for i in 0..<plan.regions.length() {
+        let region = plan.regions[i]
+        guard emit_first_region_start(b, region.units, i == 0) else {
+          return Err("invalid FIRST dispatch region")
+        }
+        for v in region.variants {
+          match emit_lexer_candidate(b, v, has_keywords, "    ") {
+            Ok(_) => ()
+            Err(e) => return Err(e)
+          }
+        }
+      }
+      if plan.fallback.length() > 0 {
+        b.write_string("  } else {\n")
+        for v in plan.fallback {
+          match emit_lexer_candidate(b, v, has_keywords, "    ") {
+            Ok(_) => ()
+            Err(e) => return Err(e)
+          }
+        }
+      }
+      b.write_string("  }\n")
+    }
+    None =>
+      for v in inputs.variants {
+        let guarded = if use_first_guards {
+          emit_first_guard(b, first_units_for_lexer_candidate(v))
+        } else {
+          false
+        }
+        let indent = if guarded { "    " } else { "  " }
+        match emit_lexer_candidate(b, v, has_keywords, indent) {
           Ok(_) => ()
           Err(e) => return Err(e)
         }
-      None =>
-        match v.role {
-          Some(Punct(lit)) => emit_punct_check(b, lit, v.name, has_keywords)
-          _ => ()
-        }
-    }
+        emit_first_guard_end(b, guarded)
+      }
   }
   // Resolve the winner: no match -> Invalid advancing one scalar; otherwise
   // advance by the winning length, post-classify keywords, and produce.

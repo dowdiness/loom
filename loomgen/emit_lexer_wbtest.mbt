@@ -1599,3 +1599,137 @@ test "parse_annotations rejects payload on term variants" {
     "cannot have #loom.payload",
   )
 }
+
+///|
+test "emit_lexer groups disjoint FIRST candidates into ordered regions" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("a+")
+      #|  A
+      #|  #loom.literal
+      #|  #loom.pattern("b+")
+      #|  B
+      #|  #loom.literal
+      #|  #loom.pattern("c+")
+      #|  C
+      #|  #loom.literal
+      #|  #loom.pattern("d+")
+      #|  D
+      #|  #loom.literal
+      #|  #loom.pattern("e+")
+      #|  E
+      #|  #loom.literal
+      #|  #loom.pattern("f+")
+      #|  F
+      #|  #loom.literal
+      #|  #loom.pattern("g+")
+      #|  G
+      #|  #loom.literal
+      #|  #loom.pattern("h+")
+      #|  H
+      #|  #loom.literal
+      #|  #loom.pattern("i+")
+      #|  I
+      #|  #loom.literal
+      #|  #loom.pattern("j+")
+      #|  J
+      #|  #loom.literal
+      #|  #loom.pattern("k+")
+      #|  K
+      #|  #loom.literal
+      #|  #loom.pattern("l+")
+      #|  L
+      #|  #loom.literal
+      #|  #loom.pattern("m+")
+      #|  M
+      #|  #loom.literal
+      #|  #loom.pattern("n+")
+      #|  N
+      #|  #loom.literal
+      #|  #loom.pattern("o+")
+      #|  O
+      #|  #loom.literal
+      #|  #loom.pattern("p+")
+      #|  P
+      #|  #loom.eof
+      #|  End
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  assert_true(generated.contains("} else if source[pos] == 98 {"))
+  assert_true(generated.contains("} else if source[pos] == 112 {"))
+}
+
+///|
+test "emit_lexer keeps overlapping FIRST candidates in guarded order" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("a+")
+      #|  A
+      #|  #loom.literal
+      #|  #loom.pattern("b+")
+      #|  B
+      #|  #loom.literal
+      #|  #loom.pattern("c+")
+      #|  C
+      #|  #loom.literal
+      #|  #loom.pattern("d+")
+      #|  D
+      #|  #loom.literal
+      #|  #loom.pattern("e+")
+      #|  E
+      #|  #loom.literal
+      #|  #loom.pattern("f+")
+      #|  F
+      #|  #loom.literal
+      #|  #loom.pattern("g+")
+      #|  G
+      #|  #loom.literal
+      #|  #loom.pattern("h+")
+      #|  H
+      #|  #loom.literal
+      #|  #loom.pattern("i+")
+      #|  I
+      #|  #loom.literal
+      #|  #loom.pattern("j+")
+      #|  J
+      #|  #loom.literal
+      #|  #loom.pattern("k+")
+      #|  K
+      #|  #loom.literal
+      #|  #loom.pattern("l+")
+      #|  L
+      #|  #loom.literal
+      #|  #loom.pattern("m+")
+      #|  M
+      #|  #loom.literal
+      #|  #loom.pattern("n+")
+      #|  N
+      #|  #loom.literal
+      #|  #loom.pattern("o+")
+      #|  O
+      #|  #loom.literal
+      #|  #loom.pattern("[a-b]+")
+      #|  Overlap
+      #|  #loom.eof
+      #|  End
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  assert_true(generated.contains("source[pos] == 97"))
+  assert_true(!generated.contains("} else if source[pos]"))
+}
