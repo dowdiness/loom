@@ -5,6 +5,115 @@ priv struct SourceFenceCandidate {
 }
 
 ///|
+priv struct SourceListMarkerFacts {
+  marker_indent : Int
+  content_indent : Int
+}
+
+///|
+fn previous_source_line_start(input : String, line_start : Int) -> Int? {
+  guard line_start > 0 else { return None }
+  let break_start = if line_start >= 2 &&
+    char_at(input, line_start - 2) == Some('\r') &&
+    char_at(input, line_start - 1) == Some('\n') {
+    line_start - 2
+  } else {
+    line_start - 1
+  }
+  if break_start == 0 {
+    Some(0)
+  } else {
+    Some(line_start_offset(input, break_start))
+  }
+}
+
+///|
+fn source_line_list_marker_facts(
+  input : String,
+  line_start : Int,
+  line_end : Int,
+) -> SourceListMarkerFacts? {
+  let (marker_start, marker_indent) = leading_indent_end_offset_and_column(
+    input, line_start, 0,
+  )
+  let marker_end = match char_at(input, marker_start) {
+    Some('-') | Some('*') | Some('+') =>
+      if marker_start + 1 >= line_end ||
+        char_at(input, marker_start + 1) is Some(' ' | '\t') {
+        marker_start + 1
+      } else {
+        return None
+      }
+    Some(ch) if is_decimal_digit(ch) => {
+      let digits = count_ordered_marker_digits(input, marker_start)
+      guard digits > 0 else { return None }
+      let delimiter_end = marker_start + digits + 1
+      match char_at(input, marker_start + digits) {
+        Some('.') | Some(')') => {
+          guard delimiter_end >= line_end ||
+            char_at(input, delimiter_end) is Some(' ' | '\t') else {
+            return None
+          }
+          delimiter_end
+        }
+        _ => return None
+      }
+    }
+    _ => return None
+  }
+  let marker_end_column = marker_indent + marker_end - marker_start
+  let (_, content_column) = leading_indent_end_offset_and_column(
+    input, marker_end, marker_end_column,
+  )
+  let padding = content_column - marker_end_column
+  let content_indent = if padding == 0 || padding > 4 {
+    marker_end_column + 1
+  } else {
+    content_column
+  }
+  Some(SourceListMarkerFacts::{ marker_indent, content_indent })
+}
+
+///|
+/// True when an indented line is structurally owned by a preceding list item.
+/// Root-level four-space code must not become a detached fence candidate, while
+/// fences nested below a list marker still need their opening column recovered.
+fn source_line_is_list_owned(
+  input : String,
+  line_start : Int,
+  line_indent : Int,
+) -> Bool {
+  let mut cursor = line_start
+  while cursor > 0 {
+    let previous_start = previous_source_line_start(input, cursor).unwrap()
+    let previous_end = find_line_end(input, previous_start)
+    if line_is_blank(input, previous_start, previous_end) {
+      cursor = previous_start
+      continue
+    }
+    let (_, previous_indent) = leading_indent_end_offset_and_column(
+      input, previous_start, 0,
+    )
+    match source_line_list_marker_facts(input, previous_start, previous_end) {
+      Some(facts) if facts.content_indent <= line_indent => {
+        if facts.marker_indent <= 3 {
+          return true
+        }
+        return source_line_is_list_owned(
+          input,
+          previous_start,
+          facts.marker_indent,
+        )
+      }
+      Some(_) => return false
+      None if previous_indent == 0 => return false
+      None => cursor = previous_start
+    }
+  }
+  false
+}
+
+///|
 /// Find a fence marker at the start of a source line, after the line's
 /// whitespace and block-container prefixes. This is only a source-derived
 /// fallback for detached/public mode stepping; the stateful lexer records the
@@ -16,7 +125,13 @@ fn source_fence_candidate(
   fence_len : Int,
   fence_character : Char,
 ) -> SourceFenceCandidate? {
-  let (start, _) = leading_indent_end_offset_and_column(input, line_start, 0)
+  let (start, leading_indent) = leading_indent_end_offset_and_column(
+    input, line_start, 0,
+  )
+  guard leading_indent <= 3 ||
+    source_line_is_list_owned(input, line_start, leading_indent) else {
+    return None
+  }
   let mut cursor = start
   let mut scanning_prefix = true
   while scanning_prefix {

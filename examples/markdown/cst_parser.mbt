@@ -1010,25 +1010,55 @@ fn parse_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
+/// Same-line nested markers have no Indentation token. Carry the parent
+/// content column into the first nested item so later continuation checks use
+/// the nested marker's actual source column.
+fn parse_list_at_min_indent_with_first_item_column(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  min_indent : Int,
+  first_item_marker_start_column : Int?,
+) -> Unit {
+  ctx.node(UnorderedListNode, fn() {
+    match current_unordered_list_marker(ctx) {
+      Some(opening_marker) => {
+        let continuation_min_indent = match first_item_marker_start_column {
+          Some(column) => column
+          None => min_indent
+        }
+        if list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) &&
+          current_list_marker_indent(ctx).map_or(false, indent => {
+            indent <= min_indent + 3
+          }) {
+          parse_list_item_with_marker_start_column(
+            ctx, first_item_marker_start_column,
+          )
+          consume_list_item_separator_at_min_indent(
+            ctx, opening_marker, continuation_min_indent,
+          )
+          while list_marker_matches_at_min_indent(
+                  ctx, opening_marker, continuation_min_indent,
+                ) &&
+                current_list_marker_indent(ctx).map_or(false, indent => {
+                  indent <= continuation_min_indent + 3
+                }) {
+            parse_list_item(ctx)
+            consume_list_item_separator_at_min_indent(
+              ctx, opening_marker, continuation_min_indent,
+            )
+          }
+        }
+      }
+      None => ()
+    }
+  })
+}
+
+///|
 fn parse_list_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
 ) -> Unit {
-  ctx.node(UnorderedListNode, fn() {
-    match current_unordered_list_marker(ctx) {
-      Some(opening_marker) =>
-        while list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) &&
-              current_list_marker_indent(ctx).map_or(false, indent => {
-                indent <= min_indent + 3
-              }) {
-          parse_list_item(ctx)
-          consume_list_item_separator_at_min_indent(
-            ctx, opening_marker, min_indent,
-          )
-        }
-      None => ()
-    }
-  })
+  parse_list_at_min_indent_with_first_item_column(ctx, min_indent, None)
 }
 
 ///|
@@ -1970,15 +2000,26 @@ fn parse_list_item_body(
     list_item_line_starts_paragraph(ctx)
   match ctx.peek() {
     ListMarker => {
-      parse_list_at_min_indent(ctx, 0)
+      parse_list_at_min_indent_with_first_item_column(
+        ctx,
+        0,
+        Some(context.content_indent),
+      )
+      parse_list_item_flow_after_body(ctx, context, true)
       return
     }
     OrderedListMarker(_) => {
-      parse_ordered_list_at_min_indent(ctx, 0)
+      parse_ordered_list_at_min_indent_with_first_item_column(
+        ctx,
+        0,
+        Some(context.content_indent),
+      )
+      parse_list_item_flow_after_body(ctx, context, true)
       return
     }
     BlockQuoteMarker => {
       parse_block_quote(ctx)
+      parse_list_item_flow_after_body(ctx, context, true)
       return
     }
     CodeFenceOpen(_, _) => {
@@ -1988,6 +2029,7 @@ fn parse_list_item_body(
     }
     HeadingMarker(_) => {
       parse_heading(ctx)
+      parse_list_item_flow_after_body(ctx, context, true)
       return
     }
     _ => ()
@@ -2024,9 +2066,15 @@ fn parse_list_item_body(
 
 ///|
 /// Parse a single list item: ListMarker followed by inline content.
-fn parse_list_item(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+fn parse_list_item_with_marker_start_column(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  marker_start_column : Int?,
+) -> Unit {
   ctx.node(ListItemNode, fn() {
-    let marker_start_column = consume_list_item_prefix(ctx)
+    let marker_start_column = match marker_start_column {
+      Some(column) => column
+      None => consume_list_item_prefix(ctx)
+    }
     let content_indent = current_list_item_content_indent(
       ctx, marker_start_column,
     )
@@ -2045,9 +2093,59 @@ fn parse_list_item(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
+fn parse_list_item(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+  parse_list_item_with_marker_start_column(ctx, None)
+}
+
+///|
 /// Parse an ordered list: one or more ListItems using the same delimiter.
 fn parse_ordered_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   parse_ordered_list_at_min_indent(ctx, 0)
+}
+
+///|
+/// The ordered-list counterpart preserves the same inline marker-column rule
+/// when an ordered list is nested directly in a list item.
+fn parse_ordered_list_at_min_indent_with_first_item_column(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  min_indent : Int,
+  first_item_marker_start_column : Int?,
+) -> Unit {
+  ctx.node(OrderedListNode, fn() {
+    match current_ordered_list_marker(ctx) {
+      Some(opening_marker) => {
+        let continuation_min_indent = match first_item_marker_start_column {
+          Some(column) => column
+          None => min_indent
+        }
+        if ordered_list_marker_matches_at_min_indent(
+            ctx, opening_marker, min_indent,
+          ) &&
+          current_list_marker_indent(ctx).map_or(false, indent => {
+            indent <= min_indent + 3
+          }) {
+          parse_ordered_list_item_with_marker_start_column(
+            ctx, first_item_marker_start_column,
+          )
+          consume_ordered_list_item_separator_at_min_indent(
+            ctx, opening_marker, continuation_min_indent,
+          )
+          while ordered_list_marker_matches_at_min_indent(
+                  ctx, opening_marker, continuation_min_indent,
+                ) &&
+                current_list_marker_indent(ctx).map_or(false, indent => {
+                  indent <= continuation_min_indent + 3
+                }) {
+            parse_ordered_list_item(ctx)
+            consume_ordered_list_item_separator_at_min_indent(
+              ctx, opening_marker, continuation_min_indent,
+            )
+          }
+        }
+      }
+      None => ()
+    }
+  })
 }
 
 ///|
@@ -2055,32 +2153,20 @@ fn parse_ordered_list_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
 ) -> Unit {
-  ctx.node(OrderedListNode, fn() {
-    match current_ordered_list_marker(ctx) {
-      Some(opening_marker) =>
-        while ordered_list_marker_matches_at_min_indent(
-                ctx, opening_marker, min_indent,
-              ) &&
-              current_list_marker_indent(ctx).map_or(false, indent => {
-                indent <= min_indent + 3
-              }) {
-          parse_ordered_list_item(ctx)
-          consume_ordered_list_item_separator_at_min_indent(
-            ctx, opening_marker, min_indent,
-          )
-        }
-      None => ()
-    }
-  })
+  parse_ordered_list_at_min_indent_with_first_item_column(ctx, min_indent, None)
 }
 
 ///|
 /// Parse a single ordered list item: OrderedListMarker followed by inline content.
-fn parse_ordered_list_item(
+fn parse_ordered_list_item_with_marker_start_column(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  marker_start_column : Int?,
 ) -> Unit {
   ctx.node(ListItemNode, fn() {
-    let marker_start_column = consume_list_item_prefix(ctx)
+    let marker_start_column = match marker_start_column {
+      Some(column) => column
+      None => consume_list_item_prefix(ctx)
+    }
     let content_indent = current_list_item_content_indent(
       ctx, marker_start_column,
     )
@@ -2096,6 +2182,13 @@ fn parse_ordered_list_item(
       allow_ordered_marker=false,
     )
   })
+}
+
+///|
+fn parse_ordered_list_item(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  parse_ordered_list_item_with_marker_start_column(ctx, None)
 }
 
 ///|

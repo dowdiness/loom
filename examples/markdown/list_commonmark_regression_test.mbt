@@ -102,3 +102,28 @@ test "CommonMark list regressions 254 280 286 287 288 290" {
     assert_commonmark_list_regression(example, source, expected_html)
   }
 }
+
+///|
+test "CommonMark list regressions: structural first children keep continuation" {
+  let cases : Array[(Int, String, String)] = [
+    (
+      39401, "- > a\n\n  b\n", "<ul>\n<li>\n<blockquote>\n<p>a</p>\n</blockquote>\n<p>b</p>\n</li>\n</ul>\n",
+    ),
+    (
+      39402, "- - a\n\n  b\n", "<ul>\n<li>\n<ul>\n<li>a</li>\n</ul>\n<p>b</p>\n</li>\n</ul>\n",
+    ),
+    (
+      39403, "- # a\n\n  b\n", "<ul>\n<li>\n<h1>a</h1>\n<p>b</p>\n</li>\n</ul>\n",
+    ),
+    (
+      39404, "- 1. a\n\n  b\n", "<ul>\n<li>\n<ol>\n<li>a</li>\n</ol>\n<p>b</p>\n</li>\n</ul>\n",
+    ),
+    (
+      39405, "  - - foo\n- bar\n", "<ul>\n<li>\n<ul>\n<li>foo</li>\n</ul>\n</li>\n<li>bar</li>\n</ul>\n",
+    ),
+  ]
+  for case in cases {
+    let (example, source, expected_html) = case
+    assert_commonmark_list_regression(example, source, expected_html)
+  }
+}
