@@ -53,13 +53,13 @@ introduced.
 
 The integrated prototype reproduced the performance shape that motivated the
 cache while proving independent interleaved sessions. The representative
-measurement below was collected at implementation revision `f94d2a47` with
+measurement below was collected at implementation revision `c5eec759` with
 `NEW_MOON_MOD=0 moon bench --release --target <target> examples/markdown/detached_fence_performance_wbtest.mbt`:
 
 | Target | Session replay | Stateless control |
 | --- | ---: | ---: |
-| wasm-gc | `407.84 µs ± 3.36 µs` | `57.96 ms ± 1.15 ms` |
-| JS | `388.85 µs ± 11.17 µs` | `59.38 ms ± 1.14 ms` |
+| wasm-gc | `433.33 µs ± 15.48 µs` | `70.24 ms ± 8.21 ms` |
+| JS | `370.55 µs ± 6.66 µs` | `59.70 ms ± 3.08 ms` |
 
 The benchmark uses a 1024-line middle replay and runs ten samples. These are
 representative local measurements rather than a CI acceptance threshold;
