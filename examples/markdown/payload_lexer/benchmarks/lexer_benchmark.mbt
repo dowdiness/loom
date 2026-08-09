@@ -32,6 +32,22 @@ fn new_payload_buffer(source : String) -> @core.TokenBuffer[@payload.Token] {
 }
 
 ///|
+test "payload benchmark input preserves repeated fence boundaries" {
+  let steps = payload_prefix_lexer().lex_all(payload_lexer_input(), 0)
+  let code_fence_count = steps.fold(init=0, (count, step) => {
+    match step {
+      @core.LexStep::Produced(info, next_offset=_) =>
+        match info.token {
+          @payload.Token::CodeFenceOpen(_, _) => count + 1
+          _ => count
+        }
+      _ => count
+    }
+  })
+  assert_eq(code_fence_count, 1024)
+}
+
+///|
 test "payload generated lexer: full prefix lex" (b : @bench.T) {
   let source = payload_lexer_input()
   let lexer = payload_prefix_lexer()
