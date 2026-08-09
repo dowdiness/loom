@@ -481,7 +481,8 @@ fn block_quote_marker_offset_after_newline(
 ) -> Int? {
   match next {
     BlockQuoteMarker => Some(2)
-    Indentation(_) if ctx.peek_nth(2) is BlockQuoteMarker => Some(3)
+    Indentation(text) if count_indent_columns(text, 0, text.length()) <= 3 &&
+      ctx.peek_nth(2) is BlockQuoteMarker => Some(3)
     _ => None
   }
 }

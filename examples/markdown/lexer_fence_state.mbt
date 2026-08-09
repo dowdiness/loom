@@ -68,6 +68,16 @@ fn source_fence_candidate(
 }
 
 ///|
+/// The closing fence may be preceded by up to three literal spaces, or by
+/// the opening indentation when that indentation is deeper.
+fn code_block_max_leading_spaces(opening_indent : Int?) -> Int {
+  match opening_indent {
+    Some(indent) if indent >= 4 => indent
+    _ => 3
+  }
+}
+
+///|
 /// Mirror lex_code_block's raw closing-fence rule for detached mode replay:
 /// only literal leading spaces are skipped, and the fence tail must be blank.
 fn source_code_block_close_candidate(
@@ -77,7 +87,7 @@ fn source_code_block_close_candidate(
   fence_character : Char,
   opening_indent : Int,
 ) -> Bool {
-  let max_leading_spaces = if opening_indent >= 4 { opening_indent } else { 3 }
+  let max_leading_spaces = code_block_max_leading_spaces(Some(opening_indent))
   let mut fence_start = line_start
   let mut leading_spaces = 0
   while leading_spaces < max_leading_spaces &&

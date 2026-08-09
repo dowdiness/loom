@@ -571,8 +571,8 @@ fn lex_inline(
   if pos >= input.length() {
     return (Done, Inline)
   }
-  if same_line_list_item_block_start(input, pos) &&
-    same_line_list_item_prefix(input, pos) &&
+  if same_line_list_item_prefix(input, pos) &&
+    same_line_list_item_block_start(input, pos) &&
     !same_line_list_item_line_is_thematic_break(input, pos) {
     match input.view(start_offset=pos) {
       ['-' | '*' | '+', ' ' | '\t', .. rest] =>
@@ -729,10 +729,7 @@ fn lex_code_block(
   if pos >= input.length() {
     return (Done, CodeBlock(fence_len, fence_character))
   }
-  let max_leading_spaces = match opening_indent {
-    Some(indent) if indent >= 4 => indent
-    _ => 3
-  }
+  let max_leading_spaces = code_block_max_leading_spaces(opening_indent)
   let mut fence_start = pos
   let mut leading_spaces = 0
   while leading_spaces < max_leading_spaces &&
@@ -921,13 +918,92 @@ fn markdown_lex_step_inner(
 }
 
 ///|
+priv struct DetachedCodeBlockIndentCache {
+  source : String
+  fence_length : Int
+  fence_character : Char
+  opening_indent : Int
+  next_pos : Int
+}
+
+///|
+let detached_code_block_indent_cache : Ref[DetachedCodeBlockIndentCache?] = Ref(
+  None,
+)
+
+///|
+fn detached_code_block_indent_for_step(
+  input : String,
+  pos : Int,
+  fence_length : Int,
+  fence_character : Char,
+) -> Int {
+  match detached_code_block_indent_cache.val {
+    Some(cache) if cache.next_pos == pos &&
+      cache.fence_length == fence_length &&
+      cache.fence_character == fence_character &&
+      physical_equal(cache.source, input) => cache.opening_indent
+    _ =>
+      source_derived_code_block_indent(
+        input, pos, fence_length, fence_character,
+      ).unwrap_or(0)
+  }
+}
+
+///|
+fn next_lex_step_offset(step : @core.LexStep[Token], input : String) -> Int {
+  match step {
+    @core.LexStep::Produced(_, next_offset~) => next_offset
+    @core.LexStep::Invalid(at~, width~, ..) => at + width
+    @core.LexStep::Incomplete(at~, ..) => at
+    @core.LexStep::Done => input.length()
+  }
+}
+
+///|
 /// Mode-aware lex step. Dispatches to mode-specific lexer.
 pub fn markdown_lex_step(
   input : String,
   pos : Int,
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
-  markdown_lex_step_inner(input, pos, mode, None)
+  let opening_indent = match mode {
+    CodeBlock(fence_length, fence_character) =>
+      Some(
+        detached_code_block_indent_for_step(
+          input, pos, fence_length, fence_character,
+        ),
+      )
+    _ => None
+  }
+  let (step, next_mode) = match mode {
+    CodeBlock(_, _) =>
+      markdown_lex_step_inner_with_context(
+        input,
+        pos,
+        mode,
+        None,
+        opening_indent,
+      )
+    _ => markdown_lex_step_inner(input, pos, mode, None)
+  }
+  match next_mode {
+    CodeBlock(fence_length, fence_character) => {
+      let indent = match mode {
+        CodeBlock(_, _) => opening_indent.unwrap_or(0)
+        _ => visual_column_at_offset(input, pos)
+      }
+      detached_code_block_indent_cache.val = Some(DetachedCodeBlockIndentCache::{
+        source: input,
+        fence_length,
+        fence_character,
+        opening_indent: indent,
+        next_pos: next_lex_step_offset(step, input),
+      })
+    }
+    _ => detached_code_block_indent_cache.val = None
+  }
+  (step, next_mode)
 }
 
 ///|
