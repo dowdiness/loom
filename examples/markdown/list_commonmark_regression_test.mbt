@@ -121,6 +121,12 @@ test "CommonMark list regressions: structural first children keep continuation" 
     (
       39405, "  - - foo\n- bar\n", "<ul>\n<li>\n<ul>\n<li>foo</li>\n</ul>\n</li>\n<li>bar</li>\n</ul>\n",
     ),
+    (
+      39406, "- a\n\n  [ref]: /url\n\n  [x][ref]\n", "<ul>\n<li>\n<p>a</p>\n<p><a href=\"/url\">x</a></p>\n</li>\n</ul>\n",
+    ),
+    (
+      39407, "- a\n\n  >\n\n  b\n", "<ul>\n<li>a</li>\n</ul>\n<blockquote>\n</blockquote>\n<p>b</p>\n",
+    ),
   ]
   for case in cases {
     let (example, source, expected_html) = case

@@ -110,6 +110,12 @@ test "list incremental construction destruction boundaries content and recovery 
     ),
     ("content-edit", "- foo\n", @core.Edit::new(2, 3, 3), "- bar\n"),
     ("malformed-intermediate", "- [a](u)\n", @core.Edit::new(2, 6, 2), "- [a\n"),
+    (
+      "blank-blockquote-boundary",
+      "- a\n\n  >\n\n  b\n",
+      @core.Edit::new("- a\n\n  >\n\n  ".length(), 1, 1),
+      "- a\n\n  >\n\n  c\n",
+    ),
   ]
   for case in cases {
     let (label, source, edit, updated) = case

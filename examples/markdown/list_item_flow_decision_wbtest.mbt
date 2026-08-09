@@ -21,7 +21,31 @@ fn assert_list_item_flow_decision(
   inspect(
     list_item_flow_decision_name(
       decide_list_item_indented_flow(
-        current, next, indent, context, code_indent,
+        current, next, indent, context, code_indent, false,
+      ),
+    ),
+    content=expected,
+  )
+}
+
+///|
+fn assert_prefixed_list_item_block_decision(
+  current : Token,
+  next : Token,
+  indent : Int,
+  context : ListItemFlowContext,
+  code_indent : Int,
+  expected : String,
+) -> Unit raise {
+  inspect(
+    list_item_flow_decision_name(
+      decide_list_item_indented_flow(
+        current,
+        next,
+        Some(indent),
+        context,
+        code_indent,
+        true,
       ),
     ),
     content=expected,
@@ -97,6 +121,14 @@ test "list-item indented-flow decision matrix" {
     Indentation("    "),
     BlockQuoteMarker,
     Some(4),
+    context,
+    8,
+    "prefixed-paragraph",
+  )
+  assert_prefixed_list_item_block_decision(
+    Indentation("    "),
+    BlockQuoteMarker,
+    4,
     context,
     8,
     "prefixed-block",

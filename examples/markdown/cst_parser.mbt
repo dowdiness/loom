@@ -1013,6 +1013,87 @@ fn parse_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 /// Same-line nested markers have no Indentation token. Carry the parent
 /// content column into the first nested item so later continuation checks use
 /// the nested marker's actual source column.
+priv enum ListKind {
+  Unordered(UnorderedListMarker)
+  Ordered(OrderedListMarker)
+}
+
+///|
+fn list_kind_matches_at_min_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  kind : ListKind,
+  min_indent : Int,
+) -> Bool {
+  match kind {
+    Unordered(opening_marker) =>
+      list_marker_matches_at_min_indent(ctx, opening_marker, min_indent)
+    Ordered(opening_marker) =>
+      ordered_list_marker_matches_at_min_indent(ctx, opening_marker, min_indent)
+  }
+}
+
+///|
+fn consume_list_item_separator_for_kind(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  kind : ListKind,
+  min_indent : Int,
+) -> Unit {
+  match kind {
+    Unordered(opening_marker) =>
+      consume_list_item_separator_at_min_indent(ctx, opening_marker, min_indent)
+    Ordered(opening_marker) =>
+      consume_ordered_list_item_separator_at_min_indent(
+        ctx, opening_marker, min_indent,
+      )
+  }
+}
+
+///|
+fn parse_list_item_for_kind(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  kind : ListKind,
+  first_item_marker_start_column : Int?,
+) -> Unit {
+  match kind {
+    Unordered(_) =>
+      parse_list_item_with_marker_start_column(
+        ctx, first_item_marker_start_column,
+      )
+    Ordered(_) =>
+      parse_ordered_list_item_with_marker_start_column(
+        ctx, first_item_marker_start_column,
+      )
+  }
+}
+
+///|
+fn parse_list_items_at_min_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  kind : ListKind,
+  min_indent : Int,
+  first_item_marker_start_column : Int?,
+) -> Unit {
+  let continuation_min_indent = match first_item_marker_start_column {
+    Some(column) => column
+    None => min_indent
+  }
+  if list_kind_matches_at_min_indent(ctx, kind, min_indent) &&
+    current_list_marker_indent(ctx).map_or(false, indent => {
+      indent <= min_indent + 3
+    }) {
+    parse_list_item_for_kind(ctx, kind, first_item_marker_start_column)
+    consume_list_item_separator_for_kind(ctx, kind, continuation_min_indent)
+    while list_kind_matches_at_min_indent(ctx, kind, continuation_min_indent) &&
+          current_list_marker_indent(ctx).map_or(false, indent => {
+            indent <= continuation_min_indent + 3
+          }) {
+      parse_list_item_for_kind(ctx, kind, None)
+      consume_list_item_separator_for_kind(ctx, kind, continuation_min_indent)
+    }
+  }
+}
+
+///|
 fn parse_list_at_min_indent_with_first_item_column(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
@@ -1020,34 +1101,13 @@ fn parse_list_at_min_indent_with_first_item_column(
 ) -> Unit {
   ctx.node(UnorderedListNode, fn() {
     match current_unordered_list_marker(ctx) {
-      Some(opening_marker) => {
-        let continuation_min_indent = match first_item_marker_start_column {
-          Some(column) => column
-          None => min_indent
-        }
-        if list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) &&
-          current_list_marker_indent(ctx).map_or(false, indent => {
-            indent <= min_indent + 3
-          }) {
-          parse_list_item_with_marker_start_column(
-            ctx, first_item_marker_start_column,
-          )
-          consume_list_item_separator_at_min_indent(
-            ctx, opening_marker, continuation_min_indent,
-          )
-          while list_marker_matches_at_min_indent(
-                  ctx, opening_marker, continuation_min_indent,
-                ) &&
-                current_list_marker_indent(ctx).map_or(false, indent => {
-                  indent <= continuation_min_indent + 3
-                }) {
-            parse_list_item(ctx)
-            consume_list_item_separator_at_min_indent(
-              ctx, opening_marker, continuation_min_indent,
-            )
-          }
-        }
-      }
+      Some(opening_marker) =>
+        parse_list_items_at_min_indent(
+          ctx,
+          Unordered(opening_marker),
+          min_indent,
+          first_item_marker_start_column,
+        )
       None => ()
     }
   })
@@ -1280,6 +1340,11 @@ fn try_continue_list_item_after_blank_line(
             false
           }
         }
+      } else if indent >= context.content_indent &&
+        ctx.peek_nth(1) is BlockQuoteMarker &&
+        ctx.peek_nth(2) is BlankLine {
+        ctx.restore(checkpoint)
+        false
       } else if allow_paragraph_continuation && indent >= context.content_indent {
         parse_list_item_prefixed_paragraph(
           ctx,
@@ -1834,13 +1899,20 @@ fn try_parse_list_item_indented_flow_at(
   }
   // Preserve the old shell's lazy lookahead: code and stop branches never
   // needed the next token, while prefixed flow does.
+  let prefixed_block_start = match indent {
+    Some(indent) if indent >= context.content_indent && indent < code_indent =>
+      prefixed_list_item_block_starts(ctx, context.content_indent)
+    _ => false
+  }
   let next = match indent {
     Some(indent) if indent >= context.content_indent && indent < code_indent =>
       ctx.peek_nth(1)
     _ => EOF
   }
   match
-    decide_list_item_indented_flow(current, next, indent, context, code_indent) {
+    decide_list_item_indented_flow(
+      current, next, indent, context, code_indent, prefixed_block_start,
+    ) {
     Stop => false
     IndentedCode => {
       parse_indented_code_block_at_min_indent(ctx, code_indent)
@@ -2113,36 +2185,13 @@ fn parse_ordered_list_at_min_indent_with_first_item_column(
 ) -> Unit {
   ctx.node(OrderedListNode, fn() {
     match current_ordered_list_marker(ctx) {
-      Some(opening_marker) => {
-        let continuation_min_indent = match first_item_marker_start_column {
-          Some(column) => column
-          None => min_indent
-        }
-        if ordered_list_marker_matches_at_min_indent(
-            ctx, opening_marker, min_indent,
-          ) &&
-          current_list_marker_indent(ctx).map_or(false, indent => {
-            indent <= min_indent + 3
-          }) {
-          parse_ordered_list_item_with_marker_start_column(
-            ctx, first_item_marker_start_column,
-          )
-          consume_ordered_list_item_separator_at_min_indent(
-            ctx, opening_marker, continuation_min_indent,
-          )
-          while ordered_list_marker_matches_at_min_indent(
-                  ctx, opening_marker, continuation_min_indent,
-                ) &&
-                current_list_marker_indent(ctx).map_or(false, indent => {
-                  indent <= continuation_min_indent + 3
-                }) {
-            parse_ordered_list_item(ctx)
-            consume_ordered_list_item_separator_at_min_indent(
-              ctx, opening_marker, continuation_min_indent,
-            )
-          }
-        }
-      }
+      Some(opening_marker) =>
+        parse_list_items_at_min_indent(
+          ctx,
+          Ordered(opening_marker),
+          min_indent,
+          first_item_marker_start_column,
+        )
       None => ()
     }
   })

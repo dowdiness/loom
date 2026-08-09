@@ -918,39 +918,6 @@ fn markdown_lex_step_inner(
 }
 
 ///|
-priv struct DetachedCodeBlockIndentCache {
-  source : String
-  fence_length : Int
-  fence_character : Char
-  opening_indent : Int
-  next_pos : Int
-}
-
-///|
-let detached_code_block_indent_cache : Ref[DetachedCodeBlockIndentCache?] = Ref(
-  None,
-)
-
-///|
-fn detached_code_block_indent_for_step(
-  input : String,
-  pos : Int,
-  fence_length : Int,
-  fence_character : Char,
-) -> Int {
-  match detached_code_block_indent_cache.val {
-    Some(cache) if cache.next_pos == pos &&
-      cache.fence_length == fence_length &&
-      cache.fence_character == fence_character &&
-      physical_equal(cache.source, input) => cache.opening_indent
-    _ =>
-      source_derived_code_block_indent(
-        input, pos, fence_length, fence_character,
-      ).unwrap_or(0)
-  }
-}
-
-///|
 fn next_lex_step_offset(step : @core.LexStep[Token], input : String) -> Int {
   match step {
     @core.LexStep::Produced(_, next_offset~) => next_offset
@@ -993,15 +960,15 @@ pub fn markdown_lex_step(
         CodeBlock(_, _) => opening_indent.unwrap_or(0)
         _ => visual_column_at_offset(input, pos)
       }
-      detached_code_block_indent_cache.val = Some(DetachedCodeBlockIndentCache::{
-        source: input,
+      remember_detached_code_block_step(
+        input,
         fence_length,
         fence_character,
-        opening_indent: indent,
-        next_pos: next_lex_step_offset(step, input),
-      })
+        indent,
+        next_lex_step_offset(step, input),
+      )
     }
-    _ => detached_code_block_indent_cache.val = None
+    _ => clear_detached_code_block_step()
   }
   (step, next_mode)
 }

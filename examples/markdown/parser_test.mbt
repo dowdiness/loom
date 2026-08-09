@@ -719,6 +719,23 @@ test "parse: blank-line list-item indented quote remains list child" {
 }
 
 ///|
+test "parse: blank-line empty quote does not create phantom list paragraph" {
+  let (cst, _) = try! parse_cst(
+    @core.SourceId("markdown-parser-test-document"),
+    "- item\n\n  >\n\n  body\n",
+  )
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [list, ..] =>
+      match list.children() {
+        [item, ..] => inspect(item.children().length(), content="0")
+        _ => inspect(list.children().length(), content="one list item")
+      }
+    _ => inspect(syntax.children().length(), content="one list")
+  }
+}
+
+///|
 test "parse: blank-line list-item indented fence remains list child" {
   try! assert_list_item_prefixed_block_child("- item\n\n  ```\n", CodeBlockNode)
 }
