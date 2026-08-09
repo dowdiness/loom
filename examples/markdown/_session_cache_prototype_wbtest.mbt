@@ -34,8 +34,6 @@ fn prototype_session_tokenize(source : String) -> Array[@core.TokenInfo[Token]] 
 fn prototype_baseline_tokenize(
   source : String,
 ) -> Array[@core.TokenInfo[Token]] raise @core.LexError {
-  clear_detached_code_block_step()
-  clear_same_line_list_item_prefix_cache()
   @core.tokenize_with_modes(markdown_mode_lexer, source, EOF).0
 }
 
@@ -125,13 +123,11 @@ test "integrated sessions remain independent when interleaved" {
       second_pos,
       CodeBlock(3, '`'),
     )
-    clear_detached_code_block_step()
     let (first_expected, _) = markdown_lex_step(
       first,
       first_pos,
       CodeBlock(3, '`'),
     )
-    clear_detached_code_block_step()
     let (second_expected, _) = markdown_lex_step(
       second,
       second_pos,
@@ -151,13 +147,11 @@ test "integrated session source replacement and reset" {
   let second_pos = prototype_line_starts(second)[8]
   let (first_step, _) = session.step(first, first_pos, CodeBlock(3, '`'))
   let (second_step, _) = session.step(second, second_pos, CodeBlock(3, '`'))
-  clear_detached_code_block_step()
   let (first_expected, _) = markdown_lex_step(
     first,
     first_pos,
     CodeBlock(3, '`'),
   )
-  clear_detached_code_block_step()
   let (second_expected, _) = markdown_lex_step(
     second,
     second_pos,
@@ -191,7 +185,6 @@ fn prototype_stateless_replay_workload(
 ) -> Int {
   let mut checksum = 0
   for i = 1; i < positions.length() - 1; i = i + 1 {
-    clear_detached_code_block_step()
     let (step, _) = markdown_lex_step(source, positions[i], CodeBlock(3, '`'))
     checksum += next_lex_step_offset(step, source)
   }

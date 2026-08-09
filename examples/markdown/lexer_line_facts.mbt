@@ -22,16 +22,6 @@ priv struct SameLineListItemPrefixFacts {
 }
 
 ///|
-let same_line_list_item_prefix_cache : Ref[SameLineListItemPrefixFacts?] = Ref(
-  None,
-)
-
-///|
-fn clear_same_line_list_item_prefix_cache() -> Unit {
-  same_line_list_item_prefix_cache.val = None
-}
-
-///|
 fn scan_same_line_list_item_prefix(
   input : String,
   line_start : Int,
@@ -143,9 +133,9 @@ fn same_line_list_item_prefix_facts(
   input : String,
   pos : Int,
 ) -> SameLineListItemPrefixFacts {
-  same_line_list_item_prefix_facts_with_cache(
-    same_line_list_item_prefix_cache, input, pos,
-  )
+  let line_start = line_start_offset(input, pos)
+  let line_end = find_line_end(input, pos)
+  scan_same_line_list_item_prefix(input, line_start, line_end)
 }
 
 ///|

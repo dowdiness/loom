@@ -920,24 +920,6 @@ fn markdown_lex_step_inner_with_context(
 }
 
 ///|
-/// Mode-aware lex step with an optional line-end hint.
-fn markdown_lex_step_inner(
-  input : String,
-  pos : Int,
-  mode : MarkdownLexMode,
-  line_end_hint : Int?,
-) -> (@core.LexStep[Token], MarkdownLexMode) {
-  markdown_lex_step_inner_with_context(
-    input,
-    pos,
-    mode,
-    line_end_hint,
-    None,
-    None,
-  )
-}
-
-///|
 fn next_lex_step_offset(step : @core.LexStep[Token], input : String) -> Int {
   match step {
     @core.LexStep::Produced(_, next_offset~) => next_offset
@@ -948,7 +930,8 @@ fn next_lex_step_offset(step : @core.LexStep[Token], input : String) -> Int {
 }
 
 ///|
-/// Mode-aware lex step. Dispatches to mode-specific lexer.
+/// Stateless compatibility step. Reusable replay belongs to
+/// `MarkdownLexSession::step`; this function never mutates cache state.
 pub fn markdown_lex_step(
   input : String,
   pos : Int,
@@ -956,42 +939,19 @@ pub fn markdown_lex_step(
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let opening_indent = match mode {
     CodeBlock(fence_length, fence_character) =>
-      Some(
-        detached_code_block_indent_for_step(
-          input, pos, fence_length, fence_character,
-        ),
+      source_derived_code_block_indent(
+        input, pos, fence_length, fence_character,
       )
     _ => None
   }
-  let (step, next_mode) = match mode {
-    CodeBlock(_, _) =>
-      markdown_lex_step_inner_with_context(
-        input,
-        pos,
-        mode,
-        None,
-        opening_indent,
-        None,
-      )
-    _ => markdown_lex_step_inner(input, pos, mode, None)
-  }
-  let next_pos = next_lex_step_offset(step, input)
-  match next_mode {
-    CodeBlock(fence_length, fence_character) => {
-      let indent = match mode {
-        CodeBlock(_, _) => opening_indent.unwrap_or(0)
-        _ => visual_column_at_offset(input, pos)
-      }
-      remember_detached_code_block_step(
-        input, fence_length, fence_character, indent, next_pos,
-      )
-    }
-    _ => clear_detached_code_block_step()
-  }
-  if next_pos >= input.length() {
-    clear_same_line_list_item_prefix_cache()
-  }
-  (step, next_mode)
+  markdown_lex_step_inner_with_context(
+    input,
+    pos,
+    mode,
+    None,
+    opening_indent,
+    None,
+  )
 }
 
 ///|

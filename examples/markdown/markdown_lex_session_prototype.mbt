@@ -11,6 +11,9 @@ pub struct MarkdownLexSession {
   priv line_end_cache_start : Ref[Int]
   priv line_end_cache_end : Ref[Int]
   priv opening_indent : Ref[Int?]
+  priv continuation_pos : Ref[Int?]
+  priv continuation_fence_length : Ref[Int?]
+  priv continuation_fence_character : Ref[Char?]
 }
 
 ///|
@@ -25,6 +28,9 @@ pub fn MarkdownLexSession::MarkdownLexSession() -> MarkdownLexSession {
     line_end_cache_start: { val: -1 },
     line_end_cache_end: { val: -1 },
     opening_indent: { val: None },
+    continuation_pos: { val: None },
+    continuation_fence_length: { val: None },
+    continuation_fence_character: { val: None },
   }
 }
 
@@ -37,6 +43,9 @@ pub fn MarkdownLexSession::reset(self : MarkdownLexSession) -> Unit {
   self.line_end_cache_start.val = -1
   self.line_end_cache_end.val = -1
   self.opening_indent.val = None
+  self.continuation_pos.val = None
+  self.continuation_fence_length.val = None
+  self.continuation_fence_character.val = None
 }
 
 ///|
@@ -56,6 +65,9 @@ fn MarkdownLexSession::ensure_source(
     self.line_end_cache_start.val = -1
     self.line_end_cache_end.val = -1
     self.opening_indent.val = None
+    self.continuation_pos.val = None
+    self.continuation_fence_length.val = None
+    self.continuation_fence_character.val = None
   }
 }
 
@@ -196,9 +208,22 @@ pub fn MarkdownLexSession::step(
   self.ensure_source(input)
   let detached_opening_indent = match mode {
     CodeBlock(fence_length, fence_character) =>
-      match self.opening_indent.val {
-        Some(indent) => Some(indent)
-        None =>
+      match
+        (
+          self.opening_indent.val,
+          self.continuation_pos.val,
+          self.continuation_fence_length.val,
+          self.continuation_fence_character.val,
+        ) {
+        (
+          Some(indent),
+          Some(next_pos),
+          Some(previous_length),
+          Some(previous_character),
+        ) if pos == next_pos &&
+          fence_length == previous_length &&
+          fence_character == previous_character => Some(indent)
+        _ =>
           Some(self.detached_indent(input, pos, fence_length, fence_character))
       }
     _ => None
@@ -223,10 +248,16 @@ pub fn MarkdownLexSession::step(
         input, fence_length, fence_character, indent, next_pos,
       )
       self.opening_indent.val = Some(indent)
+      self.continuation_pos.val = Some(next_pos)
+      self.continuation_fence_length.val = Some(fence_length)
+      self.continuation_fence_character.val = Some(fence_character)
     }
     _ => {
       self.detached_cache.val = None
       self.opening_indent.val = None
+      self.continuation_pos.val = None
+      self.continuation_fence_length.val = None
+      self.continuation_fence_character.val = None
     }
   }
   if next_pos >= input.length() {
