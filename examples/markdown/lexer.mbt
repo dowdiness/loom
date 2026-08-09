@@ -571,9 +571,11 @@ fn lex_inline(
   if pos >= input.length() {
     return (Done, Inline)
   }
-  if same_line_list_item_prefix(input, pos) &&
-    same_line_list_item_block_start(input, pos) &&
-    !same_line_list_item_line_is_thematic_break(input, pos) {
+  let same_line_facts = same_line_list_item_prefix_facts(input, pos)
+  if same_line_facts.list_marker_count > 0 &&
+    pos <= same_line_facts.prefix_end &&
+    same_line_list_item_block_start_with_facts(input, pos, same_line_facts) &&
+    !same_line_facts.line_is_thematic_break {
     match input.view(start_offset=pos) {
       ['-' | '*' | '+', ' ' | '\t', .. rest] =>
         produced_until(ListMarker, pos, rest, Inline)
@@ -954,6 +956,7 @@ pub fn markdown_lex_step(
       )
     _ => markdown_lex_step_inner(input, pos, mode, None)
   }
+  let next_pos = next_lex_step_offset(step, input)
   match next_mode {
     CodeBlock(fence_length, fence_character) => {
       let indent = match mode {
@@ -961,14 +964,13 @@ pub fn markdown_lex_step(
         _ => visual_column_at_offset(input, pos)
       }
       remember_detached_code_block_step(
-        input,
-        fence_length,
-        fence_character,
-        indent,
-        next_lex_step_offset(step, input),
+        input, fence_length, fence_character, indent, next_pos,
       )
     }
     _ => clear_detached_code_block_step()
+  }
+  if next_pos >= input.length() {
+    clear_same_line_list_item_prefix_cache()
   }
   (step, next_mode)
 }
@@ -1033,6 +1035,9 @@ fn new_markdown_mode_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] {
       (_, CodeBlock(_, _)) =>
         opening_indent_ref.val = Some(visual_column_at_offset(input, pos))
       _ => opening_indent_ref.val = None
+    }
+    if next_lex_step_offset(step, input) >= input.length() {
+      clear_same_line_list_item_prefix_cache()
     }
     (step, next_mode)
   }

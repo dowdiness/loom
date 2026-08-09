@@ -84,6 +84,7 @@ fn source_line_is_list_owned(
   line_indent : Int,
 ) -> Bool {
   let mut cursor = line_start
+  let mut required_indent = line_indent
   while cursor > 0 {
     let previous_start = previous_source_line_start(input, cursor).unwrap()
     let previous_end = find_line_end(input, previous_start)
@@ -95,15 +96,14 @@ fn source_line_is_list_owned(
       input, previous_start, 0,
     )
     match source_line_list_marker_facts(input, previous_start, previous_end) {
-      Some(facts) if facts.content_indent <= line_indent => {
+      Some(facts) if facts.content_indent <= required_indent &&
+        required_indent < facts.content_indent + 4 => {
         if facts.marker_indent <= 3 {
           return true
         }
-        return source_line_is_list_owned(
-          input,
-          previous_start,
-          facts.marker_indent,
-        )
+        required_indent = facts.marker_indent
+        cursor = previous_start
+        continue
       }
       Some(_) => return false
       None if previous_indent == 0 => return false

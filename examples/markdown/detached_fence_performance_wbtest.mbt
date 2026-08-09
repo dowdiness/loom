@@ -64,6 +64,50 @@ test "detached code replay cache skips oversized source" {
 }
 
 ///|
+test "detached code replay cache replaces source" {
+  let first_builder = StringBuilder::StringBuilder()
+  first_builder.write_string("```\nfirst\nnext\n")
+  let first_source = first_builder.to_string()
+  let second_builder = StringBuilder::StringBuilder()
+  second_builder.write_string("```\nsecond\nnext\n")
+  let second_source = second_builder.to_string()
+  clear_detached_code_block_step()
+  let _ = detached_code_block_indent_for_step(first_source, 4, 3, '`')
+  let _ = detached_code_block_indent_for_step(second_source, 4, 3, '`')
+  match detached_code_block_indent_cache.val {
+    Some(cache) => assert_true(physical_equal(cache.source, second_source))
+    None => fail("detached code replay cache was not populated")
+  }
+  clear_detached_code_block_step()
+}
+
+///|
+test "detached code replay cache restarts on backward stepping" {
+  let source = "```\nfirst\nsecond\n"
+  clear_detached_code_block_step()
+  let _ = detached_code_block_indent_for_step(source, 10, 3, '`')
+  let _ = detached_code_block_indent_for_step(source, 4, 3, '`')
+  match detached_code_block_indent_cache.val {
+    Some(cache) => assert_eq(cache.next_pos, 4)
+    None => fail("detached code replay cache was not populated")
+  }
+  clear_detached_code_block_step()
+}
+
+///|
+test "detached code replay cache clears after closing fence" {
+  let source = "```\ncode\n```\nnext\n"
+  clear_detached_code_block_step()
+  let (_, _) = markdown_lex_step(source, 4, CodeBlock(3, '`'))
+  let (_, _) = markdown_lex_step(
+    source,
+    "```\ncode\n".length(),
+    CodeBlock(3, '`'),
+  )
+  assert_true(detached_code_block_indent_cache.val is None)
+}
+
+///|
 fn detached_fence_scan_workload(
   source : String,
   line_starts : Array[Int],

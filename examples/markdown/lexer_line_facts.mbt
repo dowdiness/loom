@@ -18,12 +18,18 @@ priv struct SameLineListItemPrefixFacts {
   line_end : Int
   prefix_end : Int
   list_marker_count : Int
+  line_is_thematic_break : Bool
 }
 
 ///|
 let same_line_list_item_prefix_cache : Ref[SameLineListItemPrefixFacts?] = Ref(
   None,
 )
+
+///|
+fn clear_same_line_list_item_prefix_cache() -> Unit {
+  same_line_list_item_prefix_cache.val = None
+}
 
 ///|
 fn scan_same_line_list_item_prefix(
@@ -78,34 +84,8 @@ fn scan_same_line_list_item_prefix(
       _ => break
     }
   }
-  { source: input, line_start, line_end, prefix_end: cursor, list_marker_count }
-}
-
-///|
-/// True when `pos` begins a block marker nested after a same-line list
-/// marker. Prefix facts are cached per source line so ordinary inline text
-/// does not rescan the line from its beginning on every lexer step.
-fn same_line_list_item_prefix(input : String, pos : Int) -> Bool {
-  let facts = match same_line_list_item_prefix_cache.val {
-    Some(facts) if facts.line_start <= pos &&
-      pos <= facts.line_end &&
-      physical_equal(facts.source, input) => facts
-    _ => {
-      let line_start = line_start_offset(input, pos)
-      let line_end = find_line_end(input, pos)
-      let facts = scan_same_line_list_item_prefix(input, line_start, line_end)
-      same_line_list_item_prefix_cache.val = Some(facts)
-      facts
-    }
-  }
-  facts.list_marker_count > 0 && pos <= facts.prefix_end
-}
-
-///|
-fn same_line_list_item_content_start(input : String, pos : Int) -> Int? {
-  let line_start = line_start_offset(input, pos)
   let (start, _) = leading_indent_end_offset_and_column(input, line_start, 0)
-  match input.get_char(start) {
+  let content_start = match input.get_char(start) {
     Some('-') | Some('*') | Some('+') =>
       match input.get_char(start + 1) {
         Some(' ') | Some('\t') => Some(start + 2)
@@ -118,29 +98,55 @@ fn same_line_list_item_content_start(input : String, pos : Int) -> Int? {
       }
     _ => None
   }
-}
-
-///|
-fn same_line_list_item_line_is_thematic_break(
-  input : String,
-  pos : Int,
-) -> Bool {
-  match same_line_list_item_content_start(input, pos) {
+  let line_is_thematic_break = match content_start {
     Some(content_start) =>
-      is_valid_thematic_break_markers(
-        input[content_start:find_line_end(input, pos)],
-      )
+      is_valid_thematic_break_markers(input[content_start:line_end])
     None => false
+  }
+  {
+    source: input,
+    line_start,
+    line_end,
+    prefix_end: cursor,
+    list_marker_count,
+    line_is_thematic_break,
   }
 }
 
 ///|
-fn same_line_list_item_block_start(input : String, pos : Int) -> Bool {
+fn same_line_list_item_prefix_facts(
+  input : String,
+  pos : Int,
+) -> SameLineListItemPrefixFacts {
+  match same_line_list_item_prefix_cache.val {
+    Some(facts) if facts.line_start <= pos &&
+      pos <= facts.line_end &&
+      physical_equal(facts.source, input) => facts
+    _ => {
+      clear_same_line_list_item_prefix_cache()
+      let line_start = line_start_offset(input, pos)
+      let line_end = find_line_end(input, pos)
+      let facts = scan_same_line_list_item_prefix(input, line_start, line_end)
+      same_line_list_item_prefix_cache.val = Some(facts)
+      facts
+    }
+  }
+}
+
+///|
+/// True when `pos` begins a block marker nested after a same-line list
+/// marker. The caller supplies the cached line facts so the lexer does not
+/// rescan the line while checking the three inline-mode guard conditions.
+fn same_line_list_item_block_start_with_facts(
+  input : String,
+  pos : Int,
+  facts : SameLineListItemPrefixFacts,
+) -> Bool {
   match input.get_char(pos) {
     Some('-') | Some('*') | Some('+') =>
       match input.get_char(pos + 1) {
         Some(' ') | Some('\t') | Some('\r') | Some('\n') | None =>
-          !is_valid_thematic_break_markers(input[pos:find_line_end(input, pos)])
+          !is_valid_thematic_break_markers(input[pos:facts.line_end])
         _ => false
       }
     Some(ch) if is_decimal_digit(ch) =>
