@@ -1,6 +1,5 @@
 ///|
-///PROTOTYPE
-/// Session-owned Markdown lexer shell for #908 integration probing.
+/// Session-owned Markdown lexer shell for reusable Markdown lexing.
 ///
 /// The pure source-fact and replay functions remain in the existing Markdown
 /// functional core. This shell owns only derived state and cache lifecycle.
@@ -17,9 +16,7 @@ pub struct MarkdownLexSession {
 }
 
 ///|
-///PROTOTYPE
-/// Construct an empty session. The custom constructor keeps `new` out of the
-/// prototype and makes the ownership boundary explicit at the call site.
+/// Construct an empty session with an explicit ownership boundary.
 pub fn MarkdownLexSession::MarkdownLexSession() -> MarkdownLexSession {
   {
     detached_cache: { val: None },
@@ -35,7 +32,6 @@ pub fn MarkdownLexSession::MarkdownLexSession() -> MarkdownLexSession {
 }
 
 ///|
-///PROTOTYPE
 pub fn MarkdownLexSession::reset(self : MarkdownLexSession) -> Unit {
   self.detached_cache.val = None
   self.same_line_cache.val = None
@@ -49,7 +45,6 @@ pub fn MarkdownLexSession::reset(self : MarkdownLexSession) -> Unit {
 }
 
 ///|
-///PROTOTYPE
 fn MarkdownLexSession::ensure_source(
   self : MarkdownLexSession,
   input : String,
@@ -72,7 +67,6 @@ fn MarkdownLexSession::ensure_source(
 }
 
 ///|
-///PROTOTYPE
 fn MarkdownLexSession::line_end_hint(
   self : MarkdownLexSession,
   input : String,
@@ -101,7 +95,6 @@ fn MarkdownLexSession::line_end_hint(
 }
 
 ///|
-///PROTOTYPE
 fn MarkdownLexSession::detached_indent(
   self : MarkdownLexSession,
   input : String,
@@ -157,7 +150,6 @@ fn MarkdownLexSession::detached_indent(
 }
 
 ///|
-///PROTOTYPE
 fn MarkdownLexSession::remember_detached(
   self : MarkdownLexSession,
   input : String,
@@ -198,7 +190,6 @@ fn MarkdownLexSession::remember_detached(
 }
 
 ///|
-///PROTOTYPE
 pub fn MarkdownLexSession::step(
   self : MarkdownLexSession,
   input : String,

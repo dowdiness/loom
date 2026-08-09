@@ -492,7 +492,21 @@ pub(all) enum MarkdownLexMode {
 
 `markdown_lex_step(source, offset, mode)` returns `(LexStep[Token],
 MarkdownLexMode)` — the next token plus the mode to use for the
-following token.
+following token. This is the stateless compatibility API.
+
+For repeated detached stepping, use an opaque `MarkdownLexSession`. It owns
+replay and line-fact caches for one lexer lifecycle without changing token
+semantics:
+
+```mbt nocheck
+///|
+let session = MarkdownLexSession()
+let (step, next_mode) = session.step(source, offset, mode)
+```
+
+A session automatically invalidates source-derived state when the source
+changes. Call `session.reset()` when the caller explicitly ends a lifecycle.
+Do not share a session between independent source streams.
 
 ## AST
 

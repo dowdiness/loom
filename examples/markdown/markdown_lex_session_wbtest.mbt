@@ -1,10 +1,10 @@
-// PROTOTYPE — #908 integrated session-owned Markdown lexer probe.
+// #908 session-owned Markdown lexer integration tests.
 //
-// This file is intentionally throwaway. It exercises the session through the
-// actual lexer step path before production API and documentation decisions.
+// These tests compare the session path with the stateless compatibility path
+// and pin cache ownership and lifecycle invariants.
 
 ///|
-fn prototype_session_tokenize(source : String) -> Array[@core.TokenInfo[Token]] {
+fn session_tokenize_for_test(source : String) -> Array[@core.TokenInfo[Token]] {
   let session = MarkdownLexSession()
   let tokens : Array[@core.TokenInfo[Token]] = []
   let mut pos = 0
@@ -31,14 +31,14 @@ fn prototype_session_tokenize(source : String) -> Array[@core.TokenInfo[Token]] 
 }
 
 ///|
-fn prototype_baseline_tokenize(
+fn baseline_tokenize_for_test(
   source : String,
 ) -> Array[@core.TokenInfo[Token]] raise @core.LexError {
   @core.tokenize_with_modes(markdown_mode_lexer, source, EOF).0
 }
 
 ///|
-fn prototype_source(line_count : Int, indent : String) -> String {
+fn session_test_source(line_count : Int, indent : String) -> String {
   let out = StringBuilder::new()
   out.write_string("- item\n")
   out.write_string(indent + "```\n")
@@ -50,7 +50,7 @@ fn prototype_source(line_count : Int, indent : String) -> String {
 }
 
 ///|
-fn prototype_line_starts(source : String) -> Array[Int] {
+fn session_test_line_starts(source : String) -> Array[Int] {
   let starts : Array[Int] = [0]
   let mut cursor = 0
   while cursor < source.length() {
@@ -74,18 +74,18 @@ test "integrated session tokenization matches baseline" {
       "# heading\nparagraph\n",
       "- one\n  - two\n  text\n",
       "> quote\n> continuation\n",
-      prototype_source(32, "  "),
+      session_test_source(32, "  "),
       "- outer\n  > quote\n  ```\n  code\n  ```\n",
     ] {
     assert_eq(
-      prototype_session_tokenize(source),
-      prototype_baseline_tokenize(source),
+      session_tokenize_for_test(source),
+      baseline_tokenize_for_test(source),
     )
   }
 }
 
 ///|
-fn assert_prototype_lex_step_equal(
+fn assert_lex_step_equal_for_test(
   actual : @core.LexStep[Token],
   expected : @core.LexStep[Token],
   source : String,
@@ -104,12 +104,12 @@ fn assert_prototype_lex_step_equal(
 
 ///|
 test "integrated sessions remain independent when interleaved" {
-  let first = prototype_source(32, "  ")
-  let second = prototype_source(32, "    ")
+  let first = session_test_source(32, "  ")
+  let second = session_test_source(32, "    ")
   let first_session = MarkdownLexSession()
   let second_session = MarkdownLexSession()
-  let first_positions = prototype_line_starts(first)
-  let second_positions = prototype_line_starts(second)
+  let first_positions = session_test_line_starts(first)
+  let second_positions = session_test_line_starts(second)
   for i = 1; i < first_positions.length() - 1; i = i + 1 {
     let first_pos = first_positions[i]
     let second_pos = second_positions[i]
@@ -133,18 +133,18 @@ test "integrated sessions remain independent when interleaved" {
       second_pos,
       CodeBlock(3, '`'),
     )
-    assert_prototype_lex_step_equal(first_step, first_expected, first)
-    assert_prototype_lex_step_equal(second_step, second_expected, second)
+    assert_lex_step_equal_for_test(first_step, first_expected, first)
+    assert_lex_step_equal_for_test(second_step, second_expected, second)
   }
 }
 
 ///|
 test "integrated session source replacement and reset" {
-  let first = prototype_source(16, "  ")
-  let second = prototype_source(16, "    ")
+  let first = session_test_source(16, "  ")
+  let second = session_test_source(16, "    ")
   let session = MarkdownLexSession()
-  let first_pos = prototype_line_starts(first)[8]
-  let second_pos = prototype_line_starts(second)[8]
+  let first_pos = session_test_line_starts(first)[8]
+  let second_pos = session_test_line_starts(second)[8]
   let (first_step, _) = session.step(first, first_pos, CodeBlock(3, '`'))
   let (second_step, _) = session.step(second, second_pos, CodeBlock(3, '`'))
   let (first_expected, _) = markdown_lex_step(
@@ -157,18 +157,15 @@ test "integrated session source replacement and reset" {
     second_pos,
     CodeBlock(3, '`'),
   )
-  assert_prototype_lex_step_equal(first_step, first_expected, first)
-  assert_prototype_lex_step_equal(second_step, second_expected, second)
+  assert_lex_step_equal_for_test(first_step, first_expected, first)
+  assert_lex_step_equal_for_test(second_step, second_expected, second)
   session.reset()
   let (reset_step, _) = session.step(first, first_pos, CodeBlock(3, '`'))
-  assert_prototype_lex_step_equal(reset_step, first_expected, first)
+  assert_lex_step_equal_for_test(reset_step, first_expected, first)
 }
 
 ///|
-fn prototype_session_replay_workload(
-  source : String,
-  positions : Array[Int],
-) -> Int {
+fn session_replay_workload(source : String, positions : Array[Int]) -> Int {
   let session = MarkdownLexSession()
   let mut checksum = 0
   for i = 1; i < positions.length() - 1; i = i + 1 {
@@ -179,10 +176,7 @@ fn prototype_session_replay_workload(
 }
 
 ///|
-fn prototype_stateless_replay_workload(
-  source : String,
-  positions : Array[Int],
-) -> Int {
+fn stateless_replay_workload(source : String, positions : Array[Int]) -> Int {
   let mut checksum = 0
   for i = 1; i < positions.length() - 1; i = i + 1 {
     let (step, _) = markdown_lex_step(source, positions[i], CodeBlock(3, '`'))
@@ -193,14 +187,14 @@ fn prototype_stateless_replay_workload(
 
 ///|
 test "integrated session replay: 1024 lines" (b : @bench.T) {
-  let source = prototype_source(1024, "  ")
-  let positions = prototype_line_starts(source)
-  b.bench(() => b.keep(prototype_session_replay_workload(source, positions)))
+  let source = session_test_source(1024, "  ")
+  let positions = session_test_line_starts(source)
+  b.bench(() => b.keep(session_replay_workload(source, positions)))
 }
 
 ///|
 test "integrated stateless replay control: 1024 lines" (b : @bench.T) {
-  let source = prototype_source(1024, "  ")
-  let positions = prototype_line_starts(source)
-  b.bench(() => b.keep(prototype_stateless_replay_workload(source, positions)))
+  let source = session_test_source(1024, "  ")
+  let positions = session_test_line_starts(source)
+  b.bench(() => b.keep(stateless_replay_workload(source, positions)))
 }
