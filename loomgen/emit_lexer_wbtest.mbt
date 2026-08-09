@@ -1663,8 +1663,12 @@ test "emit_lexer groups disjoint FIRST candidates into ordered regions" {
     Ok(s) => s
     Err(m) => abort("emit failed: " + m)
   }
+  assert_true(generated.contains("  if source[pos] == 97 {"))
   assert_true(generated.contains("} else if source[pos] == 98 {"))
   assert_true(generated.contains("} else if source[pos] == 112 {"))
+  assert_true(!generated.contains("} else {"))
+  let (_, diagnostics) = @parser.parse_string(generated)
+  assert_eq(diagnostics.length(), 0)
 }
 
 ///|
@@ -1732,4 +1736,7 @@ test "emit_lexer keeps overlapping FIRST candidates in guarded order" {
   }
   assert_true(generated.contains("source[pos] == 97"))
   assert_true(!generated.contains("} else if source[pos]"))
+  assert_true(!generated.contains("} else {"))
+  let (_, diagnostics) = @parser.parse_string(generated)
+  assert_eq(diagnostics.length(), 0)
 }

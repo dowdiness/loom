@@ -43,4 +43,25 @@ test "first analysis fails closed for unknown prefixes" {
     FirstCodeUnits::Finite(_) =>
       fail("malformed pattern must remain conservative")
   }
+  match first_units_for_pattern("é+") {
+    FirstCodeUnits::Any => ()
+    FirstCodeUnits::Finite(_) =>
+      fail("non-ASCII literal prefix must remain conservative")
+  }
+  match first_units_for_pattern("[[:digit:]]") {
+    FirstCodeUnits::Any => ()
+    FirstCodeUnits::Finite(_) => fail("POSIX classes must remain conservative")
+  }
+  match first_units_for_pattern(".") {
+    FirstCodeUnits::Any => ()
+    FirstCodeUnits::Finite(_) => fail("wildcard must remain conservative")
+  }
+  match first_units_for_pattern("\\.") {
+    FirstCodeUnits::Finite(ranges) => {
+      assert_true(ranges.length() == 1)
+      assert_true(ranges[0].0 == 46 && ranges[0].1 == 46)
+    }
+    FirstCodeUnits::Any =>
+      fail("escaped literal dot should have a finite FIRST set")
+  }
 }

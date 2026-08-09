@@ -8,7 +8,7 @@ fn repeated_payload_input(unit : String, count : Int) -> String {
 }
 
 ///|
-const PAYLOAD_UNIT = "### heading ```lang"
+const PAYLOAD_UNIT = "### heading ```lang\n"
 
 ///|
 fn payload_lexer_input() -> String {
