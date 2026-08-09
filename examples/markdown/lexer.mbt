@@ -939,8 +939,10 @@ pub fn markdown_lex_step(
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let opening_indent = match mode {
     CodeBlock(fence_length, fence_character) =>
-      source_derived_code_block_indent(
-        input, pos, fence_length, fence_character,
+      Some(
+        source_derived_code_block_indent(
+          input, pos, fence_length, fence_character,
+        ).unwrap_or(0),
       )
     _ => None
   }
