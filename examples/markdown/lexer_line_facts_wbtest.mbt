@@ -39,11 +39,9 @@ test "same-line prefix cache replaces source and line" {
 }
 
 ///|
-test "same-line prefix cache clears after tokenization" {
+test "session tokenization does not use the compatibility cache" {
   clear_same_line_list_item_prefix_cache()
   let source = "- nested\n"
-  ignore(same_line_list_item_prefix_facts(source, 2))
-  assert_true(same_line_list_item_prefix_cache.val is Some(_))
   let _ = tokenize(source)
   assert_true(same_line_list_item_prefix_cache.val is None)
 }

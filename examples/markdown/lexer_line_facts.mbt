@@ -118,23 +118,34 @@ fn scan_same_line_list_item_prefix(
 }
 
 ///|
-fn same_line_list_item_prefix_facts(
+fn same_line_list_item_prefix_facts_with_cache(
+  cache : Ref[SameLineListItemPrefixFacts?],
   input : String,
   pos : Int,
 ) -> SameLineListItemPrefixFacts {
-  match same_line_list_item_prefix_cache.val {
+  match cache.val {
     Some(facts) if facts.line_start <= pos &&
       pos <= facts.line_end &&
       physical_equal(facts.source, input) => facts
     _ => {
-      clear_same_line_list_item_prefix_cache()
+      cache.val = None
       let line_start = line_start_offset(input, pos)
       let line_end = find_line_end(input, pos)
       let facts = scan_same_line_list_item_prefix(input, line_start, line_end)
-      same_line_list_item_prefix_cache.val = Some(facts)
+      cache.val = Some(facts)
       facts
     }
   }
+}
+
+///|
+fn same_line_list_item_prefix_facts(
+  input : String,
+  pos : Int,
+) -> SameLineListItemPrefixFacts {
+  same_line_list_item_prefix_facts_with_cache(
+    same_line_list_item_prefix_cache, input, pos,
+  )
 }
 
 ///|

@@ -22,7 +22,7 @@ fn same_line_list_facts_workload(
 ) -> Int {
   let mut checksum = 0
   for pos in positions {
-    let (step, _) = lex_inline(source, pos)
+    let (step, _) = lex_inline(source, pos, None)
     checksum += next_lex_step_offset(step, source)
   }
   checksum
