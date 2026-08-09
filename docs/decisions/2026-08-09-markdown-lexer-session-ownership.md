@@ -82,5 +82,8 @@ exposing cache internals.
 - Session parity, source replacement, backward stepping, EOF, mode exit,
   oversized-source, and JS/wasm-gc benchmark coverage are required before
   further cache changes.
+- PR CI runs the session benchmark on both JS and wasm-gc and publishes a
+  concise informational summary; benchmark variance is non-gating, while
+  command or output failures are surfaced as warnings.
 - Future replay/checkpoint optimizations must preserve the same pure-core and
   session-shell boundary.

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Preserve detailed assertions below; production CI uses the compact default.
+export MARKDOWN_PERF_GUARD_VERBOSE=1
+
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 checker="$repo_root/scripts/markdown-ir-perf-guard.sh"
 fixture=$(mktemp -d)
@@ -378,5 +381,17 @@ assert_stderr_contains 'MARKDOWN_DELIMITER_PERF_CALIBRATION must be 0 or 1'
 run_case 2 "$fixture/base-1" "$fixture/green-1"
 assert_stderr_contains 'exactly 3 base/head trial pairs'
 assert_stderr_contains 'MARKDOWN_IR_PERF_HARD_CEILING_PERCENT=100'
+
+MARKDOWN_PERF_GUARD_VERBOSE=0 run_case 0 \
+  "$fixture/base-1" "$fixture/green-1" \
+  "$fixture/base-2" "$fixture/green-2" \
+  "$fixture/base-3" "$fixture/green-3"
+if grep -q '^  trial ' "$fixture/stdout"; then
+  printf 'SELFTEST FAIL: compact output contains per-trial rows\n'
+  cat "$fixture/stdout"
+  exit 1
+fi
+assert_stdout_contains 'Markdown performance: 3 alternating base/head trials'
+assert_stdout_contains 'PASS: no persistent Markdown lowering regression'
 
 printf 'SELFTEST PASS\n'
