@@ -359,18 +359,29 @@ jobs:
             }
             name != "" && /^[[:space:]]+[0-9]/ {
               if (name == "integrated session replay: 1024 lines") {
-                printf "| Session replay | `%s %s` |\n", $1, $2
+                count[name]++
+                if (count[name] == 1) {
+                  printf "| Session replay | `%s %s` |\n", $1, $2
+                }
               } else if (name == "integrated stateless replay control: 1024 lines") {
-                printf "| Stateless control | `%s %s` |\n", $1, $2
+                count[name]++
+                if (count[name] == 1) {
+                  printf "| Stateless control | `%s %s` |\n", $1, $2
+                }
               }
               name = ""
             }
+            END {
+              exit !(count["integrated session replay: 1024 lines"] == 1 &&
+                count["integrated stateless replay control: 1024 lines"] == 1)
+            }
           ' "$output")
+          summary_status=$?
 
           {
             echo "### Markdown lexer session benchmark ($BENCH_TARGET)"
             echo
-            if [[ "$status" -eq 0 && -n "$summary" ]]; then
+            if [[ "$status" -eq 0 && "$summary_status" -eq 0 ]]; then
               echo '| Workload | Mean |'
               echo '| --- | ---: |'
               printf '%s\n' "$summary"
@@ -381,7 +392,7 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [[ "$status" -ne 0 || -z "$summary" ]]; then
+          if [[ "$status" -ne 0 || "$summary_status" -ne 0 ]]; then
             echo "::warning title=Markdown lexer session benchmark::${BENCH_TARGET} benchmark failed or produced no expected rows; see step summary"
             tail -40 "$output"
           fi

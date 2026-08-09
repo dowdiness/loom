@@ -147,6 +147,7 @@ readonly delimiter_gated
 
 work_dir=$(mktemp -d)
 details_file="$work_dir/trial-details.txt"
+calibration_file="$work_dir/calibration.tsv"
 trap 'rm -rf "$work_dir"' EXIT
 for ((case_index = 0; case_index < case_count; case_index++)); do
   printf '%s\n' "${case_controls[$case_index]}"
@@ -248,8 +249,13 @@ if [[ "$verbose" == 1 ]]; then
     printf 'CALIBRATION: delimiter verdict disabled explicitly; recording deltas only\n'
   fi
 else
-  printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter +%s%%\n' \
-    "$trial_pairs" "$threshold_percent" "$delimiter_threshold_percent"
+  if [[ "$delimiter_calibration" == 1 ]]; then
+    printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter calibration (non-gating)\n' \
+      "$trial_pairs" "$threshold_percent"
+  else
+    printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter +%s%%\n' \
+      "$trial_pairs" "$threshold_percent" "$delimiter_threshold_percent"
+  fi
 fi
 
 check_case() {
@@ -292,6 +298,9 @@ check_case() {
 
   local raw_percent normalized_percent bad hard_bad control_percent control_bad status
   IFS=$'\t' read -r raw_percent normalized_percent bad hard_bad control_percent control_bad <<< "$metrics"
+  if [[ "$gated" == 0 ]]; then
+    printf '%s\t%s\t%s\n' "$label" "$raw_percent" "$normalized_percent" >> "$calibration_file"
+  fi
   status=ok
   if [[ "$gated" == 0 ]]; then
     status=CALIBRATION
@@ -390,6 +399,31 @@ done
 if [[ "$delimiter_control_failed" -eq 1 ]]; then
   printf '\n'
   failed=1
+fi
+if [[ "$delimiter_calibration" == 1 && "$verbose" != 1 ]]; then
+  printf 'CALIBRATION: delimiter verdict disabled; raw/normalized deltas over %s trials\n' \
+    "$trial_pairs"
+  for ((case_index = 0; case_index < case_count; case_index++)); do
+    [[ "${case_policies[$case_index]}" == delimiter ]] || continue
+    label="${case_labels[$case_index]}"
+    calibration_metrics=$(awk -F '\t' -v label="$label" '
+      $1 == label {
+        if (count == 0 || $2 < raw_min) raw_min = $2
+        if (count == 0 || $2 > raw_max) raw_max = $2
+        if (count == 0 || $3 < normalized_min) normalized_min = $3
+        if (count == 0 || $3 > normalized_max) normalized_max = $3
+        count++
+      }
+      END {
+        if (count > 0) {
+          printf "%.1f\t%.1f\t%.1f\t%.1f", raw_min, raw_max, normalized_min, normalized_max
+        }
+      }
+    ' "$calibration_file")
+    IFS=$'\t' read -r raw_min raw_max normalized_min normalized_max <<< "$calibration_metrics"
+    printf '  %s raw %+.1f..%+.1f%%; normalized %+.1f..%+.1f%%\n' \
+      "$label" "$raw_min" "$raw_max" "$normalized_min" "$normalized_max"
+  done
 fi
 if [[ "$verbose" == 1 || "$failed" -eq 1 ]]; then
   cat "$details_file"
