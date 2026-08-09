@@ -88,8 +88,9 @@ test "session replay remains correct on backward stepping" {
     4,
     CodeBlock(3, '`'),
   )
-  assert_eq(actual_mode, expected_mode)
-  assert_lex_step_equal_for_test(actual, expected, source)
+  assert_lex_step_equal_for_test(
+    actual, actual_mode, expected, expected_mode, source,
+  )
 }
 
 ///|

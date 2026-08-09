@@ -52,11 +52,20 @@ introduced.
 ## Rationale
 
 The integrated prototype reproduced the performance shape that motivated the
-cache while proving independent interleaved sessions. On a 1024-line middle
-replay, the session path measured approximately 410 microseconds on wasm-gc
-and 361 microseconds on JavaScript, compared with approximately 57–58
-milliseconds for the stateless control. Session ownership preserves this
-benefit without making correctness depend on process-global mutable state.
+cache while proving independent interleaved sessions. The representative
+measurement below was collected at implementation revision `f94d2a47` with
+`NEW_MOON_MOD=0 moon bench --release --target <target> examples/markdown/detached_fence_performance_wbtest.mbt`:
+
+| Target | Session replay | Stateless control |
+| --- | ---: | ---: |
+| wasm-gc | `407.84 µs ± 3.36 µs` | `57.96 ms ± 1.15 ms` |
+| JS | `388.85 µs ± 11.17 µs` | `59.38 ms ± 1.14 ms` |
+
+The benchmark uses a 1024-line middle replay and runs ten samples. These are
+representative local measurements rather than a CI acceptance threshold;
+benchmark variation and the exact toolchain should be reported with future
+comparisons. Session ownership preserves this benefit without making
+correctness depend on process-global mutable state.
 
 Keeping the old stateless function avoids breaking existing callers and makes
 its cost model explicit. The additive opaque session API gives callers that
