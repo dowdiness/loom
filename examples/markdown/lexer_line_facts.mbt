@@ -84,24 +84,28 @@ fn scan_same_line_list_item_prefix(
       _ => break
     }
   }
-  let (start, _) = leading_indent_end_offset_and_column(input, line_start, 0)
-  let content_start = match input.get_char(start) {
-    Some('-') | Some('*') | Some('+') =>
-      match input.get_char(start + 1) {
-        Some(' ') | Some('\t') => Some(start + 2)
-        _ => None
-      }
-    Some(ch) if is_decimal_digit(ch) =>
-      match ordered_list_marker_at(input, start) {
-        Some(_) => Some(start + count_ordered_marker_digits(input, start) + 2)
-        None => None
-      }
-    _ => None
-  }
-  let line_is_thematic_break = match content_start {
-    Some(content_start) =>
-      is_valid_thematic_break_markers(input[content_start:line_end])
-    None => false
+  let line_is_thematic_break = if list_marker_count == 0 {
+    false
+  } else {
+    let (start, _) = leading_indent_end_offset_and_column(input, line_start, 0)
+    let content_start = match input.get_char(start) {
+      Some('-') | Some('*') | Some('+') =>
+        match input.get_char(start + 1) {
+          Some(' ') | Some('\t') => Some(start + 2)
+          _ => None
+        }
+      Some(ch) if is_decimal_digit(ch) =>
+        match ordered_list_marker_at(input, start) {
+          Some(_) => Some(start + count_ordered_marker_digits(input, start) + 2)
+          None => None
+        }
+      _ => None
+    }
+    match content_start {
+      Some(content_start) =>
+        is_valid_thematic_break_markers(input[content_start:line_end])
+      None => false
+    }
   }
   {
     source: input,
