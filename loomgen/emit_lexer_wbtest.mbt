@@ -1821,7 +1821,7 @@ test "emit_lexer selects explicit legacy and FIRST backends" {
     Err(m) => abort("FIRST emit failed: " + m)
   }
   assert_true(legacy.contains("if view =~"))
-  assert_true(!legacy.contains("else if source[pos]"))
+  assert_true(!legacy.contains("source[pos]"))
   assert_true(first.contains("else if source[pos]"))
   let (_, legacy_diagnostics) = @parser.parse_string(legacy)
   let (_, first_diagnostics) = @parser.parse_string(first)

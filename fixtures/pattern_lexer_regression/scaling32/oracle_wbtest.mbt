@@ -59,8 +59,7 @@ test "legacy and FIRST generated lexers have identical observable streams" {
 ///|
 test "legacy and FIRST generated lexers agree at EOF and offsets" {
   for source in ["a123", "!!", "😈x", "?"] {
-    let positions = [0, source.length()]
-    for pos in positions {
+    for pos in 0..<=source.length() {
       assert_same_step(
         step_lex_legacy(source, pos),
         step_lex_first(source, pos),

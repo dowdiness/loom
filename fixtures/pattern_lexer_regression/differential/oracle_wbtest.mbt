@@ -71,8 +71,7 @@ test "legacy and FIRST agree on recovery, EOF, and UTF-16 offsets" {
   assert_same_stream("😈x")
   assert_same_stream("")
   for source in ["a123", "!!", "let", "->", "😈x", "?"] {
-    let positions = [0, source.length()]
-    for pos in positions {
+    for pos in 0..<=source.length() {
       assert_same_step(
         step_lex_legacy(source, pos),
         step_lex_first(source, pos),
