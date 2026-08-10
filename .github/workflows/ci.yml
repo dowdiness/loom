@@ -963,6 +963,21 @@ jobs:
           git diff --exit-code -- fixtures/pattern_lexer_regression/pattern_lexer.g.mbt
           moon check --target native fixtures/pattern_lexer_regression
           moon test --target native fixtures/pattern_lexer_regression
+      - name: Verify Loomgen fixture regeneration
+        working-directory: .
+        run: |
+          moon run loomgen --target native -- --regenerate-fixtures
+          moon fmt \
+            loomgen/fixtures/error_node_fixture.g.mbt \
+            loomgen/fixtures/rule_grammar_fixture.g.mbt \
+            loomgen/fixtures/separated_list_fixture.g.mbt \
+            loomgen/fixtures/line_pattern_fixture.g.mbt \
+            fixtures/line_lexer_regression/line_lexer.g.mbt \
+            fixtures/line_lexer_regression/lexer_skeleton.g.mbt \
+            fixtures/pattern_lexer_regression/scaling32/lexer.g.mbt \
+            fixtures/pattern_lexer_regression/scaling32/lexer_oracle.g.mbt \
+            fixtures/pattern_lexer_regression/differential/lexer_oracle.g.mbt
+          git diff --exit-code --
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
