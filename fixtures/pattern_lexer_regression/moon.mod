@@ -4,6 +4,7 @@ version = "0.1.0"
 
 import {
   "dowdiness/loom@0.1.0",
+  "dowdiness/diagnostic@0.1.0",
 }
 
 readme = "README.md"

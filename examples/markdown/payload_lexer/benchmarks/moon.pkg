@@ -1,6 +1,6 @@
 import {
   "dowdiness/loom/core",
   "dowdiness/diagnostic",
-  "dowdiness/loom_tests/pattern_lexer_regression/scaling32",
+  "dowdiness/markdown/payload_lexer" @payload,
   "moonbitlang/core/bench",
 }

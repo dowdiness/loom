@@ -8,18 +8,48 @@ enum PatternError {
 }
 
 ///|
+struct PatternSpan {
+  start : Int
+  end : Int
+} derive(Eq, Debug)
+
+///|
+fn PatternSpan::PatternSpan(start : Int, end : Int) -> PatternSpan {
+  { start, end }
+}
+
+///|
+enum FirstCodeUnits {
+  Finite(Array[(UInt16, UInt16)])
+  Any
+} derive(Eq, Debug)
+
+///|
+struct FirstInfo {
+  units : FirstCodeUnits
+  nullable : Bool
+} derive(Eq, Debug)
+
+///|
+fn FirstInfo::FirstInfo(units : FirstCodeUnits, nullable : Bool) -> FirstInfo {
+  { units, nullable }
+}
+
+///|
 
 ///|
 enum Pattern {
   Empty
   Seq(Array[Pattern])
   Anchor
-  Literal
-  Escape
-  Class
+  Literal(PatternSpan)
+  Escape(PatternSpan)
+  Class(PatternSpan)
   Group(Pattern)
   Quantified(Pattern, Quantifier)
 }
+
+///|
 
 ///|
 
@@ -233,6 +263,7 @@ fn PatternParser::parse_sequence(
 
 ///|
 fn PatternParser::parse_atom(self : PatternParser) -> Pattern {
+  let start = self.pos
   let mut node = match self.peek() {
     Some('(') => self.parse_group()
     Some('[') => self.parse_class()
@@ -244,11 +275,11 @@ fn PatternParser::parse_atom(self : PatternParser) -> Pattern {
     Some('*') | Some('+') | Some('?') | Some('{') | Some('}') => {
       self.note_malformed(self.pos)
       self.bump(1)
-      Literal
+      Literal(PatternSpan(start, self.pos))
     }
     Some(_) => {
       self.bump(1)
-      Literal
+      Literal(PatternSpan(start, self.pos))
     }
     None => {
       self.note_malformed(self.pos)

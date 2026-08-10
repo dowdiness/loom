@@ -70,6 +70,16 @@ string escapes), so write engine-valid MoonBit `re`-dialect regex — e.g. a lit
 hyphen in a class is `\-`, not a bare `-`. A pattern that can match the empty string is
 rejected at generation time.
 
+For candidate sets of at least 16 variants, loomgen may add a conservative
+ASCII FIRST-code-unit dispatch. Pairwise-disjoint finite FIRST sets become
+ordered `if`/`else if` regions; overlapping, unknown, non-ASCII, or
+source-size-bounded cases keep declaration-ordered guarded or legacy matching.
+Fallback candidates are replayed in declaration order inside every selected
+region, so longest-match ties, provisional payload evaluation, keyword
+classification, and custom-lexer ordering remain unchanged. The dispatch is
+an emitter optimization only; `LexStep`, cursor offsets, and line-mode lexers
+are unchanged.
+
 `#loom.pattern` and `#loom.line_pattern` are mutually exclusive on the same
 variant — a token cannot be produced by both the character-level and line-mode
 lexer. A variant annotated with both is rejected at generation time.
