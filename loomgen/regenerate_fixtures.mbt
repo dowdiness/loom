@@ -159,11 +159,110 @@ fn regenerate_line_pattern_fixture(
 }
 
 ///|
+/// Parse one token source and emit a lexer for the selected private backend.
+fn build_lexer_output(
+  source_path : String,
+  step_name : String,
+  backend : LexerBackend,
+) -> Result[String, String] {
+  let source = match read_regeneration_fixture(source_path) {
+    Ok(source) => source
+    Err(msg) => return Err(msg)
+  }
+  let annotations = match parse_annotations(source) {
+    Ok(annotations) => annotations
+    Err(msg) => return Err(source_path + " — " + msg)
+  }
+  guard annotations.token_enum is Some(token_enum) else {
+    return Err(source_path + " has no #loom.token enum")
+  }
+  let backend_name = match backend {
+    LexerBackend::Legacy => "legacy"
+    LexerBackend::FirstDispatch => "FIRST"
+  }
+  match emit_lexer_with_backend(token_enum, "@core", step_name, backend) {
+    Ok(content) => Ok(content)
+    Err(msg) => Err(source_path + " — " + backend_name + " emitter: " + msg)
+  }
+}
+
+///|
+/// Build legacy and FIRST-dispatch lexers for one token definition so a fixture
+/// can compare both backends through the same generated `LexStep` contract.
+fn build_lexer_differential_output(
+  source_path : String,
+) -> Result[String, String] {
+  let legacy = match
+    build_lexer_output(source_path, "step_lex_legacy", LexerBackend::Legacy) {
+    Err(msg) => return Err(msg)
+    Ok(content) => content
+  }
+  let first = match
+    build_lexer_output(
+      source_path,
+      "step_lex_first",
+      LexerBackend::FirstDispatch,
+    ) {
+    Err(msg) => return Err(msg)
+    Ok(content) => content
+  }
+  Ok(legacy + "\n" + first)
+}
+
+///|
+fn regenerate_lexer_fixture(
+  source_path : String,
+  output_path : String,
+) -> Result[Unit, String] {
+  let content = match
+    build_lexer_output(source_path, "step_lex", LexerBackend::FirstDispatch) {
+    Err(msg) => return Err(msg)
+    Ok(content) => content
+  }
+  write_regeneration_fixture(output_path, content)
+}
+
+///|
+fn regenerate_lexer_differential_fixture(
+  source_path : String,
+  output_path : String,
+) -> Result[Unit, String] {
+  let content = match build_lexer_differential_output(source_path) {
+    Err(msg) => return Err(msg)
+    Ok(content) => content
+  }
+  write_regeneration_fixture(output_path, content)
+}
+
+///|
+fn regenerate_lexer_differential_fixtures() -> Result[Unit, String] {
+  let scaling_source = "fixtures/pattern_lexer_regression/scaling32/src/token_src.mbt"
+  match
+    regenerate_lexer_fixture(
+      scaling_source, "fixtures/pattern_lexer_regression/scaling32/lexer.g.mbt",
+    ) {
+    Err(msg) => Err(msg)
+    Ok(_) =>
+      match
+        regenerate_lexer_differential_fixture(
+          scaling_source, "fixtures/pattern_lexer_regression/scaling32/lexer_oracle.g.mbt",
+        ) {
+        Err(msg) => Err(msg)
+        Ok(_) =>
+          regenerate_lexer_differential_fixture(
+            "fixtures/pattern_lexer_regression/differential/src/token_src.mbt", "fixtures/pattern_lexer_regression/differential/lexer_oracle.g.mbt",
+          )
+      }
+  }
+}
+
+///|
 /// Regenerate every committed Loomgen fixture. Any read, parse, emit, or write
 /// failure is returned to the CLI so a successful process exit proves that the
 /// generated artifacts were refreshed.
 fn regenerate_fixtures() -> Result[Unit, String] {
   let jobs : Array[() -> Result[Unit, String]] = [
+    () => regenerate_lexer_differential_fixtures(),
     () => {
       regenerate_grammar_ir_fixture(
         "loomgen/fixtures/error_node_fixture.mbt", "loomgen/fixtures/error_node_fixture.g.mbt",

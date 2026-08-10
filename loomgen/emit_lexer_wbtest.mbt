@@ -1740,3 +1740,91 @@ test "emit_lexer keeps overlapping FIRST candidates in guarded order" {
   let (_, diagnostics) = @parser.parse_string(generated)
   assert_eq(diagnostics.length(), 0)
 }
+
+///|
+test "emit_lexer selects explicit legacy and FIRST backends" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("a[0-9]+")
+      #|  A
+      #|  #loom.literal
+      #|  #loom.pattern("b[0-9]+")
+      #|  B
+      #|  #loom.literal
+      #|  #loom.pattern("c[0-9]+")
+      #|  C
+      #|  #loom.literal
+      #|  #loom.pattern("d[0-9]+")
+      #|  D
+      #|  #loom.literal
+      #|  #loom.pattern("e[0-9]+")
+      #|  E
+      #|  #loom.literal
+      #|  #loom.pattern("f[0-9]+")
+      #|  F
+      #|  #loom.literal
+      #|  #loom.pattern("g[0-9]+")
+      #|  G
+      #|  #loom.literal
+      #|  #loom.pattern("h[0-9]+")
+      #|  H
+      #|  #loom.literal
+      #|  #loom.pattern("i[0-9]+")
+      #|  I
+      #|  #loom.literal
+      #|  #loom.pattern("j[0-9]+")
+      #|  J
+      #|  #loom.literal
+      #|  #loom.pattern("k[0-9]+")
+      #|  K
+      #|  #loom.literal
+      #|  #loom.pattern("l[0-9]+")
+      #|  L
+      #|  #loom.literal
+      #|  #loom.pattern("m[0-9]+")
+      #|  M
+      #|  #loom.literal
+      #|  #loom.pattern("n[0-9]+")
+      #|  N
+      #|  #loom.literal
+      #|  #loom.pattern("o[0-9]+")
+      #|  O
+      #|  #loom.literal
+      #|  #loom.pattern("p[0-9]+")
+      #|  P
+      #|  #loom.eof
+      #|  End
+      #|} derive(Eq)
+    ),
+  )
+  let legacy = match
+    emit_lexer_with_backend(
+      te,
+      "@core",
+      "step_lex_legacy",
+      LexerBackend::Legacy,
+    ) {
+    Ok(s) => s
+    Err(m) => abort("legacy emit failed: " + m)
+  }
+  let first = match
+    emit_lexer_with_backend(
+      te,
+      "@core",
+      "step_lex_first",
+      LexerBackend::FirstDispatch,
+    ) {
+    Ok(s) => s
+    Err(m) => abort("FIRST emit failed: " + m)
+  }
+  assert_true(legacy.contains("if view =~"))
+  assert_true(!legacy.contains("else if source[pos]"))
+  assert_true(first.contains("else if source[pos]"))
+  let (_, legacy_diagnostics) = @parser.parse_string(legacy)
+  let (_, first_diagnostics) = @parser.parse_string(first)
+  assert_eq(legacy_diagnostics.length(), 0)
+  assert_eq(first_diagnostics.length(), 0)
+}

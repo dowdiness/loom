@@ -1,0 +1,29 @@
+///|
+pub(all) enum Token {
+  PayloadShort(String)
+  PayloadLong(String)
+  Let
+  Ident
+  CustomFirst
+  CustomSecond
+  Minus
+  Arrow
+  TieFirst
+  TieSecond
+  CandidateA
+  CandidateB
+  CandidateC
+  CandidateD
+  CandidateE
+  CandidateF
+  CandidateG
+  CandidateH
+  CandidateI
+  CandidateJ
+  CandidateK
+  CandidateL
+  CandidateM
+  CandidateN
+  CandidateO
+  EOF
+} derive(Eq, Debug)

@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/loom_tests/pattern_lexer_regression/scaling32"
+package "dowdiness/loom_tests/pattern_lexer_regression/differential"
 
 import {
   "dowdiness/loom/core",
@@ -7,8 +7,6 @@ import {
 }
 
 // Values
-pub fn step_lex(String, Int) -> @core.LexStep[Token]
-
 pub fn step_lex_first(String, Int) -> @core.LexStep[Token]
 
 pub fn step_lex_legacy(String, Int) -> @core.LexStep[Token]
@@ -19,6 +17,14 @@ pub fn step_lex_legacy(String, Int) -> @core.LexStep[Token]
 pub(all) enum Token {
   PayloadShort(String)
   PayloadLong(String)
+  Let
+  Ident
+  CustomFirst
+  CustomSecond
+  Minus
+  Arrow
+  TieFirst
+  TieSecond
   CandidateA
   CandidateB
   CandidateC
@@ -34,23 +40,6 @@ pub(all) enum Token {
   CandidateM
   CandidateN
   CandidateO
-  CandidateP
-  CandidateQ
-  CandidateR
-  CandidateS
-  CandidateT
-  CandidateU
-  CandidateV
-  CandidateW
-  CandidateX
-  CandidateY
-  CandidateZ
-  CandidateAA
-  CandidateAB
-  CandidateAC
-  CandidateAD
-  CandidateAE
-  CandidateAF
   EOF
 } derive(Eq, @debug.Debug)
 
