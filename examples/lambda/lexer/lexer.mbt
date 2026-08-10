@@ -239,5 +239,7 @@ pub fn lex(
     buffer.get_tokens(),
     buffer.get_starts(),
     diagnostics=buffer.get_diagnostics(),
-  )
+  ) catch {
+    error => abort("lambda lexer adapter defect: " + @debug.to_string(error))
+  }
 }

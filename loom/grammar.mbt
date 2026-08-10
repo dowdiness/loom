@@ -46,7 +46,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_cst_fro
     source_id,
     source,
     lex,
-    spec.eof_token,
+    spec.eof_token(),
     incremental_relex_enabled~,
     mode_relex~,
   )
