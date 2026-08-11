@@ -53,3 +53,53 @@ An attempt to compose CST nodes from different metadata domains. The attempted
 parent or reconstruction is rejected before a new node becomes observable or
 a caller-supplied interner is mutated.
 _Avoid_: Parse error, policy conversion
+
+## Markdown
+
+**Parser snapshot**:
+A coherent source, CST/syntax, and diagnostic view produced by one parser
+revision. These values must not be combined from independently changing reads.
+_Avoid_: Parser state, operation
+
+**Source-bound document**:
+The read-only representation that keeps a source snapshot, its syntax snapshot,
+and its diagnostics together so source-aware consumers cannot pair semantic data
+with unrelated source text.
+_Avoid_: Source/IR pair, document wrapper
+
+**Semantic read**:
+An owning, detached read of a source-bound document that captures one coherent
+parser snapshot and lowers its MarkdownIR exactly once when the read is
+created. Multiple target adapters may consume the same read, and it remains
+valid after the originating document or parser lifecycle ends. Source-aware
+target selection comes from read-bound semantic nodes and selections, not from
+free origins.
+_Avoid_: Semantic operation, per-target lowering, borrowed read, free origin
+
+**Read-bound semantic node**:
+An opaque node view produced by one semantic read. It retains that read's
+ownership while allowing source-aware consumers to navigate semantic children
+and request a bound selection.
+_Avoid_: MarkdownIR node, raw semantic node
+
+**Semantic selection**:
+An opaque source-aware rewrite target produced by a read-bound semantic node. It
+retains the owning semantic read and cannot be constructed from a
+`MarkdownIROrigin` value.
+_Avoid_: Target origin, free origin
+
+**Source-aware IR-backed Block adapter**:
+The existing compatibility projection that combines MarkdownIR with the exact
+source context needed to preserve the established `Block` / `Inline` behavior.
+_Avoid_: Document projection
+
+**IR-only target**:
+A semantic target whose result requires MarkdownIR but no concrete source facts,
+such as source spelling or exact source positions.
+_Avoid_: Source-preserving target
+
+**Document-backed target**:
+A target that requires both semantic meaning and concrete facts from the same
+source-bound document, such as legacy Block projection or source-preserving
+rewrite.
+_Avoid_: IR-only target

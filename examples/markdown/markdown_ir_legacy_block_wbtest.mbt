@@ -16,6 +16,9 @@ fn assert_markdown_ir_legacy_block_matches_direct_fold(
   let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, syntax, diagnostics,
   )
+  let document = parse_document(source_id, source)
+  assert_eq(document.diagnostics(), diagnostics)
+  assert_eq(markdown_semantic_read_to_block(document.semantic_read()), direct)
   inspect(
     markdown_ir_to_block_with_source(ir, Some(source)),
     content=@debug.to_string(direct),

@@ -10,6 +10,7 @@
 /// stale-work maintenance before returning. Call `dispose()` when the consumer
 /// lifetime ends; repeated disposal is safe and never disposes the parser.
 pub struct MarkdownSemanticAttachment {
+  priv parser : @loom.Parser[Block]
   priv shell : ReactiveKeyedMarkdownIR
   priv mut disposed : Bool
 }
@@ -23,6 +24,7 @@ pub fn MarkdownSemanticAttachment::MarkdownSemanticAttachment(
   parser : @loom.Parser[Block],
 ) -> MarkdownSemanticAttachment {
   {
+    parser,
     shell: attach_reactive_keyed_markdown_ir_from_block_parser(parser),
     disposed: false,
   }
@@ -39,6 +41,24 @@ pub fn MarkdownSemanticAttachment::document(
 ) -> MarkdownIR {
   guard !self.disposed else { abort("MarkdownSemanticAttachment is disposed") }
   let document = self.shell.read()
+  self.shell.scope.collect()
+  document
+}
+
+///|
+/// Capture the current parser snapshot as an owning source-aware document.
+///
+/// Snapshot capture happens before attachment-owned stale work is collected.
+/// The returned document does not depend on the attachment or parser lifetime.
+pub fn MarkdownSemanticAttachment::source_document(
+  self : MarkdownSemanticAttachment,
+) -> MarkdownDocument {
+  guard !self.disposed else { abort("MarkdownSemanticAttachment is disposed") }
+  let snapshot = self.parser.snapshot().read_or_abort()
+  let document = markdown_document_from_snapshot(
+    self.parser.source_id(),
+    snapshot,
+  )
   self.shell.scope.collect()
   document
 }

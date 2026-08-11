@@ -24,6 +24,9 @@ pub fn parse_markdown(@core.SourceId, String) -> (Block, @core.DiagnosticSet) //
   raise @core.LexError
 pub fn parse_cst(@core.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet)
   raise @core.LexError
+// `parse_document` is the source-bound snapshot entry point.
+pub fn parse_document(@core.SourceId, String) -> MarkdownDocument
+  raise @core.LexError
 
 // ── CST → AST ─────────────────────────────────────────────────────────────────
 
@@ -78,6 +81,44 @@ pub fn experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
   MarkdownIR, RawHtmlPolicy
 ) -> Result[String, MarkdownIRHtmlRenderError]
 pub fn experimental_markdown_ir_to_commonmark_html(MarkdownIR) -> String
+
+// ── Source-bound semantic document ───────────────────────────────────────────
+
+pub struct MarkdownDocument
+pub fn MarkdownDocument::source_id(MarkdownDocument) -> @core.SourceId
+pub fn MarkdownDocument::source(MarkdownDocument) -> String
+pub fn MarkdownDocument::diagnostics(MarkdownDocument) -> @core.DiagnosticSet
+pub fn MarkdownDocument::semantic_read(MarkdownDocument) -> MarkdownSemanticRead
+pub struct MarkdownSemanticRead
+pub fn MarkdownSemanticRead::ir(MarkdownSemanticRead) -> MarkdownIR
+pub fn MarkdownSemanticRead::root(MarkdownSemanticRead) -> MarkdownSemanticReadNode
+pub struct MarkdownSemanticReadNode
+pub fn MarkdownSemanticReadNode::children(MarkdownSemanticReadNode)
+  -> Array[MarkdownSemanticReadNode]
+pub fn MarkdownSemanticReadNode::view(MarkdownSemanticReadNode) -> MarkdownIRView
+pub fn MarkdownSemanticReadNode::origin(MarkdownSemanticReadNode) -> MarkdownIROrigin
+pub fn MarkdownSemanticReadNode::selection(
+  MarkdownSemanticReadNode, kind~ : MarkdownSemanticSelectionKind
+) -> MarkdownSemanticSelection?
+pub struct MarkdownSemanticSelection
+pub(all) enum MarkdownSemanticSelectionKind {
+  WholeNode
+  Content
+  Destination
+  Title
+  AutolinkDisplay
+}
+pub fn markdown_semantic_read_to_block(MarkdownSemanticRead) -> Block
+pub fn markdown_semantic_read_to_mdast_json_with_positions(
+  MarkdownSemanticRead
+) -> Json
+pub fn markdown_semantic_read_preserve_rewrite(MarkdownSemanticRead) -> String
+pub fn markdown_semantic_read_local_transform_rewrite(
+  MarkdownSemanticSelection, replacement_text~ : String
+) -> String
+pub fn MarkdownSemanticAttachment::source_document(
+  MarkdownSemanticAttachment
+) -> MarkdownDocument
 
 // ── Lexing ────────────────────────────────────────────────────────────────────
 
@@ -180,6 +221,26 @@ the same `Block` / `Inline` model. Source-aware integrations over an existing
 `Parser[Block]` can instead construct `MarkdownSemanticAttachment(parser)` and
 consume the complete owning MarkdownIR document through `document()`.
 
+### Source-bound semantic document
+
+`parse_document(source_id, source)` owns one complete source, syntax snapshot,
+and parser `DiagnosticSet`. Construction is lazy with respect to MarkdownIR;
+`semantic_read()` is the explicit eager step that creates one detached
+`MarkdownSemanticRead` and lowers MarkdownIR exactly once for that handle.
+`MarkdownSemanticRead::root()` exposes read-bound nodes. Their observational
+`view()`/`origin()` and `children()` methods support navigation, while
+`selection(kind~)` creates an opaque target that remains tied to the same read.
+Missing content, destination, title, or autolink-display targets return `None`.
+
+The three source-aware adapters consume the read:
+`markdown_semantic_read_to_block`,
+`markdown_semantic_read_to_mdast_json_with_positions`, and
+`markdown_semantic_read_preserve_rewrite`. The local-transform adapter consumes
+only a `MarkdownSemanticSelection` plus replacement text. IR-only targets such
+as HTML, position-free mdast, and canonical formatting continue to consume
+`read.ir()` through their existing compatibility functions.
+
+
 ### Keyed editor projection attachment
 
 `MarkdownProjectionAttachment` owns the retained keyed MarkdownIR computation,
@@ -198,11 +259,12 @@ map. The attachment deliberately exposes neither representation as the other.
 ### Source-aware semantic attachment
 
 `MarkdownSemanticAttachment` joins an existing caller-owned `Parser[Block]`
-runtime. Its custom constructor creates no second parser and exposes only
-`document()` and idempotent `dispose()`. `document()` observes one complete
-parser snapshot, obtains the current owning MarkdownIR value, and performs
-scope-owned stale-work collection before returning it. A retained document
-remains valid after later parser edits, later reads, collection, and disposal.
+runtime. Its custom constructor creates no second parser. `document()` remains
+the existing terminal `MarkdownIR` read and performs its established
+scope-owned collection before returning. `source_document()` is the
+separately named owning `MarkdownDocument` read: it captures the parser
+snapshot before collection, and the returned document remains valid after later
+parser edits, collection, and attachment disposal.
 
 The attachment does not provide revisions, deltas, acknowledgements, watches,
 scopes, cache keys, or collection operations. Reading after disposal is a

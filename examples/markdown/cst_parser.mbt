@@ -1,12 +1,14 @@
 ///|
 /// Root entry point for the Markdown parser.
 fn parse_root(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
-  parse_document(ctx)
+  parse_markdown_document_blocks(ctx)
 }
 
 ///|
 /// Parse the document: a sequence of blocks until EOF.
-fn parse_document(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+fn parse_markdown_document_blocks(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
   while ctx.peek() != EOF {
     parse_block(ctx)
   }

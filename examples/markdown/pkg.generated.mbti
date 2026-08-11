@@ -47,11 +47,21 @@ pub fn markdown_lex_step(String, Int, MarkdownLexMode) -> (@core.LexStep[Token],
 
 pub let markdown_mode_lexer : @core.ModeLexer[Token, MarkdownLexMode]
 
+pub fn markdown_semantic_read_local_transform_rewrite(MarkdownSemanticSelection, replacement_text~ : String) -> String
+
+pub fn markdown_semantic_read_preserve_rewrite(MarkdownSemanticRead) -> String
+
+pub fn markdown_semantic_read_to_block(MarkdownSemanticRead) -> Block
+
+pub fn markdown_semantic_read_to_mdast_json_with_positions(MarkdownSemanticRead) -> Json
+
 pub let markdown_spec : @core.LanguageSpec[Token, SyntaxKind]
 
 pub fn parse(@diagnostic.SourceId, String) -> Block raise Failure
 
 pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise
+
+pub fn parse_document(@diagnostic.SourceId, String) -> MarkdownDocument raise
 
 pub fn parse_markdown(@diagnostic.SourceId, String) -> (Block, @core.DiagnosticSet) raise
 
@@ -89,6 +99,14 @@ pub(all) enum Inline {
 pub impl @core.Renderable for Inline
 pub impl @core.TreeNode for Inline
 pub impl Show for Inline
+
+pub struct MarkdownDocument {
+  // private fields
+}
+pub fn MarkdownDocument::diagnostics(Self) -> @core.DiagnosticSet
+pub fn MarkdownDocument::semantic_read(Self) -> MarkdownSemanticRead
+pub fn MarkdownDocument::source(Self) -> String
+pub fn MarkdownDocument::source_id(Self) -> @diagnostic.SourceId
 
 pub struct MarkdownIR {
   // private fields
@@ -244,6 +262,33 @@ pub struct MarkdownSemanticAttachment {
 pub fn MarkdownSemanticAttachment::MarkdownSemanticAttachment(@pipeline.Parser[Block]) -> Self
 pub fn MarkdownSemanticAttachment::dispose(Self) -> Unit
 pub fn MarkdownSemanticAttachment::document(Self) -> MarkdownIR
+pub fn MarkdownSemanticAttachment::source_document(Self) -> MarkdownDocument
+
+pub struct MarkdownSemanticRead {
+  // private fields
+}
+pub fn MarkdownSemanticRead::ir(Self) -> MarkdownIR
+pub fn MarkdownSemanticRead::root(Self) -> MarkdownSemanticReadNode
+
+pub struct MarkdownSemanticReadNode {
+  // private fields
+}
+pub fn MarkdownSemanticReadNode::children(Self) -> Array[Self]
+pub fn MarkdownSemanticReadNode::origin(Self) -> MarkdownIROrigin
+pub fn MarkdownSemanticReadNode::selection(Self, kind~ : MarkdownSemanticSelectionKind) -> MarkdownSemanticSelection?
+pub fn MarkdownSemanticReadNode::view(Self) -> MarkdownIRView
+
+pub struct MarkdownSemanticSelection {
+  // private fields
+}
+
+pub(all) enum MarkdownSemanticSelectionKind {
+  WholeNode
+  Content
+  Destination
+  Title
+  AutolinkDisplay
+} derive(Eq, @debug.Debug)
 
 pub(all) enum OrderedListDelimiter {
   Period
