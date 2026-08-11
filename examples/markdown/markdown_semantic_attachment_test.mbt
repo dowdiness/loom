@@ -208,6 +208,10 @@ test "Markdown semantic attachment source_document reads are independent" {
   )
   assert_eq(initial_source.source(), source)
   attachment.dispose()
+  parser.set_source("after-disposal\n")
+  assert_eq(initial_source.source(), source)
+  assert_eq(repeated_source.source(), source)
+  assert_eq(updated_source.source(), updated)
 }
 
 ///|
