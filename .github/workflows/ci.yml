@@ -68,6 +68,7 @@ jobs:
       SOURCE_BOUND_PERF_ADAPTER_PATH: examples/markdown/markdown_document_benchmark_api_wbtest.mbt
       SOURCE_BOUND_PERF_LEGACY_ADAPTER_PATH: scripts/tests/markdown-document-benchmark-legacy-api-wbtest.mbt
       SOURCE_BOUND_PERF_LEGACY_BENCHMARK_PATH: examples/markdown/markdown_document_benchmark_test.mbt
+      SOURCE_BOUND_PERF_DOCUMENT_PATH: examples/markdown/markdown_document.mbt
     steps:
       - name: Checkout base
         uses: actions/checkout@v5
@@ -180,7 +181,7 @@ jobs:
           harness_sha256=$(sha256sum "$snapshot_path" | awk '{print $1}')
           current_adapter_sha256=$(sha256sum "$current_adapter_snapshot" | awk '{print $1}')
           legacy_adapter_sha256=$(sha256sum "$legacy_adapter_snapshot" | awk '{print $1}')
-          if git -C perf-base cat-file -e "HEAD:$SOURCE_BOUND_PERF_ADAPTER_PATH"; then
+          if git -C perf-base cat-file -e "HEAD:$SOURCE_BOUND_PERF_DOCUMENT_PATH"; then
             base_adapter_kind=current
           else
             base_adapter_kind=legacy
