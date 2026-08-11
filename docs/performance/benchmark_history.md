@@ -84,6 +84,50 @@ The established compile-compatible base/head guard is the regression verdict;
 the source-bound rows make the new cold paths measurable without implying that
 the pre-API base revision can execute them.
 
+## 2026-08-11 (source-bound benchmark guard)
+
+- Issue: [#913](https://github.com/dowdiness/loom/issues/913)
+- Base revision: `e89e6d3406711fd7ff464d10f495ed55223931dd`
+- Head revision: `3fd10721387967f16740204c4e4a4bb32d63d187` (source-bound guard and CI overlay)
+- Environment: WSL2, Linux 6.18.33.2, x86_64
+- Toolchain: Moon `0.1.20260713`
+- Targets: release wasm-gc and JavaScript
+- Comparison: three base/head trial pairs per target on one runner
+- Guard command:
+  `bash scripts/markdown-ir-perf-guard.sh BASE_1 HEAD_1 BASE_2 HEAD_2 BASE_3 HEAD_3`
+- Source-bound benchmark command:
+  `moon bench --release --target <target> -p dowdiness/markdown -f
+  markdown_document_benchmark_wbtest.mbt`
+
+The source-bound control and eight source-bound rows are now required in
+every guard input. Older base revisions use the checked-in legacy adapter
+overlay; revisions that contain the document-backed adapter use the current
+overlay. This keeps the benchmark labels structurally comparable across the
+API cutover while preserving the established MarkdownIR and delimiter gates.
+
+Both target runs completed with:
+
+```text
+PASS: no persistent Markdown lowering regression
+```
+
+The largest positive source-bound changes observed in the three trials were:
+
+| Target | Row | Subject raw | Normalized |
+|---|---|---:|---:|
+| JavaScript | IR-only target through `read.ir()` | +148.7% | +134.3% |
+| JavaScript | mdast adapter | +76.1% | +71.5% |
+| JavaScript | Block adapter | +50.4% | +41.8% |
+| wasm-gc | Block adapter | +10.0% | +15.5% |
+| wasm-gc | mdast adapter | +4.8% | +2.2% |
+
+The source-bound gate defaults to a strict `+250%` raw-and-normalized subject
+threshold, an inclusive `>=+500%` raw hard ceiling, and an independent `+50%`
+control threshold. The larger subject threshold is deliberate for the
+legacy-to-document adapter cutover, where ownership and projection paths are
+not byte-for-byte equivalent; persistent source-bound regressions remain
+actionable and are reported separately from the established gates.
+
 ## 2026-08-05 (core collection ownership Phase 0 baseline)
 
 - Issue: [#877](https://github.com/dowdiness/loom/issues/877)
