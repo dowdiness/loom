@@ -202,6 +202,45 @@ test "MarkdownSemanticRead selections rewrite only their read snapshot" {
 }
 
 ///|
+test "MarkdownSemanticRead selections cover whole nodes and missing targets" {
+  let read = parse_document(
+    @core.SourceId("markdown-semantic-read-selection-kinds"),
+    "# heading\n\n[link](https://example.test)\n",
+  ).semantic_read()
+  let root = read.root()
+  assert_true(
+    root.selection(kind=MarkdownSemanticSelectionKind::WholeNode) is Some(_),
+  )
+  let heading = markdown_document_test_expect_node(
+    markdown_document_test_find_heading(root),
+    "expected heading",
+  )
+  let link = markdown_document_test_expect_node(
+    markdown_document_test_find_link(root),
+    "expected link",
+  )
+  assert_true(
+    link.selection(kind=MarkdownSemanticSelectionKind::WholeNode) is Some(_),
+  )
+  assert_true(
+    heading.selection(kind=MarkdownSemanticSelectionKind::Destination) is None,
+  )
+  assert_true(
+    heading.selection(kind=MarkdownSemanticSelectionKind::Title) is None,
+  )
+  assert_true(
+    heading.selection(kind=MarkdownSemanticSelectionKind::AutolinkDisplay)
+    is None,
+  )
+  assert_true(
+    link.selection(kind=MarkdownSemanticSelectionKind::Content) is None,
+  )
+  assert_true(
+    link.selection(kind=MarkdownSemanticSelectionKind::AutolinkDisplay) is None,
+  )
+}
+
+///|
 test "MarkdownSemanticRead survives its source document" {
   let source_id = @core.SourceId("markdown-semantic-read-detached")
   let read = {
