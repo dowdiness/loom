@@ -43,6 +43,24 @@ fn markdown_document_test_find_link(
 }
 
 ///|
+fn markdown_document_test_find_image(
+  node : MarkdownSemanticReadNode,
+) -> MarkdownSemanticReadNode? {
+  match node.view() {
+    Image(..) => Some(node)
+    _ => {
+      for child in node.children() {
+        match markdown_document_test_find_image(child) {
+          Some(found) => return Some(found)
+          None => continue
+        }
+      }
+      None
+    }
+  }
+}
+
+///|
 fn markdown_document_test_find_autolink(
   node : MarkdownSemanticReadNode,
 ) -> MarkdownSemanticReadNode? {
@@ -233,10 +251,50 @@ test "MarkdownSemanticRead selections cover whole nodes and missing targets" {
     is None,
   )
   assert_true(
-    link.selection(kind=MarkdownSemanticSelectionKind::Content) is None,
+    link.selection(kind=MarkdownSemanticSelectionKind::Content) is Some(_),
   )
   assert_true(
     link.selection(kind=MarkdownSemanticSelectionKind::AutolinkDisplay) is None,
+  )
+}
+
+///|
+test "MarkdownSemanticRead content selections rewrite link and image labels" {
+  let source = "[link label](https://example.test)\n\n![image alt](https://image.test)\n"
+  let read = parse_document(
+    @core.SourceId("markdown-semantic-read-content-selections"),
+    source,
+  ).semantic_read()
+  let root = read.root()
+  let link = markdown_document_test_expect_node(
+    markdown_document_test_find_link(root),
+    "expected link",
+  )
+  let image = markdown_document_test_expect_node(
+    markdown_document_test_find_image(root),
+    "expected image",
+  )
+  let link_content = markdown_document_test_expect_selection(
+    link.selection(kind=MarkdownSemanticSelectionKind::Content),
+    "expected link content selection",
+  )
+  let image_content = markdown_document_test_expect_selection(
+    image.selection(kind=MarkdownSemanticSelectionKind::Content),
+    "expected image content selection",
+  )
+  assert_eq(
+    markdown_semantic_read_local_transform_rewrite(
+      link_content,
+      replacement_text="new link",
+    ),
+    "[new link](https://example.test)\n\n![image alt](https://image.test)\n",
+  )
+  assert_eq(
+    markdown_semantic_read_local_transform_rewrite(
+      image_content,
+      replacement_text="new alt",
+    ),
+    "[link label](https://example.test)\n\n![new alt](https://image.test)\n",
   )
 }
 

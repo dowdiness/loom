@@ -155,7 +155,11 @@ fn markdown_semantic_selection_origin(
 ) -> MarkdownIROrigin? {
   match kind {
     WholeNode => Some(node.origin())
-    Content => node.content_origin()
+    Content =>
+      match node.view() {
+        Link(..) | Image(..) => node.label_origin()
+        _ => node.content_origin()
+      }
     Destination => node.destination_origin()
     Title =>
       match node.view() {
