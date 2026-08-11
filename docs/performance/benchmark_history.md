@@ -88,7 +88,7 @@ the pre-API base revision can execute them.
 
 - Issue: [#913](https://github.com/dowdiness/loom/issues/913)
 - Base revision: `e89e6d3406711fd7ff464d10f495ed55223931dd`
-- Head revision: `3fd10721387967f16740204c4e4a4bb32d63d187` (source-bound guard and CI overlay)
+- Head revision: `04626d5ed09729801376af9394d9d020274f4a06` (source-bound guard and CI overlay)
 - Environment: WSL2, Linux 6.18.33.2, x86_64
 - Toolchain: Moon `0.1.20260713`
 - Targets: release wasm-gc and JavaScript
