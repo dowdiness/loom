@@ -149,6 +149,7 @@ priv struct LinkSurface {
   reference_label_origin : MarkdownIROrigin?
   destination_origin : MarkdownIROrigin?
   title_origin : MarkdownIROrigin?
+  target_origin : MarkdownIROrigin?
 } derive(Eq, Debug)
 
 ///|
@@ -373,6 +374,33 @@ fn MarkdownIR::link_with_metadata(
   destination_origin : MarkdownIROrigin?,
   title_origin : MarkdownIROrigin?,
 ) -> MarkdownIR {
+  MarkdownIR::link_with_target_metadata(
+    children,
+    destination,
+    title,
+    form,
+    origin,
+    label_origin,
+    reference_label_origin,
+    destination_origin,
+    title_origin,
+    None,
+  )
+}
+
+///|
+fn MarkdownIR::link_with_target_metadata(
+  children : Array[MarkdownIR],
+  destination : String,
+  title : String?,
+  form : LinkReferenceForm,
+  origin : MarkdownIROrigin,
+  label_origin : MarkdownIROrigin?,
+  reference_label_origin : MarkdownIROrigin?,
+  destination_origin : MarkdownIROrigin?,
+  title_origin : MarkdownIROrigin?,
+  target_origin : MarkdownIROrigin?,
+) -> MarkdownIR {
   {
     node: Link(children, destination, title, {
       form,
@@ -380,6 +408,7 @@ fn MarkdownIR::link_with_metadata(
       reference_label_origin,
       destination_origin,
       title_origin,
+      target_origin,
     }),
     origin,
   }

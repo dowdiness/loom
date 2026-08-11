@@ -75,57 +75,586 @@ fn ir_children_to_editor_inlines(
 }
 
 ///|
-fn list_item_flow_child_to_editor_inlines(child : MarkdownIR) -> Array[Inline] {
+fn markdown_ir_legacy_destination(
+  ir : MarkdownIR,
+  destination : String,
+  source : String,
+) -> String {
+  match ir.node {
+    Link(_, _, _, surface) | Image(_, _, _, surface) =>
+      match surface.form {
+        LinkReferenceForm::InlineLinkForm =>
+          match surface.target_origin {
+            Some(origin) => source[origin.start():origin.end()].to_owned()
+            None =>
+              match ir.destination_origin() {
+                Some(origin) => source[origin.start():origin.end()].to_owned()
+                None => destination
+              }
+          }
+        _ => ""
+      }
+    _ => destination
+  }
+}
+
+///|
+fn markdown_ir_legacy_text(
+  value : String,
+  origin : MarkdownIROrigin,
+  source : String,
+  next : MarkdownIR?,
+  after_next : MarkdownIR?,
+) -> Inline {
+  let next_is_text_bracket = match next {
+    Some(next) =>
+      match next.node {
+        Text(text) =>
+          text == "[" &&
+          source[next.origin().start():next.origin().end()] == "["
+        _ => false
+      }
+    None => false
+  }
+  let next_is_inline_link = match next {
+    Some(next) =>
+      match next.node {
+        Link(_, _, _, _) | Image(_, _, _, _) | Autolink(_, _, _, _, _) => true
+        _ => false
+      }
+    None => false
+  }
+  let after_next_is_inline_link = match after_next {
+    Some(after_next) =>
+      match after_next.node {
+        Link(_, _, _, _) | Image(_, _, _, _) | Autolink(_, _, _, _, _) => true
+        _ => false
+      }
+    None => false
+  }
+  if value == "[" &&
+    source[origin.start():origin.end()] == "[" &&
+    !next_is_inline_link &&
+    !(next_is_text_bracket && after_next_is_inline_link) {
+    Inline::Error(value)
+  } else {
+    Inline::Text(value)
+  }
+}
+
+///|
+fn markdown_ir_to_legacy_editor_inline(
+  ir : MarkdownIR,
+  source : String,
+) -> Inline {
+  match ir.node {
+    Text(value) =>
+      markdown_ir_legacy_text(value, ir.origin(), source, None, None)
+    Bold(children, _) =>
+      Inline::Bold(
+        markdown_ir_children_to_legacy_editor_inlines(children, None, source),
+      )
+    Italic(children, _) =>
+      Inline::Italic(
+        markdown_ir_children_to_legacy_editor_inlines(children, None, source),
+      )
+    Link(children, destination, _, _) =>
+      Inline::Link(
+        markdown_ir_children_to_legacy_editor_inlines(children, None, source),
+        markdown_ir_legacy_destination(ir, destination, source),
+      )
+    Image(children, destination, _, _) =>
+      Inline::Link(
+        markdown_ir_children_to_legacy_editor_inlines(children, None, source),
+        markdown_ir_legacy_destination(ir, destination, source),
+      )
+    ThematicBreak =>
+      Inline::Text(markdown_ir_legacy_block_text(source, ir.origin()))
+    _ => experimental_markdown_ir_to_inline(ir)
+  }
+}
+
+///|
+fn markdown_ir_legacy_text_around_soft_break(
+  child : MarkdownIR,
+  value : String,
+  previous : MarkdownIR?,
+  next : MarkdownIR?,
+  source : String,
+  trim_spaces : Bool,
+) -> String {
+  let mut result = value
+  match previous {
+    Some(previous) if previous.node is SoftBreak(_) => {
+      let start = previous.origin().end()
+      let end = child.origin().start()
+      if start <= end {
+        let prefix = source[start:end].to_owned()
+        result = prefix + result
+        if trim_spaces {
+          result = result.trim_start(chars=" ".view()).to_owned()
+        }
+      }
+    }
+    _ => ()
+  }
+  match next {
+    Some(next) if next.node is SoftBreak(_) => {
+      let start = child.origin().end()
+      let end = next.origin().start()
+      if start <= end {
+        let suffix = source[start:end].to_owned()
+        result = result + suffix
+        if trim_spaces {
+          result = result.trim_end(chars=" ".view()).to_owned()
+        }
+      }
+    }
+    _ => ()
+  }
+  result
+}
+
+///|
+fn markdown_ir_legacy_bracket(
+  child : MarkdownIR,
+  value : String,
+  source : String,
+) -> Bool {
+  match child.node {
+    Text(text) | Raw(text, _) | Recovered(text, _) =>
+      text == value &&
+      source[child.origin().start():child.origin().end()] == value
+    _ => false
+  }
+}
+
+///|
+fn markdown_ir_legacy_unresolved_full_reference_children(
+  children : Array[MarkdownIR],
+  source : String,
+) -> Array[MarkdownIR] {
+  let result : Array[MarkdownIR] = []
+  let mut index = 0
+  while index < children.length() {
+    let opener = children[index]
+    let mut matched : (MarkdownIR, Int)? = None
+    if markdown_ir_legacy_bracket(opener, "[", source) {
+      let mut label_end = index + 1
+      let mut valid_label = true
+      while label_end < children.length() &&
+            !markdown_ir_legacy_bracket(children[label_end], "]", source) {
+        if markdown_ir_legacy_bracket(children[label_end], "[", source) {
+          valid_label = false
+        }
+        label_end = label_end + 1
+      }
+      if valid_label &&
+        label_end < children.length() &&
+        label_end + 1 < children.length() &&
+        markdown_ir_legacy_bracket(children[label_end], "]", source) &&
+        markdown_ir_legacy_bracket(children[label_end + 1], "[", source) {
+        let mut reference_end = label_end + 2
+        let mut valid_reference = true
+        while reference_end < children.length() &&
+              !markdown_ir_legacy_bracket(children[reference_end], "]", source) {
+          if markdown_ir_legacy_bracket(children[reference_end], "[", source) {
+            valid_reference = false
+          }
+          reference_end = reference_end + 1
+        }
+        if valid_reference &&
+          reference_end < children.length() &&
+          markdown_ir_legacy_bracket(children[reference_end], "]", source) {
+          let label_children : Array[MarkdownIR] = []
+          for label_index = index + 1
+              label_index < label_end
+              label_index = label_index + 1 {
+            label_children.push(children[label_index])
+          }
+          let label_origin = MarkdownIROrigin(
+            start=opener.origin().end(),
+            end=children[label_end].origin().start(),
+          )
+          let reference_origin = MarkdownIROrigin(
+            start=children[label_end + 1].origin().end(),
+            end=children[reference_end].origin().start(),
+          )
+          let link = MarkdownIR::link_with_metadata(
+            label_children,
+            "",
+            None,
+            LinkReferenceForm::FullReferenceLinkForm,
+            MarkdownIROrigin(
+              start=opener.origin().start(),
+              end=children[reference_end].origin().end(),
+            ),
+            Some(label_origin),
+            Some(reference_origin),
+            None,
+            None,
+          )
+          matched = Some((link, reference_end + 1))
+        }
+      }
+    }
+    match matched {
+      Some((link, next_index)) => {
+        result.push(link)
+        index = next_index
+      }
+      None => {
+        result.push(opener)
+        index = index + 1
+      }
+    }
+  }
+  result
+}
+
+///|
+fn markdown_ir_legacy_text_parts(
+  child : MarkdownIR,
+  value : String,
+  source : String,
+) -> Array[MarkdownIR] {
+  let parts : Array[MarkdownIR] = []
+  let origin = child.origin()
+  let raw = source[origin.start():origin.end()].to_owned()
+  if value.length() > 1 &&
+    raw.contains("[") &&
+    raw.get_char(raw.length() - 1) is Some(']') &&
+    value.get_char(value.length() - 1) is Some(']') {
+    let split = origin.end() - 1
+    parts.push(
+      MarkdownIR::text(
+        value[0:value.length() - 1].to_owned(),
+        MarkdownIROrigin(start=origin.start(), end=split),
+      ),
+    )
+    parts.push(
+      MarkdownIR::text("]", MarkdownIROrigin(start=split, end=origin.end())),
+    )
+  } else {
+    parts.push(child)
+  }
+  parts
+}
+
+///|
+fn markdown_ir_legacy_split_bracket_text(
+  children : Array[MarkdownIR],
+  source : String,
+) -> Array[MarkdownIR] {
+  let result : Array[MarkdownIR] = []
+  for child in children {
+    match child.node {
+      Text(value) =>
+        for part in markdown_ir_legacy_text_parts(child, value, source) {
+          result.push(part)
+        }
+      _ => result.push(child)
+    }
+  }
+  result
+}
+
+///|
+fn markdown_ir_children_to_legacy_editor_inlines(
+  children : Array[MarkdownIR],
+  newline_text : String?,
+  source : String,
+) -> Array[Inline] {
+  let inlines : Array[Inline] = []
+  let trim_spaces = newline_text is Some(_)
+  let projected_children = markdown_ir_legacy_split_bracket_text(
+    markdown_ir_legacy_unresolved_full_reference_children(children, source),
+    source,
+  )
+  for index, child in projected_children {
+    let previous = if index > 0 {
+      Some(projected_children[index - 1])
+    } else {
+      None
+    }
+    let next = if index + 1 < projected_children.length() {
+      Some(projected_children[index + 1])
+    } else {
+      None
+    }
+    let after_next = if index + 2 < projected_children.length() {
+      Some(projected_children[index + 2])
+    } else {
+      None
+    }
+    match child.node {
+      SoftBreak(_) =>
+        match newline_text {
+          Some(text) => inlines.push(Inline::Text(text))
+          None => ()
+        }
+      HardBreak(_, _) =>
+        match newline_text {
+          Some(text) => inlines.push(Inline::Text(text))
+          None => inlines.push(Inline::Text("\n"))
+        }
+      Text(value) =>
+        inlines.push(
+          markdown_ir_legacy_text(
+            markdown_ir_legacy_text_around_soft_break(
+              child, value, previous, next, source, trim_spaces,
+            ),
+            child.origin(),
+            source,
+            next,
+            after_next,
+          ),
+        )
+      Image(_, _, _, _) => {
+        let can_merge_image_marker = match previous {
+          Some(previous) => previous.node is Text(_)
+          None => false
+        }
+        if can_merge_image_marker && inlines.length() > 0 {
+          let last = inlines.length() - 1
+          match inlines[last] {
+            Inline::Text(value) => inlines[last] = Inline::Text(value + "!")
+            _ => inlines.push(Inline::Text("!"))
+          }
+        } else {
+          inlines.push(Inline::Text("!"))
+        }
+        inlines.push(markdown_ir_to_legacy_editor_inline(child, source))
+      }
+      _ => inlines.push(markdown_ir_to_legacy_editor_inline(child, source))
+    }
+  }
+  inlines
+}
+
+///|
+fn markdown_ir_legacy_editor_inlines(
+  children : Array[MarkdownIR],
+  newline_text : String?,
+  source : String?,
+) -> Array[Inline] {
+  match source {
+    Some(source) =>
+      markdown_ir_children_to_legacy_editor_inlines(
+        children, newline_text, source,
+      )
+    None => ir_children_to_editor_inlines(children, newline_text)
+  }
+}
+
+///|
+fn markdown_ir_to_legacy_inline(ir : MarkdownIR, source : String) -> Inline {
+  markdown_ir_to_legacy_editor_inline(ir, source)
+}
+
+///|
+fn list_item_flow_child_to_legacy_editor_inlines(
+  child : MarkdownIR,
+) -> Array[Inline] {
   match child.node {
     Paragraph(paragraph_children, _) =>
       ir_children_to_editor_inlines(paragraph_children, Some("\n"))
     BlockQuote(_) | UnorderedList(_, _, _) | OrderedList(_, _, _) => []
     ListItem(item_children, _, _, _)
     | OrderedListItem(item_children, _, _, _) =>
-      list_item_flow_children_to_editor_inlines(item_children)
+      list_item_flow_children_to_legacy_editor_inlines(item_children)
     _ => [experimental_markdown_ir_to_inline(child)]
+  }
+}
+
+///|
+fn list_item_flow_children_to_legacy_editor_inlines(
+  children : Array[MarkdownIR],
+) -> Array[Inline] {
+  children
+  .iter()
+  .flat_map(child => list_item_flow_child_to_legacy_editor_inlines(child).iter())
+  .collect()
+}
+
+///|
+fn list_item_flow_child_to_editor_inlines(
+  child : MarkdownIR,
+  source : String?,
+) -> Array[Inline] {
+  match child.node {
+    Paragraph(paragraph_children, _) =>
+      markdown_ir_legacy_editor_inlines(paragraph_children, Some("\n"), source)
+    BlockQuote(_) | UnorderedList(_, _, _) | OrderedList(_, _, _) => []
+    ListItem(item_children, _, _, _)
+    | OrderedListItem(item_children, _, _, _) =>
+      markdown_ir_legacy_list_item_inlines(child, item_children, source)
+    _ =>
+      match source {
+        Some(source) =>
+          match child.node {
+            Heading(_, _, _) | CodeBlock(_, _, _) | HtmlBlock(_) => []
+            _ => [markdown_ir_to_legacy_inline(child, source)]
+          }
+        None => [experimental_markdown_ir_to_inline(child)]
+      }
   }
 }
 
 ///|
 fn list_item_flow_children_to_editor_inlines(
   children : Array[MarkdownIR],
+  source : String?,
 ) -> Array[Inline] {
-  children
-  .iter()
-  .flat_map(child => list_item_flow_child_to_editor_inlines(child).iter())
-  .collect()
+  let inlines : Array[Inline] = []
+  let mut seen_paragraph = false
+  for child in children {
+    match child.node {
+      Paragraph(_, _) if seen_paragraph => ()
+      Paragraph(_, _) => {
+        seen_paragraph = true
+        inlines.append(list_item_flow_child_to_editor_inlines(child, source))
+      }
+      _ => inlines.append(list_item_flow_child_to_editor_inlines(child, source))
+    }
+  }
+  inlines
 }
 
 ///|
-pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
+fn markdown_ir_legacy_list_prefix(item : MarkdownIR, source : String) -> String {
+  let ordered = match item.node {
+    ListItem(_, _, _, _) => false
+    OrderedListItem(_, _, _, _) => true
+    _ => return ""
+  }
+  match item.content_origin() {
+    Some(content_origin) => {
+      let item_origin = item.origin()
+      let item_source = source[item_origin.start():item_origin.end()].to_owned()
+      match list_marker_body_end_offset(item_source, ordered~) {
+        Some(marker_end) => {
+          let prefix_start = item_origin.start() + marker_end
+          let content_start = content_origin.start()
+          if prefix_start < content_start {
+            let prefix = source[prefix_start:content_start].to_owned()
+            if prefix.length() > 0 {
+              prefix[1:].to_owned()
+            } else {
+              ""
+            }
+          } else {
+            ""
+          }
+        }
+        None => ""
+      }
+    }
+    None => ""
+  }
+}
+
+///|
+fn markdown_ir_prepend_legacy_list_prefix(
+  inlines : Array[Inline],
+  prefix : String,
+) -> Array[Inline] {
+  if prefix == "" || inlines.length() == 0 {
+    return inlines
+  }
+  match inlines[0] {
+    Inline::Text(value) => {
+      inlines[0] = Inline::Text(prefix + value)
+      inlines
+    }
+    _ => {
+      let result : Array[Inline] = [Inline::Text(prefix)]
+      result.append(inlines)
+      result
+    }
+  }
+}
+
+///|
+fn markdown_ir_legacy_list_item_inlines(
+  item : MarkdownIR,
+  children : Array[MarkdownIR],
+  source : String?,
+) -> Array[Inline] {
+  let inlines = match source {
+    None => list_item_flow_children_to_legacy_editor_inlines(children)
+    Some(_) => list_item_flow_children_to_editor_inlines(children, source)
+  }
+  match source {
+    Some(source) =>
+      markdown_ir_prepend_legacy_list_prefix(
+        inlines,
+        markdown_ir_legacy_list_prefix(item, source),
+      )
+    None => inlines
+  }
+}
+
+///|
+fn markdown_ir_legacy_block_text(
+  source : String,
+  origin : MarkdownIROrigin,
+) -> String {
+  trim_trailing_line_ending(source[origin.start():origin.end()].to_owned())
+}
+
+///|
+fn markdown_ir_to_block_with_source(ir : MarkdownIR, source : String?) -> Block {
   match ir.node {
     Document(children) =>
-      Block::Document(children.map(experimental_markdown_ir_to_block))
+      Block::Document(
+        children.map(child => markdown_ir_to_block_with_source(child, source)),
+      )
     Heading(depth, children, _) =>
-      Block::Heading(depth, ir_children_to_editor_inlines(children, None))
+      Block::Heading(
+        depth,
+        markdown_ir_legacy_editor_inlines(children, None, source),
+      )
     Paragraph(children, _) =>
-      Block::Paragraph(ir_children_to_editor_inlines(children, Some(" ")))
-    BlockQuote(_) => Block::Error("expected editor Block, got blockquote")
+      Block::Paragraph(
+        markdown_ir_legacy_editor_inlines(children, Some(" "), source),
+      )
+    BlockQuote(_) =>
+      match source {
+        Some(source) =>
+          Block::Paragraph([
+            Inline::Text(markdown_ir_legacy_block_text(source, ir.origin())),
+          ])
+        None => Block::Error("expected editor Block, got blockquote")
+      }
     UnorderedList(children, _, _) =>
-      Block::UnorderedList(children.map(experimental_markdown_ir_to_block))
+      Block::UnorderedList(
+        children.map(child => markdown_ir_to_block_with_source(child, source)),
+      )
     OrderedList(children, _, marker) =>
       Block::OrderedList(
-        children.map(experimental_markdown_ir_to_block),
+        children.map(child => markdown_ir_to_block_with_source(child, source)),
         marker,
       )
     ListItem(children, _, _, _) =>
       Block::UnorderedListItem(
-        list_item_flow_children_to_editor_inlines(children),
+        markdown_ir_legacy_list_item_inlines(ir, children, source),
       )
     OrderedListItem(children, _, _, marker) =>
       Block::OrderedListItem(
-        list_item_flow_children_to_editor_inlines(children),
+        markdown_ir_legacy_list_item_inlines(ir, children, source),
         marker,
       )
     CodeBlock(info, value, _) => Block::CodeBlock(info, value)
     HtmlBlock(value, _) => Block::HtmlBlock(value)
-    ThematicBreak => Block::Error("thematic break")
+    ThematicBreak =>
+      match source {
+        Some(source) =>
+          Block::Paragraph([
+            Inline::Text(markdown_ir_legacy_block_text(source, ir.origin())),
+          ])
+        None => Block::Error("thematic break")
+      }
     Text(_) => Block::Error("expected block MarkdownIR, got text")
     Bold(_, _) => Block::Error("expected block MarkdownIR, got bold")
     Italic(_, _) => Block::Error("expected block MarkdownIR, got italic")
@@ -144,6 +673,11 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
       Block::Error("expected block MarkdownIR, got raw: " + value)
     Recovered(message, _) => Block::Error(message)
   }
+}
+
+///|
+pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
+  markdown_ir_to_block_with_source(ir, None)
 }
 
 ///|

@@ -108,17 +108,3 @@ pub fn markdown_fold_node(
 ) -> Block {
   markdown_fold_node_with_code_value(node, recurse, code_block_value)
 }
-
-///|
-/// Source-aware Block algebra used when the top-level caller already owns the
-/// current document string. This keeps indented-code column handling explicit
-/// and avoids rebuilding the syntax root for each code block.
-fn markdown_fold_node_with_source(
-  node : @seam.SyntaxNode,
-  recurse : (@seam.SyntaxNode) -> Block,
-  source : String,
-) -> Block {
-  markdown_fold_node_with_code_value(node, recurse, code_node => {
-    code_block_value_with_source(code_node, source)
-  })
-}
