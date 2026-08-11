@@ -64,6 +64,10 @@ jobs:
       DELIMITER_PERF_HARNESS_PATH: examples/markdown/delimiter_performance_wbtest.mbt
       DELIMITER_PERF_ADAPTER_PATH: examples/markdown/delimiter_performance_api_wbtest.mbt
       DELIMITER_PERF_LEGACY_ADAPTER_PATH: scripts/tests/markdown-delimiter-performance-legacy-api-wbtest.mbt
+      SOURCE_BOUND_PERF_HARNESS_PATH: examples/markdown/markdown_document_benchmark_wbtest.mbt
+      SOURCE_BOUND_PERF_ADAPTER_PATH: examples/markdown/markdown_document_benchmark_api_wbtest.mbt
+      SOURCE_BOUND_PERF_LEGACY_ADAPTER_PATH: scripts/tests/markdown-document-benchmark-legacy-api-wbtest.mbt
+      SOURCE_BOUND_PERF_LEGACY_BENCHMARK_PATH: examples/markdown/markdown_document_benchmark_test.mbt
     steps:
       - name: Checkout base
         uses: actions/checkout@v5
@@ -142,6 +146,59 @@ jobs:
             echo "DELIMITER_PERF_LEGACY_ADAPTER_SHA256=$legacy_adapter_sha256"
             echo "DELIMITER_PERF_BASE_ADAPTER_KIND=$base_adapter_kind"
           } >> "$GITHUB_ENV"
+      - name: Snapshot shared source-bound benchmark harness
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          source_path="perf-head/$SOURCE_BOUND_PERF_HARNESS_PATH"
+          snapshot_dir="$RUNNER_TEMP/markdown-source-bound-perf-harness"
+          snapshot_path="$snapshot_dir/markdown_document_benchmark_wbtest.mbt"
+          current_adapter_source="perf-head/$SOURCE_BOUND_PERF_ADAPTER_PATH"
+          current_adapter_snapshot="$snapshot_dir/markdown_document_benchmark_api_wbtest.mbt"
+          legacy_adapter_source="perf-head/$SOURCE_BOUND_PERF_LEGACY_ADAPTER_PATH"
+          legacy_adapter_snapshot="$snapshot_dir/markdown-document-benchmark-legacy-api-wbtest.mbt"
+
+          git -C perf-head ls-files --error-unmatch -- \
+            "$SOURCE_BOUND_PERF_HARNESS_PATH" \
+            "$SOURCE_BOUND_PERF_ADAPTER_PATH" \
+            "$SOURCE_BOUND_PERF_LEGACY_ADAPTER_PATH" >/dev/null
+          for tracked_input in \
+            "$source_path" \
+            "$current_adapter_source" \
+            "$legacy_adapter_source"; do
+            if [[ ! -f "$tracked_input" || -L "$tracked_input" ]]; then
+              echo "source-bound benchmark input must be a tracked regular file: $tracked_input" >&2
+              exit 1
+            fi
+          done
+
+          install -d -m 0755 "$snapshot_dir"
+          install -m 0644 "$source_path" "$snapshot_path"
+          install -m 0644 "$current_adapter_source" "$current_adapter_snapshot"
+          install -m 0644 "$legacy_adapter_source" "$legacy_adapter_snapshot"
+          harness_sha256=$(sha256sum "$snapshot_path" | awk '{print $1}')
+          current_adapter_sha256=$(sha256sum "$current_adapter_snapshot" | awk '{print $1}')
+          legacy_adapter_sha256=$(sha256sum "$legacy_adapter_snapshot" | awk '{print $1}')
+          if git -C perf-base cat-file -e "HEAD:$SOURCE_BOUND_PERF_ADAPTER_PATH"; then
+            base_adapter_kind=current
+          else
+            base_adapter_kind=legacy
+          fi
+
+          echo "Markdown source-bound benchmark harness SHA-256: $harness_sha256"
+          echo "Markdown source-bound current API adapter SHA-256: $current_adapter_sha256"
+          echo "Markdown source-bound legacy API adapter SHA-256: $legacy_adapter_sha256"
+          echo "Markdown source-bound base API adapter: $base_adapter_kind"
+          {
+            echo "SOURCE_BOUND_PERF_HARNESS_SNAPSHOT=$snapshot_path"
+            echo "SOURCE_BOUND_PERF_HARNESS_SHA256=$harness_sha256"
+            echo "SOURCE_BOUND_PERF_CURRENT_ADAPTER_SNAPSHOT=$current_adapter_snapshot"
+            echo "SOURCE_BOUND_PERF_CURRENT_ADAPTER_SHA256=$current_adapter_sha256"
+            echo "SOURCE_BOUND_PERF_LEGACY_ADAPTER_SNAPSHOT=$legacy_adapter_snapshot"
+            echo "SOURCE_BOUND_PERF_LEGACY_ADAPTER_SHA256=$legacy_adapter_sha256"
+            echo "SOURCE_BOUND_PERF_BASE_ADAPTER_KIND=$base_adapter_kind"
+          } >> "$GITHUB_ENV"
       - name: Install MoonBit
         env:
           MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
@@ -155,14 +212,14 @@ jobs:
           (cd perf-base && moon update)
           (cd perf-head && moon update)
       # Compare base/head on one runner for each backend matrix leg. Alternate
-      # execution order to cancel thermal and host-load drift. The delimiter
-      # benchmark harness is snapshotted from head and overlaid identically on
-      # each checkout so a PR can introduce fail-closed rows without making its
-      # base output structurally incomparable. A private adapter isolates
-      # parser-construction API cutovers; both sides use the current adapter
-      # once the base tracks it, while a fixed legacy adapter supports older
-      # bases. The checker blocks persistent regressions; the weekly detector
-      # remains the more sensitive absolute-baseline alert.
+      # execution order to cancel thermal and host-load drift. The delimiter and
+      # source-bound benchmark harnesses are snapshotted from head and overlaid
+      # identically on each checkout so a PR can introduce fail-closed rows
+      # without making its base output structurally incomparable. Private
+      # adapters isolate parser-construction API cutovers; both sides use the
+      # current adapter once the base tracks it, while fixed legacy adapters
+      # support older bases. The checker blocks persistent regressions; the
+      # weekly detector remains the more sensitive absolute-baseline alert.
       - name: Compare Markdown performance
         run: |
           set -euo pipefail
@@ -174,6 +231,9 @@ jobs:
             local checkout="$1"
             rm -f "$checkout/$DELIMITER_PERF_HARNESS_PATH"
             rm -f "$checkout/$DELIMITER_PERF_ADAPTER_PATH"
+            rm -f "$checkout/$SOURCE_BOUND_PERF_HARNESS_PATH"
+            rm -f "$checkout/$SOURCE_BOUND_PERF_ADAPTER_PATH"
+            rm -f "$checkout/$SOURCE_BOUND_PERF_LEGACY_BENCHMARK_PATH"
           }
 
           remove_all_overlays() {
@@ -213,15 +273,38 @@ jobs:
               "$adapter_sha256" \
               "delimiter benchmark API adapter overlay in $checkout" || return 1
           }
+          verify_source_bound_overlay() {
+            local checkout="$1"
+            local adapter_sha256="$SOURCE_BOUND_PERF_CURRENT_ADAPTER_SHA256"
+            if [[ "$checkout" == "perf-base" &&
+                  "$SOURCE_BOUND_PERF_BASE_ADAPTER_KIND" == "legacy" ]]; then
+              adapter_sha256="$SOURCE_BOUND_PERF_LEGACY_ADAPTER_SHA256"
+            fi
+            verify_file_hash \
+              "$checkout/$SOURCE_BOUND_PERF_HARNESS_PATH" \
+              "$SOURCE_BOUND_PERF_HARNESS_SHA256" \
+              "source-bound benchmark harness overlay in $checkout" || return 1
+            verify_file_hash \
+              "$checkout/$SOURCE_BOUND_PERF_ADAPTER_PATH" \
+              "$adapter_sha256" \
+              "source-bound benchmark API adapter overlay in $checkout" || return 1
+          }
 
           install_overlay() {
             local checkout="$1"
             local adapter_snapshot="$DELIMITER_PERF_CURRENT_ADAPTER_SNAPSHOT"
             local adapter_sha256="$DELIMITER_PERF_CURRENT_ADAPTER_SHA256"
+            local source_adapter_snapshot="$SOURCE_BOUND_PERF_CURRENT_ADAPTER_SNAPSHOT"
+            local source_adapter_sha256="$SOURCE_BOUND_PERF_CURRENT_ADAPTER_SHA256"
             if [[ "$checkout" == "perf-base" &&
                   "$DELIMITER_PERF_BASE_ADAPTER_KIND" == "legacy" ]]; then
               adapter_snapshot="$DELIMITER_PERF_LEGACY_ADAPTER_SNAPSHOT"
               adapter_sha256="$DELIMITER_PERF_LEGACY_ADAPTER_SHA256"
+            fi
+            if [[ "$checkout" == "perf-base" &&
+                  "$SOURCE_BOUND_PERF_BASE_ADAPTER_KIND" == "legacy" ]]; then
+              source_adapter_snapshot="$SOURCE_BOUND_PERF_LEGACY_ADAPTER_SNAPSHOT"
+              source_adapter_sha256="$SOURCE_BOUND_PERF_LEGACY_ADAPTER_SHA256"
             fi
             remove_overlay "$checkout"
             verify_file_hash \
@@ -232,11 +315,24 @@ jobs:
               "$adapter_snapshot" \
               "$adapter_sha256" \
               "delimiter benchmark API adapter snapshot" || return 1
+            verify_file_hash \
+              "$SOURCE_BOUND_PERF_HARNESS_SNAPSHOT" \
+              "$SOURCE_BOUND_PERF_HARNESS_SHA256" \
+              "source-bound benchmark harness snapshot" || return 1
+            verify_file_hash \
+              "$source_adapter_snapshot" \
+              "$source_adapter_sha256" \
+              "source-bound benchmark API adapter snapshot" || return 1
             install -m 0644 "$DELIMITER_PERF_HARNESS_SNAPSHOT" \
               "$checkout/$DELIMITER_PERF_HARNESS_PATH"
             install -m 0644 "$adapter_snapshot" \
               "$checkout/$DELIMITER_PERF_ADAPTER_PATH"
+            install -m 0644 "$SOURCE_BOUND_PERF_HARNESS_SNAPSHOT" \
+              "$checkout/$SOURCE_BOUND_PERF_HARNESS_PATH"
+            install -m 0644 "$source_adapter_snapshot" \
+              "$checkout/$SOURCE_BOUND_PERF_ADAPTER_PATH"
             verify_overlay "$checkout"
+            verify_source_bound_overlay "$checkout"
           }
 
           trap remove_all_overlays EXIT
@@ -269,6 +365,13 @@ jobs:
                   'keep the harness and its versioned API adapter compatible with both base and head' >&2
                 exit 1
               fi
+              if ! moon bench --release --target "$BENCH_TARGET" \
+                -p dowdiness/markdown -f markdown_document_benchmark_wbtest.mbt; then
+                printf '%s\n' \
+                  "source-bound Markdown benchmark failed for $label" \
+                  'keep the harness and its versioned API adapter compatible with both base and head' >&2
+                exit 1
+              fi
             ) > "$output" 2>&1 || command_status=$?
 
             hash_status=0
@@ -277,6 +380,11 @@ jobs:
               "$DELIMITER_PERF_HARNESS_SHA256" \
               "delimiter benchmark harness snapshot" || hash_status=$?
             verify_overlay "$checkout" || hash_status=$?
+            verify_file_hash \
+              "$SOURCE_BOUND_PERF_HARNESS_SNAPSHOT" \
+              "$SOURCE_BOUND_PERF_HARNESS_SHA256" \
+              "source-bound benchmark harness snapshot" || hash_status=$?
+            verify_source_bound_overlay "$checkout" || hash_status=$?
             remove_overlay "$checkout"
 
             if [[ "$hash_status" -ne 0 ]]; then
