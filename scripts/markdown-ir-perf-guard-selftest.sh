@@ -121,7 +121,7 @@ for trial in 1 2 3; do
   write_output "$fixture/drift-$trial" "200 us" "200 us" "2 ms" "2 ms"
   write_output "$fixture/control-noise-$trial" "50 us" "100 us" "0.5 ms" "1 ms"
   cp "$fixture/base-$trial" "$fixture/source-bound-regression-$trial"
-  sed -i "/$source_bound_block/{n;s/100 us/400 us/;}" \
+  sed -i "/$source_bound_block/{n;s/100 us/500 us/;}" \
     "$fixture/source-bound-regression-$trial"
   cp "$fixture/base-$trial" "$fixture/delimiter-calibration-$trial"
   sed -i "/$delimiter_64_full/{n;s/100 us/160 us/;}" \

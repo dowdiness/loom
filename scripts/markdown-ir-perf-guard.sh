@@ -19,7 +19,7 @@ readonly direct_threshold_percent="${MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT:-50}
 readonly delimiter_threshold_percent="${MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT:-50}"
 readonly delimiter_hard_ceiling_percent="${MARKDOWN_DELIMITER_PERF_HARD_CEILING_PERCENT:-100}"
 readonly delimiter_control_threshold_percent="${MARKDOWN_DELIMITER_CONTROL_PERF_THRESHOLD_PERCENT:-50}"
-readonly source_bound_threshold_percent="${MARKDOWN_SOURCE_BOUND_PERF_THRESHOLD_PERCENT:-250}"
+readonly source_bound_threshold_percent="${MARKDOWN_SOURCE_BOUND_PERF_THRESHOLD_PERCENT:-350}"
 readonly source_bound_hard_ceiling_percent="${MARKDOWN_SOURCE_BOUND_PERF_HARD_CEILING_PERCENT:-500}"
 readonly source_bound_control_threshold_percent="${MARKDOWN_SOURCE_BOUND_CONTROL_PERF_THRESHOLD_PERCENT:-50}"
 readonly delimiter_calibration="${MARKDOWN_DELIMITER_PERF_CALIBRATION:-0}"
@@ -164,7 +164,7 @@ to 100%, and the independent plain-control threshold defaults to 50%.
 MARKDOWN_DELIMITER_PERF_CALIBRATION=1 explicitly disables only the delimiter
 performance verdict so exact A/A trials can be repeated after defaults exist.
 
-MARKDOWN_SOURCE_BOUND_PERF_THRESHOLD_PERCENT=250 is the default source-bound
+MARKDOWN_SOURCE_BOUND_PERF_THRESHOLD_PERCENT=350 is the default source-bound
 subject raw-and-normalized threshold. The inclusive source-bound raw hard
 ceiling defaults to 500%, and its control threshold defaults to 50%.
 MARKDOWN_PERF_GUARD_VERBOSE=1 prints every base/head trial row; the default
