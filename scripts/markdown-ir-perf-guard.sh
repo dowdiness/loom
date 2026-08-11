@@ -19,10 +19,11 @@ readonly direct_threshold_percent="${MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT:-50}
 readonly delimiter_threshold_percent="${MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT:-50}"
 readonly delimiter_hard_ceiling_percent="${MARKDOWN_DELIMITER_PERF_HARD_CEILING_PERCENT:-100}"
 readonly delimiter_control_threshold_percent="${MARKDOWN_DELIMITER_CONTROL_PERF_THRESHOLD_PERCENT:-50}"
-readonly source_bound_threshold_percent="${MARKDOWN_SOURCE_BOUND_PERF_THRESHOLD_PERCENT:-350}"
-readonly source_bound_hard_ceiling_percent="${MARKDOWN_SOURCE_BOUND_PERF_HARD_CEILING_PERCENT:-500}"
+readonly source_bound_threshold_percent="${MARKDOWN_SOURCE_BOUND_PERF_THRESHOLD_PERCENT:-100}"
+readonly source_bound_hard_ceiling_percent="${MARKDOWN_SOURCE_BOUND_PERF_HARD_CEILING_PERCENT:-200}"
 readonly source_bound_control_threshold_percent="${MARKDOWN_SOURCE_BOUND_CONTROL_PERF_THRESHOLD_PERCENT:-50}"
 readonly delimiter_calibration="${MARKDOWN_DELIMITER_PERF_CALIBRATION:-0}"
+readonly source_bound_calibration="${MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION:-0}"
 readonly verbose="${MARKDOWN_PERF_GUARD_VERBOSE:-0}"
 readonly realistic_direct='markdown: realistic doc - lowering SyntaxNode -> Block'
 readonly realistic_ir='markdown: realistic doc - lowering SyntaxNode -> MarkdownIR -> Block'
@@ -164,9 +165,12 @@ to 100%, and the independent plain-control threshold defaults to 50%.
 MARKDOWN_DELIMITER_PERF_CALIBRATION=1 explicitly disables only the delimiter
 performance verdict so exact A/A trials can be repeated after defaults exist.
 
-MARKDOWN_SOURCE_BOUND_PERF_THRESHOLD_PERCENT=350 is the default source-bound
+MARKDOWN_SOURCE_BOUND_PERF_THRESHOLD_PERCENT=100 is the default source-bound
 subject raw-and-normalized threshold. The inclusive source-bound raw hard
-ceiling defaults to 500%, and its control threshold defaults to 50%.
+ceiling defaults to 200%, and its control threshold defaults to 50%.
+MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION=1 explicitly disables only the
+source-bound performance verdict so pre-document legacy-vs-current rows can be
+reported as cutover characterization without weakening current-adapter gates.
 MARKDOWN_PERF_GUARD_VERBOSE=1 prints every base/head trial row; the default
 output prints only the compact result and expands details on failure.
 EOF
@@ -194,6 +198,9 @@ fi
 if [[ "$delimiter_calibration" != 0 && "$delimiter_calibration" != 1 ]]; then
   infra_fail "MARKDOWN_DELIMITER_PERF_CALIBRATION must be 0 or 1"
 fi
+if [[ "$source_bound_calibration" != 0 && "$source_bound_calibration" != 1 ]]; then
+  infra_fail "MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION must be 0 or 1"
+fi
 if [[ ! "$delimiter_threshold_percent" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
   infra_fail "MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT must be a non-negative number"
 fi
@@ -219,6 +226,11 @@ if [[ "$delimiter_calibration" == 1 ]]; then
   delimiter_gated=0
 fi
 readonly delimiter_gated
+source_bound_gated=1
+if [[ "$source_bound_calibration" == 1 ]]; then
+  source_bound_gated=0
+fi
+readonly source_bound_gated
 
 work_dir=$(mktemp -d)
 details_file="$work_dir/trial-details.txt"
@@ -323,13 +335,24 @@ if [[ "$verbose" == 1 ]]; then
   elif [[ "$delimiter_calibration" == 1 ]]; then
     printf 'CALIBRATION: delimiter verdict disabled explicitly; recording deltas only\n'
   fi
-  printf 'Source-bound performance gate (subject threshold: +%s%% raw+normalized; hard ceiling: >=+%s%% raw; control threshold: +%s%% raw; persistence: %s/%s)\n' \
-    "$source_bound_threshold_percent" "$source_bound_hard_ceiling_percent" \
-    "$source_bound_control_threshold_percent" "$trial_pairs" "$trial_pairs"
+  if [[ "$source_bound_gated" -eq 1 ]]; then
+    printf 'Source-bound performance gate (subject threshold: +%s%% raw+normalized; hard ceiling: >=+%s%% raw; control threshold: +%s%% raw; persistence: %s/%s)\n' \
+      "$source_bound_threshold_percent" "$source_bound_hard_ceiling_percent" \
+      "$source_bound_control_threshold_percent" "$trial_pairs" "$trial_pairs"
+  else
+    printf 'CALIBRATION: source-bound verdict disabled explicitly; recording deltas only\n'
+  fi
 else
-  if [[ "$delimiter_calibration" == 1 ]]; then
+  if [[ "$delimiter_calibration" == 1 &&
+        "$source_bound_calibration" == 1 ]]; then
+    printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter calibration (non-gating); source-bound calibration (non-gating)\n' \
+      "$trial_pairs" "$threshold_percent"
+  elif [[ "$delimiter_calibration" == 1 ]]; then
     printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter calibration (non-gating); source-bound +%s%%\n' \
       "$trial_pairs" "$threshold_percent" "$source_bound_threshold_percent"
+  elif [[ "$source_bound_calibration" == 1 ]]; then
+    printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter +%s%%; source-bound calibration (non-gating)\n' \
+      "$trial_pairs" "$threshold_percent" "$delimiter_threshold_percent"
   else
     printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter +%s%%; source-bound +%s%%\n' \
       "$trial_pairs" "$threshold_percent" "$delimiter_threshold_percent" \
@@ -412,7 +435,7 @@ for trial in 1 2 3; do
       subject_hard_ceiling="$delimiter_hard_ceiling_percent"
       control_threshold="$delimiter_control_threshold_percent"
     else
-      gated=1
+      gated="$source_bound_gated"
       subject_threshold="$source_bound_threshold_percent"
       subject_hard_ceiling="$source_bound_hard_ceiling_percent"
       control_threshold="$source_bound_control_threshold_percent"
@@ -519,6 +542,31 @@ if [[ "$delimiter_calibration" == 1 && "$verbose" != 1 ]]; then
     "$trial_pairs"
   for ((case_index = 0; case_index < case_count; case_index++)); do
     [[ "${case_policies[$case_index]}" == delimiter ]] || continue
+    label="${case_labels[$case_index]}"
+    calibration_metrics=$(awk -F '\t' -v label="$label" '
+      $1 == label {
+        if (count == 0 || $2 < raw_min) raw_min = $2
+        if (count == 0 || $2 > raw_max) raw_max = $2
+        if (count == 0 || $3 < normalized_min) normalized_min = $3
+        if (count == 0 || $3 > normalized_max) normalized_max = $3
+        count++
+      }
+      END {
+        if (count > 0) {
+          printf "%.1f\t%.1f\t%.1f\t%.1f", raw_min, raw_max, normalized_min, normalized_max
+        }
+      }
+    ' "$calibration_file")
+    IFS=$'\t' read -r raw_min raw_max normalized_min normalized_max <<< "$calibration_metrics"
+    printf '  %s raw %+.1f..%+.1f%%; normalized %+.1f..%+.1f%%\n' \
+      "$label" "$raw_min" "$raw_max" "$normalized_min" "$normalized_max"
+  done
+fi
+if [[ "$source_bound_calibration" == 1 && "$verbose" != 1 ]]; then
+  printf 'CALIBRATION: source-bound verdict disabled; raw/normalized deltas over %s trials\n' \
+    "$trial_pairs"
+  for ((case_index = 0; case_index < case_count; case_index++)); do
+    [[ "${case_policies[$case_index]}" == source-bound ]] || continue
     label="${case_labels[$case_index]}"
     calibration_metrics=$(awk -F '\t' -v label="$label" '
       $1 == label {

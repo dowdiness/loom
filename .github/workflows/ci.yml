@@ -217,10 +217,13 @@ jobs:
       # source-bound benchmark harnesses are snapshotted from head and overlaid
       # identically on each checkout so a PR can introduce fail-closed rows
       # without making its base output structurally incomparable. Private
-      # adapters isolate parser-construction API cutovers; both sides use the
-      # current adapter once the base tracks it, while fixed legacy adapters
-      # support older bases. The checker blocks persistent regressions; the
-      # weekly detector remains the more sensitive absolute-baseline alert.
+      # adapters isolate parser-construction API cutovers; both sides use
+      # the current adapter once the base tracks it, while fixed legacy adapters
+      # support older bases. Pre-document bases report source-bound rows as
+      # explicit non-gating cutover characterization; current-adapter rows use
+      # the source-bound guard thresholds. The checker blocks persistent
+      # regressions; the weekly detector remains the more sensitive absolute-
+      # baseline alert.
       - name: Compare Markdown performance
         run: |
           set -euo pipefail
@@ -411,6 +414,9 @@ jobs:
           echo "Checking $BENCH_TARGET Markdown performance"
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             export MARKDOWN_DELIMITER_PERF_CALIBRATION=1
+          fi
+          if [[ "$SOURCE_BOUND_PERF_BASE_ADAPTER_KIND" == legacy ]]; then
+            export MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION=1
           fi
           bash perf-head/scripts/markdown-ir-perf-guard.sh \
             "$output_dir/base-1.txt" "$output_dir/head-1.txt" \

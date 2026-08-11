@@ -121,7 +121,7 @@ for trial in 1 2 3; do
   write_output "$fixture/drift-$trial" "200 us" "200 us" "2 ms" "2 ms"
   write_output "$fixture/control-noise-$trial" "50 us" "100 us" "0.5 ms" "1 ms"
   cp "$fixture/base-$trial" "$fixture/source-bound-regression-$trial"
-  sed -i "/$source_bound_block/{n;s/100 us/500 us/;}" \
+  sed -i "/$source_bound_block/{n;s/100 us/250 us/;}" \
     "$fixture/source-bound-regression-$trial"
   cp "$fixture/base-$trial" "$fixture/delimiter-calibration-$trial"
   sed -i "/$delimiter_64_full/{n;s/100 us/160 us/;}" \
@@ -154,6 +154,14 @@ run_case 1 \
   "$fixture/base-2" "$fixture/source-bound-regression-2" \
   "$fixture/base-3" "$fixture/source-bound-regression-3"
 assert_stdout_contains 'FAIL: persistent source-bound regression [Block adapter]'
+MARKDOWN_PERF_GUARD_VERBOSE=0 \
+MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION=1 run_case 0 \
+  "$fixture/base-1" "$fixture/source-bound-regression-1" \
+  "$fixture/base-2" "$fixture/source-bound-regression-2" \
+  "$fixture/base-3" "$fixture/source-bound-regression-3"
+assert_stdout_contains 'Markdown performance: 3 alternating base/head trials; IR +50%; delimiter +50%; source-bound calibration (non-gating)'
+assert_stdout_contains 'CALIBRATION: source-bound verdict disabled; raw/normalized deltas over 3 trials'
+assert_stdout_contains 'source-bound Block adapter raw +150.0..+150.0%; normalized +150.0..+150.0%'
 
 # Explicit A/A calibration keeps delimiter rows required and records their
 # deltas without making a delimiter performance verdict.
@@ -413,6 +421,11 @@ MARKDOWN_DELIMITER_PERF_CALIBRATION=2 run_case 2 \
   "$fixture/base-2" "$fixture/green-2" \
   "$fixture/base-3" "$fixture/green-3"
 assert_stderr_contains 'MARKDOWN_DELIMITER_PERF_CALIBRATION must be 0 or 1'
+MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION=2 run_case 2 \
+  "$fixture/base-1" "$fixture/green-1" \
+  "$fixture/base-2" "$fixture/green-2" \
+  "$fixture/base-3" "$fixture/green-3"
+assert_stderr_contains 'MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION must be 0 or 1'
 
 run_case 2 "$fixture/base-1" "$fixture/green-1"
 assert_stderr_contains 'exactly 3 base/head trial pairs'
