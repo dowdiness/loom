@@ -17,6 +17,15 @@ readonly delimiter_256_full='markdown delimiter-heavy 256x full parse'
 readonly plain_256_full='markdown plain-control 256x full parse'
 readonly delimiter_256_incremental='markdown delimiter-heavy 256x incremental edit+restore'
 readonly plain_256_incremental='markdown plain-control 256x incremental edit+restore'
+readonly source_bound_control='perf source-bound benchmark control'
+readonly source_bound_parse='perf source-bound parse_document 100 paragraphs'
+readonly source_bound_semantic='perf source-bound semantic_read 100 paragraphs'
+readonly source_bound_block='perf source-bound Block adapter 100 paragraphs'
+readonly source_bound_mdast='perf source-bound mdast adapter 100 paragraphs'
+readonly source_bound_preserve='perf source-bound preserve rewrite 100 paragraphs'
+readonly source_bound_local='perf source-bound local rewrite selection'
+readonly source_bound_ir_only='perf source-bound IR-only target through read'
+readonly source_bound_attachment='perf source-bound attachment source_document'
 
 write_output() {
   local path="$1" realistic_direct="$2" realistic_ir="$3"
@@ -46,6 +55,24 @@ write_output() {
   2 ms
 [bench] ("$plain_256_incremental") ok
   2 ms
+[bench] ("$source_bound_control") ok
+  100 us
+[bench] ("$source_bound_parse") ok
+  100 us
+[bench] ("$source_bound_semantic") ok
+  100 us
+[bench] ("$source_bound_block") ok
+  100 us
+[bench] ("$source_bound_mdast") ok
+  100 us
+[bench] ("$source_bound_preserve") ok
+  100 us
+[bench] ("$source_bound_local") ok
+  100 us
+[bench] ("$source_bound_ir_only") ok
+  100 us
+[bench] ("$source_bound_attachment") ok
+  100 us
 EOF
 }
 
@@ -93,6 +120,9 @@ for trial in 1 2 3; do
     "160 us" "100 us" "1.6 ms" "1 ms"
   write_output "$fixture/drift-$trial" "200 us" "200 us" "2 ms" "2 ms"
   write_output "$fixture/control-noise-$trial" "50 us" "100 us" "0.5 ms" "1 ms"
+  cp "$fixture/base-$trial" "$fixture/source-bound-regression-$trial"
+  sed -i "/$source_bound_block/{n;s/100 us/250 us/;}" \
+    "$fixture/source-bound-regression-$trial"
   cp "$fixture/base-$trial" "$fixture/delimiter-calibration-$trial"
   sed -i "/$delimiter_64_full/{n;s/100 us/160 us/;}" \
     "$fixture/delimiter-calibration-$trial"
@@ -118,6 +148,20 @@ run_case 0 \
   "$fixture/base-3" "$fixture/green-3"
 assert_stdout_contains 'PASS: no persistent Markdown lowering regression'
 assert_stdout_contains 'Delimiter performance gate (subject threshold: +50% raw+normalized; hard ceiling: >=+100% raw; plain-control threshold: +50% raw'
+
+run_case 1 \
+  "$fixture/base-1" "$fixture/source-bound-regression-1" \
+  "$fixture/base-2" "$fixture/source-bound-regression-2" \
+  "$fixture/base-3" "$fixture/source-bound-regression-3"
+assert_stdout_contains 'FAIL: persistent source-bound regression [Block adapter]'
+MARKDOWN_PERF_GUARD_VERBOSE=0 \
+MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION=1 run_case 0 \
+  "$fixture/base-1" "$fixture/source-bound-regression-1" \
+  "$fixture/base-2" "$fixture/source-bound-regression-2" \
+  "$fixture/base-3" "$fixture/source-bound-regression-3"
+assert_stdout_contains 'Markdown performance: 3 alternating base/head trials; IR +50%; delimiter +50%; source-bound calibration (non-gating)'
+assert_stdout_contains 'CALIBRATION: source-bound verdict disabled; raw/normalized deltas over 3 trials'
+assert_stdout_contains 'source-bound Block adapter raw +150.0..+150.0%; normalized +150.0..+150.0%'
 
 # Explicit A/A calibration keeps delimiter rows required and records their
 # deltas without making a delimiter performance verdict.
@@ -377,6 +421,11 @@ MARKDOWN_DELIMITER_PERF_CALIBRATION=2 run_case 2 \
   "$fixture/base-2" "$fixture/green-2" \
   "$fixture/base-3" "$fixture/green-3"
 assert_stderr_contains 'MARKDOWN_DELIMITER_PERF_CALIBRATION must be 0 or 1'
+MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION=2 run_case 2 \
+  "$fixture/base-1" "$fixture/green-1" \
+  "$fixture/base-2" "$fixture/green-2" \
+  "$fixture/base-3" "$fixture/green-3"
+assert_stderr_contains 'MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION must be 0 or 1'
 
 run_case 2 "$fixture/base-1" "$fixture/green-1"
 assert_stderr_contains 'exactly 3 base/head trial pairs'

@@ -19,7 +19,11 @@ readonly direct_threshold_percent="${MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT:-50}
 readonly delimiter_threshold_percent="${MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT:-50}"
 readonly delimiter_hard_ceiling_percent="${MARKDOWN_DELIMITER_PERF_HARD_CEILING_PERCENT:-100}"
 readonly delimiter_control_threshold_percent="${MARKDOWN_DELIMITER_CONTROL_PERF_THRESHOLD_PERCENT:-50}"
+readonly source_bound_threshold_percent="${MARKDOWN_SOURCE_BOUND_PERF_THRESHOLD_PERCENT:-100}"
+readonly source_bound_hard_ceiling_percent="${MARKDOWN_SOURCE_BOUND_PERF_HARD_CEILING_PERCENT:-200}"
+readonly source_bound_control_threshold_percent="${MARKDOWN_SOURCE_BOUND_CONTROL_PERF_THRESHOLD_PERCENT:-50}"
 readonly delimiter_calibration="${MARKDOWN_DELIMITER_PERF_CALIBRATION:-0}"
+readonly source_bound_calibration="${MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION:-0}"
 readonly verbose="${MARKDOWN_PERF_GUARD_VERBOSE:-0}"
 readonly realistic_direct='markdown: realistic doc - lowering SyntaxNode -> Block'
 readonly realistic_ir='markdown: realistic doc - lowering SyntaxNode -> MarkdownIR -> Block'
@@ -33,6 +37,16 @@ readonly delimiter_256_full='markdown delimiter-heavy 256x full parse'
 readonly plain_256_full='markdown plain-control 256x full parse'
 readonly delimiter_256_incremental='markdown delimiter-heavy 256x incremental edit+restore'
 readonly plain_256_incremental='markdown plain-control 256x incremental edit+restore'
+readonly source_bound_control='perf source-bound benchmark control'
+readonly source_bound_parse='perf source-bound parse_document 100 paragraphs'
+readonly source_bound_semantic='perf source-bound semantic_read 100 paragraphs'
+readonly source_bound_block='perf source-bound Block adapter 100 paragraphs'
+readonly source_bound_mdast='perf source-bound mdast adapter 100 paragraphs'
+readonly source_bound_preserve='perf source-bound preserve rewrite 100 paragraphs'
+readonly source_bound_local='perf source-bound local rewrite selection'
+readonly source_bound_ir_only='perf source-bound IR-only target through read'
+readonly source_bound_attachment='perf source-bound attachment source_document'
+
 readonly -a case_labels=(
   'realistic'
   '50x'
@@ -40,6 +54,14 @@ readonly -a case_labels=(
   'delimiter 64x incremental edit+restore'
   'delimiter 256x full parse'
   'delimiter 256x incremental edit+restore'
+  'source-bound parse_document'
+  'source-bound semantic_read'
+  'source-bound Block adapter'
+  'source-bound mdast adapter'
+  'source-bound preserve rewrite'
+  'source-bound local rewrite selection'
+  'source-bound IR-only target'
+  'source-bound attachment source_document'
 )
 readonly -a case_controls=(
   "$realistic_direct"
@@ -48,6 +70,14 @@ readonly -a case_controls=(
   "$plain_64_incremental"
   "$plain_256_full"
   "$plain_256_incremental"
+  "$source_bound_control"
+  "$source_bound_control"
+  "$source_bound_control"
+  "$source_bound_control"
+  "$source_bound_control"
+  "$source_bound_control"
+  "$source_bound_control"
+  "$source_bound_control"
 )
 readonly -a case_subjects=(
   "$realistic_ir"
@@ -56,6 +86,14 @@ readonly -a case_subjects=(
   "$delimiter_64_incremental"
   "$delimiter_256_full"
   "$delimiter_256_incremental"
+  "$source_bound_parse"
+  "$source_bound_semantic"
+  "$source_bound_block"
+  "$source_bound_mdast"
+  "$source_bound_preserve"
+  "$source_bound_local"
+  "$source_bound_ir_only"
+  "$source_bound_attachment"
 )
 readonly -a case_policies=(
   'legacy'
@@ -64,6 +102,14 @@ readonly -a case_policies=(
   'delimiter'
   'delimiter'
   'delimiter'
+  'source-bound'
+  'source-bound'
+  'source-bound'
+  'source-bound'
+  'source-bound'
+  'source-bound'
+  'source-bound'
+  'source-bound'
 )
 readonly -a case_control_displays=(
   'direct'
@@ -72,6 +118,14 @@ readonly -a case_control_displays=(
   'plain-control'
   'plain-control'
   'plain-control'
+  'source-bound control'
+  'source-bound control'
+  'source-bound control'
+  'source-bound control'
+  'source-bound control'
+  'source-bound control'
+  'source-bound control'
+  'source-bound control'
 )
 readonly -a case_subject_displays=(
   'IR'
@@ -80,17 +134,25 @@ readonly -a case_subject_displays=(
   'subject'
   'subject'
   'subject'
+  'parse_document'
+  'semantic_read'
+  'Block adapter'
+  'mdast adapter'
+  'preserve rewrite'
+  'local rewrite'
+  'IR-only target'
+  'attachment source_document'
 )
-readonly case_count="${#case_labels[@]}"
 
+readonly case_count="${#case_labels[@]}"
 usage() {
   cat >&2 <<'EOF'
 Usage: markdown-ir-perf-guard.sh BASE_1 HEAD_1 BASE_2 HEAD_2 BASE_3 HEAD_3
 
-Each argument is raw `moon bench` output containing the four Markdown lowering
-benchmarks and eight delimiter/plain-control benchmarks. Exit 0 means no
-persistent regression, 1 means regression, and 2 means the comparison input or
-verifier is invalid.
+Each argument is raw `moon bench` output containing the four Markdown lowering,
+eight delimiter/plain-control benchmarks, and the source-bound control plus
+eight source-bound benchmarks. Exit 0 means no persistent regression, 1 means
+regression, and 2 means the comparison input or verifier is invalid.
 
 MARKDOWN_IR_PERF_HARD_CEILING_PERCENT=100 is the default inclusive raw-slowdown
 ceiling. Override it with a positive percentage when runner policy requires it.
@@ -102,6 +164,13 @@ raw-and-normalized threshold. The inclusive delimiter raw hard ceiling defaults
 to 100%, and the independent plain-control threshold defaults to 50%.
 MARKDOWN_DELIMITER_PERF_CALIBRATION=1 explicitly disables only the delimiter
 performance verdict so exact A/A trials can be repeated after defaults exist.
+
+MARKDOWN_SOURCE_BOUND_PERF_THRESHOLD_PERCENT=100 is the default source-bound
+subject raw-and-normalized threshold. The inclusive source-bound raw hard
+ceiling defaults to 200%, and its control threshold defaults to 50%.
+MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION=1 explicitly disables only the
+source-bound performance verdict so pre-document legacy-vs-current rows can be
+reported as cutover characterization without weakening current-adapter gates.
 MARKDOWN_PERF_GUARD_VERBOSE=1 prints every base/head trial row; the default
 output prints only the compact result and expands details on failure.
 EOF
@@ -129,6 +198,9 @@ fi
 if [[ "$delimiter_calibration" != 0 && "$delimiter_calibration" != 1 ]]; then
   infra_fail "MARKDOWN_DELIMITER_PERF_CALIBRATION must be 0 or 1"
 fi
+if [[ "$source_bound_calibration" != 0 && "$source_bound_calibration" != 1 ]]; then
+  infra_fail "MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION must be 0 or 1"
+fi
 if [[ ! "$delimiter_threshold_percent" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
   infra_fail "MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT must be a non-negative number"
 fi
@@ -139,11 +211,26 @@ fi
 if [[ ! "$delimiter_control_threshold_percent" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
   infra_fail "MARKDOWN_DELIMITER_CONTROL_PERF_THRESHOLD_PERCENT must be a non-negative number"
 fi
+if [[ ! "$source_bound_threshold_percent" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  infra_fail "MARKDOWN_SOURCE_BOUND_PERF_THRESHOLD_PERCENT must be a non-negative number"
+fi
+if [[ ! "$source_bound_hard_ceiling_percent" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
+  ! awk -v value="$source_bound_hard_ceiling_percent" 'BEGIN { exit !(value > 0) }'; then
+  infra_fail "MARKDOWN_SOURCE_BOUND_PERF_HARD_CEILING_PERCENT must be a positive number"
+fi
+if [[ ! "$source_bound_control_threshold_percent" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  infra_fail "MARKDOWN_SOURCE_BOUND_CONTROL_PERF_THRESHOLD_PERCENT must be a non-negative number"
+fi
 delimiter_gated=1
 if [[ "$delimiter_calibration" == 1 ]]; then
   delimiter_gated=0
 fi
 readonly delimiter_gated
+source_bound_gated=1
+if [[ "$source_bound_calibration" == 1 ]]; then
+  source_bound_gated=0
+fi
+readonly source_bound_gated
 
 work_dir=$(mktemp -d)
 details_file="$work_dir/trial-details.txt"
@@ -248,13 +335,28 @@ if [[ "$verbose" == 1 ]]; then
   elif [[ "$delimiter_calibration" == 1 ]]; then
     printf 'CALIBRATION: delimiter verdict disabled explicitly; recording deltas only\n'
   fi
-else
-  if [[ "$delimiter_calibration" == 1 ]]; then
-    printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter calibration (non-gating)\n' \
-      "$trial_pairs" "$threshold_percent"
+  if [[ "$source_bound_gated" -eq 1 ]]; then
+    printf 'Source-bound performance gate (subject threshold: +%s%% raw+normalized; hard ceiling: >=+%s%% raw; control threshold: +%s%% raw; persistence: %s/%s)\n' \
+      "$source_bound_threshold_percent" "$source_bound_hard_ceiling_percent" \
+      "$source_bound_control_threshold_percent" "$trial_pairs" "$trial_pairs"
   else
-    printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter +%s%%\n' \
+    printf 'CALIBRATION: source-bound verdict disabled explicitly; recording deltas only\n'
+  fi
+else
+  if [[ "$delimiter_calibration" == 1 &&
+        "$source_bound_calibration" == 1 ]]; then
+    printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter calibration (non-gating); source-bound calibration (non-gating)\n' \
+      "$trial_pairs" "$threshold_percent"
+  elif [[ "$delimiter_calibration" == 1 ]]; then
+    printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter calibration (non-gating); source-bound +%s%%\n' \
+      "$trial_pairs" "$threshold_percent" "$source_bound_threshold_percent"
+  elif [[ "$source_bound_calibration" == 1 ]]; then
+    printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter +%s%%; source-bound calibration (non-gating)\n' \
       "$trial_pairs" "$threshold_percent" "$delimiter_threshold_percent"
+  else
+    printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter +%s%%; source-bound +%s%%\n' \
+      "$trial_pairs" "$threshold_percent" "$delimiter_threshold_percent" \
+      "$source_bound_threshold_percent"
   fi
 fi
 
@@ -327,11 +429,16 @@ for trial in 1 2 3; do
       subject_threshold="$threshold_percent"
       subject_hard_ceiling="$hard_ceiling_percent"
       control_threshold="$direct_threshold_percent"
-    else
+    elif [[ "${case_policies[$case_index]}" == delimiter ]]; then
       gated="$delimiter_gated"
-      subject_threshold="${delimiter_threshold_percent:-0}"
-      subject_hard_ceiling="${delimiter_hard_ceiling_percent:-0}"
-      control_threshold="${delimiter_control_threshold_percent:-0}"
+      subject_threshold="$delimiter_threshold_percent"
+      subject_hard_ceiling="$delimiter_hard_ceiling_percent"
+      control_threshold="$delimiter_control_threshold_percent"
+    else
+      gated="$source_bound_gated"
+      subject_threshold="$source_bound_threshold_percent"
+      subject_hard_ceiling="$source_bound_hard_ceiling_percent"
+      control_threshold="$source_bound_control_threshold_percent"
     fi
     check_case \
       "$trial" \
@@ -400,11 +507,66 @@ if [[ "$delimiter_control_failed" -eq 1 ]]; then
   printf '\n'
   failed=1
 fi
+source_bound_failed=0
+for ((case_index = 0; case_index < case_count; case_index++)); do
+  [[ "${case_policies[$case_index]}" == source-bound ]] || continue
+  if [[ "${case_bad_counts[$case_index]}" -eq "$trial_pairs" ]]; then
+    if [[ "$source_bound_failed" -eq 0 ]]; then
+      printf 'FAIL: persistent source-bound regression'
+    fi
+    printf ' [%s]' "${case_labels[$case_index]#source-bound }"
+    source_bound_failed=1
+  fi
+done
+if [[ "$source_bound_failed" -eq 1 ]]; then
+  printf '\n'
+  failed=1
+fi
+source_bound_control_failed=0
+for ((case_index = 0; case_index < case_count; case_index++)); do
+  [[ "${case_policies[$case_index]}" == source-bound ]] || continue
+  if [[ "${case_control_bad_counts[$case_index]}" -eq "$trial_pairs" ]]; then
+    if [[ "$source_bound_control_failed" -eq 0 ]]; then
+      printf 'FAIL: persistent source-bound control regression'
+    fi
+    printf ' [%s]' "${case_labels[$case_index]#source-bound }"
+    source_bound_control_failed=1
+  fi
+done
+if [[ "$source_bound_control_failed" -eq 1 ]]; then
+  printf '\n'
+  failed=1
+fi
 if [[ "$delimiter_calibration" == 1 && "$verbose" != 1 ]]; then
   printf 'CALIBRATION: delimiter verdict disabled; raw/normalized deltas over %s trials\n' \
     "$trial_pairs"
   for ((case_index = 0; case_index < case_count; case_index++)); do
     [[ "${case_policies[$case_index]}" == delimiter ]] || continue
+    label="${case_labels[$case_index]}"
+    calibration_metrics=$(awk -F '\t' -v label="$label" '
+      $1 == label {
+        if (count == 0 || $2 < raw_min) raw_min = $2
+        if (count == 0 || $2 > raw_max) raw_max = $2
+        if (count == 0 || $3 < normalized_min) normalized_min = $3
+        if (count == 0 || $3 > normalized_max) normalized_max = $3
+        count++
+      }
+      END {
+        if (count > 0) {
+          printf "%.1f\t%.1f\t%.1f\t%.1f", raw_min, raw_max, normalized_min, normalized_max
+        }
+      }
+    ' "$calibration_file")
+    IFS=$'\t' read -r raw_min raw_max normalized_min normalized_max <<< "$calibration_metrics"
+    printf '  %s raw %+.1f..%+.1f%%; normalized %+.1f..%+.1f%%\n' \
+      "$label" "$raw_min" "$raw_max" "$normalized_min" "$normalized_max"
+  done
+fi
+if [[ "$source_bound_calibration" == 1 && "$verbose" != 1 ]]; then
+  printf 'CALIBRATION: source-bound verdict disabled; raw/normalized deltas over %s trials\n' \
+    "$trial_pairs"
+  for ((case_index = 0; case_index < case_count; case_index++)); do
+    [[ "${case_policies[$case_index]}" == source-bound ]] || continue
     label="${case_labels[$case_index]}"
     calibration_metrics=$(awk -F '\t' -v label="$label" '
       $1 == label {
@@ -439,7 +601,8 @@ if [[ "$bad_realistic" -gt 0 || "$bad_scaled" -gt 0 ||
   has_non_persistent=1
 fi
 for ((case_index = 0; case_index < case_count; case_index++)); do
-  [[ "${case_policies[$case_index]}" == delimiter ]] || continue
+  [[ "${case_policies[$case_index]}" == delimiter ||
+     "${case_policies[$case_index]}" == source-bound ]] || continue
   if [[ "${case_bad_counts[$case_index]}" -gt 0 ||
         "${case_control_bad_counts[$case_index]}" -gt 0 ]]; then
     has_non_persistent=1
@@ -450,15 +613,26 @@ if [[ "$has_non_persistent" -eq 1 ]]; then
     "$bad_realistic" "$trial_pairs" "$bad_scaled" "$trial_pairs" \
     "$bad_direct_realistic" "$trial_pairs" "$bad_direct_scaled" "$trial_pairs"
   for ((case_index = 0; case_index < case_count; case_index++)); do
-    [[ "${case_policies[$case_index]}" == delimiter ]] || continue
-    if [[ "${case_bad_counts[$case_index]}" -gt 0 ]]; then
-      printf ', %s=%s/%s' "${case_labels[$case_index]}" \
-        "${case_bad_counts[$case_index]}" "$trial_pairs"
-    fi
-    if [[ "${case_control_bad_counts[$case_index]}" -gt 0 ]]; then
-      printf ', plain-control %s=%s/%s' \
-        "${case_labels[$case_index]#delimiter }" \
-        "${case_control_bad_counts[$case_index]}" "$trial_pairs"
+    if [[ "${case_policies[$case_index]}" == delimiter ]]; then
+      if [[ "${case_bad_counts[$case_index]}" -gt 0 ]]; then
+        printf ', %s=%s/%s' "${case_labels[$case_index]}" \
+          "${case_bad_counts[$case_index]}" "$trial_pairs"
+      fi
+      if [[ "${case_control_bad_counts[$case_index]}" -gt 0 ]]; then
+        printf ', plain-control %s=%s/%s' \
+          "${case_labels[$case_index]#delimiter }" \
+          "${case_control_bad_counts[$case_index]}" "$trial_pairs"
+      fi
+    elif [[ "${case_policies[$case_index]}" == source-bound ]]; then
+      if [[ "${case_bad_counts[$case_index]}" -gt 0 ]]; then
+        printf ', %s=%s/%s' "${case_labels[$case_index]}" \
+          "${case_bad_counts[$case_index]}" "$trial_pairs"
+      fi
+      if [[ "${case_control_bad_counts[$case_index]}" -gt 0 ]]; then
+        printf ', source-bound control %s=%s/%s' \
+          "${case_labels[$case_index]#source-bound }" \
+          "${case_control_bad_counts[$case_index]}" "$trial_pairs"
+      fi
     fi
   done
   printf ')'

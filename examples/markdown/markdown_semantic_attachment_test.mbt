@@ -181,6 +181,40 @@ test "Markdown semantic attachment returns retained owning documents" {
 }
 
 ///|
+test "Markdown semantic attachment source_document reads are independent" {
+  let source_id = @core.SourceId("markdown-semantic-attachment-source-reads")
+  let source = "# old\n\nparagraph\n"
+  let updated = "> new\n\nparagraph\n"
+  let parser = markdown_semantic_attachment_test_parser(source_id, source)
+  let attachment = MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+    parser,
+  )
+  let initial_ir = attachment.document()
+  let initial_source = attachment.source_document()
+  let repeated_source = attachment.source_document()
+  assert_eq(
+    initial_ir,
+    markdown_semantic_attachment_test_fresh_source(source_id, source),
+  )
+  assert_eq(initial_source.source(), source)
+  assert_eq(repeated_source.source(), source)
+  parser.set_source(updated)
+  let updated_source = attachment.source_document()
+  let updated_ir = attachment.document()
+  assert_eq(updated_source.source(), updated)
+  assert_eq(
+    updated_ir,
+    markdown_semantic_attachment_test_fresh_source(source_id, updated),
+  )
+  assert_eq(initial_source.source(), source)
+  attachment.dispose()
+  parser.set_source("after-disposal\n")
+  assert_eq(initial_source.source(), source)
+  assert_eq(repeated_source.source(), source)
+  assert_eq(updated_source.source(), updated)
+}
+
+///|
 test "Markdown semantic attachment disposal before first read is safe" {
   let source_id = @core.SourceId("markdown-semantic-attachment-early-dispose")
   let source = "# heading\n"
@@ -208,4 +242,17 @@ test "panic Markdown semantic attachment rejects reads after disposal" {
   )
   attachment.dispose()
   ignore(attachment.document())
+}
+
+///|
+test "panic Markdown semantic attachment rejects source_document after disposal" {
+  let parser = markdown_semantic_attachment_test_parser(
+    @core.SourceId("markdown-semantic-attachment-disposed-source-document"),
+    "paragraph\n",
+  )
+  let attachment = MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+    parser,
+  )
+  attachment.dispose()
+  ignore(attachment.source_document())
 }

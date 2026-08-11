@@ -517,6 +517,11 @@ fn place_local_link_surface(surface : LinkSurface, base : Int) -> LinkSurface {
     } else {
       surface.title_origin
     },
+    target_origin: if destination_is_block_owned {
+      shift_optional_local_origin(surface.target_origin, base)
+    } else {
+      surface.target_origin
+    },
   }
 }
 

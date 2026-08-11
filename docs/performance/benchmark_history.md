@@ -2,6 +2,141 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-08-10 (Markdown source-bound semantic document)
+
+- Issue: [#913](https://github.com/dowdiness/loom/issues/913)
+- Base revision: `aa7562c0606dac50b3f40c0f40ee8961778b753d`
+- Head revision: `e89e6d3406711fd7ff464d10f495ed55223931dd`
+- Environment: WSL2, Linux 6.18.33.2, x86_64
+- Toolchain: Moon `0.1.20260713`
+- Targets: release wasm-gc and JavaScript
+- Comparison: three alternating base/head trial pairs per target on one runner
+- Guard command:
+  `bash scripts/markdown-ir-perf-guard.sh BASE_1 HEAD_1 BASE_2 HEAD_2 BASE_3 HEAD_3`
+- Benchmark commands:
+  `moon bench --release --target <target> -p dowdiness/markdown -f benchmark_test.mbt`
+  and
+  `moon bench --release --target <target> -p dowdiness/markdown -f delimiter_performance_wbtest.mbt`
+- Source-bound characterization:
+  `moon bench --release --target <target> -p dowdiness/markdown -f markdown_document_benchmark_test.mbt`
+
+Both target runs completed with:
+
+```text
+PASS: no persistent Markdown lowering regression
+```
+
+The largest positive gated changes parsed by the guard were:
+
+| Target | Case | Subject raw | Normalized |
+|---|---|---:|---:|
+| wasm-gc | realistic IR lowering | +5.0% | +0.7% |
+| wasm-gc | 50x IR lowering | +4.8% | +0.9% |
+| wasm-gc | delimiter 64x full parse | +9.5% | +9.2% |
+| wasm-gc | delimiter 64x incremental | -0.2% | +3.5% |
+| wasm-gc | delimiter 256x full parse | +2.8% | +8.7% |
+| wasm-gc | delimiter 256x incremental | -1.9% | +1.3% |
+| JavaScript | realistic IR lowering | +2.3% | +1.0% |
+| JavaScript | 50x IR lowering | +2.2% | -1.4% |
+| JavaScript | delimiter 64x full parse | +0.8% | +7.3% |
+| JavaScript | delimiter 64x incremental | +0.5% | +2.4% |
+| JavaScript | delimiter 256x full parse | +3.1% | +11.3% |
+| JavaScript | delimiter 256x incremental | -3.4% | +4.9% |
+
+The new source-bound cold-path benchmark is head-only characterization because
+the base revision predates the `MarkdownDocument` API. These rows are recorded
+separately and are not presented as a cross-revision timing claim:
+
+| Source-bound row | JavaScript | wasm-gc |
+|---|---:|---:|
+| `parse_document`, 100 paragraphs | 2.36 ms | 1.70 ms |
+| `semantic_read`, 100 paragraphs | 1.20 ms | 1.07 ms |
+| `Block` adapter, 100 paragraphs | 120.26 µs | 120.34 µs |
+| mdast adapter, 100 paragraphs | 1.14 ms | 767.28 µs |
+| preserve rewrite, 100 paragraphs | 14.91 ns | 16.73 ns |
+| local rewrite selection | 365.63 ns | 660.87 ns |
+| IR-only target through `read.ir()` | 105.79 µs | 98.47 µs |
+| `source_document()` attachment read | 1.87 µs | 1.06 µs |
+
+For an explicit base/head pairing of the new cold paths, the base run used the
+semantically equivalent legacy composition at `aa7562c0`: `parse_cst` plus
+`SyntaxNode` construction, direct MarkdownIR lowering, the existing IR target
+adapters, and `MarkdownSemanticAttachment::document()`. The head run used the
+source-bound document benchmark above. These are single-run stage
+measurements, not additional PR-guard rows:
+
+| Path | JavaScript base → head | wasm-gc base → head |
+|---|---:|---:|
+| parse/CST snapshot → `parse_document` | 2.90 → 2.36 ms (-18.6%) | 2.47 → 1.70 ms (-31.2%) |
+| direct IR lowering → `semantic_read` | 1.15 → 1.20 ms (+4.3%) | 799.30 → 1,070 µs (+33.9%) |
+| legacy IR `Block` → source-bound `Block` | 42.08 → 120.26 µs (+185.8%) | 43.96 → 120.34 µs (+173.8%) |
+| position-aware mdast adapter | 1.01 → 1.14 ms (+12.9%) | 598.56 → 767.28 µs (+28.2%) |
+| `(MarkdownIR, source)` preserve rewrite | 13.88 → 14.91 ns (+7.4%) | 19.22 → 16.73 ns (-13.0%) |
+| free-origin local rewrite → selection | 412.82 → 365.63 ns (-11.4%) | 756.38 → 660.87 ns (-12.6%) |
+| IR-only HTML via `read.ir()` | 113.08 → 105.79 µs (-6.4%) | 122.12 → 98.47 µs (-19.4%) |
+| attachment `document()` → `source_document()` | 45.11 → 1.87 µs (-95.9%) | 17.74 → 1.06 µs (-94.0%) |
+
+The `Block` and attachment rows intentionally compare the old compatibility
+operation with the new source-bound operation whose semantics and ownership
+contract changed; they remain stage attribution rather than acceptance gates.
+
+The established compile-compatible base/head guard is the regression verdict;
+the source-bound rows make the new cold paths measurable without implying that
+the pre-API base revision can execute them.
+
+## 2026-08-11 (source-bound benchmark guard)
+
+- Issue: [#913](https://github.com/dowdiness/loom/issues/913)
+- Base revision: `e89e6d3406711fd7ff464d10f495ed55223931dd`
+- Head revision: `ee53255415ae030de8bd2689f5d8e5be82644a9e` (source API capability classification and CI overlay)
+- Environment: WSL2, Linux 6.18.33.2, x86_64
+- Toolchain: Moon `0.1.20260713`
+- Targets: release wasm-gc and JavaScript
+- Comparison: three base/head trial pairs per target on one runner
+- Guard command:
+  `bash scripts/markdown-ir-perf-guard.sh BASE_1 HEAD_1 BASE_2 HEAD_2 BASE_3 HEAD_3`
+- Source-bound benchmark command:
+  `moon bench --release --target <target> -p dowdiness/markdown -f
+  markdown_document_benchmark_wbtest.mbt`
+
+The source-bound benchmark intentionally uses a 100-paragraph focused corpus
+to isolate the new cold paths. It supplements, and does not replace, the
+established 500-paragraph full-parse benchmark contract.
+
+The source-bound control and eight source-bound rows are now required in
+every guard input. CI classifies the base through a source API capability
+probe, not the benchmark document path: supported current revisions expose
+the document read capability, while known pre-document revisions use the
+legacy adapter overlay. An unknown capability fails the snapshot step instead
+of enabling calibration. Legacy rows remain required and are reported as
+cutover characterization, but they are not a regression verdict; current
+adapter rows use the source-bound gate without changing its threshold.
+
+Both target runs completed with:
+
+```text
+PASS: no persistent Markdown lowering regression
+```
+
+The largest positive source-bound changes observed in the three trials were:
+
+| Target | Row | Subject raw | Normalized |
+|---|---|---:|---:|
+| JavaScript | IR-only target through `read.ir()` | +148.7% | +134.3% |
+| JavaScript | mdast adapter | +76.1% | +71.5% |
+| JavaScript | Block adapter | +50.4% | +41.8% |
+| wasm-gc | Block adapter | +10.0% | +15.5% |
+| wasm-gc | mdast adapter | +4.8% | +2.2% |
+
+For current-adapter comparisons, the source-bound gate defaults to a strict
+`+100%` raw-and-normalized subject threshold, an inclusive `>=+200%` raw hard
+ceiling, an independent `+50%` control threshold, and `3/3` persistence. The
+recorded `e89e6d3` base already contains the document-backed adapter, so its
+source-bound rows are acceptance-gated; the JavaScript IR-only and attachment
+outliers were non-persistent. Pre-document legacy-vs-current rows use the
+explicit calibration mode above rather than weakening this current-adapter
+gate.
+
 ## 2026-08-05 (core collection ownership Phase 0 baseline)
 
 - Issue: [#877](https://github.com/dowdiness/loom/issues/877)

@@ -1328,7 +1328,7 @@ fn lower_link_node_atoms_with_diags(
       match parse_inline_link_target(context.source[start:end].to_owned()) {
         Some(target) =>
           [
-            MarkdownIR::link_with_metadata(
+            MarkdownIR::link_with_target_metadata(
               normalized_display,
               target.destination,
               target.title,
@@ -1352,6 +1352,7 @@ fn lower_link_node_atoms_with_diags(
                   )
                 _ => None
               },
+              Some(MarkdownIROrigin(start~, end~)),
             ),
           ]
         None => lower_literal_link_node_atoms(node, context)
