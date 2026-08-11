@@ -121,7 +121,7 @@ The largest positive source-bound changes observed in the three trials were:
 | wasm-gc | Block adapter | +10.0% | +15.5% |
 | wasm-gc | mdast adapter | +4.8% | +2.2% |
 
-The source-bound gate defaults to a strict `+250%` raw-and-normalized subject
+The source-bound gate defaults to a strict `+350%` raw-and-normalized subject
 threshold, an inclusive `>=+500%` raw hard ceiling, and an independent `+50%`
 control threshold. The larger subject threshold is deliberate for the
 legacy-to-document adapter cutover, where ownership and projection paths are
