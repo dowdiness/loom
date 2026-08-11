@@ -31,12 +31,20 @@ assert_probe() {
 current_repository="$fixture/current"
 init_repo "$current_repository"
 mkdir -p "$current_repository/examples/markdown"
-printf '%s\n%s\n' \
-  'pub fn MarkdownDocument::semantic_read(' \
-  'pub fn MarkdownSemanticAttachment::document(' \
+printf 'pub fn MarkdownDocument::semantic_read(\n' \
   > "$current_repository/examples/markdown/renamed_document.mbt"
 commit_fixture "$current_repository"
 assert_probe "$current_repository" current
+
+coexist_repository="$fixture/coexist"
+init_repo "$coexist_repository"
+mkdir -p "$coexist_repository/examples/markdown"
+printf '%s\n%s\n' \
+  'pub fn MarkdownDocument::semantic_read(' \
+  'pub fn MarkdownSemanticAttachment::document(' \
+  > "$coexist_repository/examples/markdown/markdown_document_compatibility.mbt"
+commit_fixture "$coexist_repository"
+assert_probe "$coexist_repository" current
 
 legacy_repository="$fixture/legacy"
 init_repo "$legacy_repository"
