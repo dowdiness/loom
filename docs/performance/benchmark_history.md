@@ -88,7 +88,7 @@ the pre-API base revision can execute them.
 
 - Issue: [#913](https://github.com/dowdiness/loom/issues/913)
 - Base revision: `e89e6d3406711fd7ff464d10f495ed55223931dd`
-- Head revision: `04626d5ed09729801376af9394d9d020274f4a06` (source-bound guard and CI overlay)
+- Head revision: `548710d0a372c3ca0e54d5594d483cdec5105220` (revision-aware source-bound guard and CI overlay)
 - Environment: WSL2, Linux 6.18.33.2, x86_64
 - Toolchain: Moon `0.1.20260713`
 - Targets: release wasm-gc and JavaScript
@@ -101,9 +101,11 @@ the pre-API base revision can execute them.
 
 The source-bound control and eight source-bound rows are now required in
 every guard input. Older base revisions use the checked-in legacy adapter
-overlay; revisions that contain the document-backed adapter use the current
-overlay. This keeps the benchmark labels structurally comparable across the
-API cutover while preserving the established MarkdownIR and delimiter gates.
+overlay; when a base lacks the document-backed API, CI explicitly enables
+source-bound calibration. Those rows remain required and are reported as
+cutover characterization, but they are not a regression verdict. Revisions
+that contain the document-backed adapter use the current overlay on both sides
+and apply the source-bound gate without changing its threshold.
 
 Both target runs completed with:
 
@@ -121,12 +123,14 @@ The largest positive source-bound changes observed in the three trials were:
 | wasm-gc | Block adapter | +10.0% | +15.5% |
 | wasm-gc | mdast adapter | +4.8% | +2.2% |
 
-The source-bound gate defaults to a strict `+350%` raw-and-normalized subject
-threshold, an inclusive `>=+500%` raw hard ceiling, and an independent `+50%`
-control threshold. The larger subject threshold is deliberate for the
-legacy-to-document adapter cutover, where ownership and projection paths are
-not byte-for-byte equivalent; persistent source-bound regressions remain
-actionable and are reported separately from the established gates.
+For current-adapter comparisons, the source-bound gate defaults to a strict
+`+100%` raw-and-normalized subject threshold, an inclusive `>=+200%` raw hard
+ceiling, an independent `+50%` control threshold, and `3/3` persistence. The
+recorded `e89e6d3` base already contains the document-backed adapter, so its
+source-bound rows are acceptance-gated; the JavaScript IR-only and attachment
+outliers were non-persistent. Pre-document legacy-vs-current rows use the
+explicit calibration mode above rather than weakening this current-adapter
+gate.
 
 ## 2026-08-05 (core collection ownership Phase 0 baseline)
 
