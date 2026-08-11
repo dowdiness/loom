@@ -68,7 +68,7 @@ jobs:
       SOURCE_BOUND_PERF_ADAPTER_PATH: examples/markdown/markdown_document_benchmark_api_wbtest.mbt
       SOURCE_BOUND_PERF_LEGACY_ADAPTER_PATH: scripts/tests/markdown-document-benchmark-legacy-api-wbtest.mbt
       SOURCE_BOUND_PERF_LEGACY_BENCHMARK_PATH: examples/markdown/markdown_document_benchmark_test.mbt
-      SOURCE_BOUND_PERF_DOCUMENT_PATH: examples/markdown/markdown_document.mbt
+      SOURCE_BOUND_PERF_CAPABILITY_PROBE_PATH: scripts/markdown-source-bound-api-kind.sh
     steps:
       - name: Checkout base
         uses: actions/checkout@v5
@@ -159,15 +159,18 @@ jobs:
           current_adapter_snapshot="$snapshot_dir/markdown_document_benchmark_api_wbtest.mbt"
           legacy_adapter_source="perf-head/$SOURCE_BOUND_PERF_LEGACY_ADAPTER_PATH"
           legacy_adapter_snapshot="$snapshot_dir/markdown-document-benchmark-legacy-api-wbtest.mbt"
+          classifier_path="perf-head/$SOURCE_BOUND_PERF_CAPABILITY_PROBE_PATH"
 
           git -C perf-head ls-files --error-unmatch -- \
             "$SOURCE_BOUND_PERF_HARNESS_PATH" \
             "$SOURCE_BOUND_PERF_ADAPTER_PATH" \
-            "$SOURCE_BOUND_PERF_LEGACY_ADAPTER_PATH" >/dev/null
+            "$SOURCE_BOUND_PERF_LEGACY_ADAPTER_PATH" \
+            "$SOURCE_BOUND_PERF_CAPABILITY_PROBE_PATH" >/dev/null
           for tracked_input in \
             "$source_path" \
             "$current_adapter_source" \
-            "$legacy_adapter_source"; do
+            "$legacy_adapter_source" \
+            "$classifier_path"; do
             if [[ ! -f "$tracked_input" || -L "$tracked_input" ]]; then
               echo "source-bound benchmark input must be a tracked regular file: $tracked_input" >&2
               exit 1
@@ -181,16 +184,12 @@ jobs:
           harness_sha256=$(sha256sum "$snapshot_path" | awk '{print $1}')
           current_adapter_sha256=$(sha256sum "$current_adapter_snapshot" | awk '{print $1}')
           legacy_adapter_sha256=$(sha256sum "$legacy_adapter_snapshot" | awk '{print $1}')
-          if git -C perf-base cat-file -e "HEAD:$SOURCE_BOUND_PERF_DOCUMENT_PATH"; then
-            base_adapter_kind=current
-          else
-            base_adapter_kind=legacy
-          fi
+          base_adapter_kind=$(bash "$classifier_path" perf-base)
 
           echo "Markdown source-bound benchmark harness SHA-256: $harness_sha256"
           echo "Markdown source-bound current API adapter SHA-256: $current_adapter_sha256"
           echo "Markdown source-bound legacy API adapter SHA-256: $legacy_adapter_sha256"
-          echo "Markdown source-bound base API adapter: $base_adapter_kind"
+          echo "Markdown source-bound base API capability: $base_adapter_kind"
           {
             echo "SOURCE_BOUND_PERF_HARNESS_SNAPSHOT=$snapshot_path"
             echo "SOURCE_BOUND_PERF_HARNESS_SHA256=$harness_sha256"
@@ -217,13 +216,13 @@ jobs:
       # source-bound benchmark harnesses are snapshotted from head and overlaid
       # identically on each checkout so a PR can introduce fail-closed rows
       # without making its base output structurally incomparable. Private
-      # adapters isolate parser-construction API cutovers; both sides use
-      # the current adapter once the base tracks it, while fixed legacy adapters
-      # support older bases. Pre-document bases report source-bound rows as
-      # explicit non-gating cutover characterization; current-adapter rows use
-      # the source-bound guard thresholds. The checker blocks persistent
-      # regressions; the weekly detector remains the more sensitive absolute-
-      # baseline alert.
+      # adapters isolate parser-construction API cutovers; the source-bound
+      # capability probe identifies current versus known legacy API surfaces.
+      # An unknown capability fails the snapshot step rather than enabling
+      # calibration. Pre-document bases report source-bound rows as explicit
+      # non-gating cutover characterization; current-adapter rows use the
+      # source-bound guard thresholds. The checker blocks persistent regressions;
+      # the weekly detector remains the more sensitive absolute-baseline alert.
       - name: Compare Markdown performance
         run: |
           set -euo pipefail
