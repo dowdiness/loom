@@ -31,7 +31,9 @@ assert_probe() {
 current_repository="$fixture/current"
 init_repo "$current_repository"
 mkdir -p "$current_repository/examples/markdown"
-printf 'pub fn MarkdownDocument::semantic_read(\n' \
+printf '%s\n%s\n' \
+  'pub fn MarkdownDocument::semantic_read(' \
+  'pub fn MarkdownSemanticAttachment::document(' \
   > "$current_repository/examples/markdown/renamed_document.mbt"
 commit_fixture "$current_repository"
 assert_probe "$current_repository" current

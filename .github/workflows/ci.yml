@@ -42,6 +42,8 @@ jobs:
         run: bash scripts/bench-check-selftest.sh
       - name: MarkdownIR performance guard self-test
         run: bash scripts/markdown-ir-perf-guard-selftest.sh
+      - name: Markdown source-bound API capability probe self-test
+        run: bash scripts/markdown-source-bound-api-kind-selftest.sh
       - name: Validate checked-in detector policy
         run: bash bench-check.sh --validate
 
