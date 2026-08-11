@@ -99,6 +99,10 @@ the pre-API base revision can execute them.
   `moon bench --release --target <target> -p dowdiness/markdown -f
   markdown_document_benchmark_wbtest.mbt`
 
+The source-bound benchmark intentionally uses a 100-paragraph focused corpus
+to isolate the new cold paths. It supplements, and does not replace, the
+established 500-paragraph full-parse benchmark contract.
+
 The source-bound control and eight source-bound rows are now required in
 every guard input. CI classifies the base through a source API capability
 probe, not the benchmark document path: supported current revisions expose
