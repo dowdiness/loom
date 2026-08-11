@@ -7,7 +7,8 @@ if [[ "$#" -ne 1 ]]; then
 fi
 
 readonly repository="$1"
-readonly current_marker='^[[:space:]]*pub fn MarkdownDocument::semantic_read[[:space:]]*\('
+readonly current_document_marker='^[[:space:]]*pub fn MarkdownDocument::semantic_read[[:space:]]*\('
+readonly current_attachment_marker='^[[:space:]]*pub fn MarkdownSemanticAttachment::source_document[[:space:]]*\('
 readonly legacy_marker='^[[:space:]]*pub fn MarkdownSemanticAttachment::document[[:space:]]*\('
 if ! git -C "$repository" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   printf 'source-bound API capability probe: not a Git worktree: %s\n' \
@@ -15,9 +16,23 @@ if ! git -C "$repository" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 2
 fi
 
-if git -C "$repository" grep -q -E -- "$current_marker" -- '*.mbt'; then
+has_current_document=false
+if git -C "$repository" grep -q -E -- "$current_document_marker" -- '*.mbt'; then
+  has_current_document=true
+fi
+has_current_attachment=false
+if git -C "$repository" grep -q -E -- "$current_attachment_marker" -- '*.mbt'; then
+  has_current_attachment=true
+fi
+has_legacy=false
+if git -C "$repository" grep -q -E -- "$legacy_marker" -- '*.mbt'; then
+  has_legacy=true
+fi
+if [[ "$has_current_document" == true && "$has_current_attachment" == true ]]; then
   printf 'current\n'
-elif git -C "$repository" grep -q -E -- "$legacy_marker" -- '*.mbt'; then
+elif [[ "$has_current_document" == false &&
+  "$has_current_attachment" == false &&
+  "$has_legacy" == true ]]; then
   printf 'legacy\n'
 else
   printf 'source-bound API capability probe: unknown revision in %s\n' \

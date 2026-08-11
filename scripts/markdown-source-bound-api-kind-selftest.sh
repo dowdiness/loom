@@ -31,16 +31,38 @@ assert_probe() {
 current_repository="$fixture/current"
 init_repo "$current_repository"
 mkdir -p "$current_repository/examples/markdown"
-printf 'pub fn MarkdownDocument::semantic_read(\n' \
+printf '%s\n%s\n' \
+  'pub fn MarkdownDocument::semantic_read(' \
+  'pub fn MarkdownSemanticAttachment::source_document(' \
   > "$current_repository/examples/markdown/renamed_document.mbt"
 commit_fixture "$current_repository"
 assert_probe "$current_repository" current
 
+partial_repository="$fixture/partial"
+init_repo "$partial_repository"
+mkdir -p "$partial_repository/examples/markdown"
+printf '%s\n%s\n' \
+  'pub fn MarkdownDocument::semantic_read(' \
+  'pub fn MarkdownSemanticAttachment::document(' \
+  > "$partial_repository/examples/markdown/markdown_document.mbt"
+commit_fixture "$partial_repository"
+if bash "$classifier" "$partial_repository" > "$fixture/partial.stdout" \
+  2> "$fixture/partial.stderr"; then
+  printf 'SELFTEST FAIL: partial current capability was accepted\n'
+  exit 1
+fi
+if [[ "$(cat "$fixture/partial.stderr")" != *'unknown revision'* ]]; then
+  printf 'SELFTEST FAIL: partial capability diagnostic missing\n'
+  cat "$fixture/partial.stderr"
+  exit 1
+fi
+
 coexist_repository="$fixture/coexist"
 init_repo "$coexist_repository"
 mkdir -p "$coexist_repository/examples/markdown"
-printf '%s\n%s\n' \
+printf '%s\n%s\n%s\n' \
   'pub fn MarkdownDocument::semantic_read(' \
+  'pub fn MarkdownSemanticAttachment::source_document(' \
   'pub fn MarkdownSemanticAttachment::document(' \
   > "$coexist_repository/examples/markdown/markdown_document_compatibility.mbt"
 commit_fixture "$coexist_repository"
