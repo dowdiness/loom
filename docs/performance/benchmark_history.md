@@ -88,7 +88,7 @@ the pre-API base revision can execute them.
 
 - Issue: [#913](https://github.com/dowdiness/loom/issues/913)
 - Base revision: `e89e6d3406711fd7ff464d10f495ed55223931dd`
-- Head revision: `548710d0a372c3ca0e54d5594d483cdec5105220` (revision-aware source-bound guard and CI overlay)
+- Head revision: `ee53255` (source API capability classification and CI overlay)
 - Environment: WSL2, Linux 6.18.33.2, x86_64
 - Toolchain: Moon `0.1.20260713`
 - Targets: release wasm-gc and JavaScript
@@ -100,12 +100,13 @@ the pre-API base revision can execute them.
   markdown_document_benchmark_wbtest.mbt`
 
 The source-bound control and eight source-bound rows are now required in
-every guard input. Older base revisions use the checked-in legacy adapter
-overlay; when a base lacks the document-backed API, CI explicitly enables
-source-bound calibration. Those rows remain required and are reported as
-cutover characterization, but they are not a regression verdict. Revisions
-that contain the document-backed adapter use the current overlay on both sides
-and apply the source-bound gate without changing its threshold.
+every guard input. CI classifies the base through a source API capability
+probe, not the benchmark document path: supported current revisions expose
+the document read capability, while known pre-document revisions use the
+legacy adapter overlay. An unknown capability fails the snapshot step instead
+of enabling calibration. Legacy rows remain required and are reported as
+cutover characterization, but they are not a regression verdict; current
+adapter rows use the source-bound gate without changing its threshold.
 
 Both target runs completed with:
 
