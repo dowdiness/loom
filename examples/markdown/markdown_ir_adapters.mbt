@@ -604,19 +604,82 @@ fn markdown_ir_legacy_block_text(
 }
 
 ///|
-fn markdown_ir_to_block_with_source(ir : MarkdownIR, source : String?) -> Block {
-  match source {
-    Some(source) => {
-      guard ir.origin().end() <= source.length() else {
+fn markdown_ir_require_source_origin(
+  origin : MarkdownIROrigin?,
+  source_length : Int,
+) -> Unit {
+  match origin {
+    Some(origin) => {
+      guard origin.end() <= source_length else {
         abort("MarkdownIR Block projection source does not cover IR origin")
       }
     }
     None => ()
   }
+}
+
+///|
+fn markdown_ir_require_source_coverage(
+  ir : MarkdownIR,
+  source_length : Int,
+) -> Unit {
+  markdown_ir_require_source_origin(Some(ir.origin()), source_length)
+  markdown_ir_require_source_origin(ir.content_origin(), source_length)
+  markdown_ir_require_source_origin(ir.label_origin(), source_length)
+  markdown_ir_require_source_origin(ir.destination_origin(), source_length)
+  match ir.node {
+    Link(_, _, _, surface) | Image(_, _, _, surface) => {
+      markdown_ir_require_source_origin(
+        surface.reference_label_origin,
+        source_length,
+      )
+      markdown_ir_require_source_origin(surface.title_origin, source_length)
+      markdown_ir_require_source_origin(surface.target_origin, source_length)
+    }
+    _ => ()
+  }
+  match ir.node {
+    Document(children)
+    | Heading(_, children, _)
+    | Paragraph(children, _)
+    | BlockQuote(children)
+    | UnorderedList(children, _, _)
+    | OrderedList(children, _, _)
+    | ListItem(children, _, _, _)
+    | OrderedListItem(children, _, _, _)
+    | Bold(children, _)
+    | Italic(children, _)
+    | Link(children, _, _, _)
+    | Image(children, _, _, _) =>
+      for child in children {
+        markdown_ir_require_source_coverage(child, source_length)
+      }
+    _ => ()
+  }
+}
+
+///|
+fn markdown_ir_to_block_with_source(ir : MarkdownIR, source : String?) -> Block {
+  match source {
+    Some(source) => {
+      markdown_ir_require_source_coverage(ir, source.length())
+      markdown_ir_to_block_with_source_unchecked(ir, Some(source))
+    }
+    None => markdown_ir_to_block_with_source_unchecked(ir, None)
+  }
+}
+
+///|
+fn markdown_ir_to_block_with_source_unchecked(
+  ir : MarkdownIR,
+  source : String?,
+) -> Block {
   match ir.node {
     Document(children) =>
       Block::Document(
-        children.map(child => markdown_ir_to_block_with_source(child, source)),
+        children.map(child => {
+          markdown_ir_to_block_with_source_unchecked(child, source)
+        }),
       )
     Heading(depth, children, _) =>
       Block::Heading(
@@ -637,11 +700,15 @@ fn markdown_ir_to_block_with_source(ir : MarkdownIR, source : String?) -> Block 
       }
     UnorderedList(children, _, _) =>
       Block::UnorderedList(
-        children.map(child => markdown_ir_to_block_with_source(child, source)),
+        children.map(child => {
+          markdown_ir_to_block_with_source_unchecked(child, source)
+        }),
       )
     OrderedList(children, _, marker) =>
       Block::OrderedList(
-        children.map(child => markdown_ir_to_block_with_source(child, source)),
+        children.map(child => {
+          markdown_ir_to_block_with_source_unchecked(child, source)
+        }),
         marker,
       )
     ListItem(children, _, _, _) =>
