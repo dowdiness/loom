@@ -197,9 +197,9 @@ fn fenced_code_block_value(node : @seam.SyntaxNode, source : String) -> String {
 }
 
 ///|
-fn indented_code_block_value(
+fn indented_code_block_value_with_line_stripper(
   node : @seam.SyntaxNode,
-  source : String,
+  strip_line : (@seam.SyntaxToken, String) -> String,
 ) -> String {
   let buf = StringBuilder::StringBuilder()
   let line_parts : Array[String] = []
@@ -208,9 +208,7 @@ fn indented_code_block_value(
   fn flush_indented_line() -> Unit {
     match first_indented_token {
       Some(token) => {
-        buf.write_string(
-          strip_indented_code_line(node, source, token, line_parts.join("")),
-        )
+        buf.write_string(strip_line(token, line_parts.join("")))
         line_parts.clear()
         first_indented_token = None
       }
@@ -245,6 +243,27 @@ fn indented_code_block_value(
 }
 
 ///|
+fn indented_code_block_value(
+  node : @seam.SyntaxNode,
+  source : String,
+) -> String {
+  indented_code_block_value_with_line_stripper(node, fn(token, text) {
+    strip_indented_code_line(node, source, token, text)
+  })
+}
+
+///|
+/// Source-free compatibility value for the structurally memoized Block fold.
+/// Nested container code blocks are not represented by the legacy Block
+/// projection, so treating every visited indented block as root-owned preserves
+/// the observable top-level value without making the algebra position-sensitive.
+fn indented_code_block_value_without_source(node : @seam.SyntaxNode) -> String {
+  indented_code_block_value_with_line_stripper(node, fn(_token, text) {
+    strip_visual_columns(text, 0, 4)
+  })
+}
+
+///|
 fn code_block_value_with_source(
   node : @seam.SyntaxNode,
   source : String,
@@ -257,11 +276,21 @@ fn code_block_value_with_source(
 }
 
 ///|
-/// Demand-driven compatibility boundary for callers that only own a syntax
-/// node. Root and blockquote fences never invoke `load_source`; list-owned
-/// fences do so only when their source-backed CST cannot provide the source.
-/// Indented blocks invoke it exactly once. Top-level lowering paths should
-/// prefer `code_block_value_with_source` and supply their existing snapshot.
+fn code_block_value_without_source(node : @seam.SyntaxNode) -> String {
+  if node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_) {
+    fenced_code_block_value(node, "")
+  } else {
+    indented_code_block_value_without_source(node)
+  }
+}
+
+///|
+/// Demand-driven source-aware boundary for callers that only own a syntax node.
+/// Root and blockquote fences never invoke `load_source`; list-owned fences do
+/// so only when their source-backed CST cannot provide the source. Indented
+/// blocks invoke it exactly once. Direct source-aware lowering should prefer
+/// `code_block_value_with_source`; structurally memoized compatibility folds use
+/// `code_block_value_without_source`.
 fn code_block_value_with_source_loader(
   node : @seam.SyntaxNode,
   load_source : () -> String,
@@ -308,6 +337,7 @@ fn code_block_source_with_fallback(
 }
 
 ///|
+#warnings("-unused_value")
 fn code_block_value(node : @seam.SyntaxNode) -> String {
   code_block_value_with_source_loader(node, fn() {
     code_block_source_with_fallback(node, fn() { syntax_root(node).text() })

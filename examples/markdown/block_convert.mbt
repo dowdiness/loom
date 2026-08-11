@@ -101,10 +101,13 @@ fn markdown_fold_node_with_code_value(
 }
 
 ///|
-/// Algebra for CstFold: convert SyntaxNode to Block.
+/// Algebra for the structurally memoized compatibility fold. Source-sensitive
+/// lowering uses `fold_markdown_syntax_with_source` instead.
 pub fn markdown_fold_node(
   node : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> Block,
 ) -> Block {
-  markdown_fold_node_with_code_value(node, recurse, code_block_value)
+  markdown_fold_node_with_code_value(
+    node, recurse, code_block_value_without_source,
+  )
 }

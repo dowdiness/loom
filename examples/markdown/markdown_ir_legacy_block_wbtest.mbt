@@ -159,10 +159,43 @@ test "source-aware legacy fold keeps identical code blocks position-aware" {
 }
 
 ///|
+test "parser Block projection keeps identical code blocks position-aware" {
+  let source = "- item\n\n      code\n"
+  let updated = "      code\n"
+  let parser = try! @loom.new_parser(
+    @core.SourceId("markdown-parser-position-aware-code"),
+    source,
+    markdown_grammar,
+  )
+  ignore(parser.ast().read_or_abort())
+  parser.apply_edit(@core.Edit::delete(0, "- item\n\n".length()), updated)
+  assert_eq(
+    parser.ast().read_or_abort(),
+    Block::Document([Block::CodeBlock("", "  code")]),
+  )
+}
+
+///|
 test "panic source-aware Block projection rejects uncovered IR origins" {
   let ir = MarkdownIR::text(
     "text",
     MarkdownIROrigin::MarkdownIROrigin(start=0, end=5),
+  )
+  ignore(markdown_ir_to_block_with_source(ir, Some("x")))
+}
+
+///|
+test "panic source-aware Block projection rejects uncovered nested origins" {
+  let ir = MarkdownIR::paragraph(
+    [
+      MarkdownIR::inline_code(
+        "code",
+        MarkdownIROrigin::MarkdownIROrigin(start=0, end=5),
+        None,
+      ),
+    ],
+    MarkdownIROrigin::MarkdownIROrigin(start=0, end=1),
+    None,
   )
   ignore(markdown_ir_to_block_with_source(ir, Some("x")))
 }
