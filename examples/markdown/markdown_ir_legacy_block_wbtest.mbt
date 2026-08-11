@@ -117,6 +117,57 @@ test "experimental MarkdownIR: legacy Block projection preserves recovered nodes
 }
 
 ///|
+test "source-aware legacy fold keeps identical code blocks position-aware" {
+  let source = "    code\n>    code\n"
+  let code_block = fn(
+    indentation : StringView,
+    value : StringView,
+  ) -> @seam.CstNode {
+    try! @seam.CstNode::new_unclassified(CodeBlockNode.to_raw(), [
+      @seam.CstElement::Token(
+        @seam.CstToken::CstToken(IndentationToken.to_raw(), indentation),
+      ),
+      @seam.CstElement::Token(
+        @seam.CstToken::CstToken(CodeTextToken.to_raw(), value),
+      ),
+      @seam.CstElement::Token(
+        @seam.CstToken::CstToken(NewlineToken.to_raw(), "\n"),
+      ),
+    ])
+  }
+  let first = code_block(source[0:4], source[4:8])
+  let second = code_block(source[10:14], source[14:18])
+  assert_eq(first, second)
+  let root = try! @seam.CstNode::new_unclassified(DocumentNode.to_raw(), [
+    @seam.CstElement::Node(first),
+    @seam.CstElement::Token(
+      @seam.CstToken::CstToken(BlockQuoteMarkerToken.to_raw(), source[9:10]),
+    ),
+    @seam.CstElement::Node(second),
+  ])
+  let direct = fold_markdown_syntax_with_source(
+    @seam.SyntaxNode::from_cst(root),
+    source,
+  )
+  assert_eq(
+    direct,
+    Block::Document([
+      Block::CodeBlock("", "code"),
+      Block::CodeBlock("", " code"),
+    ]),
+  )
+}
+
+///|
+test "panic source-aware Block projection rejects uncovered IR origins" {
+  let ir = MarkdownIR::text(
+    "text",
+    MarkdownIROrigin::MarkdownIROrigin(start=0, end=5),
+  )
+  ignore(markdown_ir_to_block_with_source(ir, Some("x")))
+}
+
+///|
 test "experimental MarkdownIR: public Block projection retains list paragraphs" {
   let source_id = @core.SourceId("markdown-ir-public-block-test")
   let source = "- first\n\n  second\n"

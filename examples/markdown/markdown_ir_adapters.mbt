@@ -605,6 +605,14 @@ fn markdown_ir_legacy_block_text(
 
 ///|
 fn markdown_ir_to_block_with_source(ir : MarkdownIR, source : String?) -> Block {
+  match source {
+    Some(source) => {
+      guard ir.origin().end() <= source.length() else {
+        abort("MarkdownIR Block projection source does not cover IR origin")
+      }
+    }
+    None => ()
+  }
   match ir.node {
     Document(children) =>
       Block::Document(

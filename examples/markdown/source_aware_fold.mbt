@@ -17,8 +17,11 @@ fn fold_markdown_syntax_with_source(
   syntax : @seam.SyntaxNode,
   source : String,
 ) -> Block {
-  let fold = @core.CstFold::new(fn(node, recurse) {
-    markdown_fold_node_with_source(node, recurse, source)
-  })
-  fold.fold(syntax)
+  // This algebra reads absolute token columns from source. CstFold's
+  // position-independent structural cache would reuse the wrong value for
+  // equal code blocks at different source columns.
+  fn lower(node : @seam.SyntaxNode) -> Block {
+    markdown_fold_node_with_source(node, lower, source)
+  }
+  lower(syntax)
 }
