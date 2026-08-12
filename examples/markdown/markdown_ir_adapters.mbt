@@ -751,6 +751,8 @@ fn markdown_ir_to_block_with_source_unchecked(
 }
 
 ///|
+/// Source-less compatibility adapter for semantic trees that do not require
+/// source-dependent Block values such as block-quote text or code indentation.
 pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
   markdown_ir_to_block_with_source(ir, None)
 }

@@ -1,7 +1,8 @@
 # ADR: Markdown Block projection cutover follows staged parity gates
 
 **Date:** 2026-08-10
-**Status:** Accepted
+**Status:** Superseded
+**Superseded by:** [High-level Markdown Block projection cutover](2026-08-11-markdown-high-level-block-cutover.md)
 **Related:** [MarkdownIR architecture and target contract](../architecture/markdown-ir.md), [MarkdownIR performance policy](2026-06-16-markdown-ir-performance-policy.md), [Markdown projection attachment](2026-08-03-markdown-projection-attachment-boundary.md), [MarkdownIR exhaustive read view](2026-08-04-markdown-ir-exhaustive-read-view.md)
 **Implementation plan:** Issue-scoped; implement with a parity-first, two-commit migration slice.
 
