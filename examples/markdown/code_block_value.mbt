@@ -220,9 +220,7 @@ fn fenced_code_block_structural_indent(
 ///|
 fn fenced_code_block_value(node : @seam.SyntaxNode, source : String) -> String {
   let buf = StringBuilder::StringBuilder()
-  let strip_list_owned_content = source.length() > 0 &&
-    fenced_code_block_is_list_owned(node)
-  let structural_indent = if strip_list_owned_content {
+  let structural_indent = if source.length() > 0 {
     fenced_code_block_structural_indent(node, source)
   } else {
     0
@@ -236,7 +234,7 @@ fn fenced_code_block_value(node : @seam.SyntaxNode, source : String) -> String {
           CodeFenceOpenToken => in_code = true
           CodeFenceCloseToken => in_code = false
           CodeTextToken if in_code =>
-            if !strip_list_owned_content {
+            if structural_indent == 0 {
               buf.write_string(token.text())
             } else {
               let token_column = visual_column_at_offset(source, token.start())
