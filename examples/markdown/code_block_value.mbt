@@ -119,9 +119,29 @@ fn blank_line_spaces(text : String) -> String {
 }
 
 ///|
+/// True when a list item or block quote owns this node. Root fences skip
+/// source reconstruction; container-owned fences still need visual columns.
+fn code_block_is_owned_by_list_or_quote(node : @seam.SyntaxNode) -> Bool {
+  for current = node.parent() {
+    match current {
+      Some(parent) => {
+        let kind : SyntaxKind = @seam.FromRawKind::from_raw(parent.kind())
+        match kind {
+          ListItemNode | BlockQuoteNode => break true
+          _ => continue parent.parent()
+        }
+      }
+      None => break false
+    }
+  }
+}
+
+///|
 /// A fence-looking opener is still indented code when it starts at least four
 /// columns past the nearest list or block-quote content column. Container-owned
-/// fences at 0–3 relative columns stay fenced.
+/// fences at 0–3 relative columns stay fenced. Root fences use the indent
+/// token width so lowering does not copy the document for every code block
+/// (MarkdownIR performance policy: root fences never `load_source`).
 fn code_block_is_indented_form_with_source(
   node : @seam.SyntaxNode,
   source : String,
@@ -136,7 +156,23 @@ fn code_block_is_indented_form_with_source(
 
 ///|
 fn code_block_is_indented_form(node : @seam.SyntaxNode) -> Bool {
-  code_block_is_indented_form_with_source(node, syntax_root(node).text())
+  match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
+    None => true
+    Some(_) =>
+      if code_block_is_owned_by_list_or_quote(node) {
+        code_block_is_indented_form_with_source(
+          node,
+          code_block_source_with_fallback(node, fn() {
+            syntax_root(node).text()
+          }),
+        )
+      } else {
+        match node.direct_token_of_kind(IndentationToken.to_raw()) {
+          Some(indent) => count_leading_indent(indent.text()) >= 4
+          None => false
+        }
+      }
+  }
 }
 
 ///|
