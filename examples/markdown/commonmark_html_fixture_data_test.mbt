@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=385, xfail=5, skip=0.
+// Baseline: pass=399, xfail=4, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (385, 5, 0)
+  (399, 4, 0)
 }
 
 ///|
@@ -1118,9 +1118,7 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "html-blocks-191",
       source: "<table>\n\n  <tr>\n\n    <td>\n      Hi\n    </td>\n\n  </tr>\n\n</table>\n",
       expected_html: "<table>\n  <tr>\n<pre><code>&lt;td&gt;\n  Hi\n&lt;/td&gt;\n</code></pre>\n  </tr>\n</table>\n",
-      status: CommonMarkHtmlXfail(
-        "Type 6 HTML blocks with Markdown content plus indented code need recursive lowering.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 12,
@@ -2100,6 +2098,110 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "autolinks-612",
       source: "foo@bar.example.com\n",
       expected_html: "<p>foo@bar.example.com</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 107,
+      section: "Indented code blocks",
+      name: "indented-code-blocks-107",
+      source: "    a simple\n      indented code block\n",
+      expected_html: "<pre><code>a simple\n  indented code block\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 108,
+      section: "Indented code blocks",
+      name: "indented-code-blocks-108",
+      source: "  - foo\n\n    bar\n",
+      expected_html: "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 109,
+      section: "Indented code blocks",
+      name: "indented-code-blocks-109",
+      source: "1.  foo\n\n    - bar\n",
+      expected_html: "<ol>\n<li>\n<p>foo</p>\n<ul>\n<li>bar</li>\n</ul>\n</li>\n</ol>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 110,
+      section: "Indented code blocks",
+      name: "indented-code-blocks-110",
+      source: "    <a/>\n    *hi*\n\n    - one\n",
+      expected_html: "<pre><code>&lt;a/&gt;\n*hi*\n\n- one\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 111,
+      section: "Indented code blocks",
+      name: "indented-code-blocks-111",
+      source: "    chunk1\n\n    chunk2\n  \n \n \n    chunk3\n",
+      expected_html: "<pre><code>chunk1\n\nchunk2\n\n\n\nchunk3\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 112,
+      section: "Indented code blocks",
+      name: "indented-code-blocks-112",
+      source: "    chunk1\n      \n      chunk2\n",
+      expected_html: "<pre><code>chunk1\n  \n  chunk2\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 113,
+      section: "Indented code blocks",
+      name: "indented-code-blocks-113",
+      source: "Foo\n    bar\n\n",
+      expected_html: "<p>Foo\nbar</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 114,
+      section: "Indented code blocks",
+      name: "indented-code-blocks-114",
+      source: "    foo\nbar\n",
+      expected_html: "<pre><code>foo\n</code></pre>\n<p>bar</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 115,
+      section: "Indented code blocks",
+      name: "indented-code-blocks-115",
+      source: "# Heading\n    foo\nHeading\n------\n    foo\n----\n",
+      expected_html: "<h1>Heading</h1>\n<pre><code>foo\n</code></pre>\n<h2>Heading</h2>\n<pre><code>foo\n</code></pre>\n<hr />\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 116,
+      section: "Indented code blocks",
+      name: "indented-code-blocks-116",
+      source: "        foo\n    bar\n",
+      expected_html: "<pre><code>    foo\nbar\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 117,
+      section: "Indented code blocks",
+      name: "indented-code-blocks-117",
+      source: "\n    \n    foo\n    \n\n",
+      expected_html: "<pre><code>foo\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 118,
+      section: "Indented code blocks",
+      name: "indented-code-blocks-118",
+      source: "    foo  \n",
+      expected_html: "<pre><code>foo  \n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 134,
+      section: "Fenced code blocks",
+      name: "fenced-code-blocks-134-indented-opener",
+      source: "    ```\n    aaa\n    ```\n",
+      expected_html: "<pre><code>```\naaa\n```\n</code></pre>\n",
       status: CommonMarkHtmlPass,
     },
   ]

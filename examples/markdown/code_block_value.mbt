@@ -114,6 +114,68 @@ fn strip_indented_code_line(
 }
 
 ///|
+fn blank_line_spaces(text : String) -> String {
+  trim_trailing_line_ending(text)
+}
+
+///|
+/// True when a list item or block quote owns this node. Root fences skip
+/// source reconstruction; container-owned fences still need visual columns.
+fn code_block_is_owned_by_list_or_quote(node : @seam.SyntaxNode) -> Bool {
+  for current = node.parent() {
+    match current {
+      Some(parent) => {
+        let kind : SyntaxKind = @seam.FromRawKind::from_raw(parent.kind())
+        match kind {
+          ListItemNode | BlockQuoteNode => break true
+          _ => continue parent.parent()
+        }
+      }
+      None => break false
+    }
+  }
+}
+
+///|
+/// A fence-looking opener is still indented code when it starts at least four
+/// columns past the nearest list or block-quote content column. Container-owned
+/// fences at 0–3 relative columns stay fenced. Root fences use the indent
+/// token width so lowering does not copy the document for every code block
+/// (MarkdownIR performance policy: root fences never `load_source`).
+fn code_block_is_indented_form_with_source(
+  node : @seam.SyntaxNode,
+  source : String,
+) -> Bool {
+  match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
+    Some(_) =>
+      fenced_code_block_structural_indent(node, source) >=
+      nearest_container_content_column(node, source) + 4
+    None => true
+  }
+}
+
+///|
+fn code_block_is_indented_form(node : @seam.SyntaxNode) -> Bool {
+  match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
+    None => true
+    Some(_) =>
+      if code_block_is_owned_by_list_or_quote(node) {
+        code_block_is_indented_form_with_source(
+          node,
+          code_block_source_with_fallback(node, fn() {
+            syntax_root(node).text()
+          }),
+        )
+      } else {
+        match node.direct_token_of_kind(IndentationToken.to_raw()) {
+          Some(indent) => count_leading_indent(indent.text()) >= 4
+          None => false
+        }
+      }
+  }
+}
+
+///|
 fn trim_code_boundary_newlines(value : String, fenced~ : Bool) -> String {
   let without_leading = if value.has_prefix("\n") {
     value[1:].to_owned()
@@ -220,14 +282,32 @@ fn indented_code_block_value_with_line_stripper(
       @seam.SyntaxElement::Token(token) => {
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
         match token_kind {
-          IndentationToken => {
+          IndentationToken
+          | HtmlBlockOpenToken
+          | HtmlTextToken
+          | CodeFenceOpenToken
+          | CodeTextToken
+          | CodeFenceCloseToken
+          | ListMarkerToken
+          | OrderedListMarkerToken
+          | StarToken
+          | BacktickToken
+          | TextToken => {
             in_code = true
             if first_indented_token is None {
               first_indented_token = Some(token)
             }
             line_parts.push(token.text())
           }
-          NewlineToken | BlankLineToken if in_code => {
+          BlankLineToken if in_code => {
+            flush_indented_line()
+            let spaces = blank_line_spaces(token.text())
+            if count_leading_indent(spaces) >= 4 {
+              buf.write_string(strip_line(token, spaces))
+            }
+            buf.write_string("\n")
+          }
+          NewlineToken if in_code => {
             flush_indented_line()
             buf.write_string("\n")
           }
@@ -268,19 +348,19 @@ fn code_block_value_with_source(
   node : @seam.SyntaxNode,
   source : String,
 ) -> String {
-  if node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_) {
-    fenced_code_block_value(node, source)
-  } else {
+  if code_block_is_indented_form_with_source(node, source) {
     indented_code_block_value(node, source)
+  } else {
+    fenced_code_block_value(node, source)
   }
 }
 
 ///|
 fn code_block_value_without_source(node : @seam.SyntaxNode) -> String {
-  if node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_) {
-    fenced_code_block_value(node, "")
-  } else {
+  if code_block_is_indented_form(node) {
     indented_code_block_value_without_source(node)
+  } else {
+    fenced_code_block_value(node, "")
   }
 }
 
@@ -295,7 +375,7 @@ fn code_block_value_with_source_loader(
   node : @seam.SyntaxNode,
   load_source : () -> String,
 ) -> String {
-  if node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_) {
+  if !code_block_is_indented_form(node) {
     if fenced_code_block_is_list_owned(node) {
       fenced_code_block_value(
         node,
