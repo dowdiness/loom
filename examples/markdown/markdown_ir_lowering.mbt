@@ -1796,6 +1796,9 @@ fn lower_list_item_flow_children_with_diags(
 
 ///|
 fn code_block_info(node : @seam.SyntaxNode) -> String {
+  if code_block_is_indented_form(node) {
+    return ""
+  }
   match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
     Some(fence_token) => {
       let text = fence_token.text()
@@ -2106,7 +2109,8 @@ fn code_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
   // Indented code content is visually deindented using CommonMark tab stops;
   // that mapping is not necessarily a single source slice. Keep local rewrite
   // targets fenced-only until indented-code rewrites can reindent per line.
-  guard node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_) else {
+  guard !code_block_is_indented_form(node) &&
+    node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_) else {
     return None
   }
   let mut in_code = false

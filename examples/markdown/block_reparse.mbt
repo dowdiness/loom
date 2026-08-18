@@ -223,6 +223,47 @@ fn is_code_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
 }
 
 ///|
+/// Isolated indented-code replacement: the splice still starts at four-space
+/// indent and never includes an unindented non-blank line. Leftover fence/HTML
+/// mode tokens after a newline are allowed only when their payload is still
+/// indented. Fence open/close carry no payload indent, so an unprefixed closer
+/// after a newline declines local reparse.
+fn is_indented_code_token_stream(
+  tokens : Array[@core.TokenInfo[Token]],
+) -> Bool {
+  match tokens {
+    [] => false
+    [first, ..] => {
+      guard first.token is Indentation(text) && count_leading_indent(text) >= 4 else {
+        return false
+      }
+      let mut line_indent = count_leading_indent(text)
+      for info in tokens {
+        match info.token {
+          Indentation(spaces) => {
+            line_indent = count_leading_indent(spaces)
+            if line_indent < 4 {
+              return false
+            }
+          }
+          Newline | BlankLine => line_indent = 0
+          EOF => ()
+          token if token_is_indented_code_leftover(token) =>
+            if line_indent == 0 {
+              match leftover_token_payload_indent(token) {
+                Some(indent) if indent >= 4 => ()
+                _ => return false
+              }
+            }
+          _ => if line_indent == 0 { return false }
+        }
+      }
+      true
+    }
+  }
+}
+
+///|
 /// Reject HTML block streams when:
 /// - Tokens are left unconsumed (blank-line split, structural change).
 /// - An Until-delimiter block loses its closing delimiter
@@ -341,6 +382,7 @@ fn markdown_tokens_safe_for_block_reparse(
     [first, ..] =>
       match first.token {
         CodeFenceOpen(_, _) => is_code_block_token_stream(tokens)
+        Indentation(_) => is_indented_code_token_stream(tokens)
         HtmlBlockOpen(_) => is_html_block_token_stream(tokens)
         HeadingMarker(_) => is_heading_token_stream(tokens)
         ListMarker =>
@@ -359,11 +401,24 @@ fn first_token_text(node : @seam.SyntaxNode) -> String? {
 ///|
 fn parse_code_block_if_still_code_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  node : @seam.SyntaxNode,
 ) -> Unit {
-  // If the opening fence no longer lexes as a fence, emit no node so Loom
-  // falls back to the normal incremental path.
-  if ctx.peek() is CodeFenceOpen(_, _) {
-    parse_code_block(ctx)
+  // Keep the previous classification: list/quote fences stay fenced even when
+  // the splice is prefixed by four document columns. Root four-space
+  // fence-looking openers stay indented.
+  if code_block_is_indented_form(node) {
+    match ctx.peek() {
+      Indentation(_) if current_token_leading_indent(ctx) >= 4 =>
+        parse_indented_code_block(ctx)
+      _ => ()
+    }
+  } else {
+    match ctx.peek() {
+      CodeFenceOpen(_, _) => parse_code_block(ctx)
+      Indentation(_) if ctx.peek_nth(1) is CodeFenceOpen(_, _) =>
+        parse_code_block_with_prefix(ctx, Some(PresentLinePrefix))
+      _ => ()
+    }
   }
 }
 
@@ -579,7 +634,7 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
       unordered_list_ownership_changes(node, tokens) {
       None
     } else if kind == CodeBlockNode.to_raw() {
-      Some(parse_code_block_if_still_code_block)
+      Some(ctx => parse_code_block_if_still_code_block(ctx, node))
     } else if kind == HtmlBlockNode.to_raw() {
       Some(ctx => {
         if ctx.peek() is HtmlBlockOpen(_) {

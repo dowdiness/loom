@@ -1973,6 +1973,58 @@ fn emit_indented_code_line(
 }
 
 ///|
+fn token_is_indented_code_leftover(token : Token) -> Bool {
+  match token {
+    HtmlBlockOpen(_)
+    | HtmlText(_)
+    | CodeFenceOpen(_, _)
+    | CodeText(_)
+    | CodeFenceClose => true
+    _ => false
+  }
+}
+
+///|
+fn leftover_token_payload_indent(token : Token) -> Int? {
+  match token {
+    HtmlBlockOpen(text) | HtmlText(text) | CodeText(text) =>
+      Some(count_leading_indent(text))
+    _ => None
+  }
+}
+
+///|
+/// HTML and fence openers may already have switched the lexer mode after a
+/// four-space indent. Keep leftover same-line tokens inside the opener, but
+/// only continue onto later lines that still meet the indent requirement.
+fn indented_code_body_continues(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  min_indent : Int,
+) -> Bool {
+  match ctx.peek() {
+    Indentation(_) => current_token_leading_indent(ctx) >= min_indent
+    Newline | BlankLine => true
+    token if token_is_indented_code_leftover(token) =>
+      current_token_leading_indent(ctx) >= min_indent
+    _ => false
+  }
+}
+
+///|
+fn consume_indented_code_body(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  min_indent : Int,
+) -> Unit {
+  while indented_code_body_continues(ctx, min_indent) {
+    match ctx.peek() {
+      Newline => ctx.emit_token(NewlineToken)
+      BlankLine => ctx.emit_token(BlankLineToken)
+      _ => emit_indented_code_line(ctx)
+    }
+  }
+}
+
+///|
 fn parse_indented_code_block_from_current_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent~ : Int,
@@ -1982,15 +2034,7 @@ fn parse_indented_code_block_from_current_line(
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
-    while ctx.peek() != EOF {
-      match ctx.peek() {
-        Indentation(_) if current_token_leading_indent(ctx) >= min_indent =>
-          emit_indented_code_line(ctx)
-        Newline => ctx.emit_token(NewlineToken)
-        BlankLine => ctx.emit_token(BlankLineToken)
-        _ => break
-      }
-    }
+    consume_indented_code_body(ctx, min_indent)
   })
 }
 
@@ -2363,15 +2407,7 @@ fn parse_indented_code_block_at_min_indent(
   min_indent : Int,
 ) -> Unit {
   ctx.node(CodeBlockNode, fn() {
-    while ctx.peek() != EOF {
-      match ctx.peek() {
-        Indentation(_) if current_token_leading_indent(ctx) >= min_indent =>
-          emit_indented_code_line(ctx)
-        Newline => ctx.emit_token(NewlineToken)
-        BlankLine => ctx.emit_token(BlankLineToken)
-        _ => break
-      }
-    }
+    consume_indented_code_body(ctx, min_indent)
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     } else if ctx.peek() is BlankLine {
