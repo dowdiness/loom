@@ -510,13 +510,30 @@ fn lex_code_fence(
       @core.LexStep::Produced(info, next_offset=next) =>
         match info.token {
           @payload_lexer.Token::CodeFenceOpen(length, info_text) =>
-            (
-              Produced(
-                @core.TokenInfo::new(CodeFenceOpen(length, info_text), info.len),
-                next_offset=next,
-              ),
-              CodeBlock(length, fence_character),
-            )
+            // CommonMark: a backtick opening fence is invalid when the info
+            // string contains a backtick. Emit the marker run as inline
+            // backticks instead of calling `lex_inline`, which can re-enter
+            // this fence path after a list marker on the same line.
+            if info_text.contains("`") {
+              (
+                Produced(
+                  @core.TokenInfo::new(Backtick, length),
+                  next_offset=pos + length,
+                ),
+                Inline,
+              )
+            } else {
+              (
+                Produced(
+                  @core.TokenInfo::new(
+                    CodeFenceOpen(length, info_text),
+                    info.len,
+                  ),
+                  next_offset=next,
+                ),
+                CodeBlock(length, fence_character),
+              )
+            }
           _ => lex_inline(input, pos, same_line_cache)
         }
       _ => lex_inline(input, pos, same_line_cache)
