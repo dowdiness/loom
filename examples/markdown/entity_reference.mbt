@@ -5,12 +5,6 @@ priv struct DecodedEntityReference {
 }
 
 ///|
-priv enum EntityBackslashMode {
-  ApplyBackslashEscapes
-  PreserveBackslashEscapes
-} derive(Eq)
-
-///|
 fn is_ascii_digit_code_unit(code_unit : Int) -> Bool {
   code_unit >= 0x30 && code_unit <= 0x39
 }
@@ -154,15 +148,9 @@ fn write_inline_source_slice(
 }
 
 ///|
-fn decode_markdown_text_references(
-  text : String,
-  backslash_mode : EntityBackslashMode,
-) -> String {
+fn decode_markdown_text_references(text : String) -> String {
   if !text.contains("&") {
-    return match backslash_mode {
-      ApplyBackslashEscapes => strip_backslash_escapes(text)
-      PreserveBackslashEscapes => text
-    }
+    return strip_backslash_escapes(text)
   }
   let buf = StringBuilder::StringBuilder()
   let mut literal_start = 0
@@ -172,11 +160,9 @@ fn decode_markdown_text_references(
     if code_unit == 0x5C && cursor + 1 < text.length() {
       let escaped = text.code_unit_at(cursor + 1).to_int()
       if is_ascii_punctuation_code_unit(escaped) {
-        if backslash_mode == ApplyBackslashEscapes {
-          write_inline_source_slice(buf, text, literal_start, cursor)
-          buf.write_char(escaped.unsafe_to_char())
-          literal_start = cursor + 2
-        }
+        write_inline_source_slice(buf, text, literal_start, cursor)
+        buf.write_char(escaped.unsafe_to_char())
+        literal_start = cursor + 2
         cursor = cursor + 2
         continue
       }
@@ -204,14 +190,14 @@ fn decode_markdown_text_references(
 /// source pass. An escaped ampersand must remain literal rather than becoming
 /// eligible for entity decoding after escape removal.
 fn decode_markdown_inline_text(text : String) -> String {
-  decode_markdown_text_references(text, ApplyBackslashEscapes)
+  decode_markdown_text_references(text)
 }
 
 ///|
-/// Decode entities in a fenced-code info string without taking ownership of
-/// the separate backslash-escape behavior tracked outside the entity slice.
+/// Decode entities and ASCII-punctuation backslash escapes in a fenced-code
+/// info string. Escaped ampersands stay literal and are not entity-decoded.
 fn decode_markdown_info_string_entities(text : String) -> String {
-  decode_markdown_text_references(text, PreserveBackslashEscapes)
+  decode_markdown_text_references(text)
 }
 
 ///|

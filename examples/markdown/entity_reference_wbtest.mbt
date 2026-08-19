@@ -66,7 +66,7 @@ test "CommonMark entities: invalid and escaped references stay literal" {
   )
   inspect(
     decode_markdown_info_string_entities("foo\\+bar &ouml; \\&copy;"),
-    content="foo\\+bar ö \\&copy;",
+    content="foo+bar ö &copy;",
   )
 }
 

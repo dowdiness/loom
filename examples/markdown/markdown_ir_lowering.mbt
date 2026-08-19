@@ -1795,6 +1795,14 @@ fn lower_list_item_flow_children_with_diags(
 }
 
 ///|
+fn commonmark_info_string_language(info : StringView) -> String {
+  match info.to_owned().replace(old="\t", new=" ").split(" ").nth(0) {
+    Some(word) => word.to_owned()
+    None => ""
+  }
+}
+
+///|
 fn code_block_info(node : @seam.SyntaxNode) -> String {
   if code_block_is_indented_form(node) {
     return ""
@@ -1804,9 +1812,11 @@ fn code_block_info(node : @seam.SyntaxNode) -> String {
       let text = fence_token.text()
       let i = count_leading_fence_characters(text)
       if i < text.length() {
-        decode_markdown_info_string_entities(text[i:].to_owned())
-        .trim(chars=" \t".view())
-        .to_owned()
+        commonmark_info_string_language(
+          decode_markdown_info_string_entities(text[i:].to_owned()).trim(
+            chars=" \t".view(),
+          ),
+        )
       } else {
         ""
       }
