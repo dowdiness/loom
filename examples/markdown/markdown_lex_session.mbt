@@ -198,7 +198,8 @@ pub fn MarkdownLexSession::step(
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   self.ensure_source(input)
   let detached_opening_indent = match mode {
-    CodeBlock(fence_length, fence_character) =>
+    CodeBlock(fence_length, fence_character)
+    | QuotedCodeBlock(fence_length, fence_character) =>
       match
         (
           self.opening_indent.val,
@@ -230,9 +231,11 @@ pub fn MarkdownLexSession::step(
   )
   let next_pos = next_lex_step_offset(step, input)
   match next_mode {
-    CodeBlock(fence_length, fence_character) => {
+    CodeBlock(fence_length, fence_character)
+    | QuotedCodeBlock(fence_length, fence_character) => {
       let indent = match mode {
-        CodeBlock(_, _) => detached_opening_indent.unwrap_or(0)
+        CodeBlock(_, _) | QuotedCodeBlock(_, _) =>
+          detached_opening_indent.unwrap_or(0)
         _ => visual_column_at_offset(input, pos)
       }
       self.remember_detached(

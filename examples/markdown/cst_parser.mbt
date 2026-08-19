@@ -886,7 +886,7 @@ fn parse_block_quote_after_marker(
       parse_block_quote_paragraph(ctx)
     }
     BlockQuoteMarker => parse_block_quote(ctx)
-    CodeFenceOpen(_, _) => parse_code_block(ctx)
+    CodeFenceOpen(_, _) => parse_quoted_code_block_with_prefix(ctx, None)
     Indentation(_) if ctx.peek_nth(1) is ListMarker &&
       current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
@@ -908,7 +908,8 @@ fn parse_block_quote_after_marker(
         ThematicBreak => parse_thematic_break_with_prefix(ctx, Some(prefix))
         HeadingMarker(_) => parse_heading_with_prefix(ctx, Some(prefix))
         BlockQuoteMarker => parse_block_quote(ctx)
-        CodeFenceOpen(_, _) => parse_code_block_with_prefix(ctx, Some(prefix))
+        CodeFenceOpen(_, _) =>
+          parse_quoted_code_block_with_prefix(ctx, Some(prefix))
         HtmlBlockOpen(_) => parse_html_block(ctx, Some(prefix))
         _ => parse_block_quote_paragraph(ctx)
       }
@@ -2393,9 +2394,6 @@ fn parse_code_block_with_prefix(
       None => ()
     }
     ctx.emit_token(CodeFenceOpenToken)
-    if ctx.peek() is Newline {
-      ctx.emit_token(NewlineToken)
-    }
     while !(ctx.peek() is CodeFenceClose) && ctx.peek() != EOF {
       match ctx.peek() {
         CodeText(_) => ctx.emit_token(CodeTextToken)
@@ -2409,6 +2407,37 @@ fn parse_code_block_with_prefix(
     }
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
+    }
+  })
+}
+
+///|
+fn parse_quoted_code_block_with_prefix(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  prefix : LinePrefix?,
+) -> Unit {
+  ctx.node(CodeBlockNode, fn() {
+    match prefix {
+      Some(_) => ctx.emit_token(IndentationToken)
+      None => ()
+    }
+    ctx.emit_token(CodeFenceOpenToken)
+    while ctx.peek() != EOF {
+      match ctx.peek() {
+        CodeFenceClose => {
+          ctx.emit_token(CodeFenceCloseToken)
+          if ctx.peek() is Newline {
+            ctx.emit_token(NewlineToken)
+          }
+          break
+        }
+        CodeText(_) => ctx.emit_token(CodeTextToken)
+        Indentation(_) if ctx.peek_nth(1) is BlockQuoteMarker =>
+          ctx.emit_token(IndentationToken)
+        BlockQuoteMarker => ctx.emit_token(BlockQuoteMarkerToken)
+        Newline => ctx.emit_token(NewlineToken)
+        BlankLine | _ => break
+      }
     }
   })
 }

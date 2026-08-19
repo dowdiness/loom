@@ -259,6 +259,28 @@ test "lexer: public code-block mode keeps the positive fence length" {
 }
 
 ///|
+test "lexer: blockquote fence produces QuotedCodeBlock mode" {
+  let source = "> ```\n> code\n"
+  let tokens = tokenize(source)
+  let fence_token = tokens[1]
+  inspect(@debug.to_string(fence_token.token), content="CodeFenceOpen(3, \"\")")
+  let (_, mode) = markdown_lex_step(source, "> ".length(), BlockQuoteLineStart)
+  match mode {
+    QuotedCodeBlock(length, '`') => inspect(length, content="3")
+    _ => fail("expected QuotedCodeBlock mode, got " + @debug.to_string(mode))
+  }
+}
+
+///|
+test "lexer: unquoted fence produces CodeBlock not QuotedCodeBlock" {
+  let (_, mode) = markdown_lex_step("```\n", 0, LineStart)
+  match mode {
+    CodeBlock(3, '`') => ()
+    _ => fail("expected CodeBlock mode, got " + @debug.to_string(mode))
+  }
+}
+
+///|
 test "lexer: deeply nested list fence closes beyond column four" {
   let tokens = tokenize("- a\n  - b\n      ~~~~\n      code\n      ~~~~\n")
   inspect(

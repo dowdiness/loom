@@ -233,19 +233,21 @@ fn fenced_code_block_value(node : @seam.SyntaxNode, source : String) -> String {
         match token_kind {
           CodeFenceOpenToken => in_code = true
           CodeFenceCloseToken => in_code = false
-          CodeTextToken if in_code =>
+          CodeTextToken if in_code => {
+            let raw_text = token.text()
             if structural_indent == 0 {
-              buf.write_string(token.text())
+              buf.write_string(raw_text)
             } else {
               let token_column = visual_column_at_offset(source, token.start())
               buf.write_string(
                 strip_visual_columns(
-                  token.text(),
+                  raw_text,
                   token_column,
                   (structural_indent - token_column).max(0),
                 ),
               )
             }
+          }
           NewlineToken | BlankLineToken if in_code => buf.write_string("\n")
           _ => ()
         }

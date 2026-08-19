@@ -287,6 +287,12 @@ test "block container core: blockquote explicit and lazy continuation table" {
     "stop-thematic-break",
     paragraph_open=false,
   )
+  assert_continuation_decision(
+    state,
+    block_quote_continuation_facts(),
+    "stop-none",
+    paragraph_open=false,
+  )
 }
 
 ///|

@@ -29,6 +29,20 @@ fn source_fence_replay_initial(
 }
 
 ///|
+fn source_fence_active(
+  input : String,
+  line_start : Int,
+  fence_character : Char,
+  candidate : SourceFenceCandidate,
+) -> (Int, Char, Int) {
+  (
+    candidate.run_len,
+    fence_character,
+    count_indent_columns(input, line_start, candidate.marker_start),
+  )
+}
+
+///|
 fn source_fence_replay_advance_line(
   state : SourceFenceReplayState,
   line_start : Int,
@@ -46,14 +60,11 @@ fn source_fence_replay_advance_line(
         ) {
         Some(candidate) =>
           Some(
-            (
-              candidate.run_len,
+            source_fence_active(
+              state.source,
+              line_start,
               state.fence_character,
-              count_indent_columns(
-                state.source,
-                line_start,
-                candidate.marker_start,
-              ),
+              candidate,
             ),
           )
         None => None
@@ -127,14 +138,11 @@ fn source_fence_replay_until(
         ) {
         Some(candidate) if candidate.marker_start <= pos =>
           Some(
-            (
-              candidate.run_len,
+            source_fence_active(
+              base.source,
+              current_line_start,
               base.fence_character,
-              count_indent_columns(
-                base.source,
-                current_line_start,
-                candidate.marker_start,
-              ),
+              candidate,
             ),
           )
         _ => None
@@ -194,7 +202,3 @@ priv struct DetachedCodeBlockIndentCache {
   next_pos : Int
   replay : SourceFenceReplayState
 }
-
-///|
-
-///|
