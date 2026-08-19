@@ -208,6 +208,7 @@ fn decide_setext_continuation(
     prefixed_block_start: false,
     lone_list_marker: false,
     next_breaks_paragraph: token_breaks_paragraph_after_newline(next),
+    over_indented_atx: false,
     prefix: NoPrefix,
   })
   continuation_decision_from_transition(
@@ -380,7 +381,8 @@ fn consume_block_continuation(
       ctx.emit_token(NewlineToken)
       ctx.emit_token(IndentationToken)
       match ctx.peek() {
-        ListMarker | OrderedListMarker(_) => ctx.emit_token(TextToken)
+        ListMarker | OrderedListMarker(_) | HeadingMarker(_) =>
+          ctx.emit_token(TextToken)
         _ => ()
       }
     }
@@ -420,6 +422,18 @@ fn next_token_after_newline_is_lone_list_marker(
 }
 
 ///|
+fn next_line_is_over_indented_atx(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  next : Token,
+) -> Bool {
+  match next {
+    Indentation(text) if count_leading_indent(text) >= 4 =>
+      ctx.peek_nth(2) is HeadingMarker(_)
+    _ => false
+  }
+}
+
+///|
 fn decide_root_paragraph_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> ContinuationDecision[BlockContinuationAction] {
@@ -434,6 +448,7 @@ fn decide_root_paragraph_continuation(
     lone_list_marker: at_newline &&
     next_token_after_newline_is_lone_list_marker(ctx),
     next_breaks_paragraph: token_breaks_paragraph_after_newline(next),
+    over_indented_atx: at_newline && next_line_is_over_indented_atx(ctx, next),
     prefix: if at_newline {
       observe_continuation_prefix(ctx, 1)
     } else {

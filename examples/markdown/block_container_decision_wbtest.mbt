@@ -21,6 +21,7 @@ fn root_continuation_facts(
   prefixed_block_start? : Bool = false,
   lone_list_marker? : Bool = false,
   next_breaks_paragraph? : Bool = false,
+  over_indented_atx? : Bool = false,
   prefix? : ContinuationPrefixKind = NoPrefix,
 ) -> BlockLineFacts {
   RootContinuation(RootContinuationFacts::{
@@ -30,6 +31,7 @@ fn root_continuation_facts(
     prefixed_block_start,
     lone_list_marker,
     next_breaks_paragraph,
+    over_indented_atx,
     prefix,
   })
 }
@@ -249,6 +251,12 @@ test "block container core: root continuation table owns boundaries" {
     root_continuation_facts(next=FactFence, next_breaks_paragraph=true),
     "stop-code-fence",
     paragraph_open=false,
+  )
+  assert_continuation_decision(
+    state,
+    root_continuation_facts(next=FactIndentation, over_indented_atx=true),
+    "continue-indentation-prefix",
+    paragraph_open=true,
   )
 }
 
