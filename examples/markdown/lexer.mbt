@@ -847,6 +847,9 @@ fn lex_code_block_body(
   opening_indent : Int?,
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
+  if pos >= input.length() {
+    return (Done, mode)
+  }
   match
     code_block_close_end_at(
       input, pos, fence_len, fence_character, opening_indent,
@@ -866,23 +869,6 @@ fn lex_code_block_body(
         _ => emit_code_text_line(input, pos, mode)
       }
   }
-}
-
-///|
-fn lex_plain_code_block(
-  input : String,
-  pos : Int,
-  fence_len : Int,
-  fence_character : Char,
-  opening_indent : Int?,
-  mode : MarkdownLexMode,
-) -> (@core.LexStep[Token], MarkdownLexMode) {
-  if pos >= input.length() {
-    return (Done, mode)
-  }
-  lex_code_block_body(
-    input, pos, fence_len, fence_character, opening_indent, mode,
-  )
 }
 
 ///|
@@ -1034,7 +1020,7 @@ fn markdown_lex_step_inner_with_context(
       lex_block_quote_line_start(input, pos, line_end_hint, same_line_cache)
     Inline => lex_inline(input, pos, same_line_cache)
     CodeBlock(n, fence_character) =>
-      lex_plain_code_block(
+      lex_code_block_body(
         input,
         pos,
         n,
