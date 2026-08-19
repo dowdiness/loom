@@ -253,7 +253,7 @@ test "lexer: three-space-prefixed closing fence closes code block" {
 test "lexer: public code-block mode keeps the positive fence length" {
   let (_, mode) = markdown_lex_step("      ~~~~\n", 6, LineStart)
   match mode {
-    CodeBlock(length, '~') => inspect(length, content="4")
+    CodeBlock(length, '~', false) => inspect(length, content="4")
     _ => fail("expected public CodeBlock mode")
   }
 }
@@ -282,7 +282,11 @@ test "lexer: detached mode recovers list-owned opening indent" {
   let source = "- a\n    ~~~~\n    code\n    ~~~~\n"
   let content_pos = "- a\n    ~~~~\n".length()
   let close_pos = content_pos + "    code\n".length()
-  let (_, mode) = markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (_, mode) = markdown_lex_step(
+    source,
+    content_pos,
+    CodeBlock(4, '~', false),
+  )
   let (step, _) = markdown_lex_step(source, close_pos, mode)
   match step {
     @core.LexStep::Produced(info, next_offset~) => {
@@ -298,7 +302,11 @@ test "lexer: detached mode ignores root indented code before nested fence" {
   let source = "    ~~~~\n- a\n    ~~~~\n    code\n    ~~~~\n"
   let content_pos = "    ~~~~\n- a\n    ~~~~\n".length()
   let close_pos = content_pos + "    code\n".length()
-  let (_, mode) = markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (_, mode) = markdown_lex_step(
+    source,
+    content_pos,
+    CodeBlock(4, '~', false),
+  )
   let (step, _) = markdown_lex_step(source, close_pos, mode)
   match step {
     @core.LexStep::Produced(info, next_offset~) => {
@@ -314,7 +322,11 @@ test "lexer: detached mode rejects root code after wide ordered marker" {
   let source = "1234. a\n    ~~~~\n    code\n    ~~~~\n"
   let content_pos = "1234. a\n    ~~~~\n".length()
   let close_pos = content_pos + "    code\n".length()
-  let (_, mode) = markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (_, mode) = markdown_lex_step(
+    source,
+    content_pos,
+    CodeBlock(4, '~', false),
+  )
   let (step, _) = markdown_lex_step(source, close_pos, mode)
   match step {
     @core.LexStep::Produced(info, next_offset~) => {
@@ -330,7 +342,11 @@ test "lexer: detached mode rejects malformed ordered marker ownership" {
   let source = "1234.foo\n      ~~~~\n      code\n      ~~~~\n"
   let content_pos = "1234.foo\n      ~~~~\n".length()
   let close_pos = content_pos + "      code\n".length()
-  let (_, mode) = markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (_, mode) = markdown_lex_step(
+    source,
+    content_pos,
+    CodeBlock(4, '~', false),
+  )
   let (step, _) = markdown_lex_step(source, close_pos, mode)
   match step {
     @core.LexStep::Produced(info, next_offset~) => {

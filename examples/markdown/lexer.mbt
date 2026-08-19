@@ -504,6 +504,7 @@ fn lex_code_fence(
   pos : Int,
   fence_character : Char,
   same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
+  blockquote_owned? : Bool = false,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if fence_character == '`' {
     match @payload_lexer.step_lex(input, pos) {
@@ -531,7 +532,7 @@ fn lex_code_fence(
                   ),
                   next_offset=next,
                 ),
-                CodeBlock(length, fence_character),
+                CodeBlock(length, fence_character, blockquote_owned),
               )
             }
           _ => lex_inline(input, pos, same_line_cache)
@@ -556,7 +557,7 @@ fn lex_code_fence(
         @core.TokenInfo::new(CodeFenceOpen(n, info.to_owned()), info_end - pos),
         next_offset=info_end,
       ),
-      CodeBlock(n, fence_character),
+      CodeBlock(n, fence_character, blockquote_owned),
     )
   }
 }
@@ -569,7 +570,10 @@ fn lex_block_quote_line_start(
   same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   match input.view(start_offset=pos) {
-    ['`', ..] => lex_inline(input, pos, same_line_cache)
+    ['`', ..] =>
+      lex_code_fence(input, pos, '`', same_line_cache, blockquote_owned=true)
+    ['~', ..] =>
+      lex_code_fence(input, pos, '~', same_line_cache, blockquote_owned=true)
     _ => lex_line_start(input, pos, line_end_hint, same_line_cache)
   }
 }
@@ -688,6 +692,38 @@ fn lex_inline(
 }
 
 ///|
+fn line_starts_with_block_quote_marker(input : String, pos : Int) -> Bool {
+  let line_end = find_line_end(input, pos)
+  let (start, _) = leading_indent_end_offset_and_column(input, pos, 0)
+  guard start < line_end else { return false }
+  char_at(input, start) is Some('>')
+}
+
+///|
+fn blockquote_owned_code_block_continues_after(
+  input : String,
+  pos : Int,
+  fence_len : Int,
+  fence_character : Char,
+) -> Bool {
+  let mut cursor = pos
+  while cursor < input.length() {
+    let line_end = find_line_end(input, cursor)
+    if !line_is_blank(input, cursor, line_end) {
+      break
+    }
+    cursor = line_end_including_break(input, line_end)
+  }
+  guard cursor < input.length() else { return false }
+  let line_end = find_line_end(input, cursor)
+  if source_fence_candidate(input, cursor, line_end, fence_len, fence_character)
+    is Some(_) {
+    return true
+  }
+  line_starts_with_block_quote_marker(input, cursor)
+}
+
+///|
 /// Consume characters until newline and emit as CodeText. Used by lex_code_block
 /// for the three cases where content is not a closing fence.
 fn emit_code_text_line(
@@ -695,6 +731,7 @@ fn emit_code_text_line(
   pos : Int,
   fence_len : Int,
   fence_character : Char,
+  blockquote_owned : Bool,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let mut line_end = pos
   while line_end < input.length() {
@@ -709,7 +746,7 @@ fn emit_code_text_line(
       @core.TokenInfo::new(CodeText(text.to_owned()), line_end - pos),
       next_offset=line_end,
     ),
-    CodeBlock(fence_len, fence_character),
+    CodeBlock(fence_len, fence_character, blockquote_owned),
   )
 }
 
@@ -746,6 +783,41 @@ fn code_fence_close_end(
 }
 
 ///|
+fn code_block_close_end_at(
+  input : String,
+  pos : Int,
+  fence_len : Int,
+  fence_character : Char,
+  opening_indent : Int?,
+  blockquote_owned : Bool,
+) -> Int? {
+  if blockquote_owned {
+    let line_end = find_line_end(input, pos)
+    match
+      source_fence_candidate(input, pos, line_end, fence_len, fence_character) {
+      Some(candidate) =>
+        code_fence_close_end(
+          input,
+          candidate.marker_start,
+          fence_len,
+          fence_character,
+        )
+      None => None
+    }
+  } else {
+    let max_leading_spaces = code_block_max_leading_spaces(opening_indent)
+    let mut fence_start = pos
+    let mut leading_spaces = 0
+    while leading_spaces < max_leading_spaces &&
+          char_at(input, fence_start) is Some(' ') {
+      fence_start = fence_start + 1
+      leading_spaces = leading_spaces + 1
+    }
+    code_fence_close_end(input, fence_start, fence_len, fence_character)
+  }
+}
+
+///|
 /// Lex from CodeBlock mode. Emits CodeText lines until closing fence.
 fn lex_code_block(
   input : String,
@@ -753,19 +825,15 @@ fn lex_code_block(
   fence_len : Int,
   fence_character : Char,
   opening_indent : Int?,
+  blockquote_owned : Bool,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
-    return (Done, CodeBlock(fence_len, fence_character))
+    return (Done, CodeBlock(fence_len, fence_character, blockquote_owned))
   }
-  let max_leading_spaces = code_block_max_leading_spaces(opening_indent)
-  let mut fence_start = pos
-  let mut leading_spaces = 0
-  while leading_spaces < max_leading_spaces &&
-        char_at(input, fence_start) is Some(' ') {
-    fence_start = fence_start + 1
-    leading_spaces = leading_spaces + 1
-  }
-  match code_fence_close_end(input, fence_start, fence_len, fence_character) {
+  match
+    code_block_close_end_at(
+      input, pos, fence_len, fence_character, opening_indent, blockquote_owned,
+    ) {
     Some(fence_end) =>
       (
         Produced(
@@ -776,21 +844,59 @@ fn lex_code_block(
       )
     None =>
       match input.view(start_offset=pos) {
-        ['\r', '\n', .. rest] =>
-          produced_until(
-            Newline,
-            pos,
-            rest,
-            CodeBlock(fence_len, fence_character),
-          )
-        ['\r', .. rest] | ['\n', .. rest] =>
-          produced_until(
-            Newline,
-            pos,
-            rest,
-            CodeBlock(fence_len, fence_character),
-          )
-        _ => emit_code_text_line(input, pos, fence_len, fence_character)
+        ['\r', '\n', .. rest] => {
+          let after_newline = rest.start_offset()
+          if blockquote_owned &&
+            !blockquote_owned_code_block_continues_after(
+              input, after_newline, fence_len, fence_character,
+            ) {
+            (
+              Produced(
+                @core.TokenInfo::new(Newline, after_newline - pos),
+                next_offset=after_newline,
+              ),
+              LineStart,
+            )
+          } else {
+            produced_until(
+              Newline,
+              pos,
+              rest,
+              CodeBlock(fence_len, fence_character, blockquote_owned),
+            )
+          }
+        }
+        ['\r', .. rest] | ['\n', .. rest] => {
+          let after_newline = rest.start_offset()
+          if blockquote_owned &&
+            !blockquote_owned_code_block_continues_after(
+              input, after_newline, fence_len, fence_character,
+            ) {
+            (
+              Produced(
+                @core.TokenInfo::new(Newline, after_newline - pos),
+                next_offset=after_newline,
+              ),
+              LineStart,
+            )
+          } else {
+            produced_until(
+              Newline,
+              pos,
+              rest,
+              CodeBlock(fence_len, fence_character, blockquote_owned),
+            )
+          }
+        }
+        _ =>
+          if blockquote_owned &&
+            !line_starts_with_block_quote_marker(input, pos) {
+            (Done, LineStart)
+          } else {
+            emit_code_text_line(
+              input, pos, fence_len, fence_character, blockquote_owned,
+            )
+          }
       }
   }
 }
@@ -918,7 +1024,7 @@ fn markdown_lex_step_inner_with_context(
     BlockQuoteLineStart =>
       lex_block_quote_line_start(input, pos, line_end_hint, same_line_cache)
     Inline => lex_inline(input, pos, same_line_cache)
-    CodeBlock(n, fence_character) =>
+    CodeBlock(n, fence_character, blockquote_owned) =>
       lex_code_block(
         input,
         pos,
@@ -929,6 +1035,7 @@ fn markdown_lex_step_inner_with_context(
           None =>
             source_derived_code_block_indent(input, pos, n, fence_character)
         },
+        blockquote_owned,
       )
     HtmlBlockRaw => lex_html_block_raw(input, pos)
     HtmlBlockUntil(delimiter) => lex_html_block_until(input, pos, delimiter)
@@ -955,7 +1062,7 @@ pub fn markdown_lex_step(
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let opening_indent = match mode {
-    CodeBlock(fence_length, fence_character) =>
+    CodeBlock(fence_length, fence_character, _) =>
       Some(
         source_derived_code_block_indent(
           input, pos, fence_length, fence_character,

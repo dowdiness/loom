@@ -3,7 +3,7 @@ pub(all) enum MarkdownLexMode {
   LineStart
   BlockQuoteLineStart
   Inline
-  CodeBlock(Int, Char)
+  CodeBlock(Int, Char, Bool)
   HtmlBlockRaw
   HtmlBlockUntil(String)
   HtmlBlockEndLine

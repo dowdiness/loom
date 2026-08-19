@@ -51,7 +51,7 @@ test "detached fence replay state matches stateless scan" {
 test "session replay clears at source end" {
   let source = "```\ncode"
   let session = MarkdownLexSession()
-  let (_, _) = session.step(source, "```\n".length(), CodeBlock(3, '`'))
+  let (_, _) = session.step(source, "```\n".length(), CodeBlock(3, '`', false))
   assert_true(session.detached_cache.val is None)
 }
 
@@ -60,7 +60,7 @@ test "session replay skips oversized source" {
   let source = "```\ncode\n" +
     "x".repeat(DETACHED_CODE_BLOCK_CACHE_MAX_SOURCE_LENGTH + 1)
   let session = MarkdownLexSession()
-  let (_, _) = session.step(source, "```\n".length(), CodeBlock(3, '`'))
+  let (_, _) = session.step(source, "```\n".length(), CodeBlock(3, '`', false))
   assert_true(session.detached_cache.val is None)
 }
 
@@ -69,8 +69,8 @@ test "session replay replaces source" {
   let first_source = "```\nfirst\nnext\n"
   let second_source = "```\nsecond\nnext\n"
   let session = MarkdownLexSession()
-  let _ = session.step(first_source, 4, CodeBlock(3, '`'))
-  let _ = session.step(second_source, 4, CodeBlock(3, '`'))
+  let _ = session.step(first_source, 4, CodeBlock(3, '`', false))
+  let _ = session.step(second_source, 4, CodeBlock(3, '`', false))
   match session.detached_cache.val {
     Some(cache) => assert_true(physical_equal(cache.source, second_source))
     None => fail("session replay cache was not populated")
@@ -81,12 +81,12 @@ test "session replay replaces source" {
 test "session replay remains correct on backward stepping" {
   let source = "```\nfirst\nsecond\n"
   let session = MarkdownLexSession()
-  let _ = session.step(source, 10, CodeBlock(3, '`'))
-  let (actual, actual_mode) = session.step(source, 4, CodeBlock(3, '`'))
+  let _ = session.step(source, 10, CodeBlock(3, '`', false))
+  let (actual, actual_mode) = session.step(source, 4, CodeBlock(3, '`', false))
   let (expected, expected_mode) = markdown_lex_step(
     source,
     4,
-    CodeBlock(3, '`'),
+    CodeBlock(3, '`', false),
   )
   assert_lex_step_equal_for_test(
     actual, actual_mode, expected, expected_mode, source,
@@ -97,8 +97,12 @@ test "session replay remains correct on backward stepping" {
 test "session replay clears after closing fence" {
   let source = "```\ncode\n```\nnext\n"
   let session = MarkdownLexSession()
-  let (_, _) = session.step(source, 4, CodeBlock(3, '`'))
-  let (_, _) = session.step(source, "```\ncode\n".length(), CodeBlock(3, '`'))
+  let (_, _) = session.step(source, 4, CodeBlock(3, '`', false))
+  let (_, _) = session.step(
+    source,
+    "```\ncode\n".length(),
+    CodeBlock(3, '`', false),
+  )
   assert_true(session.detached_cache.val is None)
 }
 
@@ -153,7 +157,11 @@ fn detached_middle_replay_workload(
   let session = MarkdownLexSession()
   let mut checksum = 0
   for i = 1; i < line_starts.length() - 1; i = i + 1 {
-    let (step, _) = session.step(source, line_starts[i], CodeBlock(3, '`'))
+    let (step, _) = session.step(
+      source,
+      line_starts[i],
+      CodeBlock(3, '`', false),
+    )
     checksum += next_lex_step_offset(step, source)
   }
   checksum
@@ -173,7 +181,11 @@ fn detached_middle_replay_uncached_workload(
 ) -> Int {
   let mut checksum = 0
   for i = 1; i < line_starts.length() - 1; i = i + 1 {
-    let (step, _) = markdown_lex_step(source, line_starts[i], CodeBlock(3, '`'))
+    let (step, _) = markdown_lex_step(
+      source,
+      line_starts[i],
+      CodeBlock(3, '`', false),
+    )
     checksum += next_lex_step_offset(step, source)
   }
   checksum
