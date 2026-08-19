@@ -48,9 +48,25 @@ test "incremental: blank line closes blockquote fenced code" {
   ignore(
     assert_block_container_incremental_parity(
       "blank line closes blockquote fenced code",
-      "> ```\n> aaa\n\nbb\n",
-      @core.Edit::insert("> ```\n> aaa\n\nbb".length(), "b".length()),
+      "> ```\n> aaa\n> bbb\n",
+      @core.Edit::new("> ```\n> aaa\n".length(), "> ".length(), "\n".length()),
       "> ```\n> aaa\n\nbbb\n",
+    ),
+  )
+}
+
+///|
+test "incremental: blank line closes blockquote fenced code after multiple lines" {
+  ignore(
+    assert_block_container_incremental_parity(
+      "blank line closes blockquote fenced code after multiple lines",
+      "> ```\n> aaa\n> bbb\n> ccc\n",
+      @core.Edit::new(
+        "> ```\n> aaa\n> bbb\n".length(),
+        "> ".length(),
+        "\n".length(),
+      ),
+      "> ```\n> aaa\n> bbb\n\nccc\n",
     ),
   )
 }

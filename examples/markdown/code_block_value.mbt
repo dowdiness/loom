@@ -196,26 +196,6 @@ fn trim_code_boundary_newlines(value : String, fenced~ : Bool) -> String {
 }
 
 ///|
-fn fenced_code_block_is_blockquote_owned(node : @seam.SyntaxNode) -> Bool {
-  match node.parent() {
-    Some(parent) => {
-      let kind : SyntaxKind = @seam.FromRawKind::from_raw(parent.kind())
-      kind is BlockQuoteNode
-    }
-    None => false
-  }
-}
-
-///|
-fn strip_blockquote_fenced_code_line(text : String) -> String {
-  match text.view() {
-    ['>', ' ', .. rest] => rest.to_owned()
-    ['>', ..] => ""
-    _ => text
-  }
-}
-
-///|
 fn fenced_code_block_is_list_owned(node : @seam.SyntaxNode) -> Bool {
   match node.parent() {
     Some(parent) => {
@@ -254,11 +234,7 @@ fn fenced_code_block_value(node : @seam.SyntaxNode, source : String) -> String {
           CodeFenceOpenToken => in_code = true
           CodeFenceCloseToken => in_code = false
           CodeTextToken if in_code => {
-            let raw_text = if fenced_code_block_is_blockquote_owned(node) {
-              strip_blockquote_fenced_code_line(token.text())
-            } else {
-              token.text()
-            }
+            let raw_text = token.text()
             if structural_indent == 0 {
               buf.write_string(raw_text)
             } else {

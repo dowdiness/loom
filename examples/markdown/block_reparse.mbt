@@ -413,10 +413,17 @@ fn parse_code_block_if_still_code_block(
       _ => ()
     }
   } else {
+    let quoted = match node.parent() {
+      Some(parent) => {
+        let kind : SyntaxKind = @seam.FromRawKind::from_raw(parent.kind())
+        kind is BlockQuoteNode
+      }
+      None => false
+    }
     match ctx.peek() {
-      CodeFenceOpen(_, _) => parse_code_block(ctx)
+      CodeFenceOpen(_, _) => parse_code_block_with_prefix(ctx, None, quoted~)
       Indentation(_) if ctx.peek_nth(1) is CodeFenceOpen(_, _) =>
-        parse_code_block_with_prefix(ctx, Some(PresentLinePrefix))
+        parse_code_block_with_prefix(ctx, Some(PresentLinePrefix), quoted~)
       _ => ()
     }
   }

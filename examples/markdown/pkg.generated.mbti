@@ -206,7 +206,8 @@ pub(all) enum MarkdownLexMode {
   LineStart
   BlockQuoteLineStart
   Inline
-  CodeBlock(Int, Char, Bool)
+  CodeBlock(Int, Char)
+  QuotedCodeBlock(Int, Char)
   HtmlBlockRaw
   HtmlBlockUntil(String)
   HtmlBlockEndLine

@@ -139,22 +139,22 @@ test "integrated sessions remain independent when interleaved" {
     let (first_step, first_mode) = first_session.step(
       first,
       first_pos,
-      CodeBlock(3, '`', false),
+      CodeBlock(3, '`'),
     )
     let (second_step, second_mode) = second_session.step(
       second,
       second_pos,
-      CodeBlock(3, '`', false),
+      CodeBlock(3, '`'),
     )
     let (first_expected, first_expected_mode) = markdown_lex_step(
       first,
       first_pos,
-      CodeBlock(3, '`', false),
+      CodeBlock(3, '`'),
     )
     let (second_expected, second_expected_mode) = markdown_lex_step(
       second,
       second_pos,
-      CodeBlock(3, '`', false),
+      CodeBlock(3, '`'),
     )
     assert_lex_step_equal_for_test(
       first_step, first_mode, first_expected, first_expected_mode, first,
@@ -175,22 +175,22 @@ test "integrated session source replacement and reset" {
   let (first_step, first_mode) = session.step(
     first,
     first_pos,
-    CodeBlock(3, '`', false),
+    CodeBlock(3, '`'),
   )
   let (second_step, second_mode) = session.step(
     second,
     second_pos,
-    CodeBlock(3, '`', false),
+    CodeBlock(3, '`'),
   )
   let (first_expected, first_expected_mode) = markdown_lex_step(
     first,
     first_pos,
-    CodeBlock(3, '`', false),
+    CodeBlock(3, '`'),
   )
   let (second_expected, second_expected_mode) = markdown_lex_step(
     second,
     second_pos,
-    CodeBlock(3, '`', false),
+    CodeBlock(3, '`'),
   )
   assert_lex_step_equal_for_test(
     first_step, first_mode, first_expected, first_expected_mode, first,
@@ -202,7 +202,7 @@ test "integrated session source replacement and reset" {
   let (reset_step, reset_mode) = session.step(
     first,
     first_pos,
-    CodeBlock(3, '`', false),
+    CodeBlock(3, '`'),
   )
   assert_lex_step_equal_for_test(
     reset_step, reset_mode, first_expected, first_expected_mode, first,
@@ -291,7 +291,7 @@ fn session_replay_workload(source : String, positions : Array[Int]) -> Int {
   let session = MarkdownLexSession()
   let mut checksum = 0
   for i = 1; i < positions.length() - 1; i = i + 1 {
-    let (step, _) = session.step(source, positions[i], CodeBlock(3, '`', false))
+    let (step, _) = session.step(source, positions[i], CodeBlock(3, '`'))
     checksum += next_lex_step_offset(step, source)
   }
   checksum
@@ -301,11 +301,7 @@ fn session_replay_workload(source : String, positions : Array[Int]) -> Int {
 fn stateless_replay_workload(source : String, positions : Array[Int]) -> Int {
   let mut checksum = 0
   for i = 1; i < positions.length() - 1; i = i + 1 {
-    let (step, _) = markdown_lex_step(
-      source,
-      positions[i],
-      CodeBlock(3, '`', false),
-    )
+    let (step, _) = markdown_lex_step(source, positions[i], CodeBlock(3, '`'))
     checksum += next_lex_step_offset(step, source)
   }
   checksum
