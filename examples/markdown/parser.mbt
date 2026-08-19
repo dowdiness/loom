@@ -11,9 +11,10 @@ pub fn parse_markdown(
   source_id : @core.SourceId,
   source : String,
 ) -> (Block, @core.DiagnosticSet) raise {
-  let (cst, diags) = parse_cst(source_id, source)
-  let syntax = @seam.SyntaxNode::from_cst(cst)
-  (fold_markdown_syntax_with_source(syntax, source), diags)
+  let document = parse_document(source_id, source)
+  let diagnostics = document.diagnostics()
+  let block = markdown_semantic_read_to_block(document.semantic_read())
+  (block, diagnostics)
 }
 
 ///|
@@ -21,12 +22,11 @@ pub fn parse(
   source_id : @core.SourceId,
   source : String,
 ) -> Block raise Failure {
-  // Tolerant parse — lex errors become Block::Error; parser recovery folds the
-  // current CST, preserving recoverable inline text where possible.
-  let (cst, _diags) = parse_cst(source_id, source) catch {
+  // Tolerant parse — lex errors become Block::Error; semantic recovery folds
+  // the source-bound MarkdownIR while preserving recoverable inline text.
+  let (block, _) = parse_markdown(source_id, source) catch {
     Failure::Failure(_) as failure => raise failure
     _ => return Block::Error("lex error")
   }
-  let syntax = @seam.SyntaxNode::from_cst(cst)
-  fold_markdown_syntax_with_source(syntax, source)
+  block
 }
