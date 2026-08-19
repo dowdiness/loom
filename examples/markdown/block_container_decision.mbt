@@ -91,6 +91,7 @@ priv struct RootContinuationFacts {
   prefixed_block_start : Bool
   lone_list_marker : Bool
   next_breaks_paragraph : Bool
+  over_indented_atx : Bool
   prefix : ContinuationPrefixKind
 }
 
@@ -333,6 +334,8 @@ fn decide_root_continuation(
     stop_paragraph_transition(state, block_start_from_token_fact(facts.next))
   } else if state.mode is SetextMode && facts.next is FactOrderedMarker {
     continue_transition(state, ContinueOrderedMarkerAsText)
+  } else if facts.over_indented_atx {
+    continue_transition(state, ContinueIndentationPrefix)
   } else {
     continue_transition(state, continuation_action_from_prefix(facts.prefix))
   }
