@@ -855,6 +855,7 @@ fn parse_block_quote_after_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_column : Int,
   marker_end_column : Int,
+  owned_prefix_min_indent : Int?,
 ) -> Unit {
   match ctx.peek() {
     _ if current_line_is_link_reference_definition(ctx) =>
@@ -868,7 +869,11 @@ fn parse_block_quote_after_marker(
     ListMarker if current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent >= 4) =>
-      parse_quoted_indented_code_block_from_current_line(ctx, min_indent=4)
+      parse_quoted_indented_code_block_from_current_line(
+        ctx,
+        min_indent=4,
+        owned_prefix_min_indent~,
+      )
     ListMarker => {
       ctx.emit_token(TextToken)
       parse_block_quote_paragraph(ctx)
@@ -880,12 +885,17 @@ fn parse_block_quote_after_marker(
     OrderedListMarker(_) if current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent >= 4) =>
-      parse_quoted_indented_code_block_from_current_line(ctx, min_indent=4)
+      parse_quoted_indented_code_block_from_current_line(
+        ctx,
+        min_indent=4,
+        owned_prefix_min_indent~,
+      )
     OrderedListMarker(_) => {
       ctx.emit_token(TextToken)
       parse_block_quote_paragraph(ctx)
     }
-    BlockQuoteMarker => parse_block_quote(ctx)
+    BlockQuoteMarker =>
+      parse_block_quote_with_prefix(ctx, None, owned_prefix_min_indent)
     CodeFenceOpen(_, _) => parse_quoted_code_block_with_prefix(ctx, None)
     Indentation(_) if ctx.peek_nth(1) is ListMarker &&
       current_block_quote_list_marker_indent(
@@ -901,13 +911,14 @@ fn parse_block_quote_after_marker(
         ctx,
         marker_end_column,
         content_column + 4,
-      ) => parse_quoted_indented_code_block(ctx)
+      ) => parse_quoted_indented_code_block(ctx, owned_prefix_min_indent~)
     Indentation(_) => {
       let prefix = PresentLinePrefix
       match ctx.peek_nth(1) {
         ThematicBreak => parse_thematic_break_with_prefix(ctx, Some(prefix))
         HeadingMarker(_) => parse_heading_with_prefix(ctx, Some(prefix))
-        BlockQuoteMarker => parse_block_quote(ctx)
+        BlockQuoteMarker =>
+          parse_block_quote_with_prefix(ctx, None, owned_prefix_min_indent)
         CodeFenceOpen(_, _) =>
           parse_quoted_code_block_with_prefix(ctx, Some(prefix))
         HtmlBlockOpen(_) => parse_html_block(ctx, Some(prefix))
@@ -990,7 +1001,9 @@ fn parse_block_quote_with_prefix(
         ctx,
       )
       ctx.emit_token(BlockQuoteMarkerToken)
-      parse_block_quote_after_marker(ctx, content_column, marker_end_column)
+      parse_block_quote_after_marker(
+        ctx, content_column, marker_end_column, owned_prefix_min_indent,
+      )
       consume_block_quote_child_separator(ctx)
     }
   })
@@ -1324,7 +1337,7 @@ fn try_continue_list_item_after_blank_line(
         ctx,
         context.content_indent,
       ) => {
-      parse_block_quote(ctx)
+      parse_block_quote_with_prefix(ctx, None, Some(context.content_indent))
       true
     }
     Indentation(_) if prefixed_list_item_block_starts(
@@ -1466,7 +1479,7 @@ fn try_parse_list_item_block_after_newline(
     }
     BlockQuoteMarker if !(ctx.peek_nth(1) is BlankLine) &&
       current_token_text_has_min_leading_spaces(ctx, content_indent) => {
-      parse_block_quote(ctx)
+      parse_block_quote_with_prefix(ctx, None, Some(content_indent))
       true
     }
     Indentation(_) if allow_prefixed_blocks &&
@@ -2010,18 +2023,36 @@ fn leftover_token_payload_indent(token : Token) -> Int? {
 }
 
 ///|
+/// Indentation that may precede a blockquote marker: root allows ≤3 columns;
+/// a list item may own a wider structural prefix (`min_indent .. min_indent+3`).
+fn indentation_qualifies_as_blockquote_marker_prefix(
+  columns : Int,
+  owned_prefix_min_indent : Int?,
+) -> Bool {
+  match owned_prefix_min_indent {
+    Some(min_indent) => columns >= min_indent && columns < min_indent + 4
+    None => columns <= 3
+  }
+}
+
+///|
 /// A blank line followed by a blockquote marker starts a new blockquote
 /// container (CommonMark examples 242, 252), not indented-code continuation.
 fn blank_line_is_followed_by_blockquote_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  owned_prefix_min_indent : Int?,
 ) -> Bool {
   match ctx.peek() {
     BlankLine =>
       match ctx.peek_nth(1) {
         BlockQuoteMarker => true
-        Indentation(text) =>
-          count_indent_columns(text, 0, text.length()) <= 3 &&
+        Indentation(text) => {
+          let columns = count_indent_columns(text, 0, text.length())
+          indentation_qualifies_as_blockquote_marker_prefix(
+            columns, owned_prefix_min_indent,
+          ) &&
           ctx.peek_nth(2) is BlockQuoteMarker
+        }
         _ => false
       }
     _ => false
@@ -2051,9 +2082,12 @@ fn indented_code_body_continues(
 fn quoted_indented_code_body_continues(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
+  owned_prefix_min_indent : Int?,
 ) -> Bool {
   match ctx.peek() {
-    BlankLine if blank_line_is_followed_by_blockquote_marker(ctx) => false
+    BlankLine if blank_line_is_followed_by_blockquote_marker(
+        ctx, owned_prefix_min_indent,
+      ) => false
     _ => indented_code_body_continues(ctx, min_indent)
   }
 }
@@ -2086,9 +2120,12 @@ fn consume_indented_code_body(
 fn consume_quoted_indented_code_body(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
+  owned_prefix_min_indent : Int?,
 ) -> Unit {
   consume_indented_code_body_while(ctx, ctx => {
-    quoted_indented_code_body_continues(ctx, min_indent)
+    quoted_indented_code_body_continues(
+      ctx, min_indent, owned_prefix_min_indent,
+    )
   })
 }
 
@@ -2110,13 +2147,14 @@ fn parse_indented_code_block_from_current_line(
 fn parse_quoted_indented_code_block_from_current_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent~ : Int,
+  owned_prefix_min_indent~ : Int?,
 ) -> Unit {
   ctx.node(CodeBlockNode, fn() {
     emit_indented_code_line(ctx)
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
-    consume_quoted_indented_code_body(ctx, min_indent)
+    consume_quoted_indented_code_body(ctx, min_indent, owned_prefix_min_indent)
   })
 }
 
@@ -2218,7 +2256,7 @@ fn parse_list_item_body(
       return
     }
     BlockQuoteMarker => {
-      parse_block_quote(ctx)
+      parse_block_quote_with_prefix(ctx, None, Some(content_indent))
       parse_list_item_flow_after_body(ctx, context, true)
       return
     }
@@ -2539,9 +2577,10 @@ fn parse_indented_code_block(
 fn parse_quoted_indented_code_block_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
+  owned_prefix_min_indent : Int?,
 ) -> Unit {
   ctx.node(CodeBlockNode, fn() {
-    consume_quoted_indented_code_body(ctx, min_indent)
+    consume_quoted_indented_code_body(ctx, min_indent, owned_prefix_min_indent)
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
@@ -2551,6 +2590,9 @@ fn parse_quoted_indented_code_block_at_min_indent(
 ///|
 fn parse_quoted_indented_code_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  owned_prefix_min_indent~ : Int?,
 ) -> Unit {
-  parse_quoted_indented_code_block_at_min_indent(ctx, 4)
+  parse_quoted_indented_code_block_at_min_indent(
+    ctx, 4, owned_prefix_min_indent,
+  )
 }

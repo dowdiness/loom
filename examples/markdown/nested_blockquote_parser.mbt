@@ -300,7 +300,9 @@ fn parse_repeated_nested_block_quote_block(
       )
     }
   } else {
-    parse_block_quote_after_marker(ctx, content_column, marker_end_column)
+    parse_block_quote_after_marker(
+      ctx, content_column, marker_end_column, owned_prefix_min_indent,
+    )
   }
 }
 
