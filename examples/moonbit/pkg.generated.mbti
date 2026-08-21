@@ -7,7 +7,7 @@ import {
   "dowdiness/loom/core",
   "dowdiness/seam",
   "moonbitlang/core/debug",
-  "moonbitlang/parser/tokens",
+  "moonbitlang/lexer/tokens",
 }
 
 // Values
@@ -172,6 +172,14 @@ pub(all) enum MoonbitSyntaxKind {
   WhereToken
   WhileToken
   WithToken
+  BytesInterpToken
+  PostLabelTransparentToken
+  LbracketBarToken
+  BarRbracketToken
+  LtQuestionToken
+  GuardExclamationToken
+  LexscanToken
+  ExtendToken
   SourceFileNode
   SourceItemNode
   LetItemNode
@@ -198,4 +206,3 @@ pub impl Show for MoonbitSyntaxKind
 // Type aliases
 
 // Traits
-
