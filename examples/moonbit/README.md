@@ -9,7 +9,7 @@ first porting step for the real MoonBit grammar.
 
 ## What exists now
 
-- `lex_moonbit` adapts `moonbitlang/parser/lexer` output to
+- `lex_moonbit` adapts `moonbitlang/lexer` output to
   `@core.LexResult[MoonToken]` through `@core.LexResult::from_located_tokens`.
 - `MoonToken` stores the official `@tokens.TokenKind` and maps every official
   token kind to a stable `MoonbitSyntaxKind` token variant while keeping Loom's

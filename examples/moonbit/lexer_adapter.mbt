@@ -25,7 +25,7 @@ pub fn lex_moonbit(
         err.to_string(),
         start_pos.cnum,
         end_pos.cnum,
-        "moonbitlang/parser/lexer",
+        "moonbitlang/lexer",
       ),
     )
   }
