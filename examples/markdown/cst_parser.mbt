@@ -937,38 +937,93 @@ fn parse_block_quote_after_marker(
 }
 
 ///|
-fn prefixed_block_quote_marker(
-  ctx : @core.ParserContext[Token, SyntaxKind],
+/// Indentation that may precede a blockquote marker under one ownership mode:
+/// root allows ≤3 columns; a list item may own `[min, min+4)`.
+fn indentation_qualifies_as_blockquote_marker_prefix(
+  columns : Int,
+  owned_prefix_min_indent : Int?,
 ) -> Bool {
-  match ctx.peek() {
-    Indentation(text) =>
-      count_indent_columns(text, 0, text.length()) <= 3 &&
-      ctx.peek_nth(1) is BlockQuoteMarker
+  match owned_prefix_min_indent {
+    Some(min_indent) => columns >= min_indent && columns < min_indent + 4
+    None => columns <= 3
+  }
+}
+
+///|
+fn peek_nth_is_indented_blockquote_marker(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  owned_prefix_min_indent : Int?,
+) -> Bool {
+  match ctx.peek_nth(offset) {
+    Indentation(text) => {
+      let columns = count_indent_columns(text, 0, text.length())
+      indentation_qualifies_as_blockquote_marker_prefix(
+        columns, owned_prefix_min_indent,
+      ) &&
+      ctx.peek_nth(offset + 1) is BlockQuoteMarker
+    }
     _ => false
   }
 }
 
 ///|
-fn block_quote_marker_after_newline(
+/// Root ≤3 always; when a list owns a wider prefix, also accept that band.
+fn peek_nth_is_container_indented_blockquote_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  owned_prefix_min_indent : Int?,
 ) -> Bool {
-  if ctx.peek_nth(1) is BlockQuoteMarker {
+  if peek_nth_is_indented_blockquote_marker(ctx, offset, None) {
     true
   } else {
-    match ctx.peek_nth(1) {
-      Indentation(text) =>
-        count_indent_columns(text, 0, text.length()) <= 3 &&
-        ctx.peek_nth(2) is BlockQuoteMarker
-      _ => false
+    match owned_prefix_min_indent {
+      Some(_) =>
+        peek_nth_is_indented_blockquote_marker(
+          ctx, offset, owned_prefix_min_indent,
+        )
+      None => false
     }
   }
 }
 
 ///|
+fn peek_nth_is_blockquote_marker_start(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  owned_prefix_min_indent : Int?,
+) -> Bool {
+  ctx.peek_nth(offset) is BlockQuoteMarker ||
+  peek_nth_is_container_indented_blockquote_marker(
+    ctx, offset, owned_prefix_min_indent,
+  )
+}
+
+///|
+fn prefixed_block_quote_marker(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  owned_prefix_min_indent : Int?,
+) -> Bool {
+  peek_nth_is_container_indented_blockquote_marker(
+    ctx, 0, owned_prefix_min_indent,
+  )
+}
+
+///|
+fn block_quote_marker_after_newline(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  owned_prefix_min_indent : Int?,
+) -> Bool {
+  peek_nth_is_blockquote_marker_start(ctx, 1, owned_prefix_min_indent)
+}
+
+///|
 fn consume_block_quote_child_separator(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  owned_prefix_min_indent : Int?,
 ) -> Unit {
-  if ctx.peek() is Newline && block_quote_marker_after_newline(ctx) {
+  if ctx.peek() is Newline &&
+    block_quote_marker_after_newline(ctx, owned_prefix_min_indent) {
     ctx.emit_token(NewlineToken)
   }
 }
@@ -993,8 +1048,9 @@ fn parse_block_quote_with_prefix(
       Some(_) => ctx.emit_token(IndentationToken)
       None => ()
     }
-    while ctx.peek() is BlockQuoteMarker || prefixed_block_quote_marker(ctx) {
-      if prefixed_block_quote_marker(ctx) {
+    while ctx.peek() is BlockQuoteMarker ||
+          prefixed_block_quote_marker(ctx, owned_prefix_min_indent) {
+      if prefixed_block_quote_marker(ctx, owned_prefix_min_indent) {
         ctx.emit_token(IndentationToken)
       }
       let (content_column, marker_end_column) = current_block_quote_marker_columns(
@@ -1004,7 +1060,7 @@ fn parse_block_quote_with_prefix(
       parse_block_quote_after_marker(
         ctx, content_column, marker_end_column, owned_prefix_min_indent,
       )
-      consume_block_quote_child_separator(ctx)
+      consume_block_quote_child_separator(ctx, owned_prefix_min_indent)
     }
   })
 }
@@ -2023,40 +2079,14 @@ fn leftover_token_payload_indent(token : Token) -> Int? {
 }
 
 ///|
-/// Indentation that may precede a blockquote marker: root allows ≤3 columns;
-/// a list item may own a wider structural prefix (`min_indent .. min_indent+3`).
-fn indentation_qualifies_as_blockquote_marker_prefix(
-  columns : Int,
-  owned_prefix_min_indent : Int?,
-) -> Bool {
-  match owned_prefix_min_indent {
-    Some(min_indent) => columns >= min_indent && columns < min_indent + 4
-    None => columns <= 3
-  }
-}
-
-///|
 /// A blank line followed by a blockquote marker starts a new blockquote
 /// container (CommonMark examples 242, 252), not indented-code continuation.
 fn blank_line_is_followed_by_blockquote_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
   owned_prefix_min_indent : Int?,
 ) -> Bool {
-  match ctx.peek() {
-    BlankLine =>
-      match ctx.peek_nth(1) {
-        BlockQuoteMarker => true
-        Indentation(text) => {
-          let columns = count_indent_columns(text, 0, text.length())
-          indentation_qualifies_as_blockquote_marker_prefix(
-            columns, owned_prefix_min_indent,
-          ) &&
-          ctx.peek_nth(2) is BlockQuoteMarker
-        }
-        _ => false
-      }
-    _ => false
-  }
+  ctx.peek() is BlankLine &&
+  peek_nth_is_blockquote_marker_start(ctx, 1, owned_prefix_min_indent)
 }
 
 ///|

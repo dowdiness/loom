@@ -7,20 +7,7 @@ fn consume_current_block_quote_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
   owned_prefix_min_indent : Int?,
 ) -> (Int, Int)? {
-  let has_owned_prefix = match owned_prefix_min_indent {
-    Some(min_indent) =>
-      match ctx.peek() {
-        Indentation(text) => {
-          let columns = count_indent_columns(text, 0, text.length())
-          columns >= min_indent &&
-          columns < min_indent + 4 &&
-          ctx.peek_nth(1) is BlockQuoteMarker
-        }
-        _ => false
-      }
-    None => false
-  }
-  if prefixed_block_quote_marker(ctx) || has_owned_prefix {
+  if prefixed_block_quote_marker(ctx, owned_prefix_min_indent) {
     ctx.emit_token(IndentationToken)
   }
   guard ctx.peek() is BlockQuoteMarker else { return None }
