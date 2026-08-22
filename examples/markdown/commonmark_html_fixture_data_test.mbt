@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=400, xfail=4, skip=0.
+// Baseline: pass=402, xfail=2, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (400, 4, 0)
+  (402, 2, 0)
 }
 
 ///|
@@ -774,9 +774,7 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "html-blocks-148",
       source: "<table><tr><td>\n<pre>\n**Hello**,\n\n_world_.\n</pre>\n</td></tr></table>\n",
       expected_html: "<table><tr><td>\n<pre>\n**Hello**,\n<p><em>world</em>.\n</pre></p>\n</td></tr></table>\n",
-      status: CommonMarkHtmlXfail(
-        "Type 6 HTML blocks with Markdown content after blank lines need recursive lowering.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 149,
@@ -1084,9 +1082,7 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "html-blocks-187",
       source: "Foo\n<a href=\"bar\">\nbaz\n",
       expected_html: "<p>Foo\n<a href=\"bar\">\nbaz</p>\n",
-      status: CommonMarkHtmlXfail(
-        "Inline HTML continuation inside paragraphs is not implemented.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 188,
