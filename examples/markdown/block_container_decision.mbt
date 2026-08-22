@@ -71,7 +71,8 @@ priv enum BlockTokenFact {
 ///|
 priv enum ContinuationPrefixKind {
   NoPrefix
-  ThematicBreakPrefix
+  /// Indentation plus a following structural token, re-emitted as paragraph text.
+  IndentedStructuralPrefix
   ListMarkerPrefix
 }
 
@@ -150,7 +151,7 @@ priv enum BlockStartAction {
 ///|
 priv enum BlockContinuationAction {
   ContinueNoPrefix
-  ContinueThematicBreakPrefix
+  ContinueIndentedStructuralPrefix
   ContinueListMarkerPrefix
   ContinueIndentationPrefix
   ContinueOrderedMarkerAsText
@@ -228,7 +229,7 @@ fn continuation_action_from_prefix(
 ) -> BlockContinuationAction {
   match prefix {
     NoPrefix => ContinueNoPrefix
-    ThematicBreakPrefix => ContinueThematicBreakPrefix
+    IndentedStructuralPrefix => ContinueIndentedStructuralPrefix
     ListMarkerPrefix => ContinueListMarkerPrefix
   }
 }

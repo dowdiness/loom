@@ -73,8 +73,8 @@ test "continuation decisions: root variants" {
   let thematic = continuation_context_at_newline(source_id, "para\n    ---\n")
   assert_decision_public_state_pure(thematic, () => {
     match decide_root_paragraph_continuation(thematic) {
-      Continue(ContinueThematicBreakPrefix) => ()
-      _ => abort("expected root ThematicBreakPrefix")
+      Continue(ContinueIndentedStructuralPrefix) => ()
+      _ => abort("expected root IndentedStructuralPrefix")
     }
   })
 
@@ -209,8 +209,8 @@ test "continuation decisions: block-quote variants" {
   )
   assert_decision_public_state_pure(marker_thematic, () => {
     match decide_block_quote_paragraph_continuation(marker_thematic) {
-      Continue(ContinueQuoteMarker(ThematicBreakPrefix)) => ()
-      _ => abort("expected MarkerAndPrefix(ThematicBreakPrefix)")
+      Continue(ContinueQuoteMarker(IndentedStructuralPrefix)) => ()
+      _ => abort("expected MarkerAndPrefix(IndentedStructuralPrefix)")
     }
   })
 
@@ -249,8 +249,20 @@ test "continuation decisions: block-quote variants" {
   )
   assert_decision_public_state_pure(prefix_thematic, () => {
     match decide_block_quote_paragraph_continuation(prefix_thematic) {
-      Continue(ContinueQuoteLazy(ThematicBreakPrefix)) => ()
-      _ => abort("expected PrefixOnly(ThematicBreakPrefix)")
+      Continue(ContinueQuoteLazy(IndentedStructuralPrefix)) => ()
+      _ => abort("expected PrefixOnly(IndentedStructuralPrefix)")
+    }
+  })
+
+  // CommonMark 238: ≥4-space indented list marker is lazy paragraph text.
+  let prefix_indented_list = continuation_context_at_newline(
+    source_id, "para\n    - bar\n",
+  )
+  assert_decision_public_state_pure(prefix_indented_list, () => {
+    match decide_block_quote_paragraph_continuation(prefix_indented_list) {
+      Continue(ContinueQuoteLazy(IndentedStructuralPrefix)) => ()
+      _ =>
+        abort("expected PrefixOnly(IndentedStructuralPrefix) for indented list")
     }
   })
 

@@ -348,8 +348,12 @@ fn observe_continuation_prefix(
 ) -> ContinuationPrefixKind {
   let next = ctx.peek_nth(offset)
   match next {
-    Indentation(_) if ctx.peek_nth(offset + 1) is ThematicBreak =>
-      ThematicBreakPrefix
+    Indentation(_) =>
+      match ctx.peek_nth(offset + 1) {
+        ThematicBreak | ListMarker | OrderedListMarker(_) | HeadingMarker(_) =>
+          IndentedStructuralPrefix
+        _ => NoPrefix
+      }
     ListMarker | OrderedListMarker(_) => ListMarkerPrefix
     _ => NoPrefix
   }
@@ -361,7 +365,7 @@ fn emit_paragraph_continuation_prefix(
   kind : ContinuationPrefixKind,
 ) -> Unit {
   match kind {
-    ThematicBreakPrefix => {
+    IndentedStructuralPrefix => {
       ctx.emit_token(TextToken)
       ctx.emit_token(TextToken)
     }
@@ -401,9 +405,9 @@ fn consume_block_continuation(
 ) -> Unit {
   match action {
     ContinueNoPrefix => ctx.emit_token(NewlineToken)
-    ContinueThematicBreakPrefix => {
+    ContinueIndentedStructuralPrefix => {
       ctx.emit_token(NewlineToken)
-      emit_paragraph_continuation_prefix(ctx, ThematicBreakPrefix)
+      emit_paragraph_continuation_prefix(ctx, IndentedStructuralPrefix)
     }
     ContinueListMarkerPrefix => {
       ctx.emit_token(NewlineToken)
