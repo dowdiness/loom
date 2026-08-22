@@ -901,11 +901,7 @@ fn parse_block_quote_after_marker(
     ListMarker if current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent >= 4) =>
-      parse_quoted_indented_code_block_from_current_line(
-        ctx,
-        min_indent=4,
-        ownership~,
-      )
+      parse_quoted_indented_code_block_from_current_line(ctx, min_indent=4)
     ListMarker => {
       ctx.emit_token(TextToken)
       parse_block_quote_paragraph(ctx)
@@ -917,11 +913,7 @@ fn parse_block_quote_after_marker(
     OrderedListMarker(_) if current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent >= 4) =>
-      parse_quoted_indented_code_block_from_current_line(
-        ctx,
-        min_indent=4,
-        ownership~,
-      )
+      parse_quoted_indented_code_block_from_current_line(ctx, min_indent=4)
     OrderedListMarker(_) => {
       ctx.emit_token(TextToken)
       parse_block_quote_paragraph(ctx)
@@ -942,7 +934,7 @@ fn parse_block_quote_after_marker(
         ctx,
         marker_end_column,
         content_column + 4,
-      ) => parse_quoted_indented_code_block(ctx, ownership~)
+      ) => parse_quoted_indented_code_block(ctx)
     Indentation(_) => {
       let prefix = PresentLinePrefix
       match ctx.peek_nth(1) {
@@ -2077,17 +2069,6 @@ fn leftover_token_payload_indent(token : Token) -> Int? {
 }
 
 ///|
-/// A blank line followed by a blockquote marker starts a new blockquote
-/// container (CommonMark examples 242, 252), not indented-code continuation.
-fn blank_line_is_followed_by_blockquote_marker(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  ownership : BlockQuotePrefixOwnership,
-) -> Bool {
-  ctx.peek() is BlankLine &&
-  peek_nth_is_blockquote_marker_start(ctx, 1, ownership)
-}
-
-///|
 /// HTML and fence openers may already have switched the lexer mode after a
 /// four-space indent. Keep leftover same-line tokens inside the opener, but
 /// only continue onto later lines that still meet the indent requirement.
@@ -2101,21 +2082,6 @@ fn indented_code_body_continues(
     token if token_is_indented_code_leftover(token) =>
       current_token_leading_indent(ctx) >= min_indent
     _ => false
-  }
-}
-
-///|
-/// Blockquote-owned indented code must stop before a blank line that starts a
-/// new blockquote container; root/list indented code may absorb that blank.
-fn quoted_indented_code_body_continues(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  min_indent : Int,
-  ownership : BlockQuotePrefixOwnership,
-) -> Bool {
-  match ctx.peek() {
-    BlankLine if blank_line_is_followed_by_blockquote_marker(ctx, ownership) =>
-      false
-    _ => indented_code_body_continues(ctx, min_indent)
   }
 }
 
@@ -2144,14 +2110,34 @@ fn consume_indented_code_body(
 }
 
 ///|
+/// Consume blockquote-owned indented code on the current physical line only.
+/// Indented code does not lazy-continue a blockquote: after a line break, bare
+/// indent is root indented code (CommonMark 236) and an unmarked blank ends
+/// the quote (242 / 252). Further `>` lines stay with
+/// `parse_block_quote_with_prefix`.
 fn consume_quoted_indented_code_body(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
-  ownership : BlockQuotePrefixOwnership,
+  after_line_break? : Bool = false,
 ) -> Unit {
-  consume_indented_code_body_while(ctx, ctx => {
-    quoted_indented_code_body_continues(ctx, min_indent, ownership)
-  })
+  let mut at_line_start = after_line_break
+  while true {
+    if at_line_start {
+      break
+    }
+    guard indented_code_body_continues(ctx, min_indent) else { break }
+    match ctx.peek() {
+      Newline => {
+        ctx.emit_token(NewlineToken)
+        at_line_start = true
+      }
+      BlankLine => break
+      _ => {
+        emit_indented_code_line(ctx)
+        at_line_start = false
+      }
+    }
+  }
 }
 
 ///|
@@ -2172,14 +2158,16 @@ fn parse_indented_code_block_from_current_line(
 fn parse_quoted_indented_code_block_from_current_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent~ : Int,
-  ownership~ : BlockQuotePrefixOwnership,
 ) -> Unit {
   ctx.node(CodeBlockNode, fn() {
     emit_indented_code_line(ctx)
-    if ctx.peek() is Newline {
+    let after_line_break = if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
+      true
+    } else {
+      false
     }
-    consume_quoted_indented_code_body(ctx, min_indent, ownership)
+    consume_quoted_indented_code_body(ctx, min_indent, after_line_break~)
   })
 }
 
@@ -2597,15 +2585,14 @@ fn parse_indented_code_block(
 }
 
 ///|
-/// Blockquote-owned indented code. Stops before a blank line that opens a new
-/// blockquote (CommonMark example 252).
+/// Blockquote-owned indented code. Stops at the first line break so unmarked
+/// continuation lines leave the quote (CommonMark examples 236, 252).
 fn parse_quoted_indented_code_block_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
-  ownership : BlockQuotePrefixOwnership,
 ) -> Unit {
   ctx.node(CodeBlockNode, fn() {
-    consume_quoted_indented_code_body(ctx, min_indent, ownership)
+    consume_quoted_indented_code_body(ctx, min_indent)
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
@@ -2615,7 +2602,6 @@ fn parse_quoted_indented_code_block_at_min_indent(
 ///|
 fn parse_quoted_indented_code_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  ownership~ : BlockQuotePrefixOwnership,
 ) -> Unit {
-  parse_quoted_indented_code_block_at_min_indent(ctx, 4, ownership)
+  parse_quoted_indented_code_block_at_min_indent(ctx, 4)
 }
