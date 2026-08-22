@@ -2161,6 +2161,26 @@ fn consume_blockquote_prefix_for_quoted_indented_code(
 }
 
 ///|
+/// Consume one physical line of quote-owned indented code. Returns `true` when
+/// a trailing newline was taken so the caller may try a marked continuation.
+fn try_consume_quoted_indented_code_line(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  min_indent : Int,
+) -> Bool {
+  while indented_code_body_continues(ctx, min_indent) {
+    match ctx.peek() {
+      Newline => {
+        ctx.emit_token(NewlineToken)
+        return true
+      }
+      BlankLine => return false
+      _ => emit_indented_code_line(ctx)
+    }
+  }
+  false
+}
+
+///|
 /// Consume quote-owned indented code for the current line and any further
 /// marked indented-code lines. Unmarked line breaks leave the quote.
 fn consume_quoted_indented_code_body(
@@ -2168,22 +2188,9 @@ fn consume_quoted_indented_code_body(
   min_indent : Int,
   ownership : BlockQuotePrefixOwnership,
 ) -> Unit {
-  while true {
-    let mut saw_newline = false
-    while indented_code_body_continues(ctx, min_indent) {
-      match ctx.peek() {
-        Newline => {
-          ctx.emit_token(NewlineToken)
-          saw_newline = true
-          break
-        }
-        BlankLine => return
-        _ => emit_indented_code_line(ctx)
-      }
-    }
-    guard saw_newline else { return }
+  while try_consume_quoted_indented_code_line(ctx, min_indent) {
     guard next_line_continues_quoted_indented_code(ctx, min_indent, ownership) else {
-      return
+      break
     }
     consume_blockquote_prefix_for_quoted_indented_code(ctx, ownership)
   }
