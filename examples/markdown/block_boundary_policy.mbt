@@ -16,11 +16,29 @@ fn is_block_boundary(token : Token) -> Bool {
 }
 
 ///|
+/// Type 7 HTML block opens do not interrupt paragraphs (CommonMark).
+/// Types 1–6 still do. `is_block_boundary` keeps all `HtmlBlockOpen` as
+/// document structure markers.
+fn html_block_open_interrupts_paragraph(token : Token) -> Bool {
+  match token {
+    HtmlBlockOpen(line) =>
+      match classify_html_block_opening(line.view()) {
+        Some(Type7) => false
+        Some(_) => true
+        None => true
+      }
+    _ => false
+  }
+}
+
+///|
 /// Ordered lists can interrupt paragraphs only when the start number is 1.
 /// Other ordered-list-looking lines remain paragraph text after a soft break.
+/// Type 7 HTML block opens likewise stay in the paragraph.
 fn token_breaks_paragraph_after_newline(token : Token) -> Bool {
   match token {
     OrderedListMarker(marker) => marker.start() == 1
+    HtmlBlockOpen(_) => html_block_open_interrupts_paragraph(token)
     _ => is_block_boundary(token)
   }
 }

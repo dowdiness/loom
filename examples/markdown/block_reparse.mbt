@@ -282,46 +282,65 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
       if i < tokens.length() && tokens[i].token is Newline {
         i = i + 1
       }
-      // HtmlText / Newline loop matching parse_html_block.
-      while i < tokens.length() {
-        match tokens[i].token {
-          HtmlText(_) => i = i + 1
-          Newline =>
-            if html_newline_run_continues_in_stream(tokens, i) {
-              i = i + 1
-              if i < tokens.length() &&
-                tokens[i].token is Newline &&
-                !(i + 1 < tokens.length() && tokens[i + 1].token is Newline) {
-                i = i + 1
-              }
-            } else {
-              break
-            }
-          EOF => {
-            i = i + 1
-            break
-          }
-          _ => break
-        }
-      }
-      // Trailing newline run before EOF — match parse_html_block fix.
-      while i < tokens.length() && tokens[i].token is Newline {
-        i = i + 1
-      }
-      // Trailing EOF is always accepted (token stream terminator).
-      if i < tokens.length() && tokens[i].token is EOF {
-        i = i + 1
-      }
-      guard i >= tokens.length() else { return false }
-      // For Until-delimiter blocks, the closing delimiter must be present AND
-      // appear in the last line of consumed content (the block terminator),
-      // not just anywhere.  If the delimiter was removed or is only a
-      // leftover substring earlier in the block, the old span doesn't
-      // cover the complete extent.
       match block_type {
-        Some(Until(delimiter)) =>
-          html_block_contains_delimiter_at_end(tokens, open_line, delimiter)
-        Some(Raw) => true
+        Some(Type7) => {
+          // Type 7 body is LineStart tokens until blank / EOF.
+          while i < tokens.length() {
+            match tokens[i].token {
+              BlankLine => break
+              EOF => {
+                i = i + 1
+                break
+              }
+              _ => i = i + 1
+            }
+          }
+          i >= tokens.length()
+        }
+        Some(Until(_)) | Some(Raw) => {
+          // HtmlText / Newline loop matching parse_html_block.
+          while i < tokens.length() {
+            match tokens[i].token {
+              HtmlText(_) => i = i + 1
+              Newline =>
+                if html_newline_run_continues_in_stream(tokens, i) {
+                  i = i + 1
+                  if i < tokens.length() &&
+                    tokens[i].token is Newline &&
+                    !(i + 1 < tokens.length() && tokens[i + 1].token is Newline) {
+                    i = i + 1
+                  }
+                } else {
+                  break
+                }
+              EOF => {
+                i = i + 1
+                break
+              }
+              _ => break
+            }
+          }
+          // Trailing newline run before EOF — match parse_html_block fix.
+          while i < tokens.length() && tokens[i].token is Newline {
+            i = i + 1
+          }
+          // Trailing EOF is always accepted (token stream terminator).
+          if i < tokens.length() && tokens[i].token is EOF {
+            i = i + 1
+          }
+          guard i >= tokens.length() else { return false }
+          // For Until-delimiter blocks, the closing delimiter must be present AND
+          // appear in the last line of consumed content (the block terminator),
+          // not just anywhere.  If the delimiter was removed or is only a
+          // leftover substring earlier in the block, the old span doesn't
+          // cover the complete extent.
+          match block_type {
+            Some(Until(delimiter)) =>
+              html_block_contains_delimiter_at_end(tokens, open_line, delimiter)
+            Some(Raw) => true
+            Some(Type7) | None => false
+          }
+        }
         None => false
       }
     }

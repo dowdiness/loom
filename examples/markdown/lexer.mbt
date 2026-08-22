@@ -86,8 +86,9 @@ fn ordered_list_marker_at(input : String, pos : Int) -> OrderedListMarker? {
 
 ///|
 priv enum HtmlBlockType {
-  Until(String)
-  Raw
+  Until(String) // types 1–5
+  Raw // type 6 — ends on blank; interrupts paragraphs
+  Type7 // type 7 — does not interrupt; see mode below
 }
 
 ///|
@@ -275,13 +276,15 @@ fn classify_html_block_opening(line : StringView) -> HtmlBlockType? {
   }
   let name_start = if trimmed.has_prefix("</") { 2 } else { 1 }
   match extract_html_tag_name(trimmed, name_start) {
-    Some((tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
+    // Type 1 is open tags only (`<pre>`, not `</pre>`).
+    Some((tag, tag_end)) if name_start == 1 &&
+      html_tag_name_follow_is_valid(trimmed, tag_end) &&
       is_type1_tag_name(tag) => Some(Until("</" + tag.to_lower() + ">"))
     Some((tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
       is_type6_tag_name(tag) => Some(Raw)
     Some((_tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
       (name_start == 1 || name_start == 2) &&
-      line_is_complete_type7_html_tag(trimmed) => Some(Raw)
+      line_is_complete_type7_html_tag(trimmed) => Some(Type7)
     _ => None
   }
 }
@@ -293,6 +296,11 @@ fn html_block_mode_after_open(
 ) -> MarkdownLexMode {
   match block_type {
     Raw => HtmlBlockRaw
+    // Type 7 must not enter HtmlBlockRaw (so later lines reclassify, e.g. Type 6
+    // `</td>` after a Type 7 `</pre>` that joined a paragraph). Emit the open
+    // line's trailing break as Newline via HtmlBlockEndLine — returning to
+    // LineStart at the break itself would mis-lex it as BlankLine.
+    Type7 => HtmlBlockEndLine
     Until(delimiter) =>
       if line.to_lower().contains(delimiter) {
         HtmlBlockEndLine
