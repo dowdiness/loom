@@ -5,22 +5,9 @@
 ///|
 fn consume_current_block_quote_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
 ) -> (Int, Int)? {
-  let has_owned_prefix = match owned_prefix_min_indent {
-    Some(min_indent) =>
-      match ctx.peek() {
-        Indentation(text) => {
-          let columns = count_indent_columns(text, 0, text.length())
-          columns >= min_indent &&
-          columns < min_indent + 4 &&
-          ctx.peek_nth(1) is BlockQuoteMarker
-        }
-        _ => false
-      }
-    None => false
-  }
-  if prefixed_block_quote_marker(ctx) || has_owned_prefix {
+  if prefixed_block_quote_marker(ctx, ownership) {
     ctx.emit_token(IndentationToken)
   }
   guard ctx.peek() is BlockQuoteMarker else { return None }
@@ -32,13 +19,13 @@ fn consume_current_block_quote_marker(
 ///|
 fn consume_block_quote_marker_count(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
   count : Int,
 ) -> (Int, Int)? {
   let mut content_column = 0
   let mut marker_end_column = 0
   for index = 0; index < count; index = index + 1 {
-    match consume_current_block_quote_marker(ctx, owned_prefix_min_indent) {
+    match consume_current_block_quote_marker(ctx, ownership) {
       Some((next_content_column, next_marker_end_column)) => {
         content_column = next_content_column
         marker_end_column = next_marker_end_column
@@ -52,13 +39,13 @@ fn consume_block_quote_marker_count(
 ///|
 fn consume_repeated_nested_block_quote_line_prefix(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
   depth : Int,
 ) -> (Int, Int)? {
   if ctx.peek() is Newline {
     ctx.emit_token(NewlineToken)
   }
-  consume_block_quote_marker_count(ctx, owned_prefix_min_indent, depth)
+  consume_block_quote_marker_count(ctx, ownership, depth)
 }
 
 ///|
@@ -72,7 +59,7 @@ fn repeated_nested_block_quote_paragraph_starts(
 ///|
 fn next_repeated_nested_block_quote_depth(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
 ) -> Int {
   ctx.lookahead(() => {
     match ctx.peek() {
@@ -81,8 +68,7 @@ fn next_repeated_nested_block_quote_depth(
       _ => ()
     }
     let mut depth = 0
-    while consume_current_block_quote_marker(ctx, owned_prefix_min_indent)
-          is Some(_) {
+    while consume_current_block_quote_marker(ctx, ownership) is Some(_) {
       depth += 1
     }
     depth
@@ -92,7 +78,7 @@ fn next_repeated_nested_block_quote_depth(
 ///|
 fn repeated_nested_block_quote_depth(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
   prefix : LinePrefix?,
 ) -> Int? {
   ctx.lookahead(() => {
@@ -101,8 +87,7 @@ fn repeated_nested_block_quote_depth(
       None => ()
     }
     let mut depth = 0
-    while consume_current_block_quote_marker(ctx, owned_prefix_min_indent)
-          is Some(_) {
+    while consume_current_block_quote_marker(ctx, ownership) is Some(_) {
       depth += 1
     }
     if depth > 1 {
@@ -122,7 +107,7 @@ priv enum RepeatedNestedBlockQuoteContinuation {
 ///|
 fn repeated_nested_block_quote_paragraph_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
   depth : Int,
 ) -> ContinuationDecision[RepeatedNestedBlockQuoteContinuation] {
   let nested_marker_count = ctx.lookahead(() => {
@@ -130,8 +115,7 @@ fn repeated_nested_block_quote_paragraph_continuation(
     ctx.emit_token(NewlineToken)
     let mut count = 0
     while count < depth &&
-          consume_current_block_quote_marker(ctx, owned_prefix_min_indent)
-          is Some(_) {
+          consume_current_block_quote_marker(ctx, ownership) is Some(_) {
       count += 1
     }
     if count > 1 && token_continues_paragraph_after_softbreak(ctx.peek()) {
@@ -153,13 +137,13 @@ fn repeated_nested_block_quote_paragraph_continuation(
 ///|
 fn consume_repeated_nested_block_quote_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
   continuation : RepeatedNestedBlockQuoteContinuation,
 ) -> Unit {
   match continuation {
     ContinueNestedMarkers(depth) => {
       guard consume_repeated_nested_block_quote_line_prefix(
-          ctx, owned_prefix_min_indent, depth,
+          ctx, ownership, depth,
         )
         is Some(_) else {
         abort(
@@ -174,18 +158,16 @@ fn consume_repeated_nested_block_quote_continuation(
 ///|
 fn repeated_nested_block_quote_handler(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
   depth : Int,
 ) -> ContinuationHandler[RepeatedNestedBlockQuoteContinuation] {
   {
     decide: () => {
-      repeated_nested_block_quote_paragraph_continuation(
-        ctx, owned_prefix_min_indent, depth,
-      )
+      repeated_nested_block_quote_paragraph_continuation(ctx, ownership, depth)
     },
     consume: continuation => {
       consume_repeated_nested_block_quote_continuation(
-        ctx, owned_prefix_min_indent, continuation,
+        ctx, ownership, continuation,
       )
     },
   }
@@ -194,26 +176,24 @@ fn repeated_nested_block_quote_handler(
 ///|
 fn parse_repeated_nested_block_quote_paragraph(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
   depth : Int,
 ) -> Unit {
   parse_block_quote_paragraph_with_handler(
     ctx,
-    repeated_nested_block_quote_handler(ctx, owned_prefix_min_indent, depth),
+    repeated_nested_block_quote_handler(ctx, ownership, depth),
   )
 }
 
 ///|
 fn repeated_nested_block_quote_setext_underline_depth(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
   depth : Int,
 ) -> Int? {
   ctx.lookahead(() => {
     guard ctx.peek() is Newline else { return None }
-    guard consume_repeated_nested_block_quote_line_prefix(
-        ctx, owned_prefix_min_indent, depth,
-      )
+    guard consume_repeated_nested_block_quote_line_prefix(ctx, ownership, depth)
       is Some(_) else {
       return None
     }
@@ -228,7 +208,7 @@ fn repeated_nested_block_quote_setext_underline_depth(
 ///|
 fn repeated_nested_block_quote_starts_setext_heading(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
   depth : Int,
 ) -> Bool {
   ctx.lookahead(() => {
@@ -236,9 +216,7 @@ fn repeated_nested_block_quote_starts_setext_heading(
       ctx,
       InlineParsePolicy::paragraph(),
     )
-    repeated_nested_block_quote_setext_underline_depth(
-      ctx, owned_prefix_min_indent, depth,
-    )
+    repeated_nested_block_quote_setext_underline_depth(ctx, ownership, depth)
     is Some(_)
   })
 }
@@ -246,12 +224,10 @@ fn repeated_nested_block_quote_starts_setext_heading(
 ///|
 fn consume_repeated_nested_block_quote_setext_underline(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
   depth : Int,
 ) -> Unit {
-  guard consume_repeated_nested_block_quote_line_prefix(
-      ctx, owned_prefix_min_indent, depth,
-    )
+  guard consume_repeated_nested_block_quote_line_prefix(ctx, ownership, depth)
     is Some(_) else {
     abort("nested blockquote setext prefix changed after lookahead")
   }
@@ -261,20 +237,18 @@ fn consume_repeated_nested_block_quote_setext_underline(
 ///|
 fn try_parse_repeated_nested_block_quote_setext_heading(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
   depth : Int,
 ) -> Bool {
   try_parse_block_quote_setext_heading_with_handler(
     ctx,
-    repeated_nested_block_quote_handler(ctx, owned_prefix_min_indent, depth),
+    repeated_nested_block_quote_handler(ctx, ownership, depth),
     () => {
-      repeated_nested_block_quote_setext_underline_depth(
-        ctx, owned_prefix_min_indent, depth,
-      )
+      repeated_nested_block_quote_setext_underline_depth(ctx, ownership, depth)
     },
     () => {
       consume_repeated_nested_block_quote_setext_underline(
-        ctx, owned_prefix_min_indent, depth,
+        ctx, ownership, depth,
       )
     },
   )
@@ -283,31 +257,29 @@ fn try_parse_repeated_nested_block_quote_setext_heading(
 ///|
 fn parse_repeated_nested_block_quote_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
   depth : Int,
   content_column : Int,
   marker_end_column : Int,
 ) -> Unit {
   if repeated_nested_block_quote_paragraph_starts(ctx) {
-    if !repeated_nested_block_quote_starts_setext_heading(
-        ctx, owned_prefix_min_indent, depth,
-      ) ||
+    if !repeated_nested_block_quote_starts_setext_heading(ctx, ownership, depth) ||
       !try_parse_repeated_nested_block_quote_setext_heading(
-        ctx, owned_prefix_min_indent, depth,
+        ctx, ownership, depth,
       ) {
-      parse_repeated_nested_block_quote_paragraph(
-        ctx, owned_prefix_min_indent, depth,
-      )
+      parse_repeated_nested_block_quote_paragraph(ctx, ownership, depth)
     }
   } else {
-    parse_block_quote_after_marker(ctx, content_column, marker_end_column)
+    parse_block_quote_after_marker(
+      ctx, content_column, marker_end_column, ownership,
+    )
   }
 }
 
 ///|
 fn parse_repeated_nested_block_quote(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
   depth : Int,
   prefix : LinePrefix?,
 ) -> Unit {
@@ -316,7 +288,7 @@ fn parse_repeated_nested_block_quote(
       Some(_) => ctx.emit_token(IndentationToken)
       None => ()
     }
-    guard consume_current_block_quote_marker(ctx, owned_prefix_min_indent)
+    guard consume_current_block_quote_marker(ctx, ownership)
       is Some((first_content_column, first_marker_end_column)) else {
       abort("nested blockquote parser requires an opening marker")
     }
@@ -324,7 +296,7 @@ fn parse_repeated_nested_block_quote(
     let mut marker_end_column = first_marker_end_column
     for index = 1; index < depth; index = index + 1 {
       ctx.start_node(BlockQuoteNode)
-      match consume_current_block_quote_marker(ctx, owned_prefix_min_indent) {
+      match consume_current_block_quote_marker(ctx, ownership) {
         Some((next_content_column, next_marker_end_column)) => {
           content_column = next_content_column
           marker_end_column = next_marker_end_column
@@ -334,12 +306,10 @@ fn parse_repeated_nested_block_quote(
     }
     let mut open_depth = depth
     parse_repeated_nested_block_quote_block(
-      ctx, owned_prefix_min_indent, open_depth, content_column, marker_end_column,
+      ctx, ownership, open_depth, content_column, marker_end_column,
     )
     while true {
-      let next_depth = next_repeated_nested_block_quote_depth(
-        ctx, owned_prefix_min_indent,
-      )
+      let next_depth = next_repeated_nested_block_quote_depth(ctx, ownership)
       guard next_depth > 0 else { break }
       while open_depth > next_depth {
         ctx.finish_node()
@@ -360,7 +330,7 @@ fn parse_repeated_nested_block_quote(
           ctx.start_node(BlockQuoteNode)
           open_depth += 1
         }
-        match consume_current_block_quote_marker(ctx, owned_prefix_min_indent) {
+        match consume_current_block_quote_marker(ctx, ownership) {
           Some((line_content_column, line_marker_end_column)) => {
             next_content_column = line_content_column
             next_marker_end_column = line_marker_end_column
@@ -369,7 +339,7 @@ fn parse_repeated_nested_block_quote(
         }
       }
       parse_repeated_nested_block_quote_block(
-        ctx, owned_prefix_min_indent, open_depth, next_content_column, next_marker_end_column,
+        ctx, ownership, open_depth, next_content_column, next_marker_end_column,
       )
     }
     while open_depth > 1 {
@@ -383,14 +353,11 @@ fn parse_repeated_nested_block_quote(
 fn try_parse_repeated_nested_block_quote(
   ctx : @core.ParserContext[Token, SyntaxKind],
   prefix : LinePrefix?,
-  owned_prefix_min_indent : Int?,
+  ownership : BlockQuotePrefixOwnership,
 ) -> Bool {
-  match
-    repeated_nested_block_quote_depth(ctx, owned_prefix_min_indent, prefix) {
+  match repeated_nested_block_quote_depth(ctx, ownership, prefix) {
     Some(depth) => {
-      parse_repeated_nested_block_quote(
-        ctx, owned_prefix_min_indent, depth, prefix,
-      )
+      parse_repeated_nested_block_quote(ctx, ownership, depth, prefix)
       true
     }
     None => false
