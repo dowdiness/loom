@@ -110,7 +110,7 @@ fn block_start_action_name(action : BlockStartAction) -> String {
 fn continuation_action_name(action : BlockContinuationAction) -> String {
   match action {
     ContinueNoPrefix => "no-prefix"
-    ContinueThematicBreakPrefix => "thematic-break-prefix"
+    ContinueIndentedStructuralPrefix => "indented-structural-prefix"
     ContinueListMarkerPrefix => "list-marker-prefix"
     ContinueIndentationPrefix => "indentation-prefix"
     ContinueOrderedMarkerAsText => "ordered-marker-as-text"
