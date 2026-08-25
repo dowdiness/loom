@@ -71,17 +71,23 @@ pub fn to_edits(deltas : Array[TextDelta]) -> Array[Edit] {
 fn text_change_to_delta(
   change : @shared_text_change.TextChange,
 ) -> Array[TextDelta] {
-  let result : Array[TextDelta] = []
-  if change.start > 0 {
-    result.push(TextDelta::Retain(change.start))
+  match change {
+    @shared_text_change.TextChange::ReplaceRange(start~, delete_len~, inserted~) => {
+      let result : Array[TextDelta] = []
+      if start > 0 {
+        result.push(TextDelta::Retain(start))
+      }
+      if delete_len > 0 {
+        result.push(TextDelta::Delete(delete_len))
+      }
+      if inserted.length() > 0 {
+        result.push(TextDelta::Insert(inserted))
+      }
+      result
+    }
+    @shared_text_change.TextChange::ReplaceAll(_) =>
+      abort("compute_text_change unexpectedly returned ReplaceAll")
   }
-  if change.delete_len > 0 {
-    result.push(TextDelta::Delete(change.delete_len))
-  }
-  if change.inserted.length() > 0 {
-    result.push(TextDelta::Insert(change.inserted))
-  }
-  result
 }
 
 ///|

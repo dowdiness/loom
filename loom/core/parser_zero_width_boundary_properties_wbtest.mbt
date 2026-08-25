@@ -209,7 +209,12 @@ fn zero_width_edit_from_sources(old_src : String, new_src : String) -> Edit {
   if change.is_noop() {
     abort("zero-width property case must include a real source edit")
   }
-  Edit::new(change.start, change.delete_len, change.inserted.length())
+  match change {
+    @shared_text_change.TextChange::ReplaceRange(start~, delete_len~, inserted~) =>
+      Edit::new(start, delete_len, inserted.length())
+    @shared_text_change.TextChange::ReplaceAll(_) =>
+      abort("compute_text_change unexpectedly returned ReplaceAll")
+  }
 }
 
 ///|
