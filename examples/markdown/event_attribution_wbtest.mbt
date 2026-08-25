@@ -92,7 +92,7 @@ fn event_attribution_payload_stats(
         units += text.length()
         text_units += text.length()
       }
-      HtmlBlockOpen(text) | HtmlText(text) => {
+      HtmlBlockOpen(text, _) | HtmlText(text) => {
         copies += 1
         units += text.length()
         html_units += text.length()

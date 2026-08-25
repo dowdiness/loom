@@ -275,15 +275,16 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
   match tokens {
     [] => false
     [first, ..] => {
-      guard first.token is HtmlBlockOpen(open_line) else { return false }
-      let block_type = classify_html_block_opening(open_line.view())
+      guard first.token is HtmlBlockOpen(open_line, open_kind) else {
+        return false
+      }
       let mut i = 1
       // Optional Newline after HtmlBlockOpen
       if i < tokens.length() && tokens[i].token is Newline {
         i = i + 1
       }
-      match block_type {
-        Some(Type7) => {
+      match open_kind {
+        Type7 => {
           // Type 7 body is LineStart tokens until blank / EOF.
           while i < tokens.length() {
             match tokens[i].token {
@@ -297,7 +298,7 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
           }
           i >= tokens.length()
         }
-        Some(Until(_)) | Some(Raw) => {
+        Until(_) | Raw => {
           // HtmlText / Newline loop matching parse_html_block.
           while i < tokens.length() {
             match tokens[i].token {
@@ -334,14 +335,13 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
           // not just anywhere.  If the delimiter was removed or is only a
           // leftover substring earlier in the block, the old span doesn't
           // cover the complete extent.
-          match block_type {
-            Some(Until(delimiter)) =>
+          match open_kind {
+            Until(delimiter) =>
               html_block_contains_delimiter_at_end(tokens, open_line, delimiter)
-            Some(Raw) => true
-            Some(Type7) | None => false
+            Raw => true
+            Type7 => false
           }
         }
-        None => false
       }
     }
   }
@@ -402,7 +402,7 @@ fn markdown_tokens_safe_for_block_reparse(
       match first.token {
         CodeFenceOpen(_, _) => is_code_block_token_stream(tokens)
         Indentation(_) => is_indented_code_token_stream(tokens)
-        HtmlBlockOpen(_) => is_html_block_token_stream(tokens)
+        HtmlBlockOpen(_, _) => is_html_block_token_stream(tokens)
         HeadingMarker(_) => is_heading_token_stream(tokens)
         ListMarker =>
           is_list_item_token_stream(tokens) ||
@@ -667,7 +667,7 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
       Some(ctx => parse_code_block_if_still_code_block(ctx, node))
     } else if kind == HtmlBlockNode.to_raw() {
       Some(ctx => {
-        if ctx.peek() is HtmlBlockOpen(_) {
+        if ctx.peek() is HtmlBlockOpen(_, _) {
           parse_html_block(ctx, None)
         }
       })

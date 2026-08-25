@@ -102,8 +102,8 @@ test "continuation decisions: root variants" {
   )
   assert_decision_public_state_pure(type7, () => {
     match decide_root_paragraph_continuation(type7) {
-      Continue(ContinueHtmlBlockOpenAsTextPrefix) => ()
-      _ => abort("expected root HtmlBlockOpenAsTextPrefix for type 7")
+      Continue(ContinueHtmlBlockOpenAsInlineHtmlPrefix) => ()
+      _ => abort("expected root HtmlBlockOpenAsInlineHtmlPrefix for type 7")
     }
   })
 }

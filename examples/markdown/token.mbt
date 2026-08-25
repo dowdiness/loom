@@ -278,6 +278,16 @@ fn ordered_list_marker_from_text(text : String) -> OrderedListMarker? {
 }
 
 ///|
+/// Classification of an HTML block opening line (CommonMark types 1–7),
+/// carried on `HtmlBlockOpen` so interrupt/continuation/parse sites do not
+/// reclassify the line text.
+pub(all) enum HtmlBlockOpenKind {
+  Until(String) // types 1–5 — ends on closing delimiter
+  Raw // type 6 — ends on blank; interrupts paragraphs
+  Type7 // type 7 — does not interrupt paragraphs
+} derive(Eq, Debug)
+
+///|
 pub(all) enum Token {
   HeadingMarker(Int) // "# " = 1, "## " = 2, etc. (includes trailing space)
   ListMarker // "- " or "* " or "+ " (includes trailing space)
@@ -286,7 +296,7 @@ pub(all) enum Token {
   ThematicBreak
   CodeFenceOpen(Int, String) // backtick count, info string
   CodeFenceClose // closing fence
-  HtmlBlockOpen(String) // opening line of an HTML block
+  HtmlBlockOpen(String, HtmlBlockOpenKind) // opening line + classification
   HtmlText(String) // line of HTML block content
   BlankLine // empty or whitespace-only line
   Star // *
@@ -316,7 +326,7 @@ pub impl Show for Token with fn output(self, logger) {
       ThematicBreak => "---"
       CodeFenceOpen(n, info) => "`".repeat(n) + info
       CodeFenceClose => "```"
-      HtmlBlockOpen(s) => s
+      HtmlBlockOpen(s, _) => s
       HtmlText(s) => s
       BlankLine => ""
       Star => "*"
@@ -361,7 +371,7 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
       ThematicBreak => 33 // ThematicBreakToken
       CodeFenceOpen(_, _) => 2 // CodeFenceOpenToken
       CodeFenceClose => 3 // CodeFenceCloseToken
-      HtmlBlockOpen(_) => 35 // HtmlBlockOpenToken
+      HtmlBlockOpen(_, _) => 35 // HtmlBlockOpenToken
       HtmlText(_) => 36 // HtmlTextToken
       BlankLine => 4 // BlankLineToken
       Star => 5 // StarToken
@@ -395,7 +405,7 @@ test "tokens map to their corresponding syntax raw kind" {
     (ThematicBreak, ThematicBreakToken),
     (CodeFenceOpen(3, ""), CodeFenceOpenToken),
     (CodeFenceClose, CodeFenceCloseToken),
-    (HtmlBlockOpen("<div>"), HtmlBlockOpenToken),
+    (HtmlBlockOpen("<div>", Raw), HtmlBlockOpenToken),
     (HtmlText("text"), HtmlTextToken),
     (BlankLine, BlankLineToken),
     (Star, StarToken),

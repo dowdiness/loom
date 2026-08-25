@@ -30,7 +30,7 @@ fn decide_list_item_indented_flow(
           ThematicBreak
           | HeadingMarker(_)
           | CodeFenceOpen(_, _)
-          | HtmlBlockOpen(_) => PrefixedBlock
+          | HtmlBlockOpen(_, _) => PrefixedBlock
           _ => PrefixedParagraph
         }
       }

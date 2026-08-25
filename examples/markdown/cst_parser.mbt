@@ -68,7 +68,7 @@ fn prefixed_root_block_starts(
         | HeadingMarker(_)
         | BlockQuoteMarker
         | CodeFenceOpen(_, _)
-        | HtmlBlockOpen(_) => true
+        | HtmlBlockOpen(_, _) => true
         _ => false
       }
     _ => false
@@ -94,7 +94,7 @@ fn block_token_fact(token : Token) -> BlockTokenFact {
     OrderedListMarker(_) => FactOrderedMarker
     BlockQuoteMarker => FactBlockQuoteMarker
     CodeFenceOpen(_, _) => FactFence
-    HtmlBlockOpen(_) => FactHtmlBlock
+    HtmlBlockOpen(_, _) => FactHtmlBlock
     BlankLine => FactBlank
     Indentation(_) => FactIndentation
     Newline => FactNewline
@@ -116,7 +116,7 @@ fn observe_root_block_start(
   let current_indent = match current {
     ListMarker | OrderedListMarker(_) =>
       current_list_marker_indent(ctx).map_or(-1, indent => indent)
-    BlockQuoteMarker | HtmlBlockOpen(_) => current_token_leading_indent(ctx)
+    BlockQuoteMarker | HtmlBlockOpen(_, _) => current_token_leading_indent(ctx)
     Indentation(_) => current_token_leading_indent(ctx)
     _ => 0
   }
@@ -355,11 +355,7 @@ fn observe_continuation_prefix(
         _ => NoPrefix
       }
     ListMarker | OrderedListMarker(_) => ListMarkerPrefix
-    HtmlBlockOpen(line) =>
-      match classify_html_block_opening(line.view()) {
-        Some(Type7) => HtmlBlockOpenAsTextPrefix
-        _ => NoPrefix
-      }
+    HtmlBlockOpen(_, Type7) => HtmlBlockOpenAsInlineHtmlPrefix
     _ => NoPrefix
   }
 }
@@ -377,7 +373,7 @@ fn emit_paragraph_continuation_prefix(
     ListMarkerPrefix => ctx.emit_token(TextToken)
     // Type 7 open lines are raw inline HTML inside the paragraph, not escaped
     // text (CommonMark 148/187).
-    HtmlBlockOpenAsTextPrefix =>
+    HtmlBlockOpenAsInlineHtmlPrefix =>
       ctx.node(InlineHtmlNode, fn() { ctx.emit_token(TextToken) })
     NoPrefix => ()
   }
@@ -422,9 +418,9 @@ fn consume_block_continuation(
       ctx.emit_token(NewlineToken)
       emit_paragraph_continuation_prefix(ctx, ListMarkerPrefix)
     }
-    ContinueHtmlBlockOpenAsTextPrefix => {
+    ContinueHtmlBlockOpenAsInlineHtmlPrefix => {
       ctx.emit_token(NewlineToken)
-      emit_paragraph_continuation_prefix(ctx, HtmlBlockOpenAsTextPrefix)
+      emit_paragraph_continuation_prefix(ctx, HtmlBlockOpenAsInlineHtmlPrefix)
     }
     ContinueIndentationPrefix => {
       ctx.emit_token(NewlineToken)
@@ -968,11 +964,11 @@ fn parse_block_quote_after_marker(
         BlockQuoteMarker => parse_block_quote_with_prefix(ctx, None, ownership)
         CodeFenceOpen(_, _) =>
           parse_quoted_code_block_with_prefix(ctx, Some(prefix))
-        HtmlBlockOpen(_) => parse_html_block(ctx, Some(prefix))
+        HtmlBlockOpen(_, _) => parse_html_block(ctx, Some(prefix))
         _ => parse_block_quote_paragraph(ctx)
       }
     }
-    HtmlBlockOpen(_) => parse_html_block(ctx, None)
+    HtmlBlockOpen(_, _) => parse_html_block(ctx, None)
     Newline => ctx.emit_token(NewlineToken)
     BlankLine => ctx.emit_token(BlankLineToken)
     EOF => ()
@@ -1624,7 +1620,7 @@ fn prefixed_list_item_block_starts(
           ThematicBreak
           | HeadingMarker(_)
           | CodeFenceOpen(_, _)
-          | HtmlBlockOpen(_) => true
+          | HtmlBlockOpen(_, _) => true
           BlockQuoteMarker => !(ctx.peek_nth(2) is BlankLine)
           _ => false
         }
@@ -1968,7 +1964,7 @@ fn parse_list_item_prefixed_block(
         ListOwned(content_indent),
       )
     CodeFenceOpen(_, _) => parse_code_block_with_prefix(ctx, Some(prefix))
-    HtmlBlockOpen(_) => parse_html_block(ctx, Some(prefix))
+    HtmlBlockOpen(_, _) => parse_html_block(ctx, Some(prefix))
     _ => parse_paragraph_with_prefix(ctx, Some(prefix))
   }
 }
@@ -2075,7 +2071,7 @@ fn emit_indented_code_line(
 ///|
 fn token_is_indented_code_leftover(token : Token) -> Bool {
   match token {
-    HtmlBlockOpen(_)
+    HtmlBlockOpen(_, _)
     | HtmlText(_)
     | CodeFenceOpen(_, _)
     | CodeText(_)
@@ -2087,7 +2083,7 @@ fn token_is_indented_code_leftover(token : Token) -> Bool {
 ///|
 fn leftover_token_payload_indent(token : Token) -> Int? {
   match token {
-    HtmlBlockOpen(text) | HtmlText(text) | CodeText(text) =>
+    HtmlBlockOpen(text, _) | HtmlText(text) | CodeText(text) =>
       Some(count_leading_indent(text))
     _ => None
   }
@@ -2534,10 +2530,13 @@ fn parse_html_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
   prefix : LinePrefix?,
 ) -> Unit {
-  let open_was_type7 = match ctx.peek() {
-    HtmlBlockOpen(line) =>
-      classify_html_block_opening(line.view()) is Some(Type7)
-    _ => false
+  let open_token = match prefix {
+    Some(_) => ctx.peek_nth(1)
+    None => ctx.peek()
+  }
+  let open_kind = match open_token {
+    HtmlBlockOpen(_, kind) => kind
+    _ => abort("parse_html_block expected HtmlBlockOpen")
   }
   ctx.node(HtmlBlockNode, fn() {
     match prefix {
@@ -2548,34 +2547,36 @@ fn parse_html_block(
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
-    if open_was_type7 {
-      // Type 7 leaves LineStart after open, so body lines are ordinary
-      // tokens. Swallow until blank / EOF as raw HTML content.
-      while !(ctx.peek() is BlankLine) && ctx.peek() != EOF {
-        match ctx.peek() {
-          Newline => ctx.emit_token(NewlineToken)
-          HtmlText(_) => ctx.emit_token(HtmlTextToken)
-          _ => ctx.emit_token(TextToken)
+    match open_kind {
+      Type7 =>
+        // Type 7 leaves LineStart after open, so body lines are ordinary
+        // tokens. Swallow until blank / EOF as raw HTML content.
+        while !(ctx.peek() is BlankLine) && ctx.peek() != EOF {
+          match ctx.peek() {
+            Newline => ctx.emit_token(NewlineToken)
+            HtmlText(_) => ctx.emit_token(HtmlTextToken)
+            _ => ctx.emit_token(TextToken)
+          }
         }
-      }
-    } else {
-      while ctx.peek() is HtmlText(_) ||
-            (ctx.peek() is Newline && html_newline_run_continues(ctx)) {
-        match ctx.peek() {
-          HtmlText(_) => ctx.emit_token(HtmlTextToken)
-          Newline => ctx.emit_token(NewlineToken)
-          _ => ()
+      Until(_) | Raw => {
+        while ctx.peek() is HtmlText(_) ||
+              (ctx.peek() is Newline && html_newline_run_continues(ctx)) {
+          match ctx.peek() {
+            HtmlText(_) => ctx.emit_token(HtmlTextToken)
+            Newline => ctx.emit_token(NewlineToken)
+            _ => ()
+          }
+          if ctx.peek() is Newline && !(ctx.peek_nth(1) is Newline) {
+            ctx.emit_token(NewlineToken)
+          }
         }
-        if ctx.peek() is Newline && !(ctx.peek_nth(1) is Newline) {
+        // Trailing newline run before EOF: when a delimiter-terminated block
+        // (type 1/2) runs to end-of-document without finding its closing tag,
+        // blank lines at the end are part of the block content, not structural
+        // separators.  Consume them so html_block_value includes them.
+        while ctx.peek() is Newline {
           ctx.emit_token(NewlineToken)
         }
-      }
-      // Trailing newline run before EOF: when a delimiter-terminated block
-      // (type 1/2) runs to end-of-document without finding its closing tag,
-      // blank lines at the end are part of the block content, not structural
-      // separators.  Consume them so html_block_value includes them.
-      while ctx.peek() is Newline {
-        ctx.emit_token(NewlineToken)
       }
     }
   })

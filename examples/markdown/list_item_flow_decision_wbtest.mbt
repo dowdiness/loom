@@ -143,7 +143,7 @@ test "list-item indented-flow decision matrix" {
   )
   assert_list_item_flow_decision(
     Indentation("    "),
-    HtmlBlockOpen("<div>"),
+    HtmlBlockOpen("<div>", Raw),
     Some(4),
     context,
     8,

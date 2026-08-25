@@ -311,6 +311,15 @@ fn html_block_mode_after_open(
 }
 
 ///|
+fn html_block_open_kind(block_type : HtmlBlockType) -> HtmlBlockOpenKind {
+  match block_type {
+    Until(delimiter) => Until(delimiter)
+    Raw => Raw
+    Type7 => Type7
+  }
+}
+
+///|
 fn produce_html_block_open(
   input : String,
   pos : Int,
@@ -320,7 +329,10 @@ fn produce_html_block_open(
   let line : StringView = input[pos:line_end]
   (
     Produced(
-      @core.TokenInfo::new(HtmlBlockOpen(line.to_owned()), line_end - pos),
+      @core.TokenInfo::new(
+        HtmlBlockOpen(line.to_owned(), html_block_open_kind(block_type)),
+        line_end - pos,
+      ),
       next_offset=line_end,
     ),
     html_block_mode_after_open(line, block_type),

@@ -74,8 +74,8 @@ priv enum ContinuationPrefixKind {
   /// Indentation plus a following structural token, re-emitted as paragraph text.
   IndentedStructuralPrefix
   ListMarkerPrefix
-  /// Type 7 `HtmlBlockOpen` re-emitted as paragraph text (does not interrupt).
-  HtmlBlockOpenAsTextPrefix
+  /// Type 7 `HtmlBlockOpen` re-emitted as inline HTML (does not interrupt).
+  HtmlBlockOpenAsInlineHtmlPrefix
 }
 
 ///|
@@ -155,7 +155,7 @@ priv enum BlockContinuationAction {
   ContinueNoPrefix
   ContinueIndentedStructuralPrefix
   ContinueListMarkerPrefix
-  ContinueHtmlBlockOpenAsTextPrefix
+  ContinueHtmlBlockOpenAsInlineHtmlPrefix
   ContinueIndentationPrefix
   ContinueOrderedMarkerAsText
   ContinueQuoteMarker(ContinuationPrefixKind)
@@ -234,7 +234,7 @@ fn continuation_action_from_prefix(
     NoPrefix => ContinueNoPrefix
     IndentedStructuralPrefix => ContinueIndentedStructuralPrefix
     ListMarkerPrefix => ContinueListMarkerPrefix
-    HtmlBlockOpenAsTextPrefix => ContinueHtmlBlockOpenAsTextPrefix
+    HtmlBlockOpenAsInlineHtmlPrefix => ContinueHtmlBlockOpenAsInlineHtmlPrefix
   }
 }
 

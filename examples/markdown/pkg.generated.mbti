@@ -88,6 +88,12 @@ pub impl @core.Renderable for Block
 pub impl @core.TreeNode for Block
 pub impl Show for Block
 
+pub(all) enum HtmlBlockOpenKind {
+  Until(String)
+  Raw
+  Type7
+} derive(Eq, @debug.Debug)
+
 pub(all) enum Inline {
   Text(String)
   Bold(Array[Inline])
@@ -376,7 +382,7 @@ pub(all) enum Token {
   ThematicBreak
   CodeFenceOpen(Int, String)
   CodeFenceClose
-  HtmlBlockOpen(String)
+  HtmlBlockOpen(String, HtmlBlockOpenKind)
   HtmlText(String)
   BlankLine
   Star
@@ -408,3 +414,4 @@ pub(all) enum UnorderedListMarker {
 // Type aliases
 
 // Traits
+

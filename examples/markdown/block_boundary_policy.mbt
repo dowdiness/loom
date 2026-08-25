@@ -8,7 +8,7 @@ fn is_block_boundary(token : Token) -> Bool {
     | BlockQuoteMarker
     | ThematicBreak
     | CodeFenceOpen(_, _)
-    | HtmlBlockOpen(_)
+    | HtmlBlockOpen(_, _)
     | BlankLine
     | EOF => true
     _ => false
@@ -21,12 +21,8 @@ fn is_block_boundary(token : Token) -> Bool {
 /// document structure markers.
 fn html_block_open_interrupts_paragraph(token : Token) -> Bool {
   match token {
-    HtmlBlockOpen(line) =>
-      match classify_html_block_opening(line.view()) {
-        Some(Type7) => false
-        Some(_) => true
-        None => true
-      }
+    HtmlBlockOpen(_, Type7) => false
+    HtmlBlockOpen(_, Until(_)) | HtmlBlockOpen(_, Raw) => true
     _ => false
   }
 }
@@ -38,7 +34,7 @@ fn html_block_open_interrupts_paragraph(token : Token) -> Bool {
 fn token_breaks_paragraph_after_newline(token : Token) -> Bool {
   match token {
     OrderedListMarker(marker) => marker.start() == 1
-    HtmlBlockOpen(_) => html_block_open_interrupts_paragraph(token)
+    HtmlBlockOpen(_, _) => html_block_open_interrupts_paragraph(token)
     _ => is_block_boundary(token)
   }
 }
