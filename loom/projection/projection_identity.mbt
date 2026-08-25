@@ -93,13 +93,17 @@ fn ProjectionIdentityWindow::from_sources(
   old_source : String,
   new_source : String,
 ) -> ProjectionIdentityWindow {
-  let change = @shared_text_change.compute_text_change(old_source, new_source)
-  ProjectionIdentityWindow::new(
-    change.start,
-    change.start + change.delete_len,
-    change.start,
-    change.start + change.inserted.length(),
-  )
+  match @shared_text_change.compute_text_change(old_source, new_source) {
+    @shared_text_change.TextChange::ReplaceRange(start~, delete_len~, inserted~) =>
+      ProjectionIdentityWindow::new(
+        start,
+        start + delete_len,
+        start,
+        start + inserted.length(),
+      )
+    @shared_text_change.TextChange::ReplaceAll(_) =>
+      abort("compute_text_change unexpectedly returned ReplaceAll")
+  }
 }
 
 ///|

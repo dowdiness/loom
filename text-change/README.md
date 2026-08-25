@@ -1,27 +1,29 @@
 # text-change
 
-`compute_text_change(old, new) -> TextChange` — diff two strings into a single half-open splice (`start`, `delete_len`, `inserted`). Grapheme-aware: the diff respects extended grapheme clusters via [`moji`](../moji/), so combining marks, emoji ZWJ sequences, and regional indicators are never split.
+`TextChange` represents either one exact half-open UTF-16 replacement or a complete text replacement. `compute_text_change(old, new)` derives one grapheme-aligned `ReplaceRange`; callers that already know a complete replacement construct `ReplaceAll` directly.
 
-This module is a "minimal text diff": intentionally tiny, with no opinion about how the resulting splice is then applied to a CRDT or buffer. It lives in the loom monorepo (migrated from canopy in 2026-05, #147); its primary consumers are in the canopy repository.
+The module is intentionally independent of parsers, CRDTs, and UI code. It lives in the Loom monorepo (migrated from Canopy in 2026-05, #147), and its primary consumers are in the Canopy repository.
 
-## Public API
+## Public interface
 
-- `TextChange { start : Int, delete_len : Int, inserted : String }` — half-open replacement
-- `TextChange::is_noop(self) -> Bool` — true when both sides are empty
-- `compute_text_change(old : String, new : String) -> TextChange` — the single diff entry point
+- `TextChange::ReplaceRange(start~, delete_len~, inserted~)` — one exact half-open UTF-16 replacement
+- `TextChange::ReplaceAll(String)` — adopt one complete replacement without claiming an exact range
+- `TextChange::apply(self, source) -> String?` — apply the change, rejecting invalid or surrogate-splitting ranges
+- `TextChange::is_noop(self) -> Bool` — true only for an empty `ReplaceRange`
+- `compute_text_change(old, new) -> TextChange` — derive one grapheme-aligned `ReplaceRange`
 
 ## Consumers
 
-canopy's `editor` module (computes edits for tree-edit round-trip and FlatProj splice translation). Used indirectly by every editor host.
+Canopy's editor uses `compute_text_change` for tree-edit round trips and projection splice translation. Loom uses it for text deltas and projection-identity fallback alignment. Browser editors can construct either variant directly when they already have the corresponding operation.
 
 ## Dependencies
 
-`dowdiness/moji` — UAX #29 grapheme boundaries, for cluster-safe splice alignment.
+`dowdiness/moji` provides UAX #29 grapheme boundaries for `compute_text_change`.
 
 ## Stability
 
-Internal but stable — the `TextChange` shape is consumed by canopy's editor tree-edit path. Field renames would propagate up through canopy's `editor/` and into its `protocol/` `ViewPatch::TextChange`.
+The module is internal to the repositories that consume it. Changes to the enum require an atomic Loom and Canopy consumer migration; compatibility aliases are not retained.
 
 ## Notes
 
-The diff is single-splice (one contiguous delete + insert), not Myers-style multi-edit. That keeps it cheap and matches how the editor's downstream consumers expect to apply it. Callers expecting multi-edit diffs should chain multiple `compute_text_change` calls instead.
+`compute_text_change` derives one contiguous replacement rather than a Myers-style multi-edit diff. It never returns `ReplaceAll`. `ReplaceAll` is reserved for callers that have a complete replacement but no exact range.
