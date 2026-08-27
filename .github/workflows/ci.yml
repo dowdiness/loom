@@ -661,6 +661,7 @@ jobs:
             path: examples/jsx
           - name: incr
             path: incr
+            format_path: incr/incr
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -682,8 +683,7 @@ jobs:
         run: moon update
 
       - name: moon fmt --check
-        working-directory: ${{ matrix.path }}
-        run: moon fmt --check
+        run: moon fmt "${{ matrix.format_path || matrix.path }}" --check
 
       - name: Verify Markdown Unicode data regenerated
         if: matrix.name == 'examples-markdown'
@@ -703,6 +703,7 @@ jobs:
         include:
           - name: egglog
             path: egglog
+            format_path: egglog/src
     env:
       NEW_MOON_MOD: '0'
     steps:
@@ -726,8 +727,7 @@ jobs:
         run: moon update
 
       - name: moon fmt --check
-        working-directory: ${{ matrix.path }}
-        run: moon fmt --check
+        run: moon fmt "${{ matrix.format_path || matrix.path }}" --check
 
   test-modules:
     name: Check + Test ${{ matrix.name }}
@@ -831,10 +831,16 @@ jobs:
         run: moon update
 
       - name: moon check
+        if: matrix.name != 'incr'
         working-directory: ${{ matrix.path }}
         run: moon check
 
+      - name: moon check incr library
+        if: matrix.name == 'incr'
+        run: moon check incr/incr --deny-warn
+
       - name: moon test
+        if: matrix.name != 'incr'
         working-directory: ${{ matrix.path }}
         run: |
           args=()
@@ -845,6 +851,14 @@ jobs:
             args+=(--target "${{ matrix.target }}")
           fi
           moon test "${args[@]}"
+
+      - name: moon test incr library
+        if: matrix.name == 'incr'
+        working-directory: incr
+        run: |
+          moon test -p dowdiness/incr/cells --deny-warn
+          moon test -p dowdiness/incr/tests --deny-warn
+          moon test -p dowdiness/incr/types --deny-warn
 
       - name: Native Markdown CST safety regression
         if: matrix.name == 'examples-markdown'
