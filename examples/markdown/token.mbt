@@ -278,9 +278,9 @@ fn ordered_list_marker_from_text(text : String) -> OrderedListMarker? {
 }
 
 ///|
-/// Classification of an HTML block opening line (CommonMark types 1–7),
-/// carried on `HtmlBlockOpen` so interrupt/continuation/parse sites do not
-/// reclassify the line text.
+/// Classification of an HTML block opening line (CommonMark types 1–7).
+/// Produced by the lexer and carried on `HtmlBlockOpen` so interrupt,
+/// continuation, and parse sites match the kind instead of reclassifying text.
 pub(all) enum HtmlBlockOpenKind {
   Until(String) // types 1–5 — ends on closing delimiter
   Raw // type 6 — ends on blank; interrupts paragraphs

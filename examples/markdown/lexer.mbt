@@ -85,13 +85,6 @@ fn ordered_list_marker_at(input : String, pos : Int) -> OrderedListMarker? {
 }
 
 ///|
-priv enum HtmlBlockType {
-  Until(String) // types 1–5
-  Raw // type 6 — ends on blank; interrupts paragraphs
-  Type7 // type 7 — does not interrupt; see mode below
-}
-
-///|
 fn find_line_end(input : String, pos : Int) -> Int {
   let mut line_end = pos
   while line_end < input.length() {
@@ -256,7 +249,7 @@ fn line_is_complete_type7_html_tag(line : StringView) -> Bool {
 }
 
 ///|
-fn classify_html_block_opening(line : StringView) -> HtmlBlockType? {
+fn classify_html_block_opening(line : StringView) -> HtmlBlockOpenKind? {
   let trimmed = line.trim_start()
   guard trimmed.has_prefix("<") else { return None }
   if trimmed.has_prefix("<!--") {
@@ -292,9 +285,9 @@ fn classify_html_block_opening(line : StringView) -> HtmlBlockType? {
 ///|
 fn html_block_mode_after_open(
   line : StringView,
-  block_type : HtmlBlockType,
+  kind : HtmlBlockOpenKind,
 ) -> MarkdownLexMode {
-  match block_type {
+  match kind {
     Raw => HtmlBlockRaw
     // Type 7 must not enter HtmlBlockRaw (so later lines reclassify, e.g. Type 6
     // `</td>` after a Type 7 `</pre>` that joined a paragraph). Emit the open
@@ -311,31 +304,19 @@ fn html_block_mode_after_open(
 }
 
 ///|
-fn html_block_open_kind(block_type : HtmlBlockType) -> HtmlBlockOpenKind {
-  match block_type {
-    Until(delimiter) => Until(delimiter)
-    Raw => Raw
-    Type7 => Type7
-  }
-}
-
-///|
 fn produce_html_block_open(
   input : String,
   pos : Int,
   line_end : Int,
-  block_type : HtmlBlockType,
+  kind : HtmlBlockOpenKind,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let line : StringView = input[pos:line_end]
   (
     Produced(
-      @core.TokenInfo::new(
-        HtmlBlockOpen(line.to_owned(), html_block_open_kind(block_type)),
-        line_end - pos,
-      ),
+      @core.TokenInfo::new(HtmlBlockOpen(line.to_owned(), kind), line_end - pos),
       next_offset=line_end,
     ),
-    html_block_mode_after_open(line, block_type),
+    html_block_mode_after_open(line, kind),
   )
 }
 
@@ -505,8 +486,8 @@ fn lex_line_start(
     ['<', ..] => {
       let line : StringView = input[pos:line_end]
       match classify_html_block_opening(line) {
-        Some(block_type) =>
-          produce_html_block_open(input, pos, line_end, block_type)
+        Some(kind) =>
+          produce_html_block_open(input, pos, line_end, kind)
         None => lex_inline(input, pos, same_line_cache)
       }
     }
