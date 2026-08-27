@@ -177,4 +177,3 @@ pub(open) trait TextDisplay {
 pub(open) trait ToDiagnostic {
   fn to_diagnostic(Self) -> Diagnostic
 }
-

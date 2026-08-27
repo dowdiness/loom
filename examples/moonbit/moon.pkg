@@ -4,8 +4,8 @@ import {
   "dowdiness/loom",
   "moonbitlang/core/debug",
   "moonbitlang/core/string",
-  "moonbitlang/parser/lexer",
-  "moonbitlang/parser/tokens",
+  "moonbitlang/lexer",
+  "moonbitlang/lexer/tokens",
 }
 
 import {

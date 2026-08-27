@@ -127,13 +127,13 @@ pub fn[T, K] bind(
       )
     }
     let capabilities = NativeCapabilities::{ pairs, }
-    guard natives.get(name) is Some(factory)
+    guard! natives.get(name) is Some(factory)
     bound_natives.push(factory(capabilities))
   }
 
   let bound_guards : Array[HostGuard[T, K]] = []
   for name in compiled.guard_names {
-    guard guards.get(name) is Some(guard_fn)
+    guard! guards.get(name) is Some(guard_fn)
     bound_guards.push(guard_fn)
   }
   { grammar: compiled, natives: bound_natives, guards: bound_guards, brands }

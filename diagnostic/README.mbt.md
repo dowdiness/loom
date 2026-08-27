@@ -18,6 +18,7 @@ semantically annotated report layouts can use
 Add the module dependency:
 
 ```mbt nocheck
+///|
 import {
   "dowdiness/diagnostic@0.1.0",
 }
@@ -26,8 +27,9 @@ import {
 Import the package where it is used:
 
 ```mbt nocheck
+///|
 import {
-  "dowdiness/diagnostic" @diagnostic,
+  "dowdiness/diagnostic",
 }
 ```
 

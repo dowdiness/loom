@@ -8,6 +8,7 @@ import {
   "moonbitlang/core/debug",
   "moonbitlang/core/list",
   "moonbitlang/core/hashset",
+  "moonbitlang/core/env",
   "moonbitlang/x/fs",
   "moonbitlang/x/sys",
 }

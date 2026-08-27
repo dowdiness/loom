@@ -192,6 +192,28 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
       expected_skeleton_errors: true,
     },
     {
+      name: "parser rejects unclosed function body",
+      source_id: @core.SourceId::SourceId("moonbit-differential-unclosed-body"),
+      source: (
+        #|fn broken() {
+        #|
+      ),
+      expected_official_accepts: false,
+      expected_skeleton_errors: true,
+    },
+    {
+      name: "parser rejects unclosed nested control-flow block",
+      source_id: @core.SourceId::SourceId(
+        "moonbit-differential-unclosed-nested",
+      ),
+      source: (
+        #|fn broken() { if true {
+        #|
+      ),
+      expected_official_accepts: false,
+      expected_skeleton_errors: true,
+    },
+    {
       name: "lexer rejects invalid token",
       source_id: @core.SourceId::SourceId("moonbit-differential-invalid-token"),
       source: "let broken = `",

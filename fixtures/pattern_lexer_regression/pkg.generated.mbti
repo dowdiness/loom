@@ -26,4 +26,3 @@ pub(all) enum Token {
 // Type aliases
 
 // Traits
-

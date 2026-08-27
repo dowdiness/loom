@@ -478,4 +478,3 @@ pub(open) trait TreeNode {
   fn children(Self) -> Array[Self]
   fn same_kind(Self, Self) -> Bool
 }
-

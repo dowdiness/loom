@@ -7,7 +7,7 @@ import {
   "dowdiness/json@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/seam@0.1.0",
-  "dowdiness/incr@0.15.0",
+  "dowdiness/incr@0.15.1",
 }
 
 license = "Apache-2.0"

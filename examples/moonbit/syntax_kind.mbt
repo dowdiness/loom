@@ -136,6 +136,15 @@ pub(all) enum MoonbitSyntaxKind {
   WhereToken
   WhileToken
   WithToken
+  // Tokens introduced by newer MoonBit parser releases
+  BytesInterpToken
+  PostLabelTransparentToken
+  LbracketBarToken
+  BarRbracketToken
+  LtQuestionToken
+  GuardExclamationToken
+  LexscanToken
+  ExtendToken
   // Node kinds
   SourceFileNode
   SourceItemNode
@@ -295,6 +304,14 @@ pub impl @seam.ToRawKind for MoonbitSyntaxKind with fn to_raw(self) {
       WhereToken => 221
       WhileToken => 222
       WithToken => 223
+      BytesInterpToken => 224
+      PostLabelTransparentToken => 225
+      LbracketBarToken => 226
+      BarRbracketToken => 227
+      LtQuestionToken => 228
+      GuardExclamationToken => 229
+      LexscanToken => 230
+      ExtendToken => 231
       SourceFileNode => 10
       SourceItemNode => 11
       LetItemNode => 12
@@ -466,6 +483,14 @@ pub impl @seam.FromRawKind for MoonbitSyntaxKind with fn from_raw(raw) {
     221 => WhereToken
     222 => WhileToken
     223 => WithToken
+    224 => BytesInterpToken
+    225 => PostLabelTransparentToken
+    226 => LbracketBarToken
+    227 => BarRbracketToken
+    228 => LtQuestionToken
+    229 => GuardExclamationToken
+    230 => LexscanToken
+    231 => ExtendToken
     _ => ErrorToken
   }
 }
@@ -614,5 +639,13 @@ fn MoonbitSyntaxKind::from_token_kind(
     TK_WHERE => WhereToken
     TK_WHILE => WhileToken
     TK_WITH => WithToken
+    TK_BYTES_INTERP => BytesInterpToken
+    TK_POST_LABEL_TRANSPARENT => PostLabelTransparentToken
+    TK_LBRACKET_BAR => LbracketBarToken
+    TK_BAR_RBRACKET => BarRbracketToken
+    TK_LT_QUESTION => LtQuestionToken
+    TK_GUARD_EXCLAMATION => GuardExclamationToken
+    TK_LEXSCAN => LexscanToken
+    TK_EXTEND => ExtendToken
   }
 }

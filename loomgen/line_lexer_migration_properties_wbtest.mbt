@@ -303,7 +303,7 @@ fn migration_property_assert_exact(
     abort(
       label +
       "\ncase: " +
-      to_repr(case).to_string() +
+      Repr(case).to_string() +
       "\nexpected:\n" +
       expected +
       "\nactual:\n" +

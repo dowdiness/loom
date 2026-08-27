@@ -53,4 +53,3 @@ pub fn SyntaxSnapshot::copy(Self) -> Self
 // Type aliases
 
 // Traits
-

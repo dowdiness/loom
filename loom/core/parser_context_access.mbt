@@ -251,7 +251,7 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::current_token_text(
 ) -> StringView {
   self
   .current_token_position()
-  .map_or(StringView::default(), pos => self.token_text_at(pos))
+  .map_or(Default::default(), pos => self.token_text_at(pos))
 }
 
 ///|

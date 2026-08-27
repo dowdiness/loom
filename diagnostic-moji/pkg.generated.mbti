@@ -17,4 +17,3 @@ pub fn[R : @diagnostic.SourceResolver] render_plain(@diagnostic.Diagnostic, R) -
 // Type aliases
 
 // Traits
-

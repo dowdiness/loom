@@ -31,4 +31,3 @@ pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.Diagnost
 // Type aliases
 
 // Traits
-

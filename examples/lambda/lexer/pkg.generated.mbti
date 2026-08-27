@@ -23,4 +23,3 @@ pub fn tokenize_range(String, Int, Int) -> Array[@core.TokenInfo[@token.Token]] 
 // Type aliases
 
 // Traits
-

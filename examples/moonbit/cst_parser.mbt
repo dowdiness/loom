@@ -599,6 +599,9 @@ fn parse_block_expr(
     }
     if !ctx.at_eof() && is_rbrace(ctx.peek()) {
       ctx.emit_token(RbraceToken)
+    } else {
+      ctx.error("moonbit skeleton parser reached EOF with an unclosed block")
+      ctx.emit_incomplete_placeholder()
     }
   })
 }
