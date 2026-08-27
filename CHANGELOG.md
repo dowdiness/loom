@@ -19,6 +19,12 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Changed
 
+- **Markdown high-level Block projection:** `parse` and `parse_markdown` now
+  share the source-bound `parse_document` → `MarkdownSemanticRead` →
+  `markdown_semantic_read_to_block` seam. `parse_cst`, `markdown_fold_node`, and
+  the `Parser[Block]` editor path remain compatibility surfaces; the retained
+  direct source-aware fold is now a parity/benchmark oracle.
+
 - **Breaking CST metadata ownership boundary:** `CstNode` fields are private,
   public construction copies children, and every node retains an immutable
   `CstMetadataPolicy`. Reconstruction and event builders require a policy and

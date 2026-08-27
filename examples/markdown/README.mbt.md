@@ -213,13 +213,17 @@ HTML surface and source origin. Malformed recovery `Raw` is not valid HTML and
 remains escaped under every policy. mdast export is independent of rendering
 policy and continues to preserve valid HTML as an `html` node. The
 position-aware mdast export must receive the exact source string that produced
-the IR. The established parser surfaces (`parse`, `parse_markdown`, `parse_cst`,
-`markdown_grammar`, and `markdown_fold_node`) remain the one-shot and
-`Parser[Block]` compatibility path. Long-lived editor integrations can attach
-the keyed path with `attach_markdown_projection` while continuing to consume
-the same `Block` / `Inline` model. Source-aware integrations over an existing
-`Parser[Block]` can instead construct `MarkdownSemanticAttachment(parser)` and
-consume the complete owning MarkdownIR document through `document()`.
+the IR.
+The high-level `parse` and `parse_markdown` entry points now use
+`parse_document`, one `semantic_read()`, and
+`markdown_semantic_read_to_block`. `parse_cst`, `markdown_grammar`, and
+`markdown_fold_node` remain concrete compatibility surfaces, and the
+`Parser[Block]` editor path remains unchanged. Long-lived editor integrations
+can attach the keyed path with `attach_markdown_projection` while continuing
+to consume the same `Block` / `Inline` model. Source-aware integrations over
+an existing `Parser[Block]` can instead construct
+`MarkdownSemanticAttachment(parser)` and consume the complete owning
+MarkdownIR document through `document()`.
 
 ### Source-bound semantic document
 

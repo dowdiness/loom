@@ -49,10 +49,11 @@ conformance target over MarkdownIR, not the internal ideal.
 Current public surfaces stay valid while MarkdownIR is introduced:
 
 - `markdown_grammar` continues to be the parser integration surface initially.
-- `parse`, `parse_markdown`, and `parse_cst` keep their current behavior until a
-  deliberate migration changes them.
-- `markdown_fold_node` may remain the direct `SyntaxNode -> Block` algebra until
-  the `SyntaxNode -> MarkdownIR -> Block/Inline` adapter is proven.
+- `parse` and `parse_markdown` use the source-bound document seam:
+  `parse_document -> MarkdownSemanticRead -> markdown_semantic_read_to_block`.
+- `parse_cst` remains the concrete CST/diagnostics entry point.
+- `markdown_fold_node` remains the direct `SyntaxNode -> Block` compatibility
+  algebra; high-level parsing no longer has a second direct projection owner.
 - Canopy's Markdown projection memos currently consume `@markdown.Block`; the
   Loom-side target is available as an additive
   `MarkdownProjectionAttachment`, while Canopy migration remains separate:
@@ -299,10 +300,12 @@ New MarkdownIR surfaces:
   payloads. The private storage enum remains an implementation detail; existing
   kind tags and optional accessors stay compatible during the experimental
   migration.
-- Compatibility tests must pin the existing source-aware `parse` /
-  `parse_markdown` / `parse_cst` / `markdown_grammar` behavior, including the
-  LexError-raising signatures for `parse_markdown` and `parse_cst`, before any
-  migration changes those surfaces.
+- Compatibility tests pin the public `parse` / `parse_markdown` return,
+  diagnostics, recovery, and error contracts. The parity matrix compares the
+  retained direct fold with the source-aware IR-backed adapter and the
+  document-backed high-level path.
+- `parse_markdown` and `parse_cst` retain their LexError-raising signatures;
+  `parse` retains its tolerant `Block::Error` behavior.
 - Canopy integration stays `SyncEditor[@markdown.Block]` through
   `lang/markdown/companion` and `ProjNode[@markdown.Block]` / `SourceMap`
   projection memos until its compatibility PR deliberately changes that contract.

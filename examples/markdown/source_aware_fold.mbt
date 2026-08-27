@@ -1,7 +1,8 @@
 ///|
-/// Source-aware Block algebra used when the top-level caller already owns the
-/// current document string. This keeps indented-code column handling explicit
-/// and avoids rebuilding the syntax root for each code block.
+/// Source-aware direct fold retained for parity fixtures and benchmarks.
+///
+/// High-level parsing uses the source-bound MarkdownIR projection instead.
+#warnings("-unused_value")
 fn markdown_fold_node_with_source(
   node : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> Block,
@@ -13,6 +14,8 @@ fn markdown_fold_node_with_source(
 }
 
 ///|
+/// Parity and benchmark oracle for the pre-cutover source-aware Block fold.
+#warnings("-unused_value")
 fn fold_markdown_syntax_with_source(
   syntax : @seam.SyntaxNode,
   source : String,
