@@ -2526,6 +2526,25 @@ fn html_newline_run_continues(
 }
 
 ///|
+
+///|
+fn consume_html_block_html_text_body(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  while ctx.peek() is HtmlText(_) ||
+        (ctx.peek() is Newline && html_newline_run_continues(ctx)) {
+    match ctx.peek() {
+      HtmlText(_) => ctx.emit_token(HtmlTextToken)
+      Newline => ctx.emit_token(NewlineToken)
+      _ => ()
+    }
+    if ctx.peek() is Newline && !(ctx.peek_nth(1) is Newline) {
+      ctx.emit_token(NewlineToken)
+    }
+  }
+}
+
+///|
 fn parse_html_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
   prefix : LinePrefix?,
@@ -2548,26 +2567,16 @@ fn parse_html_block(
       ctx.emit_token(NewlineToken)
     }
     match open_kind {
-      kind if kind.ends_on_blank() && kind.interrupts_paragraph() => {
-        // Type 6: HtmlText body until blank / EOF (lexer HtmlBlockRaw).
-        while ctx.peek() is HtmlText(_) ||
-              (ctx.peek() is Newline && html_newline_run_continues(ctx)) {
-          match ctx.peek() {
-            HtmlText(_) => ctx.emit_token(HtmlTextToken)
-            Newline => ctx.emit_token(NewlineToken)
-            _ => ()
-          }
-          if ctx.peek() is Newline && !(ctx.peek_nth(1) is Newline) {
-            ctx.emit_token(NewlineToken)
-          }
-        }
+      Type6 => {
+        // HtmlText body until blank / EOF (lexer HtmlBlockRaw).
+        consume_html_block_html_text_body(ctx)
         while ctx.peek() is Newline {
           ctx.emit_token(NewlineToken)
         }
       }
-      kind if kind.ends_on_blank() =>
+      Type7 =>
         // Type 7 leaves LineStart after open, so body lines are ordinary
-        // tokens. Swallow until blank / EOF as raw HTML content.
+        // tokens until blank / EOF (deferred body under ModeLexer).
         while !(ctx.peek() is BlankLine) && ctx.peek() != EOF {
           match ctx.peek() {
             Newline => ctx.emit_token(NewlineToken)
@@ -2577,26 +2586,14 @@ fn parse_html_block(
         }
       Until(_) => {
         // Types 1–5: HtmlText body until closing delimiter (or EOF).
-        while ctx.peek() is HtmlText(_) ||
-              (ctx.peek() is Newline && html_newline_run_continues(ctx)) {
-          match ctx.peek() {
-            HtmlText(_) => ctx.emit_token(HtmlTextToken)
-            Newline => ctx.emit_token(NewlineToken)
-            _ => ()
-          }
-          if ctx.peek() is Newline && !(ctx.peek_nth(1) is Newline) {
-            ctx.emit_token(NewlineToken)
-          }
-        }
+        consume_html_block_html_text_body(ctx)
         // Trailing newline run before EOF: when a delimiter-terminated block
-        // (type 1/2) runs to end-of-document without finding its closing tag,
-        // blank lines at the end are part of the block content, not structural
-        // separators.  Consume them so html_block_value includes them.
+        // runs to end-of-document without finding its closing tag, blank lines
+        // at the end are part of the block content, not structural separators.
         while ctx.peek() is Newline {
           ctx.emit_token(NewlineToken)
         }
       }
-      Type6 | Type7 => ()
     }
   })
 }
