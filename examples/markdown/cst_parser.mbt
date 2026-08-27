@@ -355,7 +355,7 @@ fn observe_continuation_prefix(
         _ => NoPrefix
       }
     ListMarker | OrderedListMarker(_) => ListMarkerPrefix
-    HtmlBlockOpen(_, Type7) => HtmlBlockOpenAsInlineHtmlPrefix
+    HtmlBlockOpen(_, kind) if !kind.interrupts_paragraph() => InlineHtmlPrefix
     _ => NoPrefix
   }
 }
@@ -371,9 +371,9 @@ fn emit_paragraph_continuation_prefix(
       ctx.emit_token(TextToken)
     }
     ListMarkerPrefix => ctx.emit_token(TextToken)
-    // Type 7 open lines are raw inline HTML inside the paragraph, not escaped
-    // text (CommonMark 148/187).
-    HtmlBlockOpenAsInlineHtmlPrefix =>
+    // Non-interrupting open lines are raw inline HTML inside the paragraph,
+    // not escaped text (CommonMark 148/187).
+    InlineHtmlPrefix =>
       ctx.node(InlineHtmlNode, fn() { ctx.emit_token(TextToken) })
     NoPrefix => ()
   }
@@ -418,9 +418,9 @@ fn consume_block_continuation(
       ctx.emit_token(NewlineToken)
       emit_paragraph_continuation_prefix(ctx, ListMarkerPrefix)
     }
-    ContinueHtmlBlockOpenAsInlineHtmlPrefix => {
+    ContinueInlineHtmlPrefix => {
       ctx.emit_token(NewlineToken)
-      emit_paragraph_continuation_prefix(ctx, HtmlBlockOpenAsInlineHtmlPrefix)
+      emit_paragraph_continuation_prefix(ctx, InlineHtmlPrefix)
     }
     ContinueIndentationPrefix => {
       ctx.emit_token(NewlineToken)
@@ -2548,7 +2548,24 @@ fn parse_html_block(
       ctx.emit_token(NewlineToken)
     }
     match open_kind {
-      Type7 =>
+      kind if kind.ends_on_blank() && kind.interrupts_paragraph() => {
+        // Type 6: HtmlText body until blank / EOF (lexer HtmlBlockRaw).
+        while ctx.peek() is HtmlText(_) ||
+              (ctx.peek() is Newline && html_newline_run_continues(ctx)) {
+          match ctx.peek() {
+            HtmlText(_) => ctx.emit_token(HtmlTextToken)
+            Newline => ctx.emit_token(NewlineToken)
+            _ => ()
+          }
+          if ctx.peek() is Newline && !(ctx.peek_nth(1) is Newline) {
+            ctx.emit_token(NewlineToken)
+          }
+        }
+        while ctx.peek() is Newline {
+          ctx.emit_token(NewlineToken)
+        }
+      }
+      kind if kind.ends_on_blank() =>
         // Type 7 leaves LineStart after open, so body lines are ordinary
         // tokens. Swallow until blank / EOF as raw HTML content.
         while !(ctx.peek() is BlankLine) && ctx.peek() != EOF {
@@ -2558,7 +2575,8 @@ fn parse_html_block(
             _ => ctx.emit_token(TextToken)
           }
         }
-      Until(_) | Raw => {
+      Until(_) => {
+        // Types 1–5: HtmlText body until closing delimiter (or EOF).
         while ctx.peek() is HtmlText(_) ||
               (ctx.peek() is Newline && html_newline_run_continues(ctx)) {
           match ctx.peek() {
@@ -2578,6 +2596,7 @@ fn parse_html_block(
           ctx.emit_token(NewlineToken)
         }
       }
+      Type6 | Type7 => ()
     }
   })
 }

@@ -88,9 +88,9 @@ pub impl @core.Renderable for Block
 pub impl @core.TreeNode for Block
 pub impl Show for Block
 
-pub(all) enum HtmlBlockOpenKind {
+pub(all) enum HtmlBlockKind {
   Until(String)
-  Raw
+  Type6
   Type7
 } derive(Eq, @debug.Debug)
 
@@ -382,7 +382,7 @@ pub(all) enum Token {
   ThematicBreak
   CodeFenceOpen(Int, String)
   CodeFenceClose
-  HtmlBlockOpen(String, HtmlBlockOpenKind)
+  HtmlBlockOpen(String, HtmlBlockKind)
   HtmlText(String)
   BlankLine
   Star

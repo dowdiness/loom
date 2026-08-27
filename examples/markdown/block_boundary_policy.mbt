@@ -21,8 +21,7 @@ fn is_block_boundary(token : Token) -> Bool {
 /// document structure markers.
 fn html_block_open_interrupts_paragraph(token : Token) -> Bool {
   match token {
-    HtmlBlockOpen(_, Type7) => false
-    HtmlBlockOpen(_, Until(_)) | HtmlBlockOpen(_, Raw) => true
+    HtmlBlockOpen(_, kind) => kind.interrupts_paragraph()
     _ => false
   }
 }
@@ -57,6 +56,9 @@ fn token_can_start_lazy_list_item_continuation(
     Newline | EOF => false
     OrderedListMarker(_) if allow_ordered_marker =>
       !token_breaks_paragraph_after_newline(token)
+    // Non-interrupting HtmlBlockOpen (Type 7) may continue a lazy list item
+    // paragraph; interrupting kinds remain hard block boundaries.
+    HtmlBlockOpen(_, kind) => !kind.interrupts_paragraph()
     _ => !is_block_boundary(token)
   }
 }

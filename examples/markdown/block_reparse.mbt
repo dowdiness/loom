@@ -284,7 +284,7 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
         i = i + 1
       }
       match open_kind {
-        Type7 => {
+        kind if kind.ends_on_blank() && !kind.interrupts_paragraph() => {
           // Type 7 body is LineStart tokens until blank / EOF.
           while i < tokens.length() {
             match tokens[i].token {
@@ -298,8 +298,39 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
           }
           i >= tokens.length()
         }
-        Until(_) | Raw => {
-          // HtmlText / Newline loop matching parse_html_block.
+        kind if kind.ends_on_blank() => {
+          // Type 6: HtmlText / Newline loop matching parse_html_block.
+          while i < tokens.length() {
+            match tokens[i].token {
+              HtmlText(_) => i = i + 1
+              Newline =>
+                if html_newline_run_continues_in_stream(tokens, i) {
+                  i = i + 1
+                  if i < tokens.length() &&
+                    tokens[i].token is Newline &&
+                    !(i + 1 < tokens.length() && tokens[i + 1].token is Newline) {
+                    i = i + 1
+                  }
+                } else {
+                  break
+                }
+              EOF => {
+                i = i + 1
+                break
+              }
+              _ => break
+            }
+          }
+          while i < tokens.length() && tokens[i].token is Newline {
+            i = i + 1
+          }
+          if i < tokens.length() && tokens[i].token is EOF {
+            i = i + 1
+          }
+          i >= tokens.length()
+        }
+        Until(delimiter) => {
+          // Types 1–5: HtmlText / Newline loop matching parse_html_block Until.
           while i < tokens.length() {
             match tokens[i].token {
               HtmlText(_) => i = i + 1
@@ -330,18 +361,11 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
             i = i + 1
           }
           guard i >= tokens.length() else { return false }
-          // For Until-delimiter blocks, the closing delimiter must be present AND
-          // appear in the last line of consumed content (the block terminator),
-          // not just anywhere.  If the delimiter was removed or is only a
-          // leftover substring earlier in the block, the old span doesn't
-          // cover the complete extent.
-          match open_kind {
-            Until(delimiter) =>
-              html_block_contains_delimiter_at_end(tokens, open_line, delimiter)
-            Raw => true
-            Type7 => false
-          }
+          // Closing delimiter must be present on the last line of consumed
+          // content (the block terminator), not merely somewhere earlier.
+          html_block_contains_delimiter_at_end(tokens, open_line, delimiter)
         }
+        Type6 | Type7 => false
       }
     }
   }

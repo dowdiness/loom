@@ -278,14 +278,32 @@ fn ordered_list_marker_from_text(text : String) -> OrderedListMarker? {
 }
 
 ///|
-/// Classification of an HTML block opening line (CommonMark types 1–7).
-/// Produced by the lexer and carried on `HtmlBlockOpen` so interrupt,
-/// continuation, and parse sites match the kind instead of reclassifying text.
-pub(all) enum HtmlBlockOpenKind {
-  Until(String) // types 1–5 — ends on closing delimiter
-  Raw // type 6 — ends on blank; interrupts paragraphs
-  Type7 // type 7 — does not interrupt paragraphs
+/// CommonMark HTML block open classification (types 1–7).
+/// Carried on `HtmlBlockOpen` — classify once in the lexer.
+pub(all) enum HtmlBlockKind {
+  /// Types 1–5: end when a line contains the delimiter.
+  Until(String)
+  /// Type 6: end on blank line; may interrupt a paragraph.
+  Type6
+  /// Type 7: end on blank line; must not interrupt a paragraph.
+  Type7
 } derive(Eq, Debug)
+
+///|
+fn HtmlBlockKind::interrupts_paragraph(self : HtmlBlockKind) -> Bool {
+  match self {
+    Type7 => false
+    Until(_) | Type6 => true
+  }
+}
+
+///|
+fn HtmlBlockKind::ends_on_blank(self : HtmlBlockKind) -> Bool {
+  match self {
+    Type6 | Type7 => true
+    Until(_) => false
+  }
+}
 
 ///|
 pub(all) enum Token {
@@ -296,7 +314,7 @@ pub(all) enum Token {
   ThematicBreak
   CodeFenceOpen(Int, String) // backtick count, info string
   CodeFenceClose // closing fence
-  HtmlBlockOpen(String, HtmlBlockOpenKind) // opening line + classification
+  HtmlBlockOpen(String, HtmlBlockKind) // opening line + classification
   HtmlText(String) // line of HTML block content
   BlankLine // empty or whitespace-only line
   Star // *
@@ -405,7 +423,7 @@ test "tokens map to their corresponding syntax raw kind" {
     (ThematicBreak, ThematicBreakToken),
     (CodeFenceOpen(3, ""), CodeFenceOpenToken),
     (CodeFenceClose, CodeFenceCloseToken),
-    (HtmlBlockOpen("<div>", Raw), HtmlBlockOpenToken),
+    (HtmlBlockOpen("<div>", Type6), HtmlBlockOpenToken),
     (HtmlText("text"), HtmlTextToken),
     (BlankLine, BlankLineToken),
     (Star, StarToken),
