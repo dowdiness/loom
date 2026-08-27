@@ -6,8 +6,8 @@ import {
   "dowdiness/diagnostic@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/seam@0.1.0",
-  "dowdiness/incr@0.15.0",
-  "moonbitlang/x@0.4.40",
+  "dowdiness/incr@0.15.1",
+  "moonbitlang/x@0.5.1",
   "moonbit-community/casefold@0.1.5",
 }
 

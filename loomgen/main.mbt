@@ -864,7 +864,7 @@ fn write_line_lexer_job(
 
 ///|
 fn main {
-  let argv = @sys.get_cli_args()
+  let argv = @env.args()
   let matches = match parse_args(argv[1:].to_owned()) {
     Ok(m) => m
     Err(msg) => {

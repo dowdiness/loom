@@ -203,7 +203,7 @@ jobs:
           } >> "$GITHUB_ENV"
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+          MOONBIT_INSTALL_VERSION: 0.10.8+8606a5800
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
@@ -448,7 +448,7 @@ jobs:
           persist-credentials: false
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+          MOONBIT_INSTALL_VERSION: 0.10.8+8606a5800
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
@@ -563,7 +563,7 @@ jobs:
           submodules: recursive
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+          MOONBIT_INSTALL_VERSION: 0.10.8+8606a5800
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
@@ -601,7 +601,7 @@ jobs:
           submodules: recursive
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+          MOONBIT_INSTALL_VERSION: 0.10.8+8606a5800
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
@@ -669,7 +669,7 @@ jobs:
 
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+          MOONBIT_INSTALL_VERSION: 0.10.8+8606a5800
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
@@ -713,7 +713,7 @@ jobs:
 
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+          MOONBIT_INSTALL_VERSION: 0.10.8+8606a5800
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
@@ -818,7 +818,7 @@ jobs:
           submodules: recursive
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+          MOONBIT_INSTALL_VERSION: 0.10.8+8606a5800
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
@@ -877,7 +877,7 @@ jobs:
           submodules: recursive
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+          MOONBIT_INSTALL_VERSION: 0.10.8+8606a5800
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
@@ -910,7 +910,7 @@ jobs:
           submodules: recursive
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+          MOONBIT_INSTALL_VERSION: 0.10.8+8606a5800
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH

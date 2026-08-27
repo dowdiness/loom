@@ -5,8 +5,8 @@ test "compile interns string rule refs to dense slots" {
     "expr": Expr::Emit(1, 10),
   }
   let compiled = compile(GrammarIr::GrammarIr(rules, root="source"))
-  guard compiled.slot_for_name("source") is Some(source_slot)
-  guard compiled.slot_for_name("expr") is Some(expr_slot)
+  guard! compiled.slot_for_name("source") is Some(source_slot)
+  guard! compiled.slot_for_name("expr") is Some(expr_slot)
   assert_true(compiled.root_slot() == source_slot)
   match compiled.rule_snapshot(source_slot).unwrap() {
     CompiledExpr::RefSlot(slot) => assert_true(slot == expr_slot)
@@ -106,7 +106,7 @@ test "compile with no native_names argument still compiles ordinary grammars" {
     "expr": Expr::Emit(1, 10),
   }
   let compiled = compile(GrammarIr::GrammarIr(rules, root="source"))
-  guard compiled.slot_for_name("source") is Some(source_slot)
+  guard! compiled.slot_for_name("source") is Some(source_slot)
   assert_true(compiled.root_slot() == source_slot)
 }
 
@@ -223,7 +223,7 @@ test "compile succeeds when dispatch target is a top-level Choice" {
     native_names=Set::Set(["native"]),
     native_rule_refs={ "native": Set::Set(["choice"]) },
   )
-  guard compiled.slot_for_name("source") is Some(source_slot)
+  guard! compiled.slot_for_name("source") is Some(source_slot)
   assert_true(compiled.root_slot() == source_slot)
 }
 
@@ -300,9 +300,9 @@ test "compile assigns deterministic rule native guard and dispatch slots" {
     compiled.guard_names_snapshot(),
     content="[\"a_guard\", \"z_guard\"]",
   )
-  guard compiled.slot_for_name("source") is Some(source_slot)
-  guard compiled.slot_for_name("a_rule") is Some(a_slot)
-  guard compiled.slot_for_name("z_rule") is Some(z_slot)
+  guard! compiled.slot_for_name("source") is Some(source_slot)
+  guard! compiled.slot_for_name("a_rule") is Some(a_slot)
+  guard! compiled.slot_for_name("z_rule") is Some(z_slot)
   assert_true(compiled.root_slot() == source_slot)
   match compiled.rule_snapshot(source_slot).unwrap() {
     CompiledExpr::NativeSlot(native_slot) => {
@@ -340,7 +340,7 @@ test "compiled grammar rejects a native slot from another grammar" {
     GrammarIr::GrammarIr({ "source": Expr::Native("first") }, root="source"),
     native_names=Set::Set(["first"]),
   )
-  guard first.rule_snapshot(first.root_slot())
+  guard! first.rule_snapshot(first.root_slot())
     is Some(CompiledExpr::NativeSlot(foreign_slot))
   let second : CompiledGrammar[Int, Int] = compile(
     GrammarIr::GrammarIr({ "source": Expr::Native("second") }, root="source"),

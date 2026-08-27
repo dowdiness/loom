@@ -201,7 +201,7 @@ fn new_reference_definition_cursor(
   {
     piece_at,
     piece_index: 0,
-    piece: StringView::default(),
+    piece: Default::default(),
     piece_offset: 0,
     offset: 0,
     inspected: 0,

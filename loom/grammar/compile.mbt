@@ -292,13 +292,13 @@ pub fn[T, K] compile(
 
   let rules : Array[CompiledExpr[T, K]] = []
   for name in names {
-    guard ir.rules.get(name) is Some(expr)
+    guard! ir.rules.get(name) is Some(expr)
     rules.push(lower(expr, rule_slots, native_slots, guard_slots))
   }
   let progress_memo : ProgressMemo = Map([])
   for i, expr in rules {
     let owner = names[i]
-    guard rule_slots.get(owner) is Some(owner_slot)
+    guard! rule_slots.get(owner) is Some(owner_slot)
     match progress_of(expr, rules, [owner_slot], progress_memo) {
       Cycle(_) => raise LeftRecursiveRule(owner)
       _ => ()
