@@ -56,6 +56,29 @@ fn reactive_keyed_markdown_ir_benchmark_input(
 }
 
 ///|
+fn reactive_keyed_markdown_ir_benchmark_loomark_input(
+  unit_count : Int,
+  selected_unit : Int,
+) -> ReactiveKeyedMarkdownIRBenchmarkInput {
+  let out = StringBuilder::StringBuilder()
+  for index = 0; index < unit_count; index = index + 1 {
+    out.write_string(
+      "## Heading \{index}\n\nParagraph \{index} with **bold**, [link](https://example.com/\{index}), and 日本語 😀.\n\n",
+    )
+  }
+  let source = out.to_string()
+  let position = source.find("Paragraph \{selected_unit}").unwrap()
+  let edited = source[:position].to_owned() +
+    "Q" +
+    source[position + 1:].to_owned()
+  {
+    source,
+    edited,
+    edit: @core.Edit::replace(position, position + 1, position + 1),
+  }
+}
+
+///|
 fn reactive_keyed_markdown_ir_benchmark_direct_read(
   parser : @loom.SyntaxParser,
 ) -> MarkdownIR {
@@ -176,13 +199,13 @@ fn benchmark_markdown_projection_attachment(
 }
 
 ///|
-fn benchmark_markdown_semantic_attachment(
+fn benchmark_markdown_semantic_attachment_input(
   b : @bench.T,
-  block_count : Int,
+  input : ReactiveKeyedMarkdownIRBenchmarkInput,
+  source_id : String,
 ) -> Unit {
-  let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
   let parser = try! @loom.new_parser(
-    @core.SourceId("markdown-semantic-attachment-benchmark"),
+    @core.SourceId(source_id),
     input.source,
     markdown_grammar,
   )
@@ -197,6 +220,18 @@ fn benchmark_markdown_semantic_attachment(
     b.keep(attachment.document())
   })
   attachment.dispose()
+}
+
+///|
+fn benchmark_markdown_semantic_attachment(
+  b : @bench.T,
+  block_count : Int,
+) -> Unit {
+  benchmark_markdown_semantic_attachment_input(
+    b,
+    reactive_keyed_markdown_ir_benchmark_input(block_count),
+    "markdown-semantic-attachment-benchmark",
+  )
 }
 
 ///|
@@ -343,6 +378,17 @@ test "Markdown projection: compatibility Block parser full cycle 2500 blocks" (
 ///|
 test "Markdown semantic: keyed attachment full cycle 2500 blocks" (b : @bench.T) {
   benchmark_markdown_semantic_attachment(b, 2500)
+}
+
+///|
+test "Markdown semantic: Loomark late replacement full cycle 500 blocks" (
+  b : @bench.T,
+) {
+  benchmark_markdown_semantic_attachment_input(
+    b,
+    reactive_keyed_markdown_ir_benchmark_loomark_input(250, 248),
+    "markdown-semantic-attachment-loomark-late-benchmark",
+  )
 }
 
 ///|
