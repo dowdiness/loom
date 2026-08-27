@@ -55,6 +55,38 @@ test "reactive keyed MarkdownIR: initial value matches direct lowering" {
 }
 
 ///|
+test "reactive keyed MarkdownIR: root CST discriminator preserves exact fallback" {
+  let parser = reactive_keyed_markdown_test_parser(
+    @core.SourceId("markdown-reactive-keyed-discriminator"),
+    "paragraph\n",
+  )
+  let snapshot = parser.snapshot().read_or_abort()
+  let root_cst = reactive_markdown_document_root(snapshot.syntax).cst
+  let whole = MarkdownIROrigin::MarkdownIROrigin(start=0, end=10)
+  let prefix = MarkdownIROrigin::MarkdownIROrigin(start=0, end=9)
+  let whole_layout : ReactiveMarkdownDocumentLayout = {
+    root_cst,
+    origin: whole,
+    blocks: [],
+  }
+  let prefix_layout : ReactiveMarkdownDocumentLayout = {
+    root_cst,
+    origin: prefix,
+    blocks: [],
+  }
+  assert_false(whole_layout == prefix_layout)
+  let whole_document : ReactiveMarkdownDocument = {
+    root_cst,
+    value: MarkdownIR::document([], whole),
+  }
+  let prefix_document : ReactiveMarkdownDocument = {
+    root_cst,
+    value: MarkdownIR::document([], prefix),
+  }
+  assert_false(whole_document == prefix_document)
+}
+
+///|
 test "reactive keyed MarkdownIR: local edit recomputes one structural block" {
   let source_id = @core.SourceId("markdown-reactive-keyed-local-edit")
   let source = "alpha\n\nbeta\n\ngamma\n"
@@ -207,6 +239,22 @@ test "reactive keyed MarkdownIR: contextual recovery remains available after gc"
   )
   assert_eq(shell.read(), direct_markdown_ir_from_syntax_parser(parser))
   assert_eq(shell.counter_snapshot().contextual_fallback, 1)
+  shell.dispose()
+}
+
+///|
+test "reactive keyed MarkdownIR: returned document survives later edit and gc" {
+  let source_id = @core.SourceId("markdown-reactive-keyed-retained-document")
+  let source = "alpha\n\nbeta\n"
+  let updated = "alpha\n\nBETA\n"
+  let parser = reactive_keyed_markdown_test_parser(source_id, source)
+  let shell = attach_reactive_keyed_markdown_ir(parser)
+  let retained = shell.read()
+  let expected = direct_markdown_ir_from_syntax_parser(parser)
+  parser.apply_edit(@core.Edit::new(7, 11, 11), updated)
+  assert_eq(shell.read(), direct_markdown_ir_from_syntax_parser(parser))
+  ignore(shell.collect_stale())
+  assert_eq(retained, expected)
   shell.dispose()
 }
 

@@ -18,9 +18,20 @@ priv struct ReactiveMarkdownBlockSlot {
 } derive(Eq)
 
 ///|
+/// Compare the root first to reject structural changes before scanning blocks.
+/// Equal roots still compare origins and the complete block layout.
 priv struct ReactiveMarkdownDocumentLayout {
+  root_cst : @seam.CstNode
   origin : MarkdownIROrigin
   blocks : Array[ReactiveMarkdownBlockSlot]
+} derive(Eq)
+
+///|
+/// Compare the root first to avoid recursive MarkdownIR equality after edits.
+/// Equal roots still compare the complete semantic value.
+priv struct ReactiveMarkdownDocument {
+  root_cst : @seam.CstNode
+  value : MarkdownIR
 } derive(Eq)
 
 ///|
@@ -79,7 +90,7 @@ priv struct ReactiveKeyedMarkdownIR {
   plan_by_cst : @incr.DerivedMap[@seam.CstNode, LocalBlockPlan]
   definition_by_label : @incr.DerivedMap[String, LinkReferenceDefinition?]
   resolved_by_cst : @incr.DerivedMap[@seam.CstNode, ResolvedLocalBlock]
-  watch : @incr.Watch[MarkdownIR]?
+  watch : @incr.Watch[ReactiveMarkdownDocument]?
   counters : ReactiveKeyedMarkdownIRCounters
 }
 
@@ -130,7 +141,7 @@ fn reactive_markdown_document_layout(
       })
     }
   }
-  { origin: origin_from_node(syntax), blocks }
+  { root_cst: root.cst, origin: origin_from_node(syntax), blocks }
 }
 
 ///|
@@ -265,7 +276,10 @@ fn attach_reactive_keyed_markdown_ir_from_snapshot(
         }
         children.push(place_resolved_local_block(resolved, slot.start))
       }
-      MarkdownIR::document(children, layout.origin)
+      {
+        root_cst: layout.root_cst,
+        value: MarkdownIR::document(children, layout.origin),
+      }
     },
     label="markdown_ir_reactive_keyed_document",
   )
@@ -367,7 +381,7 @@ fn attach_instrumented_reactive_keyed_markdown_ir(
 #warnings("-unused_value")
 fn ReactiveKeyedMarkdownIR::read(self : ReactiveKeyedMarkdownIR) -> MarkdownIR {
   match self.watch {
-    Some(watch) => watch.read_or_abort()
+    Some(watch) => watch.read_or_abort().value
     None => abort("reactive MarkdownIR has no terminal document watch")
   }
 }
