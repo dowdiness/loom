@@ -14,6 +14,7 @@ annotations.
 Add the three module dependencies:
 
 ```mbt nocheck
+///|
 import {
   "dowdiness/diagnostic@0.1.0",
   "dowdiness/diagnostic_pretty@0.1.0",
@@ -24,10 +25,11 @@ import {
 Import their packages:
 
 ```mbt nocheck
+///|
 import {
-  "dowdiness/diagnostic" @diagnostic,
-  "dowdiness/diagnostic_pretty" @diagnostic_pretty,
-  "dowdiness/pretty" @pretty,
+  "dowdiness/diagnostic",
+  "dowdiness/diagnostic_pretty",
+  "dowdiness/pretty",
 }
 ```
 

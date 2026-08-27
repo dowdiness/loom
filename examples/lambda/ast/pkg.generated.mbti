@@ -86,4 +86,3 @@ pub(open) trait TermSym {
   fn error_term(String) -> Self
   fn hole(Int) -> Self
 }
-

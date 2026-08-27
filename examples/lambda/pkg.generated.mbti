@@ -231,4 +231,3 @@ pub using @ast {type Term}
 pub type VarName = String
 
 // Traits
-

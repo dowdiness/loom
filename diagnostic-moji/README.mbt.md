@@ -15,6 +15,7 @@ unit to that unit, and keeps a one-cell marker for a non-empty zero-width span.
 Add the module dependency:
 
 ```mbt nocheck
+///|
 import {
   "dowdiness/diagnostic_moji@0.1.0",
 }
@@ -23,6 +24,7 @@ import {
 Import the package together with the core diagnostic package:
 
 ```mbt nocheck
+///|
 import {
   "dowdiness/diagnostic",
   "dowdiness/diagnostic_moji",

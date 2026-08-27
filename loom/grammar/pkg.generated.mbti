@@ -188,4 +188,3 @@ pub type NativeRule[T, K] = (@core.ParserContext[T, K], NativeDispatcher[T, K]) 
 pub type RuleName = String
 
 // Traits
-

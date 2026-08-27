@@ -304,4 +304,3 @@ pub(open) trait TransformFolder {
   fn tf_init(RawKind) -> Self
   fn tf_child(Self, Self) -> Self
 }
-

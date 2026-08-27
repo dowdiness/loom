@@ -67,4 +67,3 @@ pub fn[Id] StableProjectionLeaf::new(Int, Int, String, Id) -> Self[Id]
 // Type aliases
 
 // Traits
-

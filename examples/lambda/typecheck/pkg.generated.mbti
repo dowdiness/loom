@@ -95,4 +95,3 @@ pub impl Show for TypedTerm
 // Type aliases
 
 // Traits
-
