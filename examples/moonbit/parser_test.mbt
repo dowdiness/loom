@@ -375,6 +375,18 @@ test "skeleton grammar marks unclosed delimiter item incomplete" {
 }
 
 ///|
+test "skeleton grammar marks unclosed function body incomplete" {
+  let parser = @loom.new_parser(
+    test_source_id(),
+    "fn broken() {\n",
+    moonbit_grammar,
+  )
+  let ast = parser.ast().read_or_abort()
+  inspect(ast.contains_errors, content="true")
+  inspect(parser.diagnostics().read_or_abort().length() > 0, content="true")
+}
+
+///|
 test "skeleton grammar works with reactive parser" {
   let parser = @loom.new_parser(
     test_source_id(),
