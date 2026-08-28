@@ -9,18 +9,28 @@ pub struct MarkdownDocument {
   priv source : String
   priv syntax : @seam.SyntaxNode
   priv diagnostics : @core.DiagnosticSet
+  priv extensions : MarkdownExtensions
 }
 
 ///|
 /// Parse one source snapshot into an owning source-aware document.
 ///
-/// Lexing failures propagate with the same error behavior as `parse_cst`.
+/// Lowering uses CommonMark semantics by default. Pass `extensions` to opt in
+/// to supported semantic extensions for this document's reads. Lexing failures
+/// propagate with the same error behavior as `parse_cst`.
 pub fn parse_document(
   source_id : @core.SourceId,
   source : String,
+  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> MarkdownDocument raise {
   let (cst, diagnostics) = parse_cst(source_id, source)
-  { source_id, source, syntax: @seam.SyntaxNode::from_cst(cst), diagnostics }
+  {
+    source_id,
+    source,
+    syntax: @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+    extensions,
+  }
 }
 
 ///|
@@ -34,6 +44,7 @@ fn markdown_document_from_snapshot(
     source: snapshot.source,
     syntax: snapshot.syntax,
     diagnostics: snapshot.diagnostics.copy(),
+    extensions: MarkdownExtensions::none(),
   }
 }
 
@@ -67,6 +78,7 @@ pub fn MarkdownDocument::semantic_read(
     self.source_id,
     self.syntax,
     lowering_diagnostics,
+    extensions=self.extensions,
   )
   { document: self, ir }
 }

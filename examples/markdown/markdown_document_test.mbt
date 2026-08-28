@@ -79,6 +79,21 @@ fn markdown_document_test_find_autolink(
 }
 
 ///|
+fn markdown_document_test_collect_task_states(
+  node : MarkdownSemanticReadNode,
+  states : Array[Bool?],
+) -> Unit {
+  match node.view() {
+    ListItem(task~, ..) | OrderedListItem(task~, ..) =>
+      states.push(task.map(task => task.checked()))
+    _ => ()
+  }
+  for child in node.children() {
+    markdown_document_test_collect_task_states(child, states)
+  }
+}
+
+///|
 fn markdown_document_test_expect_node(
   node : MarkdownSemanticReadNode?,
   message : String,
@@ -113,6 +128,294 @@ test "MarkdownDocument owns one parser snapshot" {
     Document => ()
     _ => fail("expected a document read root")
   }
+}
+
+///|
+test "MarkdownDocument keeps GFM task syntax literal by default" {
+  let source_id = @core.SourceId("markdown-commonmark-task-list-literal")
+  let document = parse_document(source_id, "- [ ] todo\n")
+  assert_eq(document.diagnostics().length(), 0)
+  let read = document.semantic_read()
+  match read.root().children() {
+    [list] =>
+      match list.children() {
+        [item] => {
+          match item.view() {
+            ListItem(task=None, ..) => ()
+            _ => fail("expected CommonMark list item without task semantics")
+          }
+          match item.children() {
+            [paragraph] => {
+              let literal = paragraph
+                .children()
+                .map(child => {
+                  match child.view() {
+                    Text(value~) => value
+                    _ => fail("expected literal CommonMark task-like text")
+                  }
+                })
+                .join("")
+              assert_eq(literal, "[ ] todo")
+            }
+            _ => fail("expected one literal paragraph")
+          }
+        }
+        _ => fail("expected one CommonMark list item")
+      }
+    _ => fail("expected one CommonMark list")
+  }
+  let html = experimental_markdown_ir_to_commonmark_html(read.ir())
+  assert_false(html.contains("type=\"checkbox\""))
+  assert_true(html.contains("[ ] todo"))
+}
+
+///|
+test "direct MarkdownIR lowering opts in to task-list semantics" {
+  let source_id = @core.SourceId("markdown-direct-task-list-extension")
+  let (cst, diagnostics) = try! parse_cst(source_id, "- [x] done\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  let commonmark = experimental_markdown_ir_from_syntax_with_diagnostics(
+    source_id,
+    syntax,
+    diagnostics.copy(),
+  )
+  let task_list_without_diagnostics = experimental_markdown_ir_from_syntax(
+    source_id,
+    syntax,
+    extensions=MarkdownExtensions::task_list(),
+  )
+  let task_list = experimental_markdown_ir_from_syntax_with_diagnostics(
+    source_id,
+    syntax,
+    diagnostics,
+    extensions=MarkdownExtensions::task_list(),
+  )
+  assert_false(
+    experimental_markdown_ir_to_mdast_json(commonmark)
+    .stringify()
+    .contains("\"checked\":"),
+  )
+  assert_true(
+    experimental_markdown_ir_to_mdast_json(task_list_without_diagnostics)
+    .stringify()
+    .contains("\"checked\":true"),
+  )
+  assert_true(
+    experimental_markdown_ir_to_mdast_json(task_list)
+    .stringify()
+    .contains("\"checked\":true"),
+  )
+  assert_eq(
+    experimental_markdown_ir_canonical_format_checked(source_id, task_list),
+    Ok("- [x] done"),
+  )
+}
+
+///|
+test "MarkdownSemanticRead exposes an unchecked GFM task list item" {
+  let source_id = @core.SourceId("markdown-semantic-read-task-list")
+  let document = parse_document(
+    source_id,
+    "- [ ] todo\n",
+    extensions=MarkdownExtensions::task_list(),
+  )
+  let read = document.semantic_read()
+  match read.root().children() {
+    [list] =>
+      match list.children() {
+        [item] => {
+          match item.view() {
+            ListItem(task=Some(task), ..) => {
+              assert_false(task.checked())
+              assert_eq(task.marker_origin().start(), 2)
+              assert_eq(task.marker_origin().end(), 5)
+            }
+            _ => fail("expected an unchecked task list item")
+          }
+          match item.children() {
+            [paragraph] =>
+              match paragraph.children() {
+                [text] =>
+                  match text.view() {
+                    Text(value="todo") => ()
+                    _ => fail("expected the task marker to be removed")
+                  }
+                _ => fail("expected one task paragraph text child")
+              }
+            _ => fail("expected one task paragraph")
+          }
+        }
+        _ => fail("expected one task list item")
+      }
+    _ => fail("expected one task list")
+  }
+  assert_eq(
+    experimental_markdown_ir_to_commonmark_html(read.ir()),
+    "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> todo</li>\n</ul>\n",
+  )
+  assert_eq(
+    experimental_markdown_ir_canonical_format(source_id, read.ir()),
+    "- [ ] todo",
+  )
+  assert_eq(
+    experimental_markdown_ir_canonical_format_checked(source_id, read.ir()),
+    Ok("- [ ] todo"),
+  )
+}
+
+///|
+test "MarkdownSemanticRead recognizes a task marker before continued content" {
+  let read = parse_document(
+    @core.SourceId("markdown-semantic-read-continued-task"),
+    "- [x]\n  continued\n",
+    extensions=MarkdownExtensions::task_list(),
+  ).semantic_read()
+  match read.root().children() {
+    [list] =>
+      match list.children() {
+        [item] => {
+          match item.view() {
+            ListItem(task=Some(task), ..) => assert_true(task.checked())
+            _ => fail("expected a checked task list item")
+          }
+          match item.children() {
+            [paragraph] =>
+              match paragraph.children() {
+                [text] =>
+                  match text.view() {
+                    Text(value="continued") => ()
+                    _ => fail("expected continued task content")
+                  }
+                _ => fail("expected one continued task text child")
+              }
+            _ => fail("expected one continued task paragraph")
+          }
+        }
+        _ => fail("expected one continued task item")
+      }
+    _ => fail("expected one continued task list")
+  }
+}
+
+///|
+test "MarkdownSemanticRead follows the GFM task marker boundary" {
+  let source =
+    #|- [ ] todo
+    #|- [x] done
+    #|- [X] uppercase
+    #|* [ ] star
+    #|+ [x] plus
+    #|-   [ ] spaced
+    #|1. [	] ordered
+    #|- [y] ordinary
+    #|- [x]no-separator
+    #|
+  let read = parse_document(
+    @core.SourceId("markdown-semantic-read-task-boundary"),
+    source,
+    extensions=MarkdownExtensions::task_list(),
+  ).semantic_read()
+  let states : Array[Bool?] = []
+  markdown_document_test_collect_task_states(read.root(), states)
+  assert_eq(states, [
+    Some(false),
+    Some(true),
+    Some(true),
+    Some(false),
+    Some(true),
+    Some(false),
+    Some(false),
+    None,
+    None,
+  ])
+  let mdast = experimental_markdown_ir_to_mdast_json(read.ir()).stringify()
+  assert_true(mdast.contains("\"checked\":false"))
+  assert_true(mdast.contains("\"checked\":true"))
+  assert_true(
+    experimental_markdown_ir_to_commonmark_html(read.ir()).contains(
+      "disabled=\"\" checked=\"\"",
+    ),
+  )
+}
+
+///|
+test "MarkdownSemanticRead permits definitions before the first task paragraph" {
+  let read = parse_document(
+    @core.SourceId("markdown-semantic-read-task-after-definition"),
+    "- [ref]: /url\n  [x] task\n",
+    extensions=MarkdownExtensions::task_list(),
+  ).semantic_read()
+  let states : Array[Bool?] = []
+  let root = read.root()
+  markdown_document_test_collect_task_states(root, states)
+  assert_eq(states, [Some(true)])
+  match root.children() {
+    [list] =>
+      match list.children() {
+        [item] =>
+          match item.children() {
+            [paragraph] =>
+              match paragraph.children() {
+                [text] =>
+                  match text.view() {
+                    Text(value="task") => ()
+                    _ => fail("expected task content without its marker")
+                  }
+                _ => fail("expected one task text child")
+              }
+            _ => fail("expected definitions to precede one task paragraph")
+          }
+        _ => fail("expected one task item after definitions")
+      }
+    _ => fail("expected one task list after definitions")
+  }
+}
+
+///|
+test "MarkdownSemanticRead does not promote a later paragraph task marker" {
+  let source_id = @core.SourceId("markdown-semantic-read-later-task-marker")
+  let read = parse_document(
+    source_id,
+    "- first\n\n  [x] second\n",
+    extensions=MarkdownExtensions::task_list(),
+  ).semantic_read()
+  match read.root().children() {
+    [list] =>
+      match list.children() {
+        [item] => {
+          match item.view() {
+            ListItem(task=None, ..) => ()
+            _ => fail("expected an ordinary list item")
+          }
+          match item.children() {
+            [_, later] =>
+              match later.children() {
+                [marker, ..] =>
+                  match marker.view() {
+                    Text(value="[x]") => ()
+                    _ => fail("expected the later marker to remain literal")
+                  }
+                _ => fail("expected later paragraph content")
+              }
+            _ => fail("expected two ordinary paragraphs")
+          }
+        }
+        _ => fail("expected one ordinary list item")
+      }
+    _ => fail("expected one ordinary list")
+  }
+}
+
+///|
+test "MarkdownSemanticRead requires the first content block to be a paragraph" {
+  let read = parse_document(
+    @core.SourceId("markdown-semantic-read-task-after-heading"),
+    "- # heading\n\n  [x] later\n",
+    extensions=MarkdownExtensions::task_list(),
+  ).semantic_read()
+  let states : Array[Bool?] = []
+  markdown_document_test_collect_task_states(read.root(), states)
+  assert_eq(states, [None])
 }
 
 ///|

@@ -344,8 +344,8 @@ fn markdown_ir_to_commonmark_html_with_list_context(
         "</ol>\n",
       )
     }
-    ListItem(children, spread, _, _)
-    | OrderedListItem(children, spread, _, _) => {
+    ListItem(children, spread, _, _, task)
+    | OrderedListItem(children, spread, _, _, task) => {
       let render_paragraphs = parent_list_spread || spread
       let has_block_content = children
         .iter()
@@ -355,13 +355,22 @@ fn markdown_ir_to_commonmark_html_with_list_context(
       } else {
         "<li>"
       }
+      let task_input = match task {
+        Some(task) =>
+          if task.checked() {
+            "<input type=\"checkbox\" disabled=\"\" checked=\"\" /> "
+          } else {
+            "<input type=\"checkbox\" disabled=\"\" /> "
+          }
+        None => ""
+      }
       wrap_commonmark_html(
         markdown_ir_list_item_children_to_commonmark_html(
           children,
           render_paragraphs~,
           raw_html_policy~,
         ),
-        open,
+        open + task_input,
         "</li>\n",
       )
     }

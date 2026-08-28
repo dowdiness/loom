@@ -1679,6 +1679,60 @@ fn decide_list_item_continuation(
 }
 
 ///|
+fn gfm_task_marker_value(text : String) -> Bool {
+  text == " " || text == "\t" || text == "x" || text == "X"
+}
+
+///|
+fn gfm_task_has_following_content(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  follow_index : Int,
+) -> Bool {
+  let first_is_whitespace = match ctx.peek_nth(follow_index) {
+    Text(text) => text.has_prefix(" ") || text.has_prefix("\t")
+    Newline => true
+    _ => false
+  }
+  guard first_is_whitespace else { return false }
+  for index = follow_index {
+    match ctx.peek_nth(index) {
+      Text(text) if direct_list_item_text_has_non_blank_content(text) =>
+        break true
+      Text(_) | Indentation(_) | Newline => continue index + 1
+      _ => break false
+    }
+  }
+}
+
+///|
+fn try_parse_gfm_task_list_marker(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  let marker_index = match ctx.peek() {
+    LeftBracket => Some(0)
+    Text(prefix) if prefix.trim(chars=" ".view()).length() == 0 &&
+      ctx.peek_nth(1) is LeftBracket => Some(1)
+    _ => None
+  }
+  guard marker_index is Some(marker_index) &&
+    ctx.peek_nth(marker_index + 1) is Text(marker) &&
+    gfm_task_marker_value(marker) &&
+    ctx.peek_nth(marker_index + 2) is RightBracket &&
+    gfm_task_has_following_content(ctx, marker_index + 3) else {
+    return false
+  }
+  ctx.node(TaskListMarkerNode, fn() {
+    if marker_index == 1 {
+      ctx.emit_token(TextToken)
+    }
+    ctx.emit_token(LeftBracketToken)
+    ctx.emit_token(TextToken)
+    ctx.emit_token(RightBracketToken)
+  })
+  true
+}
+
+///|
 /// Parse list-item paragraph content, including lazy continuation lines.
 fn parse_list_item_inline_content(
   ctx : @core.ParserContext[Token, SyntaxKind],
@@ -1686,6 +1740,7 @@ fn parse_list_item_inline_content(
   allow_ordered_marker~ : Bool,
 ) -> Unit {
   let has_paragraph_content = list_item_line_starts_paragraph(ctx)
+  ignore(try_parse_gfm_task_list_marker(ctx))
   let handler : ContinuationHandler[BlockContinuationAction] = {
     decide: () => {
       decide_list_item_continuation(

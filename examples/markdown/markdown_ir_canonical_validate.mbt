@@ -79,10 +79,19 @@ fn MarkdownIRCanonicalFormatAttempt::into_result(
 }
 
 ///|
+fn markdown_ir_contains_task_list_item(ir : MarkdownIR) -> Bool {
+  match ir.node {
+    ListItem(_, _, _, _, Some(_)) | OrderedListItem(_, _, _, _, Some(_)) => true
+    _ => ir.children().iter().any(markdown_ir_contains_task_list_item)
+  }
+}
+
+///|
 fn markdown_ir_canonical_candidate_matches(
   source_id : @core.SourceId,
   expected : MarkdownIRCanonicalSemantic,
   markdown : String,
+  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> Bool {
   let (cst, diagnostics) = parse_cst(source_id, markdown) catch {
     _ => return false
@@ -91,6 +100,7 @@ fn markdown_ir_canonical_candidate_matches(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
+    extensions~,
   )
   match markdown_ir_canonical_semantic(reparsed) {
     Some(actual) => actual == expected
@@ -128,6 +138,11 @@ fn markdown_ir_canonical_format_attempt(
         stats: markdown_ir_canonical_empty_stats(),
       }
   }
+  let extensions = if markdown_ir_contains_task_list_item(ir) {
+    MarkdownExtensions::task_list()
+  } else {
+    MarkdownExtensions::none()
+  }
   let plan = markdown_ir_canonical_choice_plan(ir)
   let (candidate_limit, _) = markdown_ir_canonical_document_search_limits(
     plan, limits,
@@ -155,6 +170,7 @@ fn markdown_ir_canonical_format_attempt(
               source_id,
               expected,
               candidate.markdown,
+              extensions~,
             ) {
             return {
               result: Ok(candidate.markdown),

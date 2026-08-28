@@ -46,6 +46,35 @@ test "incremental: paragraph text edit matches full parse" {
 }
 
 ///|
+test "incremental: task marker state and validity edits match full parse" {
+  let unchecked = "- [ ] task\n"
+  let checked = "- [x] task\n"
+  let ordinary = "- [y] task\n"
+  let state_offset = "- [".length()
+  assert_markdown_incremental_edit_matches_full_parse(
+    @core.SourceId("markdown-incremental-task-marker-state"),
+    "task marker becomes checked",
+    unchecked,
+    @core.Edit::new(state_offset, 1, 1),
+    checked,
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    @core.SourceId("markdown-incremental-task-marker-validity"),
+    "task marker becomes ordinary list content",
+    checked,
+    @core.Edit::new(state_offset, 1, 1),
+    ordinary,
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    @core.SourceId("markdown-incremental-task-marker-recovery"),
+    "ordinary list content becomes a task marker",
+    ordinary,
+    @core.Edit::new(state_offset, 1, 1),
+    unchecked,
+  )
+}
+
+///|
 test "incremental: reused recovery CST preserves available empty diagnostics" {
   let old_source = "![[foo]]\n\n[foo]: /url \"title\"\n"
   let definition_start = "![[foo]]\n\n".length()

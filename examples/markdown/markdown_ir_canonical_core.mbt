@@ -69,8 +69,8 @@ priv enum MarkdownIRCanonicalSemantic {
   SemanticBlockQuote(Array[MarkdownIRCanonicalSemantic])
   SemanticUnorderedList(Array[MarkdownIRCanonicalSemantic], Bool)
   SemanticOrderedList(Array[MarkdownIRCanonicalSemantic], Bool, Int)
-  SemanticListItem(Array[MarkdownIRCanonicalSemantic], Bool)
-  SemanticOrderedListItem(Array[MarkdownIRCanonicalSemantic], Bool)
+  SemanticListItem(Array[MarkdownIRCanonicalSemantic], Bool, Bool?)
+  SemanticOrderedListItem(Array[MarkdownIRCanonicalSemantic], Bool, Bool?)
   SemanticCodeBlock(String, String)
   SemanticHtmlBlock(String)
   SemanticThematicBreak
@@ -159,14 +159,24 @@ fn markdown_ir_canonical_semantic(
         }
         None => None
       }
-    ListItem(children, spread, _, _) =>
+    ListItem(children, spread, _, _, task) =>
       match markdown_ir_canonical_semantic_children(children) {
-        Some(children) => Some(SemanticListItem(children, spread))
+        Some(children) =>
+          Some(
+            SemanticListItem(children, spread, task.map(task => task.checked())),
+          )
         None => None
       }
-    OrderedListItem(children, spread, _, _) =>
+    OrderedListItem(children, spread, _, _, task) =>
       match markdown_ir_canonical_semantic_children(children) {
-        Some(children) => Some(SemanticOrderedListItem(children, spread))
+        Some(children) =>
+          Some(
+            SemanticOrderedListItem(
+              children,
+              spread,
+              task.map(task => task.checked()),
+            ),
+          )
         None => None
       }
     CodeBlock(info, value, _) => Some(SemanticCodeBlock(info, value))
@@ -223,8 +233,8 @@ fn markdown_ir_first_canonical_opaque(
     | BlockQuote(children)
     | UnorderedList(children, _, _)
     | OrderedList(children, _, _)
-    | ListItem(children, _, _, _)
-    | OrderedListItem(children, _, _, _)
+    | ListItem(children, _, _, _, _)
+    | OrderedListItem(children, _, _, _, _)
     | Bold(children, _)
     | Italic(children, _)
     | Link(children, _, _, _)
@@ -519,8 +529,8 @@ fn markdown_ir_collect_inline_choice_radices(
     | BlockQuote(_)
     | UnorderedList(_, _, _)
     | OrderedList(_, _, _)
-    | ListItem(_, _, _, _)
-    | OrderedListItem(_, _, _, _)
+    | ListItem(_, _, _, _, _)
+    | OrderedListItem(_, _, _, _, _)
     | CodeBlock(_, _, _)
     | HtmlBlock(_, _)
     | ThematicBreak
@@ -549,8 +559,8 @@ fn markdown_ir_collect_block_choice_containers(
     | BlockQuote(children)
     | UnorderedList(children, _, _)
     | OrderedList(children, _, _)
-    | ListItem(children, _, _, _)
-    | OrderedListItem(children, _, _, _) =>
+    | ListItem(children, _, _, _, _)
+    | OrderedListItem(children, _, _, _, _) =>
       for child in children {
         markdown_ir_collect_block_choice_containers(
           child, containers, container_nodes,
@@ -749,12 +759,17 @@ fn markdown_ir_canonical_candidate_nested_flow_children(
 fn markdown_ir_canonical_candidate_list_item_flow(
   marker_text : String,
   children : Array[MarkdownIR],
+  task : MarkdownIRTask?,
   list_marker : UnorderedListMarker,
   reader : MarkdownIRCanonicalAssignmentReader,
 ) -> String {
   let buf = StringBuilder::StringBuilder()
   buf.write_string(marker_text)
   buf.write_char(' ')
+  match task {
+    Some(task) => buf.write_string(if task.checked() { "[x] " } else { "[ ] " })
+    None => ()
+  }
   match children {
     [] => ()
     [first, .. rest] => {
@@ -876,20 +891,21 @@ fn markdown_ir_canonical_candidate_format_with_list_marker(
       markdown_ir_canonical_candidate_list_children(
         children, list_marker, reader,
       )
-    ListItem(children, _, _, _) =>
+    ListItem(children, _, _, _, task) =>
       markdown_ir_canonical_candidate_list_item_flow(
         list_marker.text(),
         children,
+        task,
         list_marker,
         reader,
       )
-    OrderedListItem(children, _, _, marker) => {
+    OrderedListItem(children, _, _, marker, task) => {
       let marker_text = match marker {
         Some(marker) => marker.text()
         None => "1."
       }
       markdown_ir_canonical_candidate_list_item_flow(
-        marker_text, children, list_marker, reader,
+        marker_text, children, task, list_marker, reader,
       )
     }
     CodeBlock(info, value, _) => code_block_markdown(info, value)

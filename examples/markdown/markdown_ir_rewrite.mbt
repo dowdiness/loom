@@ -291,7 +291,7 @@ fn local_transform_render(
       )
       buf.to_string()
     }
-    ListItem(children, _, _, _) | OrderedListItem(children, _, _, _) => {
+    ListItem(children, _, _, _, _) | OrderedListItem(children, _, _, _, _) => {
       let buf = StringBuilder::new()
       let final_cursor = for child in children; cursor = ir.origin().start() {
         let child_origin = child.origin()

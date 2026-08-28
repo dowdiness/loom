@@ -254,7 +254,7 @@ test "event attribution: deterministic transcript remains stable" {
     event_attribution_transcript(4),
     content=(
       #|paragraph|source=422|tokens=57|reads=1774/554/549|token-max=41|diagnostics=0|payload=21/386|payload-units=386/0/0/0/0/0|backticks=0
-      #|mixed|source=640|tokens=173|reads=5278/1500/1476|token-max=79|diagnostics=0|payload=64/492|payload-units=376/0/88/0/28/0|backticks=8
+      #|mixed|source=640|tokens=173|reads=5286/1500/1476|token-max=79|diagnostics=0|payload=64/492|payload-units=376/0/88/0/28/0|backticks=8
       #|delimiter-heavy|source=520|tokens=293|reads=9798/3429/3428|token-max=41|diagnostics=0|payload=111/339|payload-units=339/0/0/0/0/0|backticks=8
       #|recovery-heavy|source=372|tokens=113|reads=3942/1288/1284|token-max=54|diagnostics=0|payload=40/300|payload-units=300/0/0/0/0/0|backticks=0
       #|inline-html|source=124|tokens=37|reads=1442/413/412|token-max=48|diagnostics=0|payload=24/112|payload-units=112/0/0/0/0/0|backticks=4
@@ -268,7 +268,7 @@ test "event attribution: deterministic transcript remains stable" {
     event_attribution_transcript(64),
     content=(
       #|paragraph|source=6537|tokens=837|reads=27754/8714/8649|token-max=41|diagnostics=0|payload=321/6021|payload-units=6021/0/0/0/0/0|backticks=0
-      #|mixed|source=10240|tokens=2753|reads=84418/24000/23616|token-max=79|diagnostics=0|payload=1024/7872|payload-units=6016/0/1408/0/448/0|backticks=128
+      #|mixed|source=10240|tokens=2753|reads=84546/24000/23616|token-max=79|diagnostics=0|payload=1024/7872|payload-units=6016/0/1408/0/448/0|backticks=128
       #|delimiter-heavy|source=8320|tokens=4673|reads=156318/54909/54908|token-max=41|diagnostics=0|payload=1791/5439|payload-units=5439/0/0/0/0/0|backticks=128
       #|recovery-heavy|source=5952|tokens=1793|reads=63042/20608/20544|token-max=54|diagnostics=0|payload=640/4800|payload-units=4800/0/0/0/0/0|backticks=0
       #|inline-html|source=1984|tokens=577|reads=23042/6653/6652|token-max=48|diagnostics=0|payload=384/1792|payload-units=1792/0/0/0/0/0|backticks=64
