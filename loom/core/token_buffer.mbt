@@ -183,10 +183,10 @@ fn[T : Eq] full_lex_arrays_error(
     guard start >= 0 && start <= source_len else {
       return Some("token start outside source at index " + i.to_string())
     }
-    let end = start + token.len
-    guard end <= source_len else {
+    guard token.len <= source_len - start else {
       return Some("token end outside source at index " + i.to_string())
     }
+    let end = start + token.len
     if i > 0 {
       guard start >= previous_start else {
         return Some("decreasing token start at index " + i.to_string())

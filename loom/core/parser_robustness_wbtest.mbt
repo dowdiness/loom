@@ -924,6 +924,213 @@ test "reparse_block rejects sparse source coverage at an admitted boundary" {
 }
 
 ///|
+test "reparse_block rejects malformed detached lex spans at boundary" {
+  let old_block = @seam.CstNode::new(
+    test_kind_raw(KExpr),
+    [
+      @seam.CstElement::Token(
+        @seam.CstToken::CstToken(test_kind_raw(KNum), "abcd"),
+      ),
+    ],
+    policy=test_spec.cst_metadata_policy,
+  )
+  let old_root = @seam.CstNode::new(
+    test_kind_raw(KRoot),
+    [@seam.CstElement::Node(old_block)],
+    policy=test_spec.cst_metadata_policy,
+  )
+  let block_spec = BlockReparseSpec::new(
+    kind => kind == test_kind_raw(KExpr),
+    (_, _, _) => {
+      Some(ctx => {
+        ctx.node(KExpr, () => {
+          ctx.emit_token(KNum)
+          ctx.emit_token(KNum)
+        })
+      })
+    },
+    _ => true,
+    may_reparse_boundary=(_, _, _) => true,
+  )
+  let cases : Array[(String, Array[TokenInfo[TestTok]], Array[Int])] = [
+    (
+      "equal-length overlap and gap",
+      [
+        TokenInfo::new(TestTok::Num(1), 2),
+        TokenInfo::new(TestTok::Num(2), 2),
+        TokenInfo::new(TestTok::TokEof, 0),
+      ],
+      [0, 1, 4],
+    ),
+    (
+      "decreasing start",
+      [
+        TokenInfo::new(TestTok::Num(1), 1),
+        TokenInfo::new(TestTok::Num(2), 1),
+        TokenInfo::new(TestTok::TokEof, 0),
+      ],
+      [1, 0, 4],
+    ),
+    (
+      "EOF before source end",
+      [
+        TokenInfo::new(TestTok::Num(1), 2),
+        TokenInfo::new(TestTok::Num(2), 1),
+        TokenInfo::new(TestTok::TokEof, 0),
+      ],
+      [0, 2, 3],
+    ),
+    (
+      "token end after source end",
+      [
+        TokenInfo::new(TestTok::Num(1), 5),
+        TokenInfo::new(TestTok::Num(2), 0),
+        TokenInfo::new(TestTok::TokEof, 0),
+      ],
+      [0, 4, 4],
+    ),
+    (
+      "non-parallel token and start arrays",
+      [
+        TokenInfo::new(TestTok::Num(1), 2),
+        TokenInfo::new(TestTok::Num(2), 2),
+        TokenInfo::new(TestTok::TokEof, 0),
+      ],
+      [0, 2],
+    ),
+  ]
+  for case in cases {
+    let (label, tokens, starts) = case
+    let result = reparse_block(
+      SourceId("boundary-" + label),
+      @seam.SyntaxNode::from_cst(old_root),
+      "xbcd",
+      Edit::replace(0, 1, 1),
+      (_, _) => {
+        LexResult::with_starts(
+          tokens,
+          starts,
+          diagnostics=DiagnosticSet::empty(),
+        )
+      },
+      test_spec,
+      block_spec,
+      DiagnosticSet::empty(),
+    )
+    if result is Some(_) {
+      abort("accepted malformed detached lex spans: " + label)
+    }
+  }
+}
+
+///|
+test "reparse_block rejects a raw-kind EOF alias at boundary" {
+  let old_block = @seam.CstNode::new(
+    test_kind_raw(KExpr),
+    [
+      @seam.CstElement::Token(
+        @seam.CstToken::CstToken(test_kind_raw(KNum), "a"),
+      ),
+    ],
+    policy=test_spec.cst_metadata_policy,
+  )
+  let old_root = @seam.CstNode::new(
+    test_kind_raw(KRoot),
+    [@seam.CstElement::Node(old_block)],
+    policy=test_spec.cst_metadata_policy,
+  )
+  let block_spec = BlockReparseSpec::new(
+    kind => kind == test_kind_raw(KExpr),
+    (_, _, _) => {
+      Some(ctx => {
+        ctx.node(KExpr, () => {
+          ctx.emit_token(KNum)
+          ctx.emit_token(KErr)
+        })
+      })
+    },
+    _ => true,
+    may_reparse_boundary=(_, _, _) => true,
+  )
+  let result = reparse_block(
+    SourceId("boundary-eof-alias"),
+    @seam.SyntaxNode::from_cst(old_root),
+    "x",
+    Edit::replace(0, 1, 1),
+    (_, _) => {
+      LexResult::with_starts(
+        [
+          TokenInfo::new(TestTok::Num(1), 1),
+          TokenInfo::new(TestTok::TokEofAlias, 0),
+        ],
+        [0, 1],
+        diagnostics=DiagnosticSet::empty(),
+      )
+    },
+    test_spec,
+    block_spec,
+    DiagnosticSet::empty(),
+  )
+  inspect(result is None, content="true")
+}
+
+///|
+test "reparse_block resumes outer strict candidate after boundary failure" {
+  fn parse_nested_expr(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.emit_token(KPlus)
+      ctx.node(KExpr, fn() {
+        ctx.emit_token(KNum)
+        ctx.emit_token(KPlus)
+        ctx.emit_token(KNum)
+        ctx.emit_token(KPlus)
+        ctx.emit_token(KNum)
+      })
+    })
+  }
+
+  let (old_tree, _) = parse_with(
+    SourceId("boundary-then-strict"),
+    "1+2+3+4",
+    test_spec,
+    test_tokenize,
+    parse_nested_expr,
+  )
+  let seen : Array[Int] = []
+  let block_spec = BlockReparseSpec::new(
+    kind => kind == test_kind_raw(KExpr),
+    (node, _, _) => {
+      seen.push(node.start())
+      if node.start() == 2 {
+        Some(fn(_) {  })
+      } else {
+        Some(parse_nested_expr)
+      }
+    },
+    _ => true,
+    may_reparse_boundary=(_, _, _) => true,
+  )
+  let result = reparse_block(
+    SourceId("boundary-then-strict"),
+    @seam.SyntaxNode::from_cst(old_tree),
+    "1+9+3+4",
+    Edit::replace(2, 3, 3),
+    (_, source) => {
+      let (tokens, starts) = test_tokenize_with_starts(source)
+      tokens.push(TokenInfo::new(TestTok::TokEof, 0))
+      starts.push(source.length())
+      LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+    },
+    test_spec,
+    block_spec,
+    DiagnosticSet::empty(),
+  )
+  inspect(result is Some(_), content="true")
+  debug_inspect(seen, content="[2, 0]")
+}
+
+///|
 test "reparse_block selected failure does not widen" {
   fn parse_nested_expr(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     ctx.node(KExpr, fn() {

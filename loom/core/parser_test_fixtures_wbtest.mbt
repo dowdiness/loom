@@ -9,6 +9,7 @@ enum TestTok {
   Ws
   Comment
   TokEof
+  TokEofAlias
 } derive(Eq, Debug)
 
 ///|
@@ -33,7 +34,7 @@ impl @seam.ToRawKind for TestTok with fn to_raw(self) {
     Plus => 1
     Comment => 8
     Ws => 4
-    TokEof => 7
+    TokEof | TokEofAlias => 7
   }
   @seam.RawKind(n)
 }

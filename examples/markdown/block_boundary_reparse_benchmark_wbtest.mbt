@@ -191,7 +191,7 @@ fn run_boundary_phase_benchmark(block_count : Int) -> Unit raise {
   let ancestor_samples : Array[Double] = []
   let detached_lex_samples : Array[Double] = []
   let block_reparse_samples : Array[Double] = []
-  let isolated_parse_derived_samples : Array[Double] = []
+  let unattributed_remainder_samples : Array[Double] = []
   let splice_samples : Array[Double] = []
   let fallback_parse_samples : Array[Double] = []
   let warmups = 20
@@ -261,13 +261,13 @@ fn run_boundary_phase_benchmark(block_count : Int) -> Unit raise {
       ancestor_samples.push(ancestor_elapsed)
       detached_lex_samples.push(lex_elapsed)
       block_reparse_samples.push(reparse_elapsed)
-      let isolated_residual = reparse_elapsed -
+      let unattributed_remainder = reparse_elapsed -
         ancestor_elapsed -
         lex_elapsed -
         splice_elapsed
-      isolated_parse_derived_samples.push(
-        if isolated_residual > 0.0 {
-          isolated_residual
+      unattributed_remainder_samples.push(
+        if unattributed_remainder > 0.0 {
+          unattributed_remainder
         } else {
           0.0
         },
@@ -282,7 +282,7 @@ fn run_boundary_phase_benchmark(block_count : Int) -> Unit raise {
     block_count, "phase-block-reparse-composite", block_reparse_samples,
   )
   boundary_bench_report(
-    block_count, "phase-isolated-parse-diagnostics-derived", isolated_parse_derived_samples,
+    block_count, "phase-unattributed-reparse-remainder", unattributed_remainder_samples,
   )
   boundary_bench_report(block_count, "phase-splice", splice_samples)
   boundary_bench_report(
