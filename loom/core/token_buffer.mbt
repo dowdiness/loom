@@ -158,28 +158,15 @@ fn[T : Eq] full_lex_arrays_error(
   source : String,
   eof_token : T,
 ) -> String? {
-  full_lex_arrays_error_with_eof(tokens, starts, source.length(), token => {
-    token == eof_token
-  })
-}
-
-///|
-/// Validate one complete lex stream without choosing how token kinds represent
-/// EOF. Detached block reparsing uses raw kinds; TokenBuffer uses token equality.
-fn[T] full_lex_arrays_error_with_eof(
-  tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
-  source_len : Int,
-  is_eof : (T) -> Bool,
-) -> String? {
   guard tokens.length() == starts.length() else {
     return Some("tokens and starts are not parallel")
   }
   let token_count = tokens.length()
   guard token_count > 0 else { return Some("missing EOF token") }
+  let source_len = source.length()
   let eof_index = token_count - 1
   let eof = tokens[eof_index]
-  guard is_eof(eof.token) && eof.len == 0 else {
+  guard eof.token == eof_token && eof.len == 0 else {
     return Some("missing trailing EOF sentinel")
   }
   guard starts[eof_index] == source_len else {

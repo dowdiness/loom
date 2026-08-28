@@ -23,10 +23,18 @@ fn block_reparse_bench_parse_nested_expr(
 ///|
 test "block reparse: direct isolated parse and diagnostics" (b : @bench.T) {
   let fixtures = Array::makei(16, i => {
-    let source = (i % 10).to_string() + "+2+3+4"
+    let source = i.to_string() + "+2+3+4"
     let (tokens, starts) = test_tokenize_with_starts(source)
+    tokens.push(TokenInfo::new(TestTok::TokEof, 0))
+    starts.push(source.length())
     (source, tokens, starts)
   })
+  for fixture in fixtures {
+    let (source, tokens, starts) = fixture
+    assert_eq(tokens.length(), 8)
+    assert_eq(tokens[7].token, TestTok::TokEof)
+    assert_eq(starts[7], source.length())
+  }
   let (first_source, first_tokens, first_starts) = fixtures[0]
   guard parse_block_isolated(
       SourceId("block-reparse-direct-phase"),

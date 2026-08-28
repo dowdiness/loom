@@ -43,12 +43,21 @@ fail-closed gates. Every isolated parser must consume its token stream and emit
 exactly one replacement node of the candidate kind; direct tokens, sibling
 nodes, and kind changes are rejected before splice. Boundary candidates also
 require a complete detached lex stream: parallel token/start arrays, in-range
-non-decreasing and non-overlapping spans, a trailing zero-width EOF exactly at
-the candidate end, and replacement text length equal to the candidate source.
-Together these conditions prove full candidate text coverage without rebuilding
-a second string. Strict-interior reparsing retains support for fully consumed
-sparse token streams with explicit starts. Core still falls through to normal
-incremental parsing whenever a required gate cannot prove a complete replacement.
+non-decreasing and non-overlapping spans, the exact configured zero-width EOF
+sentinel at the candidate end, and replacement text length equal to the
+candidate source. Exact token equality, rather than raw-kind equality, keeps
+full lex validation, detached validation, and isolated final-EOF consumption on
+one sentinel identity contract. Together these conditions prove full candidate
+text coverage without rebuilding a second string. Strict-interior reparsing
+retains support for fully consumed sparse token streams with explicit starts.
+Core still falls through to normal incremental parsing whenever a required gate
+cannot prove a complete replacement.
+
+Core retains why each candidate was enumerated. A selected strict-interior
+failure preserves the established full-fallback rule. A selected owned-boundary
+failure skips any further boundary candidates and resumes at the first enclosing
+strict-interior candidate that was eligible before boundary admission. Selector
+`None` retains its existing permission to try the next eligible parent.
 
 Do not admit:
 
@@ -76,8 +85,11 @@ Unicode, and malformed-prefix transitions; every admitted probe must satisfy the
 same full-parse oracle. An accepted edit also proves that an unaffected following
 sibling remains structurally shared. Core robustness cases reject malformed
 detached streams with overlap/gap cancellation, decreasing starts, misplaced
-EOF, out-of-range ends, and non-parallel arrays while retaining the strict-path
-sparse-start compatibility case.
+EOF, a non-EOF token sharing the EOF raw kind, out-of-range ends, and
+non-parallel arrays while retaining the strict-path sparse-start compatibility
+case. A synthetic nested-candidate case proves that owned-boundary parser failure
+resumes at an enclosing strict candidate, while the existing strict-to-strict
+selected-failure case continues to forbid widening.
 
 The public strict-ancestor characterization remains unchanged: exact starts,
 exact ends, and right-edge insertions are not returned by the strict helper.
@@ -103,8 +115,9 @@ search, detached lexing, the complete block-reparse operation, an explicitly
 unattributed remainder, splice, and fallback `parse_tokens_indexed`; the
 remainder is not presented as an isolated phase. A core white-box JavaScript
 release benchmark directly invokes isolated parsing, diagnostics, and CST build
-on 16 rotating eight-token streams. Two local means were 771 ns and 819 ns,
-each across 10 × 100,000 runs.
+on 16 distinct rotating streams containing seven grammar tokens plus final EOF.
+After correcting the fixture, two local means were 1.03 µs and 1.68 µs
+across 10 × 91,500 and 10 × 47,128 runs respectively.
 
 These are informational local measurements, not CI thresholds.
 
@@ -130,9 +143,12 @@ existing post-lex selector and use that selector as the sole admission point.
 Parity held, but marker-changing fallback paid detached Markdown lexing before
 it could decline. In the same JS release harness, the 500-block fallback median
 rose from about 1.68 ms with preflight admission to 2.14 ms; the 2,500-block row
-rose from about 13.25 ms to 13.56 ms. A full context record or decision enum
-would preserve that late-decline cost while exposing more interface than this
-issue proves necessary. Reject both for #933.
+rose from about 13.25 ms to 13.56 ms. A full callback context record or public grammar decision enum would preserve
+that late-decline cost while exposing more interface than this issue proves
+necessary. Reject both for #933. The private admission tag retained by core is
+not grammar context: it records only whether a candidate already belonged to
+the strict baseline or was added by boundary probing, so failure can restore the
+pre-existing strict opportunity without changing callback cost.
 
 Reparsing a synchronization island containing multiple siblings could support
 more boundary forms, but Loom currently proves and splices one old node and
@@ -154,13 +170,16 @@ justified by the measured residual.
   record-literal users migrate once to `BlockReparseSpec::new`; the repository
   has no external indexed uses or published release to preserve.
   Grammars that do not pass `may_reparse_boundary` remain strict by construction;
-  the existing selector contract remains unchanged.
+  the existing selector contract remains unchanged. `reparse_block` now states
+  the already-required token equality bound explicitly so detached EOF identity
+  matches normal complete-lex validation.
 - The generated interface replaces exposed record fields with one opaque type
   and constructor, avoiding accidental field coupling and future migrations.
 - Markdown exact-start paragraph replacements become independent of document
   size apart from ancestor discovery and path copying.
 - Malformed detached boundary lex streams fail closed before parser selection;
-  strict-interior sparse-start compatibility remains unchanged.
+  strict-interior sparse-start compatibility remains unchanged. A failed owned
+  boundary attempt cannot suppress an enclosing strict candidate.
 - All other boundary classes continue to use the existing normal incremental
   parser.
 - A future syntax form needs its own differential matrix and explicit grammar
