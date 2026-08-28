@@ -4,7 +4,6 @@
 /// MarkdownIR, and rendered semantic output. The returned count is one only
 /// when the block-reparse fast path was admitted.
 fn assert_block_boundary_reparse_parity(
-  label : String,
   source : String,
   edit : @core.Edit,
   updated : String,
@@ -40,9 +39,7 @@ fn assert_block_boundary_reparse_parity(
     experimental_markdown_ir_to_commonmark_html(incremental_ir),
     experimental_markdown_ir_to_commonmark_html(fresh_ir),
   )
-  let reuse_count = incremental.snapshot().read_or_abort().reuse_count
-  ignore(label)
-  reuse_count
+  incremental.snapshot().read_or_abort().reuse_count
 }
 
 ///|
@@ -72,7 +69,6 @@ test "boundary reparse: paragraph exact-start replacement is admitted" {
   let source = prefix + "Alpha beta\n\nTail\n"
   let updated = prefix + "Omega beta\n\nTail\n"
   let reuse_count = assert_block_boundary_reparse_parity(
-    "paragraph exact-start same-length replacement",
     source,
     @core.Edit::replace(
       prefix.length(),
@@ -111,11 +107,7 @@ test "boundary reparse: adversarial exact-start prefix sweep preserves parity" {
     let edit = @core.Edit::replace(0, 1, 1)
     if block_boundary_candidate_is_admitted(old_source, edit, updated) {
       admitted = admitted + 1
-      ignore(
-        assert_block_boundary_reparse_parity(
-          "adversarial exact-start prefix", old_source, edit, updated,
-        ),
-      )
+      ignore(assert_block_boundary_reparse_parity(old_source, edit, updated))
     } else {
       rejected = rejected + 1
     }
@@ -131,6 +123,30 @@ priv struct BlockBoundaryReparseCase {
   edit : @core.Edit
   updated : String
   admitted : Bool
+}
+
+///|
+fn check_block_boundary_matrix_case(
+  case : BlockBoundaryReparseCase,
+) -> Unit raise {
+  ignore(
+    assert_block_boundary_reparse_parity(case.source, case.edit, case.updated),
+  )
+  let admitted = block_boundary_candidate_is_admitted(
+    case.source,
+    case.edit,
+    case.updated,
+  )
+  if admitted != case.admitted {
+    println(
+      case.label +
+      ": expected admitted=" +
+      case.admitted.to_string() +
+      ", actual=" +
+      admitted.to_string(),
+    )
+    abort("boundary matrix path mismatch")
+  }
 }
 
 ///|
@@ -216,29 +232,7 @@ test "boundary reparse: accepted paragraph ownership matrix" {
     },
   ]
   for case in cases {
-    ignore(
-      assert_block_boundary_reparse_parity(
-        case.label,
-        case.source,
-        case.edit,
-        case.updated,
-      ),
-    )
-    let admitted = block_boundary_candidate_is_admitted(
-      case.source,
-      case.edit,
-      case.updated,
-    )
-    if admitted != case.admitted {
-      println(
-        case.label +
-        ": expected admitted=" +
-        case.admitted.to_string() +
-        ", actual=" +
-        admitted.to_string(),
-      )
-      abort("boundary matrix path mismatch")
-    }
+    check_block_boundary_matrix_case(case)
   }
 }
 
@@ -363,29 +357,7 @@ test "boundary reparse: ambiguous and ownership-changing matrix falls back" {
     },
   ]
   for case in cases {
-    ignore(
-      assert_block_boundary_reparse_parity(
-        case.label,
-        case.source,
-        case.edit,
-        case.updated,
-      ),
-    )
-    let admitted = block_boundary_candidate_is_admitted(
-      case.source,
-      case.edit,
-      case.updated,
-    )
-    if admitted != case.admitted {
-      println(
-        case.label +
-        ": expected admitted=" +
-        case.admitted.to_string() +
-        ", actual=" +
-        admitted.to_string(),
-      )
-      abort("boundary matrix path mismatch")
-    }
+    check_block_boundary_matrix_case(case)
   }
 }
 

@@ -39,8 +39,8 @@ fn boundary_bench_replace(
 }
 
 ///|
-fn boundary_bench_percentile(sorted : Array[Double], numerator : Int) -> Double {
-  let rank = (sorted.length() * numerator + 99) / 100
+fn boundary_bench_p95(sorted : Array[Double]) -> Double {
+  let rank = (sorted.length() * 95 + 99) / 100
   sorted[if rank > 0 { rank - 1 } else { 0 }]
 }
 
@@ -62,7 +62,7 @@ fn boundary_bench_report(
     " median_ms=" +
     sorted[sorted.length() / 2].to_string() +
     " p95_ms=" +
-    boundary_bench_percentile(sorted, 95).to_string() +
+    boundary_bench_p95(sorted).to_string() +
     " max_ms=" +
     sorted.last().unwrap().to_string(),
   )
@@ -136,36 +136,6 @@ fn run_boundary_parser_benchmark(
 
 ///|
 #cfg(target="js")
-fn run_boundary_fallback_benchmark(block_count : Int) -> Unit raise {
-  let fixture = boundary_bench_fixture(block_count)
-  let parser = @loom.new_syntax_parser(
-    @core.SourceId("markdown-block-boundary-fallback-benchmark"),
-    fixture.source,
-    markdown_grammar.to_syntax_grammar(),
-  )
-  let samples : Array[Double] = []
-  let locations = 16
-  let warmups = 20
-  let measured = 44
-  for iteration in 0..<(warmups + measured) {
-    let slot = (iteration * 11 + 5) % locations
-    let fixture_index = slot * fixture.starts.length() / locations
-    let position = fixture.starts[fixture_index]
-    let updated = boundary_bench_replace(fixture.source, position, "#")
-    let edit = @core.Edit::replace(position, position + 1, position + 1)
-    let start = block_boundary_bench_now_ms()
-    parser.apply_edit(edit, updated)
-    let elapsed = block_boundary_bench_now_ms() - start
-    parser.apply_edit(edit, fixture.source)
-    if iteration >= warmups {
-      samples.push(elapsed)
-    }
-  }
-  boundary_bench_report(block_count, "ownership-fallback", samples)
-}
-
-///|
-#cfg(target="js")
 fn benchmark_markdown_ancestor_of_kind(
   syntax : @seam.SyntaxNode,
   position : Int,
@@ -215,7 +185,7 @@ fn run_boundary_phase_benchmark(block_count : Int) -> Unit raise {
 
   let ancestor_samples : Array[Double] = []
   let detached_lex_samples : Array[Double] = []
-  let isolated_splice_samples : Array[Double] = []
+  let block_reparse_samples : Array[Double] = []
   let isolated_parse_derived_samples : Array[Double] = []
   let splice_samples : Array[Double] = []
   let fallback_parse_samples : Array[Double] = []
@@ -285,7 +255,7 @@ fn run_boundary_phase_benchmark(block_count : Int) -> Unit raise {
     if iteration >= warmups {
       ancestor_samples.push(ancestor_elapsed)
       detached_lex_samples.push(lex_elapsed)
-      isolated_splice_samples.push(reparse_elapsed)
+      block_reparse_samples.push(reparse_elapsed)
       let isolated_residual = reparse_elapsed -
         ancestor_elapsed -
         lex_elapsed -
@@ -304,7 +274,7 @@ fn run_boundary_phase_benchmark(block_count : Int) -> Unit raise {
   boundary_bench_report(block_count, "phase-ancestor-search", ancestor_samples)
   boundary_bench_report(block_count, "phase-detached-lex", detached_lex_samples)
   boundary_bench_report(
-    block_count, "phase-block-reparse-composite", isolated_splice_samples,
+    block_count, "phase-block-reparse-composite", block_reparse_samples,
   )
   boundary_bench_report(
     block_count, "phase-isolated-parse-diagnostics-derived", isolated_parse_derived_samples,
@@ -322,7 +292,7 @@ test "benchmark: varying-operand block boundary paths" {
     assert_boundary_benchmark_paths(boundary_bench_fixture(block_count))
     run_boundary_parser_benchmark(block_count, "exact-start-admitted", 0, "O")
     run_boundary_parser_benchmark(block_count, "strict-interior", 14, "X")
-    run_boundary_fallback_benchmark(block_count)
+    run_boundary_parser_benchmark(block_count, "ownership-fallback", 0, "#")
     run_boundary_phase_benchmark(block_count)
   }
 }
