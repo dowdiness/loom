@@ -178,6 +178,7 @@ test "reparse_block offsets new structured diagnostics and drops stale block dia
         None
       }
     },
+    owns_boundary_edit: (_, _, _) => false,
     is_balanced: _ => true,
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
@@ -737,6 +738,7 @@ test "reparse_block selector decline widens to parent" {
         Some(parse_nested_expr)
       }
     },
+    owns_boundary_edit: (_, _, _) => false,
     is_balanced: _ => true,
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
@@ -760,6 +762,48 @@ test "reparse_block selector decline widens to parent" {
   inspect(seen_texts[0], content="2+9+4")
   inspect(seen_texts[1], content="1+2+9+4")
   inspect(seen_token_counts[0], content="5")
+}
+
+///|
+test "reparse_block rejects unconsumed zero-width non-EOF token" {
+  let old_block = @seam.CstNode::new_unclassified(test_kind_raw(KExpr), [
+    @seam.CstElement::Token(
+      @seam.CstToken::CstToken(test_kind_raw(KNum), "abc"),
+    ),
+  ])
+  let old_root = @seam.CstNode::new_unclassified(test_kind_raw(KRoot), [
+    @seam.CstElement::Node(old_block),
+  ])
+  let block_spec : BlockReparseSpec[TestTok, TestKind] = {
+    is_reparseable: kind => kind == test_kind_raw(KExpr),
+    get_reparser: fn(_, _, _) {
+      Some(ctx => ctx.node(KExpr, () => ctx.emit_token(KNum)))
+    },
+    owns_boundary_edit: (_, _, _) => false,
+    is_balanced: _ => true,
+  }
+  let lex : (SourceId, String) -> LexResult[TestTok] = (_, _) => {
+    LexResult::with_starts(
+      [
+        TokenInfo::new(TestTok::Num(1), 3),
+        TokenInfo::new(TestTok::Plus, 0),
+        TokenInfo::new(TestTok::TokEof, 0),
+      ],
+      [0, 3, 3],
+      diagnostics=DiagnosticSet::empty(),
+    )
+  }
+  let result = reparse_block(
+    SourceId("block-reparse-zero-width-residue"),
+    @seam.SyntaxNode::from_cst(old_root),
+    "axc",
+    Edit::replace(1, 2, 2),
+    lex,
+    test_spec,
+    block_spec,
+    DiagnosticSet::empty(),
+  )
+  inspect(result is None, content="true")
 }
 
 ///|
@@ -796,6 +840,7 @@ test "reparse_block selected failure does not widen" {
         Some(parse_nested_expr)
       }
     },
+    owns_boundary_edit: (_, _, _) => false,
     is_balanced: _ => true,
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
@@ -847,6 +892,7 @@ test "reparse_block balance failure does not widen" {
       selector_calls.push(node.start())
       Some(parse_nested_expr)
     },
+    owns_boundary_edit: (_, _, _) => false,
     is_balanced: tokens => {
       match tokens {
         [first, ..] => first.token != TestTok::Num(2)

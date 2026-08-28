@@ -335,17 +335,19 @@ fn frecoverable_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode]
     lex=flex_recoverable_steps,
     fold_node=(s, _recurse) => s,
     incremental_relex_enabled=false,
-    block_reparse_spec=Some({
-      is_reparseable: kind => kind == root_kind,
-      get_reparser: (node, _, _) => {
-        if node.kind() == root_kind {
-          Some(froot)
-        } else {
-          None
-        }
-      },
-      is_balanced: _tokens => true,
-    }),
+    block_reparse_spec=Some(
+      @core.BlockReparseSpec::new(
+        kind => kind == root_kind,
+        (node, _, _) => {
+          if node.kind() == root_kind {
+            Some(froot)
+          } else {
+            None
+          }
+        },
+        _tokens => true,
+      ),
+    ),
   )
 }
 
@@ -365,17 +367,19 @@ fn flate_error_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] 
     lex=flex_late_error,
     fold_node=(s, _recurse) => s,
     incremental_relex_enabled=false,
-    block_reparse_spec=Some({
-      is_reparseable: kind => kind == block_kind,
-      get_reparser: (node, _, _) => {
-        if node.kind() == block_kind {
-          Some(fblock_root)
-        } else {
-          None
-        }
-      },
-      is_balanced: _tokens => true,
-    }),
+    block_reparse_spec=Some(
+      @core.BlockReparseSpec::new(
+        kind => kind == block_kind,
+        (node, _, _) => {
+          if node.kind() == block_kind {
+            Some(fblock_root)
+          } else {
+            None
+          }
+        },
+        _tokens => true,
+      ),
+    ),
   )
 }
 
@@ -654,17 +658,19 @@ test "new_syntax_parser: block reparse preserves the token-buffer mode session" 
     spec~,
     lex=(source_id, source) => mode_factory.tokenize(source_id, source),
     mode_relex=Some(mode_factory),
-    block_reparse_spec=Some({
-      is_reparseable: kind => kind == root_kind,
-      get_reparser: (node, _, _) => {
-        if node.kind() == root_kind {
-          Some(froot)
-        } else {
-          None
-        }
-      },
-      is_balanced: _tokens => true,
-    }),
+    block_reparse_spec=Some(
+      @core.BlockReparseSpec::new(
+        kind => kind == root_kind,
+        (node, _, _) => {
+          if node.kind() == root_kind {
+            Some(froot)
+          } else {
+            None
+          }
+        },
+        _tokens => true,
+      ),
+    ),
   )
   let parser = new_syntax_parser(
     @core.SourceId("factory-block-mode-session-source"),
