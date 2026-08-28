@@ -20,9 +20,9 @@ fn json_container_depth(node : @seam.SyntaxNode) -> Int {
 /// JSON block reparse specification.
 /// Objects and Arrays are reparseable — edits inside them can be reparsed
 /// in isolation instead of reparsing the entire document.
-pub let json_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
-  is_reparseable: is_json_container_kind,
-  get_reparser: fn(node, _, _) {
+pub let json_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = @core.BlockReparseSpec::new(
+  is_json_container_kind,
+  fn(node, _, _) {
     let kind = node.kind()
     let depth = json_container_depth(node)
     if kind == ObjectNode.to_raw() {
@@ -33,7 +33,7 @@ pub let json_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
       None
     }
   },
-  is_balanced: fn(tokens) {
+  fn(tokens) {
     let stack : Array[Token] = []
     for token in tokens {
       match token.token {
@@ -54,4 +54,4 @@ pub let json_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
     }
     stack.is_empty()
   },
-}
+)

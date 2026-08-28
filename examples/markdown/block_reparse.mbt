@@ -14,11 +14,30 @@ fn is_markdown_reparseable_block(kind : @seam.RawKind) -> Bool {
 /// that first character. Whitespace-prefixed container children can likewise
 /// cross an indented-code column after a space or tab edit. Decline both without
 /// adding BlockReparseContext so the owning container can reclassify the block.
-fn paragraph_start_allows_reparse(text : String) -> Bool {
-  match text {
-    [' ' | '\t' | '#' | '-' | '*' | '+' | '`' | '>', ..] => false
-    _ => true
+fn paragraph_start_allows_reparse(text : StringView) -> Bool {
+  match text.get_char(0) {
+    Some(' ' | '\t' | '\r' | '\n' | '#' | '-' | '*' | '+' | '`' | '>') => false
+    Some(_) => true
+    None => false
   }
+}
+
+///|
+/// A paragraph owns an exact-start replacement only when both the old and new
+/// candidate remain plain paragraph starts and the edit leaves the candidate's
+/// right boundary untouched. Insertions at the shared left boundary remain
+/// ambiguous with the preceding block and fail closed.
+fn paragraph_exact_start_replacement_is_local(
+  node : @seam.SyntaxNode,
+  edit : @core.Edit,
+  block_text : StringView,
+) -> Bool {
+  edit.start == node.start() &&
+  edit.old_len > 0 &&
+  edit.start + edit.old_len < node.end() &&
+  edit.start + edit.new_len < node.end() + edit.delta() &&
+  paragraph_start_allows_reparse(node.text().to_string_view()) &&
+  paragraph_start_allows_reparse(block_text)
 }
 
 ///|
@@ -637,9 +656,9 @@ fn unordered_list_ownership_changes(
 }
 
 ///|
-let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
-  is_reparseable: is_markdown_reparseable_block,
-  get_reparser: fn(node, _, tokens) {
+let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = @core.BlockReparseSpec::new(
+  is_markdown_reparseable_block,
+  fn(node, _, tokens) {
     let kind = node.kind()
     if kind == ListItemNode.to_raw() &&
       unordered_list_ownership_changes(node, tokens) {
@@ -653,7 +672,7 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
         }
       })
     } else if kind == ParagraphNode.to_raw() &&
-      paragraph_start_allows_reparse(node.text()) {
+      paragraph_start_allows_reparse(node.text().to_string_view()) {
       Some(parse_paragraph_if_still_paragraph)
     } else if kind == HeadingNode.to_raw() {
       marker_block_reparser(
@@ -669,5 +688,9 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
       None
     }
   },
-  is_balanced: markdown_tokens_safe_for_block_reparse,
-}
+  markdown_tokens_safe_for_block_reparse,
+  may_reparse_boundary=(node, edit, block_text) => {
+    node.kind() == @seam.ToRawKind::to_raw(ParagraphNode) &&
+    paragraph_exact_start_replacement_is_local(node, edit, block_text)
+  },
+)

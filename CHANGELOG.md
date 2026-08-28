@@ -19,6 +19,11 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Changed
 
+- **Breaking block-reparse configuration boundary:** `BlockReparseSpec` is now
+  opaque and constructed with `BlockReparseSpec::new`. Existing grammars keep
+  strict-interior behavior by omitting `may_reparse_boundary`; grammar-owned
+  boundary admission remains an optional fail-closed preflight.
+
 - **Breaking CST metadata ownership boundary:** `CstNode` fields are private,
   public construction copies children, and every node retains an immutable
   `CstMetadataPolicy`. Reconstruction and event builders require a policy and

@@ -178,6 +178,7 @@ test "reparse_block offsets new structured diagnostics and drops stale block dia
         None
       }
     },
+    may_reparse_boundary: (_, _, _) => false,
     is_balanced: _ => true,
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
@@ -737,6 +738,7 @@ test "reparse_block selector decline widens to parent" {
         Some(parse_nested_expr)
       }
     },
+    may_reparse_boundary: (_, _, _) => false,
     is_balanced: _ => true,
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
@@ -760,6 +762,165 @@ test "reparse_block selector decline widens to parent" {
   inspect(seen_texts[0], content="2+9+4")
   inspect(seen_texts[1], content="1+2+9+4")
   inspect(seen_token_counts[0], content="5")
+}
+
+///|
+test "reparse_block rejects unconsumed zero-width non-EOF token" {
+  let old_block = @seam.CstNode::new_unclassified(test_kind_raw(KExpr), [
+    @seam.CstElement::Token(
+      @seam.CstToken::CstToken(test_kind_raw(KNum), "abc"),
+    ),
+  ])
+  let old_root = @seam.CstNode::new_unclassified(test_kind_raw(KRoot), [
+    @seam.CstElement::Node(old_block),
+  ])
+  let block_spec : BlockReparseSpec[TestTok, TestKind] = {
+    is_reparseable: kind => kind == test_kind_raw(KExpr),
+    get_reparser: fn(_, _, _) {
+      Some(ctx => ctx.node(KExpr, () => ctx.emit_token(KNum)))
+    },
+    may_reparse_boundary: (_, _, _) => true,
+    is_balanced: _ => true,
+  }
+  let lex : (SourceId, String) -> LexResult[TestTok] = (_, _) => {
+    LexResult::with_starts(
+      [
+        TokenInfo::new(TestTok::Num(1), 3),
+        TokenInfo::new(TestTok::Plus, 0),
+        TokenInfo::new(TestTok::TokEof, 0),
+      ],
+      [0, 3, 3],
+      diagnostics=DiagnosticSet::empty(),
+    )
+  }
+  let result = reparse_block(
+    SourceId("block-reparse-zero-width-residue"),
+    @seam.SyntaxNode::from_cst(old_root),
+    "xbc",
+    Edit::replace(0, 1, 1),
+    lex,
+    test_spec,
+    block_spec,
+    DiagnosticSet::empty(),
+  )
+  inspect(result is None, content="true")
+}
+
+///|
+test "parse_block_isolated rejects incomplete or ambiguous replacement output" {
+  let cases : Array[
+    (
+      String,
+      String,
+      Array[TokenInfo[TestTok]],
+      Array[Int],
+      (ParserContext[TestTok, TestKind]) -> Unit,
+    ),
+  ] = [
+    (
+      "residual token",
+      "1+",
+      [
+        TokenInfo::new(TestTok::Num(1), 1),
+        TokenInfo::new(TestTok::Plus, 1),
+        TokenInfo::new(TestTok::TokEof, 0),
+      ],
+      [0, 1, 2],
+      ctx => ctx.node(KExpr, () => ctx.emit_token(KNum)),
+    ),
+    (
+      "token after eof",
+      "1",
+      [
+        TokenInfo::new(TestTok::Num(1), 1),
+        TokenInfo::new(TestTok::TokEof, 0),
+        TokenInfo::new(TestTok::Plus, 0),
+      ],
+      [0, 1, 1],
+      ctx => ctx.node(KExpr, () => ctx.emit_token(KNum)),
+    ),
+    (
+      "multiple nodes",
+      "1",
+      [TokenInfo::new(TestTok::Num(1), 1), TokenInfo::new(TestTok::TokEof, 0)],
+      [0, 1],
+      ctx => {
+        ctx.node(KExpr, () => ctx.emit_token(KNum))
+        ctx.node(KExpr, () => ())
+      },
+    ),
+    (
+      "wrong node kind",
+      "1",
+      [TokenInfo::new(TestTok::Num(1), 1), TokenInfo::new(TestTok::TokEof, 0)],
+      [0, 1],
+      ctx => ctx.node(KRoot, () => ctx.emit_token(KNum)),
+    ),
+  ]
+  for case in cases {
+    let (name, source, tokens, starts, parse) = case
+    let result = parse_block_isolated(
+      SourceId("isolated-" + name),
+      source,
+      test_kind_raw(KExpr),
+      tokens,
+      starts,
+      parse,
+      test_spec,
+    )
+    inspect(result is None, content="true")
+  }
+}
+
+///|
+test "parse_block_isolated retains fully consumed sparse token starts" {
+  let result = parse_block_isolated(
+    SourceId("isolated-sparse-starts"),
+    "a+a",
+    test_kind_raw(KExpr),
+    [TokenInfo::new(TestTok::Plus, 1), TokenInfo::new(TestTok::TokEof, 0)],
+    [1, 3],
+    ctx => ctx.node(KExpr, () => ctx.bump_error()),
+    test_spec,
+  )
+  inspect(result is Some(_), content="true")
+}
+
+///|
+test "reparse_block rejects sparse source coverage at an admitted boundary" {
+  let old_block = @seam.CstNode::new_unclassified(test_kind_raw(KExpr), [
+    @seam.CstElement::Token(
+      @seam.CstToken::CstToken(test_kind_raw(KNum), "abc"),
+    ),
+  ])
+  let old_root = @seam.CstNode::new_unclassified(test_kind_raw(KRoot), [
+    @seam.CstElement::Node(old_block),
+  ])
+  let block_spec : BlockReparseSpec[TestTok, TestKind] = {
+    is_reparseable: kind => kind == test_kind_raw(KExpr),
+    get_reparser: fn(_, _, _) {
+      Some(ctx => ctx.node(KExpr, () => ctx.bump_error()))
+    },
+    may_reparse_boundary: (_, _, _) => true,
+    is_balanced: _ => true,
+  }
+  let result = reparse_block(
+    SourceId("boundary-sparse-starts"),
+    @seam.SyntaxNode::from_cst(old_root),
+    "x+a",
+    Edit::replace(0, 1, 1),
+    (_, _) => {
+      LexResult::with_starts(
+        [TokenInfo::new(TestTok::Plus, 1), TokenInfo::new(TestTok::TokEof, 0)],
+        [1, 3],
+        diagnostics=DiagnosticSet::empty(),
+      )
+    },
+    test_spec,
+    block_spec,
+    DiagnosticSet::empty(),
+  )
+  inspect(result is None, content="true")
 }
 
 ///|
@@ -796,6 +957,7 @@ test "reparse_block selected failure does not widen" {
         Some(parse_nested_expr)
       }
     },
+    may_reparse_boundary: (_, _, _) => false,
     is_balanced: _ => true,
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
@@ -847,6 +1009,7 @@ test "reparse_block balance failure does not widen" {
       selector_calls.push(node.start())
       Some(parse_nested_expr)
     },
+    may_reparse_boundary: (_, _, _) => false,
     is_balanced: tokens => {
       match tokens {
         [first, ..] => first.token != TestTok::Num(2)

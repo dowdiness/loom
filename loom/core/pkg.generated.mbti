@@ -69,11 +69,10 @@ pub(all) suberror LexResultError {
 } derive(Eq, @debug.Debug)
 
 // Types and methods
-pub(all) struct BlockReparseSpec[T, K] {
-  is_reparseable : (@seam.RawKind) -> Bool
-  get_reparser : (@seam.SyntaxNode, String, Array[TokenInfo[T]]) -> ((ParserContext[T, K]) -> Unit)?
-  is_balanced : (Array[TokenInfo[T]]) -> Bool
+pub struct BlockReparseSpec[T, K] {
+  // private fields
 }
+pub fn[T, K] BlockReparseSpec::new((@seam.RawKind) -> Bool, (@seam.SyntaxNode, String, Array[TokenInfo[T]]) -> ((ParserContext[T, K]) -> Unit)?, (Array[TokenInfo[T]]) -> Bool, may_reparse_boundary? : (@seam.SyntaxNode, Edit, StringView) -> Bool) -> Self[T, K]
 
 pub(all) struct Checkpoint[T, K] {
   // private fields

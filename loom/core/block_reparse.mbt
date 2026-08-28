@@ -1,20 +1,42 @@
 ///|
 /// Grammar-provided configuration for block reparse.
-/// Grammar authors implement three functions to enable block-level
-/// incremental reparsing for their language.
-pub(all) struct BlockReparseSpec[T, K] {
+/// Construct with `BlockReparseSpec::new`; boundary edits are rejected unless
+/// a grammar explicitly supplies an admission callback.
+pub struct BlockReparseSpec[T, K] {
   /// Returns true for node kinds that can be reparsed in isolation.
-  is_reparseable : (@seam.RawKind) -> Bool
-  /// Selects an isolated parser after lexing a strict candidate range.
+  priv is_reparseable : (@seam.RawKind) -> Bool
+  /// Selects an isolated parser after lexing a candidate range.
   ///
   /// The old `SyntaxNode` preserves stable context; the new source and token
   /// stream let a language reject a candidate whose ownership changed. Returning
-  /// `None` explicitly asks the core to try the next strict reparseable parent.
-  get_reparser : (@seam.SyntaxNode, String, Array[TokenInfo[T]]) -> ((
+  /// `None` explicitly asks the core to try the next reparseable parent.
+  priv get_reparser : (@seam.SyntaxNode, String, Array[TokenInfo[T]]) -> ((
     ParserContext[T, K],
   ) -> Unit)?
+  /// Grammar-owned admission for an edit touching a candidate boundary.
+  /// Strict-interior candidates bypass this callback. Returning false declines
+  /// before detached lexing, preserving the normal fallback cost.
+  priv may_reparse_boundary : (@seam.SyntaxNode, Edit, StringView) -> Bool
   /// Structural integrity check on re-lexed tokens.
-  is_balanced : (Array[TokenInfo[T]]) -> Bool
+  priv is_balanced : (Array[TokenInfo[T]]) -> Bool
+}
+
+///|
+/// Construct a block-reparse grammar seam. Strict-interior reparsing is the
+/// default; a grammar opts into boundary candidates with `may_reparse_boundary`.
+pub fn[T, K] BlockReparseSpec::new(
+  is_reparseable : (@seam.RawKind) -> Bool,
+  get_reparser : (@seam.SyntaxNode, String, Array[TokenInfo[T]]) -> ((
+    ParserContext[T, K],
+  ) -> Unit)?,
+  is_balanced : (Array[TokenInfo[T]]) -> Bool,
+  may_reparse_boundary? : (@seam.SyntaxNode, Edit, StringView) -> Bool = (
+    _,
+    _,
+    _,
+  ) => false,
+) -> BlockReparseSpec[T, K] {
+  { is_reparseable, get_reparser, may_reparse_boundary, is_balanced }
 }
 
 // ─── Block reparse orchestration ──────────────────────────────────────────────
@@ -85,30 +107,45 @@ fn build_physical_path(
 }
 
 ///|
-/// Walk up from edit position and collect strict reparseable ancestors from
-/// innermost to outermost, with physical paths rooted at the current CST.
+/// Walk up from edit position and collect reparseable ancestors from
+/// innermost to outermost. Physical paths are built only after grammar-owned
+/// admission so rejected boundary probes do not tax the normal fallback.
 fn find_reparseable_ancestors(
   tree : @seam.SyntaxNode,
   edit : Edit,
   is_reparseable : (@seam.RawKind) -> Bool,
-) -> Array[(@seam.SyntaxNode, Array[Int])] {
-  let candidates : Array[(@seam.SyntaxNode, Array[Int])] = []
-  let root_cst = tree.cst_node()
-  let leaf = tree.find_at(edit.start)
-  let mut current : @seam.SyntaxNode? = Some(leaf)
-  while current is Some(node) {
-    if is_reparseable(node.kind()) {
-      let block_start = node.start()
-      let block_new_end = node.end() + edit.delta()
-      if edit.start > block_start && edit.start + edit.new_len < block_new_end {
-        match
-          build_physical_path(root_cst, node.start(), node.end(), node.kind()) {
-          Some(path) => candidates.push((node, path))
-          None => ()
+  include_boundaries? : Bool = false,
+) -> Array[@seam.SyntaxNode] {
+  let candidates : Array[@seam.SyntaxNode] = []
+  // Search from the edit start only. A zero-width insertion at an old block's
+  // right edge is intentionally not attributed to the left sibling: that edge
+  // is shared with the following block and remains a fail-closed fallback.
+  let search_positions = [edit.start]
+  for position in search_positions {
+    let leaf = tree.find_at(position)
+    let mut current : @seam.SyntaxNode? = Some(leaf)
+    while current is Some(node) {
+      if is_reparseable(node.kind()) {
+        let block_start = node.start()
+        let block_old_end = node.end()
+        let block_new_end = block_old_end + edit.delta()
+        let strict = edit.start > block_start &&
+          edit.start + edit.new_len < block_new_end
+        let boundary_owned = include_boundaries &&
+          edit.start >= block_start &&
+          edit.start + edit.old_len <= block_old_end &&
+          edit.start + edit.new_len <= block_new_end
+        let duplicate = candidates.any(existing => {
+          existing.start() == node.start() &&
+          existing.end() == node.end() &&
+          existing.kind() == node.kind()
+        })
+        if (strict || boundary_owned) && !duplicate {
+          candidates.push(node)
         }
       }
+      current = node.parent()
     }
-    current = node.parent()
   }
   candidates
 }
@@ -124,7 +161,13 @@ pub fn find_reparseable_ancestor(
   is_reparseable : (@seam.RawKind) -> Bool,
 ) -> (@seam.SyntaxNode, Array[Int])? {
   match find_reparseable_ancestors(tree, edit, is_reparseable) {
-    [first, ..] => Some(first)
+    [first, ..] =>
+      build_physical_path(
+        tree.cst_node(),
+        first.start(),
+        first.end(),
+        first.kind(),
+      ).map(path => (first, path))
     [] => None
   }
 }
@@ -173,8 +216,8 @@ pub fn splice_tree(
 ///|
 /// Create ParserContext from pre-tokenized tokens, call reparse_fn,
 /// flush trivia, auto-close unclosed nodes, and build tree.
-/// Returns the reparsed CstNode and any new diagnostics, or None
-/// if parsing produces no node child.
+/// Returns the reparsed CstNode and any new diagnostics, or None unless parsing
+/// consumes its token stream and produces exactly one same-kind node child.
 fn[T : @seam.IsTrivia + @seam.ToRawKind, K] parse_block_isolated(
   source_id : SourceId,
   block_text : String,
@@ -199,8 +242,17 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K] parse_block_isolated(
   )
   // Call the reparse function (NOT spec.parse_root)
   reparse_fn(ctx)
-  // Flush trailing trivia
+  // Every isolated parser must reach the end or its final explicit EOF.
+  // Text length alone cannot detect an unconsumed zero-width non-EOF token.
   ctx.flush_trivia()
+  if ctx.position < ctx.token_count {
+    let at_final_eof = ctx.position + 1 == ctx.token_count &&
+      @seam.ToRawKind::to_raw((ctx.get_token)(ctx.position)) ==
+      @seam.ToRawKind::to_raw(spec.eof_token)
+    if !at_final_eof {
+      return None
+    }
+  }
   // Auto-close any unclosed nodes
   // node_stack intentionally NOT modified here — terminal loop. tree build follows.
   // If a future caller reads node_stack after this loop, must pop it. 
@@ -219,22 +271,13 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K] parse_block_isolated(
       return None // fall back to full incremental reparse
     }
   }
-  // Unwrap: build_tree wraps in a root node of block_kind,
-  // and parse_block_expr also emits BlockExpr start/finish,
-  // producing block_kind(BlockExpr(...)). Extract the inner node.
-  let mut inner : @seam.CstNode? = None
-  for child in wrapper.children() {
-    match child {
-      @seam.CstElement::Node(n) => {
-        inner = Some(n)
-        break
-      }
-      @seam.CstElement::Token(_) => ()
-    }
-  }
-  match inner {
-    Some(block_cst) => Some((block_cst, ctx.diagnostics))
-    None => None
+  // The selected parser must produce exactly one replacement node of the
+  // candidate kind. Reject direct tokens, sibling nodes, and kind changes so
+  // the splice cannot silently discard isolated output.
+  match wrapper.children() {
+    [@seam.CstElement::Node(block_cst)] if block_cst.kind() == block_kind =>
+      Some((block_cst, ctx.diagnostics))
+    _ => None
   }
 }
 
@@ -333,8 +376,9 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(
       tree,
       edit,
       block_spec.is_reparseable,
+      include_boundaries=true,
     ) {
-    let (ancestor, path) = candidate
+    let ancestor = candidate
     let block_kind = ancestor.kind()
     let block_start = ancestor.start()
     let block_old_end = ancestor.end()
@@ -345,6 +389,12 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(
       return None
     }
     let block_text_view : StringView = new_source[block_start:block_new_end]
+    let strict_interior = edit.start > block_start &&
+      edit.start + edit.new_len < block_new_end
+    if !strict_interior &&
+      !(block_spec.may_reparse_boundary)(ancestor, edit, block_text_view) {
+      continue
+    }
     let block_text = block_text_view.to_owned()
     let block_lex = lex(source_id, block_text)
     let block_tokens = block_lex.tokens
@@ -362,6 +412,19 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(
             spec,
           ) {
           Some(result) => result
+          None => return None
+        }
+        if !strict_interior && new_block.text_len() != block_text.length() {
+          return None
+        }
+        let path = match
+          build_physical_path(
+            root_cst,
+            ancestor.start(),
+            ancestor.end(),
+            ancestor.kind(),
+          ) {
+          Some(path) => path
           None => return None
         }
         let new_diags = block_lex_diags.copy()

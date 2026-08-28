@@ -88,3 +88,41 @@ test "splice_tree accepts an equivalent-domain root replacement" {
   let rebuilt = splice_tree(root, [], replacement)
   assert_eq(rebuilt.kind(), @seam.RawKind(2))
 }
+
+///|
+test "find_reparseable_ancestor admits only strict block interior" {
+  let block_kind = @seam.RawKind(2)
+  let token_kind = @seam.RawKind(3)
+  let first = @seam.CstNode::new_unclassified(block_kind, [
+    @seam.CstElement::Token(@seam.CstToken::CstToken(token_kind, "alpha\n")),
+  ])
+  let second = @seam.CstNode::new_unclassified(block_kind, [
+    @seam.CstElement::Token(@seam.CstToken::CstToken(token_kind, "beta\n")),
+  ])
+  let root = @seam.CstNode::new_unclassified(@seam.RawKind(1), [
+    @seam.CstElement::Node(first),
+    @seam.CstElement::Node(second),
+  ])
+  let syntax = @seam.SyntaxNode::from_cst(root)
+  let reparseable = kind => kind == block_kind
+
+  inspect(
+    find_reparseable_ancestor(syntax, Edit::replace(1, 2, 2), reparseable)
+    is Some(_),
+    content="true",
+  )
+  inspect(
+    find_reparseable_ancestor(syntax, Edit::replace(0, 1, 1), reparseable)
+    is None,
+    content="true",
+  )
+  inspect(
+    find_reparseable_ancestor(syntax, Edit::replace(5, 6, 6), reparseable)
+    is None,
+    content="true",
+  )
+  inspect(
+    find_reparseable_ancestor(syntax, Edit::insert(6, 1), reparseable) is None,
+    content="true",
+  )
+}
