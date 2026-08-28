@@ -563,11 +563,11 @@ fn normalized_link_label_node_fingerprint(ir : MarkdownIR) -> String {
       append_key_component(buf, "OrderedList")
       append_key_component(buf, normalized_link_label_fingerprint(children))
     }
-    ListItem(children, _, _, _) => {
+    ListItem(children, _, _, _, _) => {
       append_key_component(buf, "ListItem")
       append_key_component(buf, normalized_link_label_fingerprint(children))
     }
-    OrderedListItem(children, _, _, _) => {
+    OrderedListItem(children, _, _, _, _) => {
       append_key_component(buf, "OrderedListItem")
       append_key_component(buf, normalized_link_label_fingerprint(children))
     }
@@ -682,7 +682,7 @@ fn collect_markdown_ir_identity_candidates(
     | UnorderedList(children, _, _)
     | OrderedList(children, _, _) =>
       collect_markdown_ir_identity_children(children, candidates, parent)
-    ListItem(children, spread, content_origin, _) => {
+    ListItem(children, spread, content_origin, _, _) => {
       let current = append_markdown_identity_candidate(
         candidates,
         content_origin,
@@ -696,7 +696,7 @@ fn collect_markdown_ir_identity_candidates(
         markdown_identity_child_context(current, parent),
       )
     }
-    OrderedListItem(children, spread, content_origin, _) => {
+    OrderedListItem(children, spread, content_origin, _, _) => {
       let current = append_markdown_identity_candidate(
         candidates,
         content_origin,

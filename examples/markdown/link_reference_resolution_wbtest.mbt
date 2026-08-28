@@ -433,6 +433,7 @@ fn deep_unclosed_shortcut_fixture(
       reference_definition_lookup: _ => None,
       diagnostics_in_origin: _ => [],
       deferred_reference_candidates: None,
+      extensions: MarkdownExtensions::none(),
     },
   )
 }
@@ -454,6 +455,7 @@ test "incomplete full-reference suffix preserves every atom at EOF" {
     reference_definition_lookup: _ => None,
     diagnostics_in_origin: _ => [],
     deferred_reference_candidates: None,
+    extensions: MarkdownExtensions::none(),
   })
   assert_eq(resolved.length(), 5)
   assert_eq(markdown_ir_plain_text(resolved), source)
@@ -636,6 +638,7 @@ fn deep_balanced_shortcut_fixture(
       reference_definition_lookup: _ => None,
       diagnostics_in_origin: _ => [],
       deferred_reference_candidates: None,
+      extensions: MarkdownExtensions::none(),
     },
   )
 }

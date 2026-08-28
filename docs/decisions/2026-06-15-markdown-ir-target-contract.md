@@ -81,3 +81,18 @@ bounded search state, and validation reparses remain private to the formatter.
 than promoted into semantic MarkdownIR. The pre-existing string formatter stays
 as an explicitly unchecked compatibility surface for opaque documents and
 subtree inputs.
+
+## 2026-08-28 addendum: explicit Markdown extensions
+
+CommonMark semantics remain the default for MarkdownIR lowering. Extension-
+shaped syntax may be represented losslessly in the CST so the parser does not
+misdiagnose valid literal CommonMark content, but semantic promotion requires an
+immutable option passed into the lowering operation. No process-global dialect
+state is permitted.
+
+The GFM task-list-item extension is the first use of this boundary. When it is
+disabled, task-shaped list-item prefixes remain literal text. When it is enabled,
+the list item carries checked state and marker origin while paragraph content
+excludes the marker. All target adapters consume that one semantic fact. This
+does not claim support for the complete GFM specification; future GFM features
+must cross the same explicit extension and adapter-review boundary.

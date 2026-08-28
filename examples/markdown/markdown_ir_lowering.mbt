@@ -269,6 +269,7 @@ priv struct MarkdownIRLoweringContext {
   reference_definition_lookup : (String) -> LinkReferenceDefinition?
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic]
   deferred_reference_candidates : Array[LocalReferenceCandidate]?
+  extensions : MarkdownExtensions
 }
 
 ///|
@@ -692,6 +693,12 @@ fn lower_direct_inline_node_with_diags(
     | CodeBlockNode
     | BlockQuoteNode
     | LinkReferenceDefinitionNode => None
+    TaskListMarkerNode =>
+      if context.extensions.has_task_list() {
+        None
+      } else {
+        Some(MarkdownIR::text(node.text(), origin_from_node(node)))
+      }
     _ => Some(lower_inline_node_with_diags(node, newline_text, context))
   }
 }
@@ -1509,6 +1516,7 @@ fn lower_inline_node_with_diags(
     }
     UriAutolinkNode | EmailAutolinkNode | InlineHtmlNode =>
       lower_typed_inline_angle_node(node, context.source)
+    TaskListMarkerNode => MarkdownIR::text(node.text(), origin_from_node(node))
     LinkNode => lower_link_node_atoms_with_diags(node, newline_text, context)[0]
     ErrorNode => {
       let origin = origin_from_node(node)
@@ -1678,8 +1686,53 @@ fn ordered_list_marker_from_node(node : @seam.SyntaxNode) -> OrderedListMarker? 
 ///|
 fn ordered_list_marker_from_ir(ir : MarkdownIR) -> OrderedListMarker? {
   match ir.node {
-    OrderedListItem(_, _, _, marker) => marker
+    OrderedListItem(_, _, _, marker, _) => marker
     _ => None
+  }
+}
+
+///|
+fn task_from_list_item_node(
+  node : @seam.SyntaxNode,
+  allow_prefixed~ : Bool,
+  extensions : MarkdownExtensions,
+) -> MarkdownIRTask? {
+  guard extensions.has_task_list() else { return None }
+  let task_kind = @seam.ToRawKind::to_raw(TaskListMarkerNode)
+  let marker = match node.direct_child_of_kind(task_kind) {
+    Some(marker) => Some(marker)
+    None if allow_prefixed =>
+      match
+        node
+        .children()
+        .iter()
+        .find_first(child => {
+          @seam.FromRawKind::from_raw(child.kind()) !=
+          LinkReferenceDefinitionNode
+        }) {
+        Some(first_block) if @seam.FromRawKind::from_raw(first_block.kind()) ==
+          ParagraphNode => first_block.direct_child_of_kind(task_kind)
+        _ => None
+      }
+    None => None
+  }
+  match marker {
+    Some(marker) =>
+      match marker.text().trim_start(chars=" ".view()) {
+        ['[', 'x' | 'X', ']'] =>
+          Some(
+            MarkdownIRTask(checked=true, marker_origin=origin_from_node(marker)),
+          )
+        ['[', ' ' | '\t', ']'] =>
+          Some(
+            MarkdownIRTask(
+              checked=false,
+              marker_origin=origin_from_node(marker),
+            ),
+          )
+        _ => None
+      }
+    None => None
   }
 }
 
@@ -1773,13 +1826,73 @@ fn markdown_ir_has_non_blank_inline_content(ir : MarkdownIR) -> Bool {
 }
 
 ///|
+fn remove_task_marker_line_break(
+  node : @seam.SyntaxNode,
+  children : Array[MarkdownIR],
+  extensions : MarkdownExtensions,
+) -> Array[MarkdownIR] {
+  guard task_from_list_item_node(node, allow_prefixed=false, extensions)
+    is Some(_) else {
+    return children
+  }
+  match children {
+    [{ node: SoftBreak(_), .. }, .. rest] => rest.to_owned()
+    _ => children
+  }
+}
+
+///|
+fn remove_selected_task_marker(
+  children : Array[MarkdownIR],
+  task : MarkdownIRTask?,
+) -> Array[MarkdownIR] {
+  guard task is Some(task) else { return children }
+  let prefixed = children
+    .iter()
+    .any(child => {
+      match child.node {
+        Paragraph([first, ..], _) => first.origin() == task.marker_origin()
+        _ => false
+      }
+    })
+  let retained_children = children.map(child => {
+    match child.node {
+      Paragraph([{ node: Text(_), origin }, .. rest], _) if origin ==
+        task.marker_origin() => {
+        let retained = rest.to_owned()
+        trim_container_child_paragraph(
+          MarkdownIR::paragraph(
+            retained,
+            child.origin(),
+            span_origin_of_children(retained),
+          ),
+        )
+      }
+      _ => child
+    }
+  })
+  if prefixed {
+    match retained_children {
+      [{ node: Paragraph([], _), .. }, .. rest] => rest.to_owned()
+      _ => retained_children
+    }
+  } else {
+    retained_children
+  }
+}
+
+///|
 fn lower_list_item_flow_children_with_diags(
   node : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
   context : MarkdownIRLoweringContext,
 ) -> (Array[MarkdownIR], MarkdownIROrigin?) {
   let lowered_inline_children = normalize_paragraph_boundary_spaces(
-    lower_direct_inline_children_with_newline_and_diags(node, "\n", context),
+    remove_task_marker_line_break(
+      node,
+      lower_direct_inline_children_with_newline_and_diags(node, "\n", context),
+      context.extensions,
+    ),
   )
   let inline_children = retain_direct_list_item_inline_children(
     lowered_inline_children, markdown_ir_has_non_blank_inline_content,
@@ -2358,6 +2471,21 @@ fn experimental_markdown_ir_fold_node_with_diags(
         node, recurse, context,
       )
       let spread = list_node_has_structural_blank_line(node)
+      let allow_prefixed_task = match children {
+        [{ node: Paragraph(inlines, _), .. }, ..] =>
+          !inlines.iter().any(markdown_ir_has_non_blank_inline_content)
+        _ => false
+      }
+      let task = task_from_list_item_node(
+        node,
+        allow_prefixed=allow_prefixed_task,
+        context.extensions,
+      )
+      let children = remove_selected_task_marker(children, task)
+      let content_origin = match children {
+        [first, ..] => first.content_origin()
+        [] => content_origin
+      }
       match ordered_list_marker_from_node(node) {
         Some(marker) =>
           MarkdownIR::ordered_list_item(
@@ -2366,6 +2494,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
             spread~,
             content_origin,
             marker=Some(marker),
+            task?,
           )
         None =>
           MarkdownIR::list_item(
@@ -2374,6 +2503,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
             spread~,
             content_origin,
             marker=list_marker_from_node(node),
+            task?,
           )
       }
     }
@@ -2455,12 +2585,14 @@ fn diagnostics_in_origin(
 ///
 /// Built by a direct recursive walk rather than `CstFold` because MarkdownIR
 /// stores absolute source origins, and `CstFold` reuses cached results
-/// verbatim based on position-independent structural hashes. Using `CstFold`
+/// verbatim based on position-independent structural hashes. CommonMark
+/// semantics are used unless `extensions` explicitly enables more. Using `CstFold`
 /// would return stale origins after position-shifting edits. See
 /// `docs/decisions/2026-06-16-markdown-ir-performance-policy.md`.
 pub fn experimental_markdown_ir_from_syntax(
   source_id : @core.SourceId,
   root : @seam.SyntaxNode,
+  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> MarkdownIR {
   let document_root = syntax_root(root)
   let reference_definitions = collect_link_reference_definitions(document_root)
@@ -2470,6 +2602,7 @@ pub fn experimental_markdown_ir_from_syntax(
     reference_definition_lookup: label => reference_definitions.lookup(label),
     diagnostics_in_origin: _ => [],
     deferred_reference_candidates: None,
+    extensions,
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
     experimental_markdown_ir_fold_node(node, lower, context)
@@ -2478,10 +2611,14 @@ pub fn experimental_markdown_ir_from_syntax(
 }
 
 ///|
+/// Diagnostic-aware direct lowering with CommonMark semantics by default.
+///
+/// Pass `extensions` to promote supported extension syntax in the returned IR.
 pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
   source_id : @core.SourceId,
   root : @seam.SyntaxNode,
   diagnostics : @core.DiagnosticSet,
+  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> MarkdownIR {
   let document_root = syntax_root(root)
   let reference_definitions = collect_link_reference_definitions(document_root)
@@ -2493,6 +2630,7 @@ pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
       diagnostics_in_origin(source_id, diagnostics, origin)
     },
     deferred_reference_candidates: None,
+    extensions,
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
     experimental_markdown_ir_fold_node_with_diags(node, lower, context)

@@ -114,14 +114,20 @@ fn canonical_nested_flow_children(
 fn canonical_list_item_flow(
   marker_text : String,
   children : Array[MarkdownIR],
+  task : MarkdownIRTask?,
   list_marker : UnorderedListMarker,
 ) -> String {
+  let task_text = match task {
+    Some(task) => if task.checked() { "[x] " } else { "[ ] " }
+    None => ""
+  }
   match children {
-    [] => marker_text + " "
+    [] => marker_text + " " + task_text
     [first, .. rest] => {
       let first_text = canonical_format_with_list_marker(first, list_marker)
       marker_text +
       " " +
+      task_text +
       first_text +
       canonical_nested_flow_children(rest, list_marker)
     }
@@ -194,14 +200,14 @@ fn canonical_format_with_list_marker(
       children
       .map(child => canonical_format_with_list_marker(child, list_marker))
       .join("\n")
-    ListItem(children, _, _, _) =>
-      canonical_list_item_flow(list_marker.text(), children, list_marker)
-    OrderedListItem(children, _, _, marker) => {
+    ListItem(children, _, _, _, task) =>
+      canonical_list_item_flow(list_marker.text(), children, task, list_marker)
+    OrderedListItem(children, _, _, marker, task) => {
       let item_marker = match marker {
         Some(marker) => marker.text()
         None => "1."
       }
-      canonical_list_item_flow(item_marker, children, list_marker)
+      canonical_list_item_flow(item_marker, children, task, list_marker)
     }
     CodeBlock(info, value, _) => code_block_markdown(info, value)
     HtmlBlock(value, _) => value

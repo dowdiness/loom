@@ -456,11 +456,16 @@ Raw HTML policy:
   escape, drop, or sanitize unless the caller opts into unsafe passthrough.
   Unsafe passthrough must never be the unlabelled default.
 
-Deferred extensions:
+Extension scope:
 
-- **GFM** tables, task lists, strikethrough, and extension autolinks are deferred
-  until the CommonMark baseline has a stable path. Add them in future milestones
-  as explicit extension nodes or fields with adapter-specific behavior.
+- **GFM task-list items** are an opt-in semantic extension. CommonMark remains
+  the unlabelled default, where task-shaped prefixes stay literal list-item
+  content. Lossless syntax recognition may identify an extension candidate,
+  but only an explicit lowering option may promote it to task semantics. Target
+  adapters define checkbox/export behavior from that shared semantic fact.
+- **Other GFM features** — tables, strikethrough, and extension autolinks —
+  remain deferred. Add them only as explicit opt-in semantic extensions with
+  adapter-specific behavior; do not imply full GFM support from task lists.
 - **MDX** is out of core scope. JSX, ESM, and expression islands require a
   separate grammar/extension contract rather than weakening CommonMark IR nodes.
 - **Frontmatter** is deferred. If added, represent it as a top-level extension

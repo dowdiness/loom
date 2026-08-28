@@ -64,16 +64,20 @@ fn markdown_ir_view_test_collect_external_tags(
       spread.to_string() +
       ":" +
       markdown_ir_view_test_is_some(marker).to_string()
-    ListItem(spread~, marker~) =>
+    ListItem(spread~, marker~, task~) =>
       "ListItem:" +
       spread.to_string() +
       ":" +
-      markdown_ir_view_test_is_some(marker).to_string()
-    OrderedListItem(spread~, marker~) =>
+      markdown_ir_view_test_is_some(marker).to_string() +
+      ":" +
+      markdown_ir_view_test_is_some(task).to_string()
+    OrderedListItem(spread~, marker~, task~) =>
       "OrderedListItem:" +
       spread.to_string() +
       ":" +
-      markdown_ir_view_test_is_some(marker).to_string()
+      markdown_ir_view_test_is_some(marker).to_string() +
+      ":" +
+      markdown_ir_view_test_is_some(task).to_string()
     CodeBlock(info~, value~) => "CodeBlock:" + info + ":" + value
     HtmlBlock(value~) => "HtmlBlock:" + value
     ThematicBreak => "ThematicBreak"
@@ -194,8 +198,8 @@ test "MarkdownIR public view supports an exhaustive external adapter" {
   markdown_ir_view_test_collect_external_tags(document, tags)
   for
     expected in [
-      "Document", "Heading:1", "BlockQuote", "UnorderedList:false:true", "ListItem:false:true",
-      "OrderedList:false:true", "OrderedListItem:false:true", "CodeBlock:mbt:code",
+      "Document", "Heading:1", "BlockQuote", "UnorderedList:false:true", "ListItem:false:true:false",
+      "OrderedList:false:true", "OrderedListItem:false:true:false", "CodeBlock:mbt:code",
       "ThematicBreak", "Bold", "Italic", "InlineCode:code", "Link:/url:true:inline",
       "Image:/img:true:inline", "SoftBreak", "HardBreak:spaces:2", "HardBreak:backslash",
       "Autolink:uri:http://example.com:http://example.com:true:true", "Autolink:email:foo@bar.example.com:mailto:foo@bar.example.com:true:false",

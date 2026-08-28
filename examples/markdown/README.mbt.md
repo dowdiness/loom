@@ -196,6 +196,20 @@ copies. The older kind tag, optional field accessors, and opaque-node predicates
 remain compatible during the experimental migration, but they are not the
 preferred surface for a new exhaustive adapter.
 
+CommonMark semantics remain the default. The parser recognizes task-shaped
+list-item prefixes losslessly, but default MarkdownIR lowering keeps them as
+literal paragraph text. Pass `MarkdownExtensions::task_list()` through
+`parse_document` or the direct `experimental_markdown_ir_from_syntax*` lowering
+functions to enable the GFM task-list-item extension explicitly.
+
+With that extension enabled, a marker at the start of the first paragraph
+becomes optional `MarkdownIRTask` metadata on both unordered and ordered
+list-item views. The task reports its checked state and source marker origin;
+the marker itself is removed from paragraph children. Position-free and
+position-aware mdast export emit `checked`, canonical formatting restores the
+marker, and HTML rendering uses a disabled checkbox. A later paragraph marker
+remains ordinary literal text.
+
 Use `experimental_markdown_ir_from_syntax` after `parse_cst` when you need the
 IR, then adapt with `experimental_markdown_ir_to_block`, export with
 `experimental_markdown_ir_to_mdast_json` or

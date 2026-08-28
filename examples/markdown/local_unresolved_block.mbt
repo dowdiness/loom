@@ -334,7 +334,7 @@ fn resolve_local_markdown_ir(
         spread,
         marker,
       )
-    ListItem(children, spread, content_origin, marker) =>
+    ListItem(children, spread, content_origin, marker, task) =>
       ListItem(
         children.map(child => {
           resolve_local_markdown_ir(
@@ -344,8 +344,9 @@ fn resolve_local_markdown_ir(
         spread,
         content_origin,
         marker,
+        task,
       )
-    OrderedListItem(children, spread, content_origin, marker) =>
+    OrderedListItem(children, spread, content_origin, marker, task) =>
       OrderedListItem(
         children.map(child => {
           resolve_local_markdown_ir(
@@ -355,6 +356,7 @@ fn resolve_local_markdown_ir(
         spread,
         content_origin,
         marker,
+        task,
       )
     CodeBlock(info, value, content_origin) =>
       CodeBlock(info, value, content_origin)
@@ -397,6 +399,7 @@ fn lower_local_unresolved_block(
     reference_definition_lookup: _ => None,
     diagnostics_in_origin: _ => [],
     deferred_reference_candidates: Some(reference_candidates),
+    extensions: MarkdownExtensions::none(),
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
     experimental_markdown_ir_fold_node_with_diags(node, lower, context)
@@ -436,6 +439,7 @@ fn lower_contextual_resolved_block(
     reference_definition_lookup: lookup,
     diagnostics_in_origin: diagnostics_in_block,
     deferred_reference_candidates: None,
+    extensions: MarkdownExtensions::none(),
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
     experimental_markdown_ir_fold_node_with_diags(node, lower, context)
@@ -465,6 +469,7 @@ fn resolve_local_block(
     reference_definition_lookup: lookup,
     diagnostics_in_origin: _ => [],
     deferred_reference_candidates: None,
+    extensions: MarkdownExtensions::none(),
   }
   {
     ir: decode_markdown_ir_text_entities(
@@ -494,6 +499,16 @@ fn shift_optional_local_origin(
   base : Int,
 ) -> MarkdownIROrigin? {
   origin.map(value => shift_local_origin(value, base))
+}
+
+///|
+fn place_local_task(task : MarkdownIRTask?, base : Int) -> MarkdownIRTask? {
+  task.map(task => {
+    MarkdownIRTask(
+      checked=task.checked(),
+      marker_origin=shift_local_origin(task.marker_origin(), base),
+    )
+  })
 }
 
 ///|
@@ -555,19 +570,21 @@ fn place_local_markdown_ir(ir : MarkdownIR, base : Int) -> MarkdownIR {
         spread,
         marker,
       )
-    ListItem(children, spread, content_origin, marker) =>
+    ListItem(children, spread, content_origin, marker, task) =>
       ListItem(
         children.map(child => place_local_markdown_ir(child, base)),
         spread,
         shift_optional_local_origin(content_origin, base),
         marker,
+        place_local_task(task, base),
       )
-    OrderedListItem(children, spread, content_origin, marker) =>
+    OrderedListItem(children, spread, content_origin, marker, task) =>
       OrderedListItem(
         children.map(child => place_local_markdown_ir(child, base)),
         spread,
         shift_optional_local_origin(content_origin, base),
         marker,
+        place_local_task(task, base),
       )
     CodeBlock(info, value, content_origin) =>
       CodeBlock(info, value, shift_optional_local_origin(content_origin, base))

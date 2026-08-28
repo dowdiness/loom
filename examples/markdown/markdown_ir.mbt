@@ -58,6 +58,31 @@ pub(all) enum MarkdownIRAutolinkKind {
 } derive(Eq, Debug)
 
 ///|
+/// Experimental semantic state and source marker for a GFM task list item.
+pub struct MarkdownIRTask {
+  priv checked : Bool
+  priv marker_origin : MarkdownIROrigin
+} derive(Eq, Debug)
+
+///|
+fn MarkdownIRTask::MarkdownIRTask(
+  checked~ : Bool,
+  marker_origin~ : MarkdownIROrigin,
+) -> MarkdownIRTask {
+  { checked, marker_origin }
+}
+
+///|
+pub fn MarkdownIRTask::checked(self : MarkdownIRTask) -> Bool {
+  self.checked
+}
+
+///|
+pub fn MarkdownIRTask::marker_origin(self : MarkdownIRTask) -> MarkdownIROrigin {
+  self.marker_origin
+}
+
+///|
 /// Experimental source form retained for a hard line break.
 pub(all) enum MarkdownIRHardBreakSurface {
   TrailingSpaces(Int)
@@ -77,8 +102,16 @@ pub(all) enum MarkdownIRView {
   BlockQuote
   UnorderedList(spread~ : Bool, marker~ : UnorderedListMarker?)
   OrderedList(spread~ : Bool, marker~ : OrderedListMarker?)
-  ListItem(spread~ : Bool, marker~ : UnorderedListMarker?)
-  OrderedListItem(spread~ : Bool, marker~ : OrderedListMarker?)
+  ListItem(
+    spread~ : Bool,
+    marker~ : UnorderedListMarker?,
+    task~ : MarkdownIRTask?
+  )
+  OrderedListItem(
+    spread~ : Bool,
+    marker~ : OrderedListMarker?,
+    task~ : MarkdownIRTask?
+  )
   CodeBlock(info~ : String, value~ : String)
   HtmlBlock(value~ : String)
   ThematicBreak
@@ -168,12 +201,19 @@ priv enum MarkdownIRNode {
   BlockQuote(Array[MarkdownIR])
   UnorderedList(Array[MarkdownIR], Bool, UnorderedListMarker?)
   OrderedList(Array[MarkdownIR], Bool, OrderedListMarker?)
-  ListItem(Array[MarkdownIR], Bool, MarkdownIROrigin?, UnorderedListMarker?)
+  ListItem(
+    Array[MarkdownIR],
+    Bool,
+    MarkdownIROrigin?,
+    UnorderedListMarker?,
+    MarkdownIRTask?
+  )
   OrderedListItem(
     Array[MarkdownIR],
     Bool,
     MarkdownIROrigin?,
-    OrderedListMarker?
+    OrderedListMarker?,
+    MarkdownIRTask?
   )
   CodeBlock(String, String, MarkdownIROrigin?)
   HtmlBlock(String, MarkdownIROrigin?)
@@ -269,8 +309,9 @@ fn MarkdownIR::list_item(
   spread~ : Bool,
   content_origin : MarkdownIROrigin?,
   marker~ : UnorderedListMarker?,
+  task? : MarkdownIRTask,
 ) -> MarkdownIR {
-  { node: ListItem(children, spread, content_origin, marker), origin }
+  { node: ListItem(children, spread, content_origin, marker, task), origin }
 }
 
 ///|
@@ -280,8 +321,12 @@ fn MarkdownIR::ordered_list_item(
   spread~ : Bool,
   content_origin : MarkdownIROrigin?,
   marker~ : OrderedListMarker?,
+  task? : MarkdownIRTask,
 ) -> MarkdownIR {
-  { node: OrderedListItem(children, spread, content_origin, marker), origin }
+  {
+    node: OrderedListItem(children, spread, content_origin, marker, task),
+    origin,
+  }
 }
 
 ///|
@@ -584,9 +629,10 @@ pub fn MarkdownIR::view(self : MarkdownIR) -> MarkdownIRView {
       MarkdownIRView::UnorderedList(spread~, marker~)
     OrderedList(_, spread, marker) =>
       MarkdownIRView::OrderedList(spread~, marker~)
-    ListItem(_, spread, _, marker) => MarkdownIRView::ListItem(spread~, marker~)
-    OrderedListItem(_, spread, _, marker) =>
-      MarkdownIRView::OrderedListItem(spread~, marker~)
+    ListItem(_, spread, _, marker, task) =>
+      MarkdownIRView::ListItem(spread~, marker~, task~)
+    OrderedListItem(_, spread, _, marker, task) =>
+      MarkdownIRView::OrderedListItem(spread~, marker~, task~)
     CodeBlock(info, value, _) => MarkdownIRView::CodeBlock(info~, value~)
     HtmlBlock(value, _) => MarkdownIRView::HtmlBlock(value~)
     ThematicBreak => MarkdownIRView::ThematicBreak
@@ -625,8 +671,8 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     BlockQuote(_) => "BlockQuote"
     UnorderedList(_, _, _) => "UnorderedList"
     OrderedList(_, _, _) => "OrderedList"
-    ListItem(_, _, _, _) => "ListItem"
-    OrderedListItem(_, _, _, _) => "OrderedListItem"
+    ListItem(_, _, _, _, _) => "ListItem"
+    OrderedListItem(_, _, _, _, _) => "OrderedListItem"
     CodeBlock(_, _, _) => "CodeBlock"
     HtmlBlock(_, _) => "HtmlBlock"
     ThematicBreak => "ThematicBreak"
@@ -655,8 +701,8 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
     | BlockQuote(children)
     | UnorderedList(children, _, _)
     | OrderedList(children, _, _)
-    | ListItem(children, _, _, _)
-    | OrderedListItem(children, _, _, _)
+    | ListItem(children, _, _, _, _)
+    | OrderedListItem(children, _, _, _, _)
     | Bold(children, _)
     | Italic(children, _)
     | Link(children, _, _, _)
@@ -700,8 +746,8 @@ pub fn MarkdownIR::content_origin(self : MarkdownIR) -> MarkdownIROrigin? {
   match self.node {
     Heading(_, _, origin)
     | Paragraph(_, origin)
-    | ListItem(_, _, origin, _)
-    | OrderedListItem(_, _, origin, _)
+    | ListItem(_, _, origin, _, _)
+    | OrderedListItem(_, _, origin, _, _)
     | CodeBlock(_, _, origin)
     | HtmlBlock(_, origin)
     | Bold(_, origin)
@@ -719,8 +765,8 @@ pub fn MarkdownIR::spread(self : MarkdownIR) -> Bool? {
   match self.node {
     UnorderedList(_, spread, _)
     | OrderedList(_, spread, _)
-    | ListItem(_, spread, _, _)
-    | OrderedListItem(_, spread, _, _) => Some(spread)
+    | ListItem(_, spread, _, _, _)
+    | OrderedListItem(_, spread, _, _, _) => Some(spread)
     _ => None
   }
 }
@@ -728,7 +774,7 @@ pub fn MarkdownIR::spread(self : MarkdownIR) -> Bool? {
 ///|
 pub fn MarkdownIR::list_marker(self : MarkdownIR) -> UnorderedListMarker? {
   match self.node {
-    UnorderedList(_, _, marker) | ListItem(_, _, _, marker) => marker
+    UnorderedList(_, _, marker) | ListItem(_, _, _, marker, _) => marker
     _ => None
   }
 }
@@ -778,8 +824,8 @@ fn markdown_ir_plain_text(children : Array[MarkdownIR]) -> String {
       | BlockQuote(children)
       | UnorderedList(children, _, _)
       | OrderedList(children, _, _)
-      | ListItem(children, _, _, _)
-      | OrderedListItem(children, _, _, _) =>
+      | ListItem(children, _, _, _, _)
+      | OrderedListItem(children, _, _, _, _) =>
         for child in children {
           append(child)
         }

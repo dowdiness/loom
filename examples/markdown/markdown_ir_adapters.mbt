@@ -23,7 +23,7 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
     BlockQuote(_) => Inline::Error("expected inline MarkdownIR, got blockquote")
     UnorderedList(_, _, _) | OrderedList(_, _, _) =>
       Inline::Error("expected inline MarkdownIR, got list")
-    ListItem(_, _, _, _) | OrderedListItem(_, _, _, _) =>
+    ListItem(_, _, _, _, _) | OrderedListItem(_, _, _, _, _) =>
       Inline::Error("expected inline MarkdownIR, got list item")
     CodeBlock(_, _, _) =>
       Inline::Error("expected inline MarkdownIR, got code block")
@@ -460,8 +460,8 @@ fn list_item_flow_child_to_legacy_editor_inlines(
     Paragraph(paragraph_children, _) =>
       ir_children_to_editor_inlines(paragraph_children, Some("\n"))
     BlockQuote(_) | UnorderedList(_, _, _) | OrderedList(_, _, _) => []
-    ListItem(item_children, _, _, _)
-    | OrderedListItem(item_children, _, _, _) =>
+    ListItem(item_children, _, _, _, _)
+    | OrderedListItem(item_children, _, _, _, _) =>
       list_item_flow_children_to_legacy_editor_inlines(item_children)
     _ => [experimental_markdown_ir_to_inline(child)]
   }
@@ -486,8 +486,8 @@ fn list_item_flow_child_to_editor_inlines(
     Paragraph(paragraph_children, _) =>
       markdown_ir_legacy_editor_inlines(paragraph_children, Some("\n"), source)
     BlockQuote(_) | UnorderedList(_, _, _) | OrderedList(_, _, _) => []
-    ListItem(item_children, _, _, _)
-    | OrderedListItem(item_children, _, _, _) =>
+    ListItem(item_children, _, _, _, _)
+    | OrderedListItem(item_children, _, _, _, _) =>
       markdown_ir_legacy_list_item_inlines(child, item_children, source)
     _ =>
       match source {
@@ -524,8 +524,8 @@ fn list_item_flow_children_to_editor_inlines(
 ///|
 fn markdown_ir_legacy_list_prefix(item : MarkdownIR, source : String) -> String {
   let ordered = match item.node {
-    ListItem(_, _, _, _) => false
-    OrderedListItem(_, _, _, _) => true
+    ListItem(_, _, _, _, _) => false
+    OrderedListItem(_, _, _, _, _) => true
     _ => return ""
   }
   match item.content_origin() {
@@ -636,6 +636,12 @@ fn markdown_ir_require_source_coverage(
       markdown_ir_require_source_origin(surface.title_origin, source_length)
       markdown_ir_require_source_origin(surface.target_origin, source_length)
     }
+    ListItem(_, _, _, _, Some(task))
+    | OrderedListItem(_, _, _, _, Some(task)) =>
+      markdown_ir_require_source_origin(
+        Some(task.marker_origin()),
+        source_length,
+      )
     _ => ()
   }
   match ir.node {
@@ -645,8 +651,8 @@ fn markdown_ir_require_source_coverage(
     | BlockQuote(children)
     | UnorderedList(children, _, _)
     | OrderedList(children, _, _)
-    | ListItem(children, _, _, _)
-    | OrderedListItem(children, _, _, _)
+    | ListItem(children, _, _, _, _)
+    | OrderedListItem(children, _, _, _, _)
     | Bold(children, _)
     | Italic(children, _)
     | Link(children, _, _, _)
@@ -711,11 +717,11 @@ fn markdown_ir_to_block_with_source_unchecked(
         }),
         marker,
       )
-    ListItem(children, _, _, _) =>
+    ListItem(children, _, _, _, _) =>
       Block::UnorderedListItem(
         markdown_ir_legacy_list_item_inlines(ir, children, source),
       )
-    OrderedListItem(children, _, _, marker) =>
+    OrderedListItem(children, _, _, marker, _) =>
       Block::OrderedListItem(
         markdown_ir_legacy_list_item_inlines(ir, children, source),
         marker,
@@ -840,8 +846,8 @@ fn mdast_position_origin(
     | BlockQuote(_)
     | UnorderedList(_, _, _)
     | OrderedList(_, _, _)
-    | ListItem(_, _, _, _)
-    | OrderedListItem(_, _, _, _) =>
+    | ListItem(_, _, _, _, _)
+    | OrderedListItem(_, _, _, _, _) =>
       origin_without_trailing_line_endings(ir.origin(), context.source)
     CodeBlock(_, _, _) =>
       code_block_mdast_position_origin(ir.origin(), context.source)
@@ -876,6 +882,21 @@ fn mdast_json_with_optional_spread(json : Json, spread : Bool) -> Json {
   match json {
     Object(fields) => {
       fields.set("spread", true)
+      Json::object(fields)
+    }
+    _ => json
+  }
+}
+
+///|
+fn mdast_json_with_optional_checked(
+  json : Json,
+  task : MarkdownIRTask?,
+) -> Json {
+  guard task is Some(task) else { return json }
+  match json {
+    Object(fields) => {
+      fields.set("checked", Json::boolean(task.checked()))
       Json::object(fields)
     }
     _ => json
@@ -979,14 +1000,17 @@ fn markdown_ir_to_mdast_json(
         ),
         spread,
       )
-    ListItem(children, spread, _, _)
-    | OrderedListItem(children, spread, _, _) =>
-      mdast_json_with_optional_spread(
-        {
-          "type": "listItem",
-          "children": mdast_children_json(children, context),
-        },
-        spread,
+    ListItem(children, spread, _, _, task)
+    | OrderedListItem(children, spread, _, _, task) =>
+      mdast_json_with_optional_checked(
+        mdast_json_with_optional_spread(
+          {
+            "type": "listItem",
+            "children": mdast_children_json(children, context),
+          },
+          spread,
+        ),
+        task,
       )
     CodeBlock(info, value, _) =>
       if info.length() > 0 {
