@@ -38,11 +38,12 @@ Markdown admits a boundary candidate only when all of these hold:
 - neither old nor new edit extent reaches the candidate's right boundary; and
 - both old and final candidate text retain a plain paragraph start.
 
-The existing grammar selector, token-stream balance check, isolated parser, and
-new exact-consumption check remain additional fail-closed gates. Core still
-falls through to normal incremental parsing whenever selection, lexing,
-balance, parsing, exact consumption, splice, or diagnostic handling cannot
-prove a complete replacement.
+The existing grammar selector, token-stream balance check, and isolated parser
+remain additional fail-closed gates. Boundary candidates also require exact
+consumption and text coverage before splice. Strict-interior reparsing retains
+its historical sparse-token behavior for compatibility. Core still falls
+through to normal incremental parsing whenever a required gate cannot prove a
+complete replacement.
 
 Do not admit:
 

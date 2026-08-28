@@ -224,6 +224,7 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K] parse_block_isolated(
   starts : Array[Int],
   reparse_fn : (ParserContext[T, K]) -> Unit,
   spec : LanguageSpec[T, K],
+  require_exact_consumption : Bool,
 ) -> (@seam.CstNode, DiagnosticSet)? raise Failure {
   if starts.length() != tokens.length() {
     return None
@@ -240,11 +241,12 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K] parse_block_isolated(
   )
   // Call the reparse function (NOT spec.parse_root)
   reparse_fn(ctx)
-  // Flush trailing trivia, then require the isolated parser to have reached
-  // either the explicit EOF token or the end of a stream without one. Text
-  // length alone cannot detect an unconsumed zero-width non-EOF token.
+  // Boundary candidates must reach explicit EOF or the end of a stream.
+  // Strict-interior reparsing retains its historical sparse-token behavior.
+  // Text length alone cannot detect an unconsumed zero-width non-EOF token.
   ctx.flush_trivia()
-  if ctx.position < ctx.token_count &&
+  if require_exact_consumption &&
+    ctx.position < ctx.token_count &&
     @seam.ToRawKind::to_raw((ctx.get_token)(ctx.position)) !=
     @seam.ToRawKind::to_raw(spec.eof_token) {
     return None
@@ -413,13 +415,19 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(
       Some(reparse_fn) => {
         let (new_block, parse_diags) = match
           parse_block_isolated(
-            source_id, block_text, block_kind, block_tokens, block_starts, reparse_fn,
+            source_id,
+            block_text,
+            block_kind,
+            block_tokens,
+            block_starts,
+            reparse_fn,
             spec,
+            !strict_interior,
           ) {
           Some(result) => result
           None => return None
         }
-        if new_block.text_len() != block_text.length() {
+        if !strict_interior && new_block.text_len() != block_text.length() {
           return None
         }
         let path = match

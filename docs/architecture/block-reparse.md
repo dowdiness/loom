@@ -167,7 +167,7 @@ BlockReparseSpec::new(
 
 **`find_reparseable_ancestor(tree, edit, spec)`** — the public strict helper walks the old tree to find the smallest reparseable node whose strict interior contains the edit. Returns the node and its path from root (for splice).
 
-**`reparse_block(tree, edit, source, spec)`** — orchestrates strict and grammar-admitted candidates: find node → extract text → boundary admission when required → re-lex → integrity check → reparse → exact-consumption check → splice. Returns `None` to fall through.
+**`reparse_block(tree, edit, source, spec)`** — orchestrates strict and grammar-admitted candidates: find node → extract text → boundary admission when required → re-lex → integrity check → reparse → boundary exact-consumption check → splice. Strict-interior candidates retain their historical sparse-token behavior. Returns `None` to fall through.
 
 **`CstNode::replace_child_at(index, new_child, ...)`** — path-copy splice: replace one child in an immutable CstNode, rebuild ancestors with updated `text_len`, `hash`, `token_count`, `has_any_error`.
 

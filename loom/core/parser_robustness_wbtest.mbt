@@ -779,7 +779,7 @@ test "reparse_block rejects unconsumed zero-width non-EOF token" {
     get_reparser: fn(_, _, _) {
       Some(ctx => ctx.node(KExpr, () => ctx.emit_token(KNum)))
     },
-    owns_boundary_edit: (_, _, _) => false,
+    owns_boundary_edit: (_, _, _) => true,
     is_balanced: _ => true,
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_, _) => {
@@ -796,8 +796,8 @@ test "reparse_block rejects unconsumed zero-width non-EOF token" {
   let result = reparse_block(
     SourceId("block-reparse-zero-width-residue"),
     @seam.SyntaxNode::from_cst(old_root),
-    "axc",
-    Edit::replace(1, 2, 2),
+    "xbc",
+    Edit::replace(0, 1, 1),
     lex,
     test_spec,
     block_spec,

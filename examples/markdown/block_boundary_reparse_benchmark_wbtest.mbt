@@ -4,12 +4,14 @@ extern "js" fn block_boundary_bench_now_ms() -> Double =
   #| () => performance.now()
 
 ///|
+#cfg(target="js")
 priv struct BoundaryBenchFixture {
   source : String
   starts : Array[Int]
 }
 
 ///|
+#cfg(target="js")
 fn boundary_bench_fixture(block_count : Int) -> BoundaryBenchFixture {
   let units = block_count / 2
   let builder = StringBuilder::new()
@@ -30,6 +32,7 @@ fn boundary_bench_fixture(block_count : Int) -> BoundaryBenchFixture {
 }
 
 ///|
+#cfg(target="js")
 fn boundary_bench_replace(
   source : String,
   position : Int,
@@ -39,12 +42,14 @@ fn boundary_bench_replace(
 }
 
 ///|
+#cfg(target="js")
 fn boundary_bench_p95(sorted : Array[Double]) -> Double {
   let rank = (sorted.length() * 95 + 99) / 100
   sorted[if rank > 0 { rank - 1 } else { 0 }]
 }
 
 ///|
+#cfg(target="js")
 fn boundary_bench_report(
   block_count : Int,
   path : String,
