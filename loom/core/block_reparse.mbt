@@ -16,25 +16,27 @@ pub struct BlockReparseSpec[T, K] {
   /// Grammar-owned admission for an edit touching a candidate boundary.
   /// Strict-interior candidates bypass this callback. Returning false declines
   /// before detached lexing, preserving the normal fallback cost.
-  priv owns_boundary_edit : (@seam.SyntaxNode, Edit, StringView) -> Bool
+  priv may_reparse_boundary : (@seam.SyntaxNode, Edit, StringView) -> Bool
   /// Structural integrity check on re-lexed tokens.
   priv is_balanced : (Array[TokenInfo[T]]) -> Bool
 }
 
 ///|
 /// Construct a block-reparse grammar seam. Strict-interior reparsing is the
-/// default; a grammar opts into boundary candidates with `owns_boundary_edit`.
+/// default; a grammar opts into boundary candidates with `may_reparse_boundary`.
 pub fn[T, K] BlockReparseSpec::new(
   is_reparseable : (@seam.RawKind) -> Bool,
   get_reparser : (@seam.SyntaxNode, String, Array[TokenInfo[T]]) -> ((
     ParserContext[T, K],
   ) -> Unit)?,
   is_balanced : (Array[TokenInfo[T]]) -> Bool,
-  owns_boundary_edit? : (@seam.SyntaxNode, Edit, StringView) -> Bool = (_, _, _) => {
-    false
-  },
+  may_reparse_boundary? : (@seam.SyntaxNode, Edit, StringView) -> Bool = (
+    _,
+    _,
+    _,
+  ) => false,
 ) -> BlockReparseSpec[T, K] {
-  { is_reparseable, get_reparser, owns_boundary_edit, is_balanced }
+  { is_reparseable, get_reparser, may_reparse_boundary, is_balanced }
 }
 
 // ─── Block reparse orchestration ──────────────────────────────────────────────
@@ -214,8 +216,8 @@ pub fn splice_tree(
 ///|
 /// Create ParserContext from pre-tokenized tokens, call reparse_fn,
 /// flush trivia, auto-close unclosed nodes, and build tree.
-/// Returns the reparsed CstNode and any new diagnostics, or None
-/// if parsing produces no node child.
+/// Returns the reparsed CstNode and any new diagnostics, or None unless parsing
+/// consumes its token stream and produces exactly one same-kind node child.
 fn[T : @seam.IsTrivia + @seam.ToRawKind, K] parse_block_isolated(
   source_id : SourceId,
   block_text : String,
@@ -224,7 +226,6 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K] parse_block_isolated(
   starts : Array[Int],
   reparse_fn : (ParserContext[T, K]) -> Unit,
   spec : LanguageSpec[T, K],
-  require_exact_consumption : Bool,
 ) -> (@seam.CstNode, DiagnosticSet)? raise Failure {
   if starts.length() != tokens.length() {
     return None
@@ -241,15 +242,16 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K] parse_block_isolated(
   )
   // Call the reparse function (NOT spec.parse_root)
   reparse_fn(ctx)
-  // Boundary candidates must reach explicit EOF or the end of a stream.
-  // Strict-interior reparsing retains its historical sparse-token behavior.
+  // Every isolated parser must reach the end or its final explicit EOF.
   // Text length alone cannot detect an unconsumed zero-width non-EOF token.
   ctx.flush_trivia()
-  if require_exact_consumption &&
-    ctx.position < ctx.token_count &&
-    @seam.ToRawKind::to_raw((ctx.get_token)(ctx.position)) !=
-    @seam.ToRawKind::to_raw(spec.eof_token) {
-    return None
+  if ctx.position < ctx.token_count {
+    let at_final_eof = ctx.position + 1 == ctx.token_count &&
+      @seam.ToRawKind::to_raw((ctx.get_token)(ctx.position)) ==
+      @seam.ToRawKind::to_raw(spec.eof_token)
+    if !at_final_eof {
+      return None
+    }
   }
   // Auto-close any unclosed nodes
   // node_stack intentionally NOT modified here — terminal loop. tree build follows.
@@ -269,22 +271,13 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K] parse_block_isolated(
       return None // fall back to full incremental reparse
     }
   }
-  // Unwrap: build_tree wraps in a root node of block_kind,
-  // and parse_block_expr also emits BlockExpr start/finish,
-  // producing block_kind(BlockExpr(...)). Extract the inner node.
-  let mut inner : @seam.CstNode? = None
-  for child in wrapper.children() {
-    match child {
-      @seam.CstElement::Node(n) => {
-        inner = Some(n)
-        break
-      }
-      @seam.CstElement::Token(_) => ()
-    }
-  }
-  match inner {
-    Some(block_cst) => Some((block_cst, ctx.diagnostics))
-    None => None
+  // The selected parser must produce exactly one replacement node of the
+  // candidate kind. Reject direct tokens, sibling nodes, and kind changes so
+  // the splice cannot silently discard isolated output.
+  match wrapper.children() {
+    [@seam.CstElement::Node(block_cst)] if block_cst.kind() == block_kind =>
+      Some((block_cst, ctx.diagnostics))
+    _ => None
   }
 }
 
@@ -399,7 +392,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(
     let strict_interior = edit.start > block_start &&
       edit.start + edit.new_len < block_new_end
     if !strict_interior &&
-      !(block_spec.owns_boundary_edit)(ancestor, edit, block_text_view) {
+      !(block_spec.may_reparse_boundary)(ancestor, edit, block_text_view) {
       continue
     }
     let block_text = block_text_view.to_owned()
@@ -415,14 +408,8 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(
       Some(reparse_fn) => {
         let (new_block, parse_diags) = match
           parse_block_isolated(
-            source_id,
-            block_text,
-            block_kind,
-            block_tokens,
-            block_starts,
-            reparse_fn,
+            source_id, block_text, block_kind, block_tokens, block_starts, reparse_fn,
             spec,
-            !strict_interior,
           ) {
           Some(result) => result
           None => return None

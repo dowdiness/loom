@@ -72,7 +72,7 @@ pub(all) suberror LexResultError {
 pub struct BlockReparseSpec[T, K] {
   // private fields
 }
-pub fn[T, K] BlockReparseSpec::new((@seam.RawKind) -> Bool, (@seam.SyntaxNode, String, Array[TokenInfo[T]]) -> ((ParserContext[T, K]) -> Unit)?, (Array[TokenInfo[T]]) -> Bool, owns_boundary_edit? : (@seam.SyntaxNode, Edit, StringView) -> Bool) -> Self[T, K]
+pub fn[T, K] BlockReparseSpec::new((@seam.RawKind) -> Bool, (@seam.SyntaxNode, String, Array[TokenInfo[T]]) -> ((ParserContext[T, K]) -> Unit)?, (Array[TokenInfo[T]]) -> Bool, may_reparse_boundary? : (@seam.SyntaxNode, Edit, StringView) -> Bool) -> Self[T, K]
 
 pub(all) struct Checkpoint[T, K] {
   // private fields

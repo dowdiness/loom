@@ -689,7 +689,7 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = @c
     }
   },
   markdown_tokens_safe_for_block_reparse,
-  owns_boundary_edit=(node, edit, block_text) => {
+  may_reparse_boundary=(node, edit, block_text) => {
     node.kind() == @seam.ToRawKind::to_raw(ParagraphNode) &&
     paragraph_exact_start_replacement_is_local(node, edit, block_text)
   },

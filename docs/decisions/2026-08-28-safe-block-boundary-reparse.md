@@ -38,10 +38,12 @@ Markdown admits a boundary candidate only when all of these hold:
 - neither old nor new edit extent reaches the candidate's right boundary; and
 - both old and final candidate text retain a plain paragraph start.
 
-The existing grammar selector, token-stream balance check, and isolated parser
-remain additional fail-closed gates. Boundary candidates also require exact
-consumption and text coverage before splice. Strict-interior reparsing retains
-its historical sparse-token behavior for compatibility. Core still falls
+The existing grammar selector and token-stream balance check remain additional
+fail-closed gates. Every isolated parser must consume its token stream and emit
+exactly one replacement node of the candidate kind; direct tokens, sibling
+nodes, and kind changes are rejected before splice. Boundary candidates also
+require full candidate text coverage. Strict-interior reparsing retains support
+for fully consumed sparse token streams with explicit starts. Core still falls
 through to normal incremental parsing whenever a required gate cannot prove a
 complete replacement.
 
@@ -139,8 +141,10 @@ justified by the measured residual.
 
 ## Consequences
 
-- Existing record-literal users migrate once to `BlockReparseSpec::new`.
-  Grammars that do not pass `owns_boundary_edit` remain strict by construction;
+- This is an intentional pre-1.0 source-breaking API migration. Existing
+  record-literal users migrate once to `BlockReparseSpec::new`; the repository
+  has no external indexed uses or published release to preserve.
+  Grammars that do not pass `may_reparse_boundary` remain strict by construction;
   the existing selector contract remains unchanged.
 - The generated interface replaces exposed record fields with one opaque type
   and constructor, avoiding accidental field coupling and future migrations.

@@ -320,16 +320,20 @@ fn fterminator_grammar_with_tokenize(
 }
 
 ///|
-fn frecoverable_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] {
+fn frecoverable_block_reparse_grammar() -> Grammar[
+  FTok,
+  FKind,
+  @seam.SyntaxNode,
+] {
   let spec = @core.LanguageSpec::new(
     KWs,
     KErr,
     KRoot,
     Eof,
-    parse_root=froot,
+    parse_root=fblock_root,
     reuse_size_threshold=0,
   )
-  let root_kind = fkind_raw(KRoot)
+  let block_kind = fkind_raw(KExpr)
   Grammar::new(
     spec~,
     lex=flex_recoverable_steps,
@@ -337,10 +341,10 @@ fn frecoverable_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode]
     incremental_relex_enabled=false,
     block_reparse_spec=Some(
       @core.BlockReparseSpec::new(
-        kind => kind == root_kind,
+        kind => kind == block_kind,
         (node, _, _) => {
-          if node.kind() == root_kind {
-            Some(froot)
+          if node.kind() == block_kind {
+            Some(fblock_root)
           } else {
             None
           }
@@ -468,7 +472,7 @@ test "new_imperative_parser: full-only lex rebuild is not a diagnostic" {
 
 ///|
 test "new_imperative_parser: block reparse recomputes lexer diagnostics" {
-  let grammar = frecoverable_root_reparse_grammar()
+  let grammar = frecoverable_block_reparse_grammar()
   let source_id = @core.SourceId("factory-block-reparse-source")
   let parser = new_imperative_parser(source_id, "aaa", grammar)
   ignore(parser.parse())
@@ -485,7 +489,7 @@ test "new_imperative_parser: block reparse recomputes lexer diagnostics" {
 
 ///|
 test "reparse_block preserves block lexer diagnostics" {
-  let grammar = frecoverable_root_reparse_grammar()
+  let grammar = frecoverable_block_reparse_grammar()
   let source_id = @core.SourceId("factory-direct-block-source")
   let parser = new_imperative_parser(source_id, "aaa", grammar)
   let old_syntax = parser.parse()
