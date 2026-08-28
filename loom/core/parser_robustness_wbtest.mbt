@@ -924,6 +924,106 @@ test "reparse_block rejects sparse source coverage at an admitted boundary" {
 }
 
 ///|
+test "reparse_block rejects malformed detached lex spans at boundary" {
+  let old_block = @seam.CstNode::new(
+    test_kind_raw(KExpr),
+    [
+      @seam.CstElement::Token(
+        @seam.CstToken::CstToken(test_kind_raw(KNum), "abcd"),
+      ),
+    ],
+    policy=test_spec.cst_metadata_policy,
+  )
+  let old_root = @seam.CstNode::new(
+    test_kind_raw(KRoot),
+    [@seam.CstElement::Node(old_block)],
+    policy=test_spec.cst_metadata_policy,
+  )
+  let block_spec = BlockReparseSpec::new(
+    kind => kind == test_kind_raw(KExpr),
+    (_, _, _) => {
+      Some(ctx => {
+        ctx.node(KExpr, () => {
+          ctx.emit_token(KNum)
+          ctx.emit_token(KNum)
+        })
+      })
+    },
+    _ => true,
+    may_reparse_boundary=(_, _, _) => true,
+  )
+  let cases : Array[(String, Array[TokenInfo[TestTok]], Array[Int])] = [
+    (
+      "equal-length overlap and gap",
+      [
+        TokenInfo::new(TestTok::Num(1), 2),
+        TokenInfo::new(TestTok::Num(2), 2),
+        TokenInfo::new(TestTok::TokEof, 0),
+      ],
+      [0, 1, 4],
+    ),
+    (
+      "decreasing start",
+      [
+        TokenInfo::new(TestTok::Num(1), 1),
+        TokenInfo::new(TestTok::Num(2), 1),
+        TokenInfo::new(TestTok::TokEof, 0),
+      ],
+      [1, 0, 4],
+    ),
+    (
+      "EOF before source end",
+      [
+        TokenInfo::new(TestTok::Num(1), 2),
+        TokenInfo::new(TestTok::Num(2), 1),
+        TokenInfo::new(TestTok::TokEof, 0),
+      ],
+      [0, 2, 3],
+    ),
+    (
+      "token end after source end",
+      [
+        TokenInfo::new(TestTok::Num(1), 5),
+        TokenInfo::new(TestTok::Num(2), 0),
+        TokenInfo::new(TestTok::TokEof, 0),
+      ],
+      [0, 4, 4],
+    ),
+    (
+      "non-parallel token and start arrays",
+      [
+        TokenInfo::new(TestTok::Num(1), 2),
+        TokenInfo::new(TestTok::Num(2), 2),
+        TokenInfo::new(TestTok::TokEof, 0),
+      ],
+      [0, 2],
+    ),
+  ]
+  for case in cases {
+    let (label, tokens, starts) = case
+    let result = reparse_block(
+      SourceId("boundary-" + label),
+      @seam.SyntaxNode::from_cst(old_root),
+      "xbcd",
+      Edit::replace(0, 1, 1),
+      (_, _) => {
+        LexResult::with_starts(
+          tokens,
+          starts,
+          diagnostics=DiagnosticSet::empty(),
+        )
+      },
+      test_spec,
+      block_spec,
+      DiagnosticSet::empty(),
+    )
+    if result is Some(_) {
+      abort("accepted malformed detached lex spans: " + label)
+    }
+  }
+}
+
+///|
 test "reparse_block selected failure does not widen" {
   fn parse_nested_expr(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     ctx.node(KExpr, fn() {

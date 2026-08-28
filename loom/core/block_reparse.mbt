@@ -400,6 +400,19 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(
     let block_tokens = block_lex.tokens
     let block_starts = block_lex.starts
     let block_lex_diags = block_lex.diagnostics
+    if !strict_interior &&
+      full_lex_arrays_error_with_eof(
+        block_tokens,
+        block_starts,
+        block_text.length(),
+        token => {
+          @seam.ToRawKind::to_raw(token) ==
+          @seam.ToRawKind::to_raw(spec.eof_token)
+        },
+      )
+      is Some(_) {
+      return None
+    }
     if !(block_spec.is_balanced)(block_tokens) {
       return None
     }

@@ -42,10 +42,13 @@ The existing grammar selector and token-stream balance check remain additional
 fail-closed gates. Every isolated parser must consume its token stream and emit
 exactly one replacement node of the candidate kind; direct tokens, sibling
 nodes, and kind changes are rejected before splice. Boundary candidates also
-require full candidate text coverage. Strict-interior reparsing retains support
-for fully consumed sparse token streams with explicit starts. Core still falls
-through to normal incremental parsing whenever a required gate cannot prove a
-complete replacement.
+require a complete detached lex stream: parallel token/start arrays, in-range
+non-decreasing and non-overlapping spans, a trailing zero-width EOF exactly at
+the candidate end, and replacement text length equal to the candidate source.
+Together these conditions prove full candidate text coverage without rebuilding
+a second string. Strict-interior reparsing retains support for fully consumed
+sparse token streams with explicit starts. Core still falls through to normal
+incremental parsing whenever a required gate cannot prove a complete replacement.
 
 Do not admit:
 
@@ -71,7 +74,10 @@ required block forms. An adversarial prefix sweep additionally probes heading,
 list, quote, fence, HTML, ordered-list, reference-definition, thematic-break,
 Unicode, and malformed-prefix transitions; every admitted probe must satisfy the
 same full-parse oracle. An accepted edit also proves that an unaffected following
-sibling remains structurally shared.
+sibling remains structurally shared. Core robustness cases reject malformed
+detached streams with overlap/gap cancellation, decreasing starts, misplaced
+EOF, out-of-range ends, and non-parallel arrays while retaining the strict-path
+sparse-start compatibility case.
 
 The public strict-ancestor characterization remains unchanged: exact starts,
 exact ends, and right-edge insertions are not returned by the strict helper.
@@ -92,10 +98,13 @@ Representative candidate medians on the investigation machine:
 | 2,500 | 13.11 ms | 0.18–0.30 ms | 0.18 ms | 0.17–0.18 ms | 13.35 ms | 12.95–13.79 ms |
 
 The candidate materially improves the admitted case without a demonstrated
-strict-interior or normal-fallback regression. Separate rows measure ancestor
-search, detached lexing, the complete block-reparse operation, a derived
-isolated-parse/diagnostic residual, splice, and fallback
-`parse_tokens_indexed`.
+strict-interior or normal-fallback regression. Markdown rows measure ancestor
+search, detached lexing, the complete block-reparse operation, an explicitly
+unattributed remainder, splice, and fallback `parse_tokens_indexed`; the
+remainder is not presented as an isolated phase. A core white-box JavaScript
+release benchmark directly invokes isolated parsing, diagnostics, and CST build
+on 16 rotating eight-token streams. Two local means were 771 ns and 819 ns,
+each across 10 × 100,000 runs.
 
 These are informational local measurements, not CI thresholds.
 
@@ -150,6 +159,8 @@ justified by the measured residual.
   and constructor, avoiding accidental field coupling and future migrations.
 - Markdown exact-start paragraph replacements become independent of document
   size apart from ancestor discovery and path copying.
+- Malformed detached boundary lex streams fail closed before parser selection;
+  strict-interior sparse-start compatibility remains unchanged.
 - All other boundary classes continue to use the existing normal incremental
   parser.
 - A future syntax form needs its own differential matrix and explicit grammar

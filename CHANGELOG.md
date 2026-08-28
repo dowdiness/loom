@@ -19,10 +19,14 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Changed
 
-- **Breaking block-reparse configuration boundary:** `BlockReparseSpec` is now
-  opaque and constructed with `BlockReparseSpec::new`. Existing grammars keep
-  strict-interior behavior by omitting `may_reparse_boundary`; grammar-owned
-  boundary admission remains an optional fail-closed preflight.
+- **Breaking block-reparse configuration and parser contract:**
+  `BlockReparseSpec` is now opaque and constructed with
+  `BlockReparseSpec::new`. Existing grammars keep strict-interior admission by
+  omitting `may_reparse_boundary`; grammar-owned boundary admission remains an
+  optional fail-closed preflight. Every selected isolated parser must consume
+  its complete stream and emit exactly one same-kind replacement node. A parser
+  that previously left residue or emitted ambiguous output now falls through
+  instead of splicing a partial first node.
 
 - **Breaking CST metadata ownership boundary:** `CstNode` fields are private,
   public construction copies children, and every node retains an immutable
@@ -148,6 +152,13 @@ Notable user-facing changes to Loom and its sibling modules.
 
 
 ### Fixed
+
+- **`dowdiness/loom/core` — detached boundary reparsing rejects malformed lex
+  spans:** grammar-admitted boundary candidates now validate parallel arrays,
+  source bounds, monotonic non-overlapping spans, and trailing EOF placement
+  before isolated parsing. Equal-length overlap/gap cancellation can no longer
+  pass the replacement text-length check with duplicated and missing source.
+  Strict-interior sparse token streams retain their compatibility path.
 
 - **`dowdiness/loom/core` — bounded long-lived `CstFold` cache retention
   ([#782](https://github.com/dowdiness/loom/issues/782)):** the memoized CST→AST

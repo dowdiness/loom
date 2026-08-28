@@ -155,11 +155,11 @@ BlockReparseSpec::new(
 
 `BlockReparseSpec` is opaque. Construct it with `BlockReparseSpec::new`; omitted `may_reparse_boundary` rejects every non-strict candidate. This makes strict-interior reparsing the safe default and lets core evolve its orchestration without exposing record fields.
 
-**`is_reparseable(kind)`** — returns true for node kinds that can be reparsed in isolation. Only "container" kinds (lists, blocks) should return true — not individual items. For Rust: `ITEM_LIST`, `BLOCK_EXPR`, `MATCH_ARM_LIST`. For lambda: `SourceFile`.
+**`is_reparseable(kind)`** — returns true only when the grammar can reconstruct the complete candidate in isolation as exactly one node of the same kind. Eligibility follows that reconstruction contract, not whether a kind is classified as a container or an individual item.
 
 **`get_reparser(node, block_text, tokens)`** — returns the parse function for a reparseable syntax node. This should usually be the **same grammar function** that produced the node originally, ensuring structural consistency. The callback receives the absolute `SyntaxNode`, final isolated text, and detached tokens so a language can preserve context and reject changed ownership. Return `None` to try an explicitly eligible enclosing candidate or fall through to normal incremental parsing.
 
-**`may_reparse_boundary(node, edit, block_text)`** — explicit grammar-owned admission for candidates that are not strictly interior. Core passes a zero-copy final candidate `StringView` and calls it before detached lexing. False is always safe and preserves fallback cost. True is only an initial gate: token balance, parser selection, isolated parsing, exact consumption, and splice validation must still succeed.
+**`may_reparse_boundary(node, edit, block_text)`** — explicit grammar-owned admission for candidates that are not strictly interior. Core passes a zero-copy final candidate `StringView` and calls it before detached lexing. False is always safe and preserves fallback cost. True is only an initial gate: detached spans and EOF placement, token balance, parser selection, isolated parsing, exact consumption, and splice validation must still succeed.
 
 **`is_balanced(tokens)`** — structural integrity check on the re-lexed tokens. Returns false to reject the block reparse and fall through to full incremental reparse. Should be cheap — O(n) scan of the token array.
 
@@ -167,7 +167,7 @@ BlockReparseSpec::new(
 
 **`find_reparseable_ancestor(tree, edit, spec)`** — the public strict helper walks the old tree to find the smallest reparseable node whose strict interior contains the edit. Returns the node and its path from root (for splice).
 
-**`reparse_block(tree, edit, source, spec)`** — orchestrates strict and grammar-admitted candidates: find node → extract text → boundary admission when required → re-lex → integrity check → reparse → validate complete token consumption and one same-kind replacement node → require full candidate text coverage for boundary candidates → splice. Strict-interior candidates retain support for fully consumed sparse token streams with explicit starts. Returns `None` to fall through.
+**`reparse_block(tree, edit, source, spec)`** — orchestrates strict and grammar-admitted candidates: find node → extract text → boundary admission when required → re-lex → validate detached span ordering, bounds, and final EOF → integrity check → reparse → validate complete token consumption and one same-kind replacement node → require full candidate text coverage for boundary candidates → splice. The span validation and text-length proof together reject equal-length overlap/gap cancellation without reconstructing a second string. Strict-interior candidates retain support for fully consumed sparse token streams with explicit starts. Returns `None` to fall through.
 
 **`CstNode::replace_child_at(index, new_child, ...)`** — path-copy splice: replace one child in an immutable CstNode, rebuild ancestors with updated `text_len`, `hash`, `token_count`, `has_any_error`.
 
