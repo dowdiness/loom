@@ -82,11 +82,8 @@ fn reactive_keyed_markdown_ir_benchmark_loomark_input(
 fn reactive_keyed_markdown_ir_benchmark_direct_read(
   parser : @loom.SyntaxParser,
 ) -> MarkdownIR {
-  let snapshot = parser.snapshot().read_or_abort()
-  experimental_markdown_ir_from_syntax_with_diagnostics(
-    parser.source_id(),
-    snapshot.syntax,
-    snapshot.diagnostics,
+  experimental_markdown_ir_from_syntax_snapshot(
+    parser.snapshot().read_or_abort(),
   )
 }
 

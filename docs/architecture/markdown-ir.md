@@ -41,7 +41,7 @@ conformance target over MarkdownIR, not the internal ideal.
 | Layer | Owns | Does not own |
 |---|---|---|
 | CST / `SyntaxNode` | Lossless concrete syntax, token/trivia fidelity, parser diagnostics, recovered parser structure, UTF-16 source positions, incremental reuse and block-reparse correctness. | Markdown semantic truth, transform policy, editor projection identity, mdast field naming, or safe HTML policy. |
-| MarkdownIR | Typed semantic tree, source origins, optional content origins, explicit diagnostics/recovery nodes, and selected transform-relevant surface metadata. It is the shared input for transforms and target adapters. | Arbitrary CST token arrays, all whitespace/trivia, parser scaffolding, editor-specific payload shape, mdast-as-internal-shape, or standalone byte-for-byte source reconstruction without the original source/CST. |
+| MarkdownIR | Typed semantic tree, source origins, optional content origins, genuine recovery with exact source payloads and diagnostics, and selected transform-relevant surface metadata. It is the shared input for transforms and target adapters. | Arbitrary CST token arrays, all whitespace/trivia, parser scaffolding, editor-specific payload shape, mdast-as-internal-shape, or standalone byte-for-byte source reconstruction without the original source/CST. |
 | `Block` / `Inline` | Editor-facing Markdown model used by projection traits, `ProjNode`, `SourceMap`, edit operations, and `SyncEditor` integration. It should stay small and convenient for the block editor. | CommonMark completeness, mdast compatibility, canonical formatting, full source preservation, or future transform semantics. |
 | mdast / unist JSON | Interchange/export shape for the JavaScript Markdown ecosystem, including optional unist positions converted at the adapter boundary. | Internal representation, parser correctness proof, editor model, or source-preservation mechanism. |
 | HTML | Rendering behavior and CommonMark conformance oracle. The HTML backend is a target adapter with an explicit raw-HTML safety mode. | Definition of MarkdownIR shape or mdast compatibility. |
@@ -119,10 +119,11 @@ A proposed IR field must fit one of these buckets:
 3. **Exact source trivia:** remains in CST/source text. MarkdownIR stores an
    origin span and consumers slice the original source when exact preservation is
    required.
-4. **Malformed or unsupported input:** becomes an explicit `Recovered` or `Raw`
-   IR node with origin and diagnostics, while genuinely unsupported known syntax
-   remains `Unsupported`. It must not become a token pile on otherwise semantic
-   nodes.
+4. **Malformed or unsupported input:** genuine parser recovery becomes an
+   explicit `Recovered` or `Raw` IR node with origin, exact source payload, and
+   diagnostics, while genuinely unsupported known syntax remains `Unsupported`.
+   An unresolved reference-link candidate is ordinary `Text`, not recovery. No
+   case becomes a token pile on otherwise semantic nodes.
 5. **Target-only data:** stays in the adapter for mdast, HTML, or the editor if
    it is not core semantic or transform-relevant data.
 
@@ -167,8 +168,11 @@ fixtures.
   projection model stays smaller.
 - Child order is source order. Semantic canonicalization may merge equivalent
   surface spellings, but it must not reorder author content.
-- Diagnostics and recovery are explicit nodes or side records. Target adapters
-  must never infer malformed input from missing required semantic fields.
+- Diagnostics and genuine recovery are explicit nodes or side records. Target
+  adapters must never infer malformed input from missing required semantic
+  fields. Parser-owned reference candidates remain private until reference
+  resolution completes and then appear as ordinary text without recovery
+  diagnostics.
 - Diagnostic attachment is source-aware: an IR origin is owned only by a
   `Primary` label for that document's `SourceId` whose half-open range overlaps
   the origin under the language-local range policy. Foreign-source and
@@ -189,9 +193,10 @@ fixtures.
   reference form where supported. Reference resolution policy belongs to the
   document-level lowering contract, not to target adapters guessing from raw
   tokens.
-- Raw HTML, unsupported extensions, and malformed regions use explicit raw or
-  recovered nodes with origins and diagnostics. They must not be represented as
-  token arrays attached to otherwise semantic nodes.
+- Raw HTML, unsupported extensions, and genuinely malformed regions use explicit
+  raw or recovered nodes with origins and diagnostics. A recovered value is the
+  exact source slice for its origin; diagnostics carry the recovery reason. They
+  must not be represented as token arrays attached to otherwise semantic nodes.
 - Valid raw HTML uses distinct `HtmlBlock` and `InlineHtml` semantic nodes.
   Malformed recovery `Raw` remains a separate opaque node. HTML adapters require
   an explicit raw-HTML policy: product-facing output defaults to `Escape`, while
@@ -290,6 +295,11 @@ Compatibility floor:
 
 New MarkdownIR surfaces:
 
+- `experimental_markdown_ir_from_syntax_snapshot` consumes one coherent
+  `SyntaxSnapshot`, including its source identity, source, syntax, and
+  diagnostics. It reuses the snapshot source instead of reconstructing the
+  document from CST tokens. Existing source-id/root lowering entry points remain
+  compatibility wrappers for callers that do not own a syntax snapshot.
 - First IR lowering, parser, export, render, rewrite, or formatter entry points
   must be additive and explicitly labeled experimental or stable in docs and
   generated interfaces.
@@ -491,11 +501,11 @@ semantic MarkdownIR.
 
 | Adapter | Raw behavior | Recovered behavior | Rationale |
 | --- | --- | --- | --- |
-| Block (editor) | `Block::Error("expected block MarkdownIR, got raw: " + value)` | `Block::Error(message)` | Inline raw becomes `Inline::Text`; block-position raw is a defensive error. Recovered content is always an editor error. |
-| Inline (editor) | `Inline::Text(value)` passthrough | `Inline::Error(message)` | Raw inline text renders as visible text. Recovered malformed delimiters become explicit error markers. |
-| mdast JSON (export) | `mdastRaw` + origin + diagnostics | `mdastRecovered` + origin + diagnostics | Preserves full diagnostic/recovery fidelity for downstream tools. |
+| Block (editor) | `Block::Error("expected block MarkdownIR, got raw: " + value)` | generic compatibility parse error | Inline raw becomes `Inline::Text`; block-position raw is a defensive error. Recovered source stays available in IR while the compatibility model retains its established error category. |
+| Inline (editor) | `Inline::Text(value)` passthrough | generic compatibility parse error | Raw inline text renders as visible text. Tooling can retain the editor model's error category without treating the source payload as a diagnostic message. |
+| mdast JSON (export) | `mdastRaw` + exact value + origin + diagnostics | `mdastRecovered` + exact value + origin + diagnostics | Preserves source and diagnostic/recovery fidelity for downstream tools. |
 | Checked canonical format | reject with `OpaqueNode(Raw, origin)` | reject with `OpaqueNode(Recovered, origin)` | A successful checked result is reserved for semantic documents whose full reparse/lowering result was proven equal. `Unsupported` is rejected by the same rule. |
-| Compatibility canonical format | value passthrough | parse-error recovery becomes `<!-- recovered MarkdownIR: msg -->`; other recovered messages are emitted literally | Preserves the established unchecked subtree/opaque behavior. Semantic documents delegate to the checked formatter and fail fast on a structured failure. |
+| Compatibility canonical format | value passthrough | exact recovered source passthrough | Preserves author source for unchecked opaque values. Semantic documents delegate to the checked formatter and fail fast on a structured failure. |
 | Preserve/local (rewrite) | origin-slice passthrough | origin-slice / replacement_text passthrough | Preserve-mode reproduces exact source bytes via origin slicing. Local transform splices replacement text into recovered regions rather than silently losing edits. |
 
 Policy rules:
@@ -504,17 +514,18 @@ Policy rules:
    in any adapter. It must be visibly distinguished as an error node,
    diagnostic-bearing type, or explicit text passthrough with lossy semantics.
 2. **Editor boundary**: Block-position raw is an error; inline raw is degraded to
-   text. Recovered content is always an error.
+   text. The compatibility editor model retains a generic recovery error while
+   the IR keeps exact recovered source and diagnostics separate.
 3. **Export fidelity**: mdast preserves origin and diagnostics for toolchain
    consumption.
 4. **Rewrite integrity**: preserve-mode must reproduce exact source bytes for
    raw/recovered regions; local transform must splice replacement text rather
    than silently dropping edits.
 5. **Future adapters**: future targets, including HTML, must define their own
-   `Recovered` / `Raw` policy: escape, drop, or sanitize by default, with opt-in
-   passthrough only. The existing Raw HTML policy above governs CommonMark raw
-   HTML. For recovery-node content, HTML adapters should use HTML comments or
-   styled error spans, not unescaped markup injection.
+   `Recovered` / `Raw` policy. Product-facing adapters render escaped author
+   source without parser chrome; tooling adapters may expose diagnostics through
+   an explicitly separate channel. The existing Raw HTML policy above governs
+   CommonMark raw HTML. Unescaped recovery markup is never allowed.
 6. **No guessing**: Target adapters must never infer malformed input from missing
    required semantic fields; they consume explicit `Recovered` / `Raw` nodes.
 7. **Proof boundary**: The checked canonical formatter accepts only a document
@@ -525,7 +536,8 @@ This contract is the adapter-level counterpart to the tree-shape invariant that
 "Diagnostics and recovery are explicit nodes" and that target adapters must not
 infer malformed input from absent required fields. It also complements the Raw
 HTML policy in this section: raw CommonMark HTML has an explicit target policy,
-and recovery-node content requires the same explicitness.
+and recovered author source requires the same explicitness without turning
+parser evidence into document chrome.
 
 ---
 

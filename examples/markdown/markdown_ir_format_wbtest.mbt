@@ -323,7 +323,7 @@ test "checked and compatibility formatters preserve every opaque mapping" {
         [],
       ),
       MarkdownIRCanonicalOpaqueKind::Recovered,
-      "<!-- recovered MarkdownIR: parse error -->",
+      "parse error",
     ),
     (
       MarkdownIR::recovered(
@@ -1036,13 +1036,13 @@ test "checked canonical source-free corpus is deterministic and bounded" {
     MARKDOWN_CANONICAL_DOCUMENT_EXPANSIONS_PER_CONTAINER >=
     first.max_document_expansions * 2,
   )
-  // #827 makes balanced literal link-delimiter fallbacks typed Text rather
-  // than Raw/Recovered, so the deterministic corpus transcript changes.
-  assert_eq(first.digest, 1948679105)
-  assert_eq(first.transcript.length(), 18460)
+  // Reference opener candidates now finalize as typed Text instead of parser
+  // recovery, so the deterministic corpus transcript changes.
+  assert_eq(first.digest, 348457563)
+  assert_eq(first.transcript.length(), 18437)
   assert_eq(first.max_container_candidates, 49)
-  assert_eq(first.max_container_expansions, 20)
-  assert_eq(first.max_document_candidates, 20)
+  assert_eq(first.max_container_expansions, 17)
+  assert_eq(first.max_document_candidates, 17)
   assert_eq(first.max_document_expansions, 49)
-  assert_eq(first.max_reparses, 19)
+  assert_eq(first.max_reparses, 17)
 }

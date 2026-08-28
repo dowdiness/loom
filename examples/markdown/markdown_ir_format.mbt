@@ -213,6 +213,7 @@ fn canonical_format_with_list_marker(
     HtmlBlock(value, _) => value
     ThematicBreak => "---"
     Text(value) | Raw(value, _) => value
+    ReferenceLinkOpener => "["
     SoftBreak(_) => "\n"
     HardBreak(surface, _) => hard_break_surface_text(surface)
     Bold(children, _) => "**" + canonical_inline_text(children) + "**"
@@ -235,9 +236,7 @@ fn canonical_format_with_list_marker(
     Autolink(_, display, _, _, _) => "<" + display + ">"
     InlineHtml(value, _) => value
     Unsupported(message) => "<!-- unsupported MarkdownIR: " + message + " -->"
-    Recovered(message, _) if message == RECOVERED_PARSE_ERROR =>
-      "<!-- recovered MarkdownIR: " + message + " -->"
-    Recovered(message, _) => message
+    Recovered(value, _) => value
   }
 }
 

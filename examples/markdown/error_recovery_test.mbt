@@ -10,13 +10,13 @@ test "literal fallback: unclosed bold delimiter" {
 }
 
 ///|
-test "error recovery: unclosed link" {
+test "literal fallback: unclosed link opener" {
   inspect(
     parse(
       @core.SourceId("markdown-error-recovery-unclosed-link"),
       "[unclosed\n",
     ),
-    content="Document([Paragraph([Error(\"[\"), Text(\"unclosed\")])])",
+    content="Document([Paragraph([Text(\"[\"), Text(\"unclosed\")])])",
   )
 }
 

@@ -363,6 +363,7 @@ fn resolve_local_markdown_ir(
     HtmlBlock(value, content_origin) => HtmlBlock(value, content_origin)
     ThematicBreak => ThematicBreak
     Text(value) => Text(value)
+    ReferenceLinkOpener => ReferenceLinkOpener
     Bold(children, content_origin) =>
       Bold(resolve_inline(children), content_origin)
     Italic(children, content_origin) =>
@@ -445,7 +446,9 @@ fn lower_contextual_resolved_block(
     experimental_markdown_ir_fold_node_with_diags(node, lower, context)
   }
   {
-    ir: decode_markdown_ir_text_entities(lower(block), source),
+    ir: finalize_reference_link_openers(
+      decode_markdown_ir_text_entities(lower(block), source),
+    ),
     placement: ContextualAbsoluteBlock,
   }
 }
@@ -472,14 +475,16 @@ fn resolve_local_block(
     extensions: MarkdownExtensions::none(),
   }
   {
-    ir: decode_markdown_ir_text_entities(
-      resolve_local_markdown_ir(
-        plan.unresolved,
-        plan.reference_candidates,
-        reference_candidate_indices,
-        context,
+    ir: finalize_reference_link_openers(
+      decode_markdown_ir_text_entities(
+        resolve_local_markdown_ir(
+          plan.unresolved,
+          plan.reference_candidates,
+          reference_candidate_indices,
+          context,
+        ),
+        plan.source,
       ),
-      plan.source,
     ),
     placement: RelativeLocalBlock,
   }
@@ -592,6 +597,7 @@ fn place_local_markdown_ir(ir : MarkdownIR, base : Int) -> MarkdownIR {
       HtmlBlock(value, shift_optional_local_origin(content_origin, base))
     ThematicBreak => ThematicBreak
     Text(value) => Text(value)
+    ReferenceLinkOpener => ReferenceLinkOpener
     Bold(children, content_origin) =>
       Bold(
         children.map(child => place_local_markdown_ir(child, base)),

@@ -492,6 +492,10 @@ fn normalized_link_label_node_fingerprint(ir : MarkdownIR) -> String {
       append_key_component(buf, "Text")
       append_key_component(buf, value)
     }
+    ReferenceLinkOpener => {
+      append_key_component(buf, "Text")
+      append_key_component(buf, "[")
+    }
     InlineCode(value, _) => {
       append_key_component(buf, "InlineCode")
       append_key_component(buf, value)
@@ -534,9 +538,9 @@ fn normalized_link_label_node_fingerprint(ir : MarkdownIR) -> String {
       append_key_component(buf, "Raw")
       append_key_component(buf, value)
     }
-    Recovered(message, _) => {
+    Recovered(value, _) => {
       append_key_component(buf, "Recovered")
-      append_key_component(buf, message)
+      append_key_component(buf, value)
     }
     Document(children) => {
       append_key_component(buf, "Document")
@@ -731,6 +735,10 @@ fn collect_markdown_ir_identity_candidates(
     Text(value) =>
       candidates.push(
         MarkdownIdentityCandidate::new(ir.origin, Text, value, parent),
+      )
+    ReferenceLinkOpener =>
+      candidates.push(
+        MarkdownIdentityCandidate::new(ir.origin, Text, "[", parent),
       )
     Bold(children, _) | Italic(children, _) =>
       collect_markdown_ir_identity_children(children, candidates, parent)

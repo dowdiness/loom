@@ -387,39 +387,6 @@ fn normalize_escaped_inline_recoveries(
 }
 
 ///|
-/// A recovered bracket is literal only when a typed inline sibling occurs to
-/// its right. Keep actual/injected diagnostic recovery and trailing unmatched
-/// brackets intact.
-fn normalize_typed_inline_recovered_prefix(
-  children : Array[MarkdownIR],
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
-) -> Array[MarkdownIR] {
-  let typed_to_right = Array::make(children.length(), false)
-  let mut has_later_typed_inline = false
-  for index = children.length() - 1; index >= 0; index = index - 1 {
-    typed_to_right[index] = has_later_typed_inline
-    let child = children[index]
-    match child.node {
-      Link(_, _, _, _)
-      | InlineCode(_, _)
-      | InlineHtml(_, _)
-      | Autolink(_, _, _, _, _) => has_later_typed_inline = true
-      _ => ()
-    }
-  }
-  let normalized : Array[MarkdownIR] = []
-  for index, child in children {
-    match child.node {
-      Recovered("[", _) if typed_to_right[index] &&
-        diagnostics_in_origin(child.origin()).length() == 0 =>
-        normalized.push(MarkdownIR::text("[", child.origin()))
-      _ => normalized.push(child)
-    }
-  }
-  normalized
-}
-
-///|
 fn finalize_inline_reference_children(
   children : Array[MarkdownIR],
   context : MarkdownIRLoweringContext,
@@ -444,10 +411,7 @@ fn resolve_normalized_inline_reference_children(
   resolve_inline_images(
     literalize_balanced_raw_parentheses(
       resolve_emphasis_boundary_shortcuts(
-        normalize_typed_inline_recovered_prefix(
-          resolve_shortcut_references(normalized, context),
-          context.diagnostics_in_origin,
-        ),
+        resolve_shortcut_references(normalized, context),
         context,
       ),
     ),
@@ -693,6 +657,8 @@ fn lower_direct_inline_node_with_diags(
     | CodeBlockNode
     | BlockQuoteNode
     | LinkReferenceDefinitionNode => None
+    ReferenceLinkOpenerNode =>
+      Some(MarkdownIR::reference_link_opener(origin_from_node(node)))
     TaskListMarkerNode =>
       if context.extensions.has_task_list() {
         None
@@ -1517,12 +1483,14 @@ fn lower_inline_node_with_diags(
     UriAutolinkNode | EmailAutolinkNode | InlineHtmlNode =>
       lower_typed_inline_angle_node(node, context.source)
     TaskListMarkerNode => MarkdownIR::text(node.text(), origin_from_node(node))
+    ReferenceLinkOpenerNode =>
+      MarkdownIR::reference_link_opener(origin_from_node(node))
     LinkNode => lower_link_node_atoms_with_diags(node, newline_text, context)[0]
     ErrorNode => {
       let origin = origin_from_node(node)
       MarkdownIR::recovered(
         context.source_id,
-        node.text(),
+        source_slice(context.source, origin),
         origin,
         (context.diagnostics_in_origin)(origin),
       )
@@ -1657,7 +1625,7 @@ fn lower_container_child_with_diags(
       Some(
         MarkdownIR::recovered(
           context.source_id,
-          RECOVERED_PARSE_ERROR,
+          source_slice(context.source, origin),
           origin,
           (context.diagnostics_in_origin)(origin),
         ),
@@ -2525,7 +2493,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
       let origin = origin_from_node(node)
       MarkdownIR::recovered(
         context.source_id,
-        RECOVERED_PARSE_ERROR,
+        source_slice(context.source, origin),
         origin,
         (context.diagnostics_in_origin)(origin),
       )
@@ -2589,25 +2557,66 @@ fn diagnostics_in_origin(
 /// semantics are used unless `extensions` explicitly enables more. Using `CstFold`
 /// would return stale origins after position-shifting edits. See
 /// `docs/decisions/2026-06-16-markdown-ir-performance-policy.md`.
-pub fn experimental_markdown_ir_from_syntax(
+fn experimental_markdown_ir_from_syntax_core(
   source_id : @core.SourceId,
   root : @seam.SyntaxNode,
-  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
+  source : String,
+  diagnostics : @core.DiagnosticSet?,
+  extensions : MarkdownExtensions,
 ) -> MarkdownIR {
   let document_root = syntax_root(root)
   let reference_definitions = collect_link_reference_definitions(document_root)
   let context : MarkdownIRLoweringContext = {
     source_id,
-    source: document_root.text(),
+    source,
     reference_definition_lookup: label => reference_definitions.lookup(label),
-    diagnostics_in_origin: _ => [],
+    diagnostics_in_origin: match diagnostics {
+      Some(value) => origin => diagnostics_in_origin(source_id, value, origin)
+      None => _ => []
+    },
     deferred_reference_candidates: None,
     extensions,
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
-    experimental_markdown_ir_fold_node(node, lower, context)
+    match diagnostics {
+      Some(_) =>
+        experimental_markdown_ir_fold_node_with_diags(node, lower, context)
+      None => experimental_markdown_ir_fold_node(node, lower, context)
+    }
   }
-  decode_markdown_ir_text_entities(lower(root), context.source)
+  finalize_reference_link_openers(
+    decode_markdown_ir_text_entities(lower(root), context.source),
+  )
+}
+
+///|
+/// Source-aware lowering from one coherent parser snapshot.
+pub fn experimental_markdown_ir_from_syntax_snapshot(
+  snapshot : @loom.SyntaxSnapshot,
+  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
+) -> MarkdownIR {
+  experimental_markdown_ir_from_syntax_core(
+    snapshot.source_id,
+    snapshot.syntax,
+    snapshot.source,
+    Some(snapshot.diagnostics),
+    extensions,
+  )
+}
+
+///|
+pub fn experimental_markdown_ir_from_syntax(
+  source_id : @core.SourceId,
+  root : @seam.SyntaxNode,
+  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
+) -> MarkdownIR {
+  experimental_markdown_ir_from_syntax_core(
+    source_id,
+    root,
+    syntax_root(root).text(),
+    None,
+    extensions,
+  )
 }
 
 ///|
@@ -2620,20 +2629,11 @@ pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
   diagnostics : @core.DiagnosticSet,
   extensions? : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> MarkdownIR {
-  let document_root = syntax_root(root)
-  let reference_definitions = collect_link_reference_definitions(document_root)
-  let context : MarkdownIRLoweringContext = {
+  experimental_markdown_ir_from_syntax_core(
     source_id,
-    source: document_root.text(),
-    reference_definition_lookup: label => reference_definitions.lookup(label),
-    diagnostics_in_origin: origin => {
-      diagnostics_in_origin(source_id, diagnostics, origin)
-    },
-    deferred_reference_candidates: None,
+    root,
+    syntax_root(root).text(),
+    Some(diagnostics),
     extensions,
-  }
-  fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
-    experimental_markdown_ir_fold_node_with_diags(node, lower, context)
-  }
-  decode_markdown_ir_text_entities(lower(root), context.source)
+  )
 }

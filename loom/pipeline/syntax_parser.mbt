@@ -5,6 +5,7 @@
 /// diagnostics, and incremental reuse count together for consumers that do not
 /// need an AST fold.
 pub struct SyntaxSnapshot {
+  source_id : @core.SourceId
   source : String
   syntax : @seam.SyntaxNode
   diagnostics : @core.DiagnosticSet
@@ -15,6 +16,7 @@ pub struct SyntaxSnapshot {
 /// Copy a syntax snapshot, cloning its mutable diagnostic collection.
 pub fn SyntaxSnapshot::copy(self : SyntaxSnapshot) -> SyntaxSnapshot {
   {
+    source_id: self.source_id,
     source: self.source,
     syntax: self.syntax,
     diagnostics: self.diagnostics.copy(),
@@ -24,9 +26,11 @@ pub fn SyntaxSnapshot::copy(self : SyntaxSnapshot) -> SyntaxSnapshot {
 
 ///|
 fn syntax_snapshot_from_parse(
+  source_id : @core.SourceId,
   snapshot : @incremental.ParseSnapshot[Unit],
 ) -> SyntaxSnapshot {
   {
+    source_id,
     source: snapshot.source,
     syntax: snapshot.syntax,
     diagnostics: snapshot.diagnostics.copy(),
@@ -44,7 +48,9 @@ fn Parser::derive_syntax_snapshot(
 ) -> @incr.Derived[SyntaxSnapshot] {
   @incr.Derived(
     self.rt,
-    () => syntax_snapshot_from_parse(self.snapshot_input.get()),
+    () => {
+      syntax_snapshot_from_parse(self.source_id(), self.snapshot_input.get())
+    },
     label="syntax_parser_snapshot_view",
   )
 }

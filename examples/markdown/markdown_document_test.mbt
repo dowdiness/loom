@@ -419,28 +419,32 @@ test "MarkdownSemanticRead requires the first content block to be a paragraph" {
 }
 
 ///|
-test "MarkdownSemanticRead preserves malformed recovery diagnostics" {
+test "MarkdownSemanticRead keeps an unresolved bracket as ordinary text" {
   let document = parse_document(
-    @core.SourceId("markdown-semantic-read-recovery"),
+    @core.SourceId("markdown-semantic-read-unresolved-bracket"),
     "[unclosed\n",
   )
   assert_eq(document.diagnostics().length(), 0)
   let read = document.semantic_read()
   let mdast = markdown_semantic_read_to_mdast_json_with_positions(read).stringify()
-  assert_true(mdast.contains("mdastRecovered"))
+  assert_false(mdast.contains("mdastRecovered"))
   match read.ir().children() {
     [paragraph] =>
       match paragraph.children() {
-        [recovered, ..] => {
-          match recovered.view() {
-            Recovered(..) => ()
-            _ => fail("expected a recovered MarkdownIR node")
+        [opener, text] => {
+          match opener.view() {
+            Text(value~) => assert_eq(value, "[")
+            _ => fail("expected literal opener text")
           }
-          assert_true(recovered.diagnostics().length() > 0)
+          match text.view() {
+            Text(value~) => assert_eq(value, "unclosed")
+            _ => fail("expected literal trailing text")
+          }
+          assert_eq(opener.diagnostics().length(), 0)
         }
-        _ => fail("expected recovered paragraph content")
+        _ => fail("expected literal paragraph content")
       }
-    _ => fail("expected one recovered paragraph")
+    _ => fail("expected one paragraph")
   }
 }
 

@@ -74,11 +74,12 @@ pub fn MarkdownDocument::semantic_read(
   self : MarkdownDocument,
 ) -> MarkdownSemanticRead {
   let lowering_diagnostics = self.diagnostics.copy()
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let ir = experimental_markdown_ir_from_syntax_core(
     self.source_id,
     self.syntax,
-    lowering_diagnostics,
-    extensions=self.extensions,
+    self.source,
+    Some(lowering_diagnostics),
+    self.extensions,
   )
   { document: self, ir }
 }

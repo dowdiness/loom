@@ -245,12 +245,56 @@ fn decode_markdown_ir_text_entities(
       guard strip_backslash_escapes(raw) == value else { return ir }
       MarkdownIR::text(decode_markdown_inline_text(raw), origin)
     }
-    CodeBlock(_, _, _)
+    ReferenceLinkOpener
+    | CodeBlock(_, _, _)
     | HtmlBlock(_, _)
     | Autolink(_, _, _, _, _)
     | InlineHtml(_, _)
     | ThematicBreak
     | InlineCode(_, _)
+    | SoftBreak(_)
+    | HardBreak(_, _)
+    | Unsupported(_)
+    | Raw(_, _)
+    | Recovered(_, _) => ir
+  }
+}
+
+///|
+fn finalize_reference_link_opener_children(
+  children : Array[MarkdownIR],
+) -> Unit {
+  for index, child in children {
+    children[index] = finalize_reference_link_openers(child)
+  }
+}
+
+///|
+fn finalize_reference_link_openers(ir : MarkdownIR) -> MarkdownIR {
+  match ir.node {
+    Document(children)
+    | Heading(_, children, _)
+    | Paragraph(children, _)
+    | BlockQuote(children)
+    | UnorderedList(children, _, _)
+    | OrderedList(children, _, _)
+    | ListItem(children, _, _, _, _)
+    | OrderedListItem(children, _, _, _, _)
+    | Bold(children, _)
+    | Italic(children, _)
+    | Link(children, _, _, _)
+    | Image(children, _, _, _) => {
+      finalize_reference_link_opener_children(children)
+      ir
+    }
+    ReferenceLinkOpener => MarkdownIR::text("[", ir.origin())
+    CodeBlock(_, _, _)
+    | HtmlBlock(_, _)
+    | ThematicBreak
+    | Text(_)
+    | InlineCode(_, _)
+    | Autolink(_, _, _, _, _)
+    | InlineHtml(_, _)
     | SoftBreak(_)
     | HardBreak(_, _)
     | Unsupported(_)

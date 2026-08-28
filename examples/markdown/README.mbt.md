@@ -50,6 +50,9 @@ pub fn experimental_markdown_ir_from_syntax(
 pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
   @core.SourceId, @seam.SyntaxNode, @core.DiagnosticSet
 ) -> MarkdownIR
+pub fn experimental_markdown_ir_from_syntax_snapshot(
+  @loom.SyntaxSnapshot
+) -> MarkdownIR
 pub fn experimental_markdown_ir_to_block(MarkdownIR) -> Block
 pub fn experimental_markdown_ir_to_mdast_json(MarkdownIR) -> Json
 pub fn experimental_markdown_ir_to_mdast_json_with_positions(MarkdownIR, String) -> Json
@@ -133,9 +136,11 @@ Note that `parse` is **not** `raise` — lexing failures fold into
 `Block::Error`, while parser recovery may preserve malformed inline source as
 text or error-shaped IR. If you need diagnostics, use `parse_markdown` instead.
 Pass the same stable `SourceId` through parsing, diagnostic-aware lowering, and
-canonical-format verification for one source snapshot. A producer name is not
-a source identity, and `tokenize(String)` remains the source-agnostic raw lexer
-entry point.
+canonical-format verification for one source snapshot. `SyntaxSnapshot` carries
+that source identity together with source, syntax, and diagnostics, so
+`experimental_markdown_ir_from_syntax_snapshot` cannot mix those facts and does
+not rebuild source from CST tokens. A producer name is not a source identity,
+and `tokenize(String)` remains the source-agnostic raw lexer entry point.
 
 ### Emphasis token and CST compatibility
 
@@ -180,6 +185,16 @@ API, or public Markdown role changed. See the
 the [typed CST compatibility ADR](../../docs/decisions/2026-08-06-markdown-typed-angle-cst-compatibility.md),
 and the [final ownership ADR](../../docs/decisions/2026-08-08-markdown-inline-angle-parser-ownership.md).
 
+### Reference-link candidate compatibility
+
+`ReferenceLinkOpenerNode` is an append-only CST kind for a `[` that may still
+become a shortcut, full, collapsed, or image reference during document
+lowering. It is not an error node. Candidate provenance remains private to
+reference resolution; if no definition resolves it, final public MarkdownIR
+contains ordinary `Text("[")` with no recovery diagnostics. Genuine
+`ErrorNode` lowering remains `Recovered`, whose public value is the exact source
+slice and whose diagnostics carry the parser reason.
+
 ## Experimental MarkdownIR
 
 The M1 MarkdownIR API is explicitly experimental. It covers the current parser
@@ -211,7 +226,9 @@ marker, and HTML rendering uses a disabled checkbox. A later paragraph marker
 remains ordinary literal text.
 
 Use `experimental_markdown_ir_from_syntax` after `parse_cst` when you need the
-IR, then adapt with `experimental_markdown_ir_to_block`, export with
+IR. When a `SyntaxParser` already owns the parse, prefer
+`experimental_markdown_ir_from_syntax_snapshot` so lowering reuses the coherent
+snapshot source. Then adapt with `experimental_markdown_ir_to_block`, export with
 `experimental_markdown_ir_to_mdast_json` or
 `experimental_markdown_ir_to_mdast_json_with_positions`, or smoke-test rewriting
 with `experimental_markdown_ir_preserve_rewrite`,
@@ -307,11 +324,11 @@ container and by a document limit scaled by container count.
 
 `experimental_markdown_ir_canonical_format` remains the compatibility API. A
 semantic document delegates to the checked implementation and fails fast if it
-cannot be proven. Non-document roots and documents containing opaque nodes keep
-their previous unchecked output: `Raw(value, _)` emits `value`, parse-error
-`Recovered` emits `<!-- recovered MarkdownIR: parse error -->`, any other
-`Recovered(message, _)` emits `message`, and `Unsupported(message)` emits
-`<!-- unsupported MarkdownIR: message -->`.
+cannot be proven. Non-document roots and documents containing opaque nodes keep unchecked
+source-preserving output: `Raw(value, _)` and `Recovered(value, _)` emit their
+exact source values, while `Unsupported(message)` emits
+`<!-- unsupported MarkdownIR: message -->`. Recovery diagnostics carry the
+parser explanation separately from the recovered source payload.
 
 ### Projection identity policy
 

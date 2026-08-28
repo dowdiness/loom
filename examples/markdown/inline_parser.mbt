@@ -1707,7 +1707,7 @@ fn parse_inline(
         // literal. Do not manufacture recovery for a bracket that code owns.
         ctx.emit_token(TextToken)
       } else {
-        ctx.start_node(ErrorNode)
+        ctx.start_node(ReferenceLinkOpenerNode)
         ctx.emit_token(LeftBracketToken)
         ctx.finish_node()
       }

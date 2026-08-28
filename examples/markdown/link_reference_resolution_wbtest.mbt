@@ -400,9 +400,13 @@ test "link recovery prefixes become literal before typed inline siblings" {
 }
 
 ///|
-test "typed inline before an unclosed bracket preserves recovery" {
+test "typed inline before an unclosed bracket stays literal" {
   let ir = link_reference_ir_from_source("`code` [unclosed\n")
-  assert_true(link_reference_has_recovered(ir))
+  assert_false(link_reference_has_recovered(ir))
+  assert_eq(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    "<p><code>code</code> [unclosed</p>\n",
+  )
 }
 
 ///|
@@ -414,11 +418,8 @@ fn deep_unclosed_shortcut_fixture(
   let children : Array[MarkdownIR] = []
   for offset = 0; offset < depth; offset = offset + 1 {
     children.push(
-      MarkdownIR::recovered(
-        source_id,
-        "[",
+      MarkdownIR::reference_link_opener(
         MarkdownIROrigin(start=offset, end=offset + 1),
-        [],
       ),
     )
   }
@@ -443,10 +444,10 @@ test "incomplete full-reference suffix preserves every atom at EOF" {
   let source_id = @core.SourceId("incomplete-full-reference-suffix")
   let source = "[foo][bar"
   let children : Array[MarkdownIR] = [
-    MarkdownIR::recovered(source_id, "[", MarkdownIROrigin(start=0, end=1), []),
+    MarkdownIR::reference_link_opener(MarkdownIROrigin(start=0, end=1)),
     MarkdownIR::text("foo", MarkdownIROrigin(start=1, end=4)),
     MarkdownIR::raw(source_id, "]", MarkdownIROrigin(start=4, end=5), []),
-    MarkdownIR::recovered(source_id, "[", MarkdownIROrigin(start=5, end=6), []),
+    MarkdownIR::reference_link_opener(MarkdownIROrigin(start=5, end=6)),
     MarkdownIR::text("bar", MarkdownIROrigin(start=6, end=9)),
   ]
   let resolved = resolve_shortcut_references(children, {
@@ -462,7 +463,7 @@ test "incomplete full-reference suffix preserves every atom at EOF" {
   assert_true(resolved[0].node is Text("["))
   assert_true(resolved[1].node is Text("foo"))
   assert_true(resolved[2].node is Text("]"))
-  assert_true(resolved[3].node is Recovered("[", _))
+  assert_true(resolved[3].node is Text("["))
   assert_true(resolved[4].node is Text("bar"))
   assert_eq(resolved[0].origin(), MarkdownIROrigin(start=0, end=1))
   assert_eq(resolved[1].origin(), MarkdownIROrigin(start=1, end=4))
@@ -613,11 +614,8 @@ fn deep_balanced_shortcut_fixture(
   let children : Array[MarkdownIR] = []
   for offset = 0; offset < depth; offset = offset + 1 {
     children.push(
-      MarkdownIR::recovered(
-        source_id,
-        "[",
+      MarkdownIR::reference_link_opener(
         MarkdownIROrigin(start=offset, end=offset + 1),
-        [],
       ),
     )
   }
@@ -676,7 +674,7 @@ test "deep unclosed shortcut and parenthesis frames flatten exactly once" {
   let shortcuts = resolve_shortcut_references(shortcut_children, context)
   assert_eq(shortcuts.length(), depth + 1)
   for index = 0; index < depth; index = index + 1 {
-    assert_true(shortcuts[index].node is Recovered("[", _))
+    assert_true(shortcuts[index].node is ReferenceLinkOpener)
     assert_eq(
       shortcuts[index].origin(),
       MarkdownIROrigin(start=index, end=index + 1),

@@ -114,11 +114,17 @@ fn parse_inline_link_target(input : String) -> InlineLinkTarget? {
 ///|
 fn is_shortcut_reference_open(child : MarkdownIR, source : String) -> Bool {
   match child.node {
-    // Only the inline parser's unmatched opener recovery is a shortcut
-    // candidate.  Do not infer one from arbitrary source text or recovery.
-    Recovered(message, _) => message == "["
+    ReferenceLinkOpener => true
     Text("[") => source_slice(source, child.origin()) == "["
     _ => false
+  }
+}
+
+///|
+fn literal_reference_link_opener(node : MarkdownIR) -> MarkdownIR {
+  match node.node {
+    ReferenceLinkOpener => MarkdownIR::text("[", node.origin())
+    _ => node
   }
 }
 
@@ -320,6 +326,7 @@ fn literal_shortcut_suffix_atom(atom : MarkdownIR) -> MarkdownIR {
   match atom.node {
     Raw(value, _) | Recovered(value, _) =>
       MarkdownIR::text(value, atom.origin())
+    ReferenceLinkOpener => literal_reference_link_opener(atom)
     _ => atom
   }
 }
@@ -383,9 +390,7 @@ fn resolve_shortcut_references(
               let literal_reference_children : Array[ShortcutReferenceChunk] = []
               for atom in suffix.reference_children {
                 if is_shortcut_reference_open(atom, context.source) {
-                  literal_reference_children.push(
-                    ShortcutReferenceAtom(MarkdownIR::text("[", atom.origin())),
-                  )
+                  literal_reference_children.push(ShortcutReferenceAtom(atom))
                 } else {
                   literal_reference_children.push(ShortcutReferenceAtom(atom))
                 }
@@ -596,7 +601,11 @@ fn resolve_shortcut_references(
         suffix.label,
         suffix.label_closer,
       )
-      push_shortcut_reference_atom(output, frames, suffix.reference_opener)
+      push_shortcut_reference_atom(
+        output,
+        frames,
+        literal_reference_link_opener(suffix.reference_opener),
+      )
       for atom in suffix.reference_children {
         push_shortcut_reference_atom(output, frames, atom)
       }
@@ -605,7 +614,11 @@ fn resolve_shortcut_references(
   }
   match literal_suffix {
     Some(suffix) => {
-      push_shortcut_reference_atom(output, frames, suffix.reference.opener)
+      push_shortcut_reference_atom(
+        output,
+        frames,
+        literal_reference_link_opener(suffix.reference.opener),
+      )
       for atom in flatten_shortcut_reference_chunks(suffix.reference.children) {
         push_shortcut_reference_atom(output, frames, atom)
       }
@@ -634,12 +647,12 @@ fn resolve_shortcut_references(
     Some(closer) => push_shortcut_reference_atom(output, frames, closer)
     None => ()
   }
-  // An unclosed opener remains its genuine parser recovery atom.  It was not
-  // in a completed literal-reference envelope and must not be silently
-  // reclassified as semantic text.
+  // Preserve candidate provenance across nested inline containers so a parent
+  // emphasis/reference pass can still resolve it. Public views expose the
+  // private candidate as ordinary Text when no parent consumes it.
   for frame in frames {
     let opener = if frame.contains_balanced_brackets {
-      MarkdownIR::text("[", frame.opener.origin())
+      literal_reference_link_opener(frame.opener)
     } else {
       frame.opener
     }
@@ -689,14 +702,14 @@ fn literalize_balanced_raw_parentheses(
 }
 
 ///|
-fn emphasis_with_literal_recovered_open(node : MarkdownIR) -> MarkdownIR? {
+fn emphasis_with_literal_reference_open(node : MarkdownIR) -> MarkdownIR? {
   let replace = fn(children : Array[MarkdownIR]) {
     let rewritten : Array[MarkdownIR] = []
     let mut found = false
     for child in children {
       match child.node {
-        Recovered("[", _) => {
-          rewritten.push(MarkdownIR::text("[", child.origin()))
+        ReferenceLinkOpener => {
+          rewritten.push(literal_reference_link_opener(child))
           found = true
         }
         _ => rewritten.push(child)
@@ -726,7 +739,7 @@ fn emphasis_with_literal_recovered_open(node : MarkdownIR) -> MarkdownIR? {
 }
 
 ///|
-fn emphasis_recovered_open_start(node : MarkdownIR) -> Int? {
+fn emphasis_reference_open_start(node : MarkdownIR) -> Int? {
   let inner = match node.node {
     Italic(children, _) | Bold(children, _) => Some(children)
     _ => None
@@ -734,7 +747,7 @@ fn emphasis_recovered_open_start(node : MarkdownIR) -> Int? {
   match inner {
     Some(children) => {
       for atom in children {
-        if atom.node is Recovered("[", _) {
+        if atom.node is ReferenceLinkOpener {
           return Some(atom.origin().start())
         }
       }
@@ -745,9 +758,9 @@ fn emphasis_recovered_open_start(node : MarkdownIR) -> Int? {
 }
 
 ///|
-/// Resolve only the parser-owned `Recovered("[")` that is embedded in one
-/// emphasis container and closed by a later sibling Raw `]`.  This is a
-/// single parent-level pass; it neither searches source nor recurses.
+/// Resolve only the parser-owned reference opener embedded in one emphasis
+/// container and closed by a later sibling Raw `]`. This is a single
+/// parent-level pass; it neither searches source nor recurses.
 fn resolve_emphasis_boundary_shortcuts(
   children : Array[MarkdownIR],
   context : MarkdownIRLoweringContext,
@@ -759,7 +772,7 @@ fn resolve_emphasis_boundary_shortcuts(
       Some((original, rewritten, between)) =>
         match child.node {
           Raw("]", _) if original.origin().end() <= child.origin().start() => {
-            let opener_start = emphasis_recovered_open_start(original)
+            let opener_start = emphasis_reference_open_start(original)
             match opener_start {
               Some(start) if between.is_empty() => {
                 let label_start = start + 1
@@ -831,7 +844,7 @@ fn resolve_emphasis_boundary_shortcuts(
           _ => between.push(child)
         }
       None =>
-        match emphasis_with_literal_recovered_open(child) {
+        match emphasis_with_literal_reference_open(child) {
           Some(rewritten) => pending = Some((child, rewritten, []))
           None => output.push(child)
         }

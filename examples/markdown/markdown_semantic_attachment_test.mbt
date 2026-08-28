@@ -122,9 +122,9 @@ test "Markdown semantic attachment follows edits and fresh semantic lowering" {
 }
 
 ///|
-test "Markdown semantic attachment keeps diagnostic arrays defensive" {
+test "Markdown semantic attachment keeps opaque diagnostic arrays defensive" {
   let source_id = @core.SourceId("markdown-semantic-attachment-diagnostics")
-  let source = "[unclosed\n"
+  let source = "[text](\n"
   let parser = markdown_semantic_attachment_test_parser(source_id, source)
   let attachment = MarkdownSemanticAttachment::MarkdownSemanticAttachment(
     parser,
