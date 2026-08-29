@@ -43,6 +43,7 @@ pub fn SyntaxParser::source_id(Self) -> @diagnostic.SourceId
 pub fn SyntaxParser::syntax_tree(Self) -> @cells.Derived[@seam.SyntaxNode]
 
 pub struct SyntaxSnapshot {
+  source_id : @diagnostic.SourceId
   source : String
   syntax : @seam.SyntaxNode
   diagnostics : @core.DiagnosticSet

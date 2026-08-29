@@ -2,5 +2,6 @@ import {
   "dowdiness/seam",
   "dowdiness/incr",
   "dowdiness/loom/core",
+  "dowdiness/diagnostic",
   "dowdiness/loom/incremental",
 }

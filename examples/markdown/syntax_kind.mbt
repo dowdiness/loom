@@ -48,6 +48,7 @@ pub(all) enum SyntaxKind {
   EmailAutolinkNode
   InlineHtmlNode
   TaskListMarkerNode
+  ReferenceLinkOpenerNode
 } derive(Debug, Eq)
 
 ///|
@@ -138,6 +139,7 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
       EmailAutolinkNode => 43
       InlineHtmlNode => 44
       TaskListMarkerNode => 45
+      ReferenceLinkOpenerNode => 46
     },
   )
 }
@@ -191,6 +193,7 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     43 => EmailAutolinkNode
     44 => InlineHtmlNode
     45 => TaskListMarkerNode
+    46 => ReferenceLinkOpenerNode
     _ => ErrorNode
   }
 }

@@ -1,57 +1,94 @@
 # ADR: MarkdownIR Recovery Adapter Contract
 
 **Date:** 2026-06-17
-**Status:** Accepted
+**Status:** Accepted; amended 2026-08-28
 **Issue:** #334 — remaining MarkdownIR HTML/editor adapter behavior for `Recovered` / `Raw` nodes.
-**Implementation plan:** N/A — this slice locks existing adapter behavior with documentation and tests.
+**Implementation plan:** N/A — adapter behavior is pinned by package tests.
 
 ## Context
 
-MarkdownIR represents malformed or unsupported source explicitly as `Recovered` or `Raw` nodes rather than encoding recovery as absent semantic fields. Earlier #334 slices covered raw/recovered diagnostics at the MarkdownIR and mdast surfaces. The remaining ambiguity was target-adapter behavior: editor adapters, export adapters, formatters, rewrite modes, and future HTML adapters need explicit handling so malformed input is never silently discarded or mistaken for valid Markdown.
+MarkdownIR represents genuinely malformed or unsupported parser output explicitly
+instead of encoding recovery as missing semantic fields. The original decision
+allowed `Recovered` to carry a parser-facing message such as `"parse error"` and
+allowed target adapters to present that message as comments or styled error
+content.
 
-The existing implementation already had concrete behavior for current targets:
+That contract conflated two different facts:
 
-- block/editor conversion maps recovered block content to errors and treats block-position raw as defensive errors;
-- inline/editor conversion degrades raw inline content to text and recovered content to inline errors;
-- mdast JSON preserves raw/recovered nodes with origin and diagnostics;
-- the compatibility canonical formatter passes raw text through, emits a
-  comment for parse-error recovery, and preserves the established literal
-  fallback for other recovered messages;
-- checked canonical formatting rejects raw, recovered, and unsupported nodes;
-- preserve/local rewrite modes retain source slices or splice explicit replacement text.
+- the author-owned source fragment covered by the recovery origin; and
+- the parser-owned explanation recorded by diagnostics.
 
-The decision needed for this slice was whether to introduce a broader HTML renderer or new public diagnostic APIs. Current evidence does not require either. The safest step is to document the adapter contract and pin existing behavior with tests.
+It also classified an unmatched `[` as `ErrorNode` / `Recovered("[")` so later
+reference-link resolution could remember that the bracket was a candidate.
+CommonMark treats a candidate that does not resolve as ordinary literal text,
+not malformed Markdown. Product adapters could therefore expose parser recovery
+chrome for valid author text.
 
 ## Decision
 
-MarkdownIR target adapters must handle `Recovered` and `Raw` explicitly. They must not drop these nodes silently, reinterpret malformed source as valid semantic MarkdownIR, or infer recovery from missing required fields.
+`Recovered` is reserved for genuine parser recovery.
+
+- Its public String payload is the exact author source slice covered by its
+  `MarkdownIROrigin`.
+- Its diagnostics carry the parser explanation. A synthesized fallback
+  diagnostic uses the generic message `recovered malformed Markdown`; it does
+  not embed or replace the source payload.
+- A possible reference-link opener is parser structure, not recovery. The CST
+  records it as `ReferenceLinkOpenerNode`; MarkdownIR keeps private candidate
+  provenance through reference resolution and exposes an unresolved candidate
+  as ordinary `Text("[")` with no recovery diagnostics.
+- Candidate provenance is finalized only after complete direct or deferred
+  reference resolution. It must not be discarded inside a nested emphasis or
+  local keyed-lowering step.
+
+MarkdownIR target adapters must still handle `Recovered` and `Raw` explicitly.
+They must not drop the author source or infer recovery from absent semantic
+fields.
 
 Current target policy is:
 
-- block/editor: block-position raw is an error; recovered content is an error;
-- inline/editor: raw inline content becomes text; recovered content is an error;
-- mdast JSON: raw/recovered nodes preserve origin and diagnostics;
-- compatibility canonical formatter: raw content is emitted literally;
-  parse-error recovery is represented as an HTML comment, other recovered
-  messages are emitted literally, and unsupported content uses an unsupported
-  HTML comment;
+- block/editor: block-position raw is a defensive error; recovered content keeps
+  the compatibility model's generic parse-error classification;
+- inline/editor: raw inline content becomes text; recovered content keeps the
+  compatibility model's generic parse-error classification;
+- mdast JSON: raw/recovered nodes preserve exact value, origin, and diagnostics;
+- CommonMark HTML: raw/recovered values are escaped author text unless the
+  distinct valid-raw-HTML policy applies;
+- compatibility canonical formatter: raw and recovered source values are emitted
+  literally; unsupported content uses an unsupported HTML comment;
 - checked canonical formatter: the first preorder raw, recovered, or unsupported
   node is rejected as a structured `OpaqueNode` failure before candidate search;
-- preserve/local rewrite: preserve mode keeps source slices; local transform splices replacement text into recovered/raw ranges.
+- preserve/local rewrite: preserve mode keeps source slices and local transform
+  splices replacement text into recovered/raw ranges.
 
-Future HTML adapters must define their own `Recovered` / `Raw` behavior explicitly. Recovery-node content should default to escaped/sanitized presentation, comments, or styled error spans. Unescaped passthrough is opt-in only and is distinct from the separate CommonMark raw HTML policy.
+Product-facing adapters must render escaped author source without parser terms,
+diagnostic lists, or recovery labels in the document body. Diagnostics remain
+available as a separate channel. Tooling-oriented adapters may expose recovery
+metadata when their interface explicitly promises it.
 
 ## Rationale
 
-Explicit adapter handling keeps recovery presentation at the target boundary, where each consumer can make an appropriate UX/security choice. It also preserves MarkdownIR's invariant that diagnostics and recovery are explicit nodes, not hidden in missing fields or parser-side conventions.
+Separating source payload from diagnostic explanation keeps document text as the
+presentation authority while retaining full parser evidence. Distinguishing a
+reference candidate from recovery aligns the semantic result with CommonMark and
+removes synthetic diagnostics from ordinary unmatched brackets.
 
-Avoiding a broad HTML renderer keeps this #334 slice focused and does not preempt M5 HTML harness/CommonMark block work. Avoiding new Loom-core diagnostic helpers preserves the language-local diagnostic attachment boundary established by the diagnostic range-filter decision.
+The contract remains adapter-neutral: MarkdownIR does not store HTML, Rabbita
+nodes, editor widgets, or a product-specific presentation tree. Exact source is
+captured only for genuine recovered regions; the complete document remains owned
+by the parser snapshot or source-bound document seam.
 
 ## Consequences
 
-- #334's remaining adapter behavior is specified for current targets and future HTML adapters.
-- Current behavior is locked by example tests without changing parser signatures or public Loom-core APIs.
-- Future adapters must add visible `Recovered` / `Raw` match arms and tests before claiming the M4 adapter exit criterion.
-- Raw CommonMark HTML policy remains separate from malformed recovery-node `Raw` handling.
-- A successful checked canonical result never contains compatibility passthrough;
-  only the explicitly unchecked compatibility surface retains that behavior.
+- `MarkdownIRView::Recovered(value~)` means exact recovered source, not a parser
+  message.
+- Existing consumers that need a reason read diagnostics or retain a generic
+  compatibility error classification.
+- Unresolved reference candidates participate in canonical formatting, rewrite,
+  mdast, HTML, and editor projection as ordinary text.
+- Private candidate state must not appear as `Raw`, `Recovered`, `Unsupported`,
+  or a public MarkdownIR view variant.
+- A successful checked canonical result still never contains opaque
+  compatibility passthrough.
+- Future product adapters require tests proving escaped source presentation and
+  absence of parser-facing recovery chrome.

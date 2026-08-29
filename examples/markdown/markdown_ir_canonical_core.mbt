@@ -183,6 +183,7 @@ fn markdown_ir_canonical_semantic(
     HtmlBlock(value, _) => Some(SemanticHtmlBlock(value))
     ThematicBreak => Some(SemanticThematicBreak)
     Text(value) => Some(SemanticText(value))
+    ReferenceLinkOpener => Some(SemanticText("["))
     Bold(children, _) =>
       match markdown_ir_canonical_semantic_children(children) {
         Some(children) => Some(SemanticBold(children))
@@ -249,6 +250,7 @@ fn markdown_ir_first_canonical_opaque(
     | HtmlBlock(_, _)
     | ThematicBreak
     | Text(_)
+    | ReferenceLinkOpener
     | InlineCode(_, _)
     | Autolink(_, _, _, _, _)
     | InlineHtml(_, _)
@@ -498,6 +500,12 @@ fn markdown_ir_collect_inline_choice_radices(
         radices.push(count)
       }
     }
+    ReferenceLinkOpener => {
+      let count = markdown_ir_canonical_text_choices("[").length()
+      if count > 1 {
+        radices.push(count)
+      }
+    }
     Bold(children, _) => {
       radices.push(2)
       for child in children {
@@ -567,6 +575,7 @@ fn markdown_ir_collect_block_choice_containers(
         )
       }
     Text(_)
+    | ReferenceLinkOpener
     | Bold(_, _)
     | Italic(_, _)
     | InlineCode(_, _)
@@ -912,6 +921,8 @@ fn markdown_ir_canonical_candidate_format_with_list_marker(
     HtmlBlock(value, _) => value
     ThematicBreak => "---"
     Text(value) => reader.choose(markdown_ir_canonical_text_choices(value))
+    ReferenceLinkOpener =>
+      reader.choose(markdown_ir_canonical_text_choices("["))
     SoftBreak(_) => "\n"
     HardBreak(surface, _) => hard_break_surface_text(surface)
     Bold(children, _) => {
@@ -969,14 +980,7 @@ fn markdown_ir_canonical_candidate_format_with_list_marker(
       buf.to_string()
     }
     Raw(value, _) => value
-    Recovered(message, _) if message == RECOVERED_PARSE_ERROR => {
-      let buf = StringBuilder::StringBuilder()
-      buf.write_string("<!-- recovered MarkdownIR: ")
-      buf.write_string(message)
-      buf.write_string(" -->")
-      buf.to_string()
-    }
-    Recovered(message, _) => message
+    Recovered(value, _) => value
   }
 }
 

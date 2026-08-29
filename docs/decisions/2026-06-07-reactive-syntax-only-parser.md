@@ -34,8 +34,10 @@ Add a syntax-only reactive parser path alongside `Parser[Ast]`:
   relex/block-reparse configuration without an AST fold.
 - `SyntaxParser` wraps the same `ImperativeParser` engine with `Ast = Unit` and
   publishes `source`, `syntax_tree`, `diagnostics`, and a `SyntaxSnapshot` view.
-- `SyntaxSnapshot` keeps source, recovered syntax tree, diagnostics, and reuse
-  count coherent, but has no AST field.
+- `SyntaxSnapshot` keeps source identity, source, recovered syntax tree,
+  diagnostics, and reuse count coherent, but has no AST field. The source ID is
+  part of a detached snapshot so downstream one-shot lowering cannot pair its
+  diagnostics with another parser's identity.
 - `new_syntax_parser(source_id, source, syntax_grammar, runtime?)` is the public
   factory. The caller-supplied source ID remains stable across edits and
   whole-source resets of that parser.
@@ -87,7 +89,9 @@ without placeholder ASTs. Downstream semantic projections can attach to
 
 Existing `Parser[Ast]` users keep their current API and backdating behavior. The
 new syntax-only path adds public API surface that must be documented and kept in
-sync with the generated `.mbti` interfaces.
+sync with the generated `.mbti` interfaces. Snapshot consumers may reuse the
+captured source directly instead of rebuilding the complete document from CST
+token text.
 
 The token equality requirement is still explicit. Non-`Eq` token payloads need a
 stable wrapper at the Loom grammar boundary; this is narrower than requiring the

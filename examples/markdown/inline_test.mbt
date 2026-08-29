@@ -95,7 +95,7 @@ test "inline: escaped and unmatched emphasis stays literal" {
   )
   inspect(
     parse(@core.SourceId("markdown-inline-test-document"), "\\*a [oops tail*\n"),
-    content="Document([Paragraph([Text(\"*a \"), Error(\"[\"), Text(\"oops tail*\")])])",
+    content="Document([Paragraph([Text(\"*a \"), Text(\"[\"), Text(\"oops tail*\")])])",
   )
 }
 

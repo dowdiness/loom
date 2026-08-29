@@ -159,7 +159,7 @@ test "local unresolved block: unresolved and bounded labels match direct lowerin
 }
 
 ///|
-test "local unresolved block: malformed block takes exact contextual fallback" {
+test "local unresolved block: unresolved bracket remains locally placeable" {
   let source_id = @core.SourceId("markdown-local-unresolved-contextual")
   let prefix = "# prefix\n\n"
   let recovery = "[unclosed\n"
@@ -182,7 +182,7 @@ test "local unresolved block: malformed block takes exact contextual fallback" {
     lower_local_unresolved_block(source_id, block.cst_node()),
     label => definitions.lookup(label),
   )
-  assert_true(resolved_local_block_requires_context(local_result))
+  assert_false(resolved_local_block_requires_context(local_result))
   let resolved = lower_contextual_resolved_block(
     source_id,
     block,

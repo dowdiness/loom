@@ -141,7 +141,7 @@ pub(all) enum MarkdownIRView {
   HardBreak(surface~ : MarkdownIRHardBreakSurface)
   Unsupported(message~ : String)
   Raw(value~ : String)
-  Recovered(message~ : String)
+  Recovered(value~ : String)
 } derive(Eq, Debug)
 
 ///|
@@ -219,6 +219,7 @@ priv enum MarkdownIRNode {
   HtmlBlock(String, MarkdownIROrigin?)
   ThematicBreak
   Text(String)
+  ReferenceLinkOpener
   Bold(Array[MarkdownIR], MarkdownIROrigin?)
   Italic(Array[MarkdownIR], MarkdownIROrigin?)
   InlineCode(String, MarkdownIROrigin?)
@@ -356,6 +357,11 @@ fn MarkdownIR::html_block(
 ///|
 fn MarkdownIR::text(value : String, origin : MarkdownIROrigin) -> MarkdownIR {
   { node: Text(value), origin }
+}
+
+///|
+fn MarkdownIR::reference_link_opener(origin : MarkdownIROrigin) -> MarkdownIR {
+  { node: ReferenceLinkOpener, origin }
 }
 
 ///|
@@ -544,18 +550,15 @@ fn MarkdownIR::raw(
 ///|
 fn MarkdownIR::recovered(
   source_id : @core.SourceId,
-  message : String,
+  value : String,
   origin : MarkdownIROrigin,
   diagnostics : Array[@core.Diagnostic],
 ) -> MarkdownIR {
   {
     node: Recovered(
-      message,
+      value,
       recovery_diagnostics(
-        source_id,
-        "recovered malformed Markdown: " + message,
-        origin,
-        diagnostics,
+        source_id, "recovered malformed Markdown", origin, diagnostics,
       ),
     ),
     origin,
@@ -637,6 +640,7 @@ pub fn MarkdownIR::view(self : MarkdownIR) -> MarkdownIRView {
     HtmlBlock(value, _) => MarkdownIRView::HtmlBlock(value~)
     ThematicBreak => MarkdownIRView::ThematicBreak
     Text(value) => MarkdownIRView::Text(value~)
+    ReferenceLinkOpener => MarkdownIRView::Text(value="[")
     Bold(_, _) => MarkdownIRView::Bold
     Italic(_, _) => MarkdownIRView::Italic
     InlineCode(value, _) => MarkdownIRView::InlineCode(value~)
@@ -658,7 +662,7 @@ pub fn MarkdownIR::view(self : MarkdownIR) -> MarkdownIRView {
       MarkdownIRView::HardBreak(surface=surface.public_view())
     Unsupported(message) => MarkdownIRView::Unsupported(message~)
     Raw(value, _) => MarkdownIRView::Raw(value~)
-    Recovered(message, _) => MarkdownIRView::Recovered(message~)
+    Recovered(value, _) => MarkdownIRView::Recovered(value~)
   }
 }
 
@@ -676,7 +680,7 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     CodeBlock(_, _, _) => "CodeBlock"
     HtmlBlock(_, _) => "HtmlBlock"
     ThematicBreak => "ThematicBreak"
-    Text(_) => "Text"
+    Text(_) | ReferenceLinkOpener => "Text"
     Bold(_, _) => "Bold"
     Italic(_, _) => "Italic"
     InlineCode(_, _) => "InlineCode"
@@ -711,6 +715,7 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
     | HtmlBlock(_, _)
     | ThematicBreak
     | Text(_)
+    | ReferenceLinkOpener
     | InlineCode(_, _)
     | Autolink(_, _, _, _, _)
     | InlineHtml(_, _)
@@ -737,6 +742,7 @@ pub fn MarkdownIR::text_value(self : MarkdownIR) -> String? {
     | Autolink(_, value, _, _, _)
     | InlineHtml(value, _)
     | Raw(value, _) => Some(value)
+    ReferenceLinkOpener => Some("[")
     _ => None
   }
 }
@@ -807,6 +813,7 @@ fn markdown_ir_plain_text(children : Array[MarkdownIR]) -> String {
       | InlineCode(value, _)
       | InlineHtml(value, _)
       | Raw(value, _) => builder.write_string(value)
+      ReferenceLinkOpener => builder.write_char('[')
       Autolink(_, display, _, _, _) => builder.write_string(display)
       SoftBreak(_) | HardBreak(_, _) => builder.write_char('\n')
       Bold(children, _)
@@ -816,8 +823,8 @@ fn markdown_ir_plain_text(children : Array[MarkdownIR]) -> String {
         for child in children {
           append(child)
         }
-      Recovered(message, _) | Unsupported(message) =>
-        builder.write_string(message)
+      Recovered(value, _) => builder.write_string(value)
+      Unsupported(message) => builder.write_string(message)
       Document(children)
       | Heading(_, children, _)
       | Paragraph(children, _)

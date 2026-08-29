@@ -35,7 +35,7 @@ pub fn[Ast]      Parser::ast(Self)                                       -> @inc
 pub fn[Ast]      Parser::diagnostics(Self)                               -> @incr.Derived[@core.DiagnosticSet]
 pub fn[Ast]      Parser::runtime(Self)                                   -> @incr.Runtime
 
-pub struct SyntaxSnapshot { source; syntax; diagnostics; reuse_count }
+pub struct SyntaxSnapshot { source_id; source; syntax; diagnostics; reuse_count }
 pub struct SyntaxParser { /* private */ }
 pub fn SyntaxParser::new(@core.SourceId, String, @incremental.ImperativeLanguage[Unit], runtime?) -> Self
 pub fn SyntaxParser::set_source(Self, String)                        -> Unit
@@ -81,10 +81,11 @@ For CST/diagnostics-only integrations, define `SyntaxGrammar[T, K]` and call
 whose AST is not `Eq`, use `grammar.to_syntax_grammar()` to reuse its lexer/spec
 without running the AST fold.
 
-The source ID is fixed for the parser's lifetime and remains stable across
-`apply_edit` and `set_source`. It names source text within the caller's
-document/provider snapshot; it is not the diagnostic producer identity and is
-never inferred from source contents or diagnostic presentation.
+The source ID is fixed for the parser's lifetime, is captured in every
+`SyntaxSnapshot`, and remains stable across `apply_edit` and `set_source`. It
+names source text within the caller's document/provider snapshot; it is not the
+diagnostic producer identity and is never inferred from source contents or
+diagnostic presentation.
 
 ## Error Handling
 

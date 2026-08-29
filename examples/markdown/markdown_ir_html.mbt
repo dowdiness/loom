@@ -380,6 +380,7 @@ fn markdown_ir_to_commonmark_html_with_list_context(
       render_valid_raw_html(value, ir.origin, RawHtmlBlock, raw_html_policy)
     ThematicBreak => Ok("<hr />\n")
     Text(value) | Raw(value, _) => Ok(html_escape_text(value))
+    ReferenceLinkOpener => Ok("[")
     SoftBreak(_) => Ok("\n")
     HardBreak(_, _) => Ok("<br />\n")
     Bold(children, _) =>
@@ -446,9 +447,7 @@ fn markdown_ir_to_commonmark_html_with_list_context(
       render_valid_raw_html(value, ir.origin, RawHtmlInline, raw_html_policy)
     Unsupported(message) =>
       Ok("<!-- unsupported MarkdownIR: " + html_escape_text(message) + " -->")
-    Recovered(message, _) if message == RECOVERED_PARSE_ERROR =>
-      Ok("<!-- recovered MarkdownIR: " + html_escape_text(message) + " -->")
-    Recovered(message, _) => Ok(html_escape_text(message))
+    Recovered(value, _) => Ok(html_escape_text(value))
   }
 }
 
@@ -457,9 +456,8 @@ fn markdown_ir_to_commonmark_html_with_list_context(
 ///
 /// This target adapter is intentionally separate from mdast export: mdast
 /// parity checks tree shape, while CommonMark HTML parity checks rendered
-/// behavior and escaping. Unsupported IR and parse-error recovery placeholders
-/// render as escaped comments; recovered nodes that carry literal source text
-/// render as plain escaped text.
+/// behavior and escaping. Unsupported IR renders as an escaped comment;
+/// recovered nodes carry exact source and render as plain escaped text.
 pub fn experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
   ir : MarkdownIR,
   raw_html_policy : RawHtmlPolicy,

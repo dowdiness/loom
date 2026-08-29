@@ -84,7 +84,7 @@ For smaller references, see [`examples/json`](../examples/json/),
 // Consumers
 @loom.Parser              // reactive parser handle with an AST view
 @loom.SyntaxParser        // reactive CST/diagnostics handle, no AST required
-@loom.SyntaxSnapshot      // source/syntax/diagnostics/reuse snapshot
+@loom.SyntaxSnapshot      // source-id/source/syntax/diagnostics/reuse snapshot
 @loom.ImperativeParser    // lower-level edit-driven engine
 @loom.new_parser          // build Parser[Ast] from a Grammar
 @loom.new_syntax_parser   // build SyntaxParser from a SyntaxGrammar

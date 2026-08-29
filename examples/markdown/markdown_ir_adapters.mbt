@@ -2,6 +2,7 @@
 fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
   match ir.node {
     Text(value) => Inline::Text(value)
+    ReferenceLinkOpener => Inline::Text("[")
     Bold(children, _) => Inline::Bold(ir_children_to_inlines(children))
     Italic(children, _) => Inline::Italic(ir_children_to_inlines(children))
     InlineCode(value, _) => Inline::InlineCode(value)
@@ -15,7 +16,7 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
     SoftBreak(_) | HardBreak(_, _) => Inline::Text("\n")
     Unsupported(message) => Inline::Error(message)
     Raw(value, _) => Inline::Text(value)
-    Recovered(message, _) => Inline::Error(message)
+    Recovered(_, _) => Inline::Error(RECOVERED_PARSE_ERROR)
     Document(_) => Inline::Error("expected inline MarkdownIR, got document")
     Heading(_, _, _) => Inline::Error("expected inline MarkdownIR, got heading")
     Paragraph(_, _) =>
@@ -101,45 +102,12 @@ fn markdown_ir_legacy_destination(
 ///|
 fn markdown_ir_legacy_text(
   value : String,
-  origin : MarkdownIROrigin,
-  source : String,
-  next : MarkdownIR?,
-  after_next : MarkdownIR?,
+  _origin : MarkdownIROrigin,
+  _source : String,
+  _next : MarkdownIR?,
+  _after_next : MarkdownIR?,
 ) -> Inline {
-  let next_is_text_bracket = match next {
-    Some(next) =>
-      match next.node {
-        Text(text) =>
-          text == "[" &&
-          source[next.origin().start():next.origin().end()] == "["
-        _ => false
-      }
-    None => false
-  }
-  let next_is_inline_link = match next {
-    Some(next) =>
-      match next.node {
-        Link(_, _, _, _) | Image(_, _, _, _) | Autolink(_, _, _, _, _) => true
-        _ => false
-      }
-    None => false
-  }
-  let after_next_is_inline_link = match after_next {
-    Some(after_next) =>
-      match after_next.node {
-        Link(_, _, _, _) | Image(_, _, _, _) | Autolink(_, _, _, _, _) => true
-        _ => false
-      }
-    None => false
-  }
-  if value == "[" &&
-    source[origin.start():origin.end()] == "[" &&
-    !next_is_inline_link &&
-    !(next_is_text_bracket && after_next_is_inline_link) {
-    Inline::Error(value)
-  } else {
-    Inline::Text(value)
-  }
+  Inline::Text(value)
 }
 
 ///|
@@ -736,7 +704,8 @@ fn markdown_ir_to_block_with_source_unchecked(
           ])
         None => Block::Error("thematic break")
       }
-    Text(_) => Block::Error("expected block MarkdownIR, got text")
+    Text(_) | ReferenceLinkOpener =>
+      Block::Error("expected block MarkdownIR, got text")
     Bold(_, _) => Block::Error("expected block MarkdownIR, got bold")
     Italic(_, _) => Block::Error("expected block MarkdownIR, got italic")
     InlineCode(_, _) =>
@@ -752,7 +721,7 @@ fn markdown_ir_to_block_with_source_unchecked(
     Unsupported(message) => Block::Error(message)
     Raw(value, _) =>
       Block::Error("expected block MarkdownIR, got raw: " + value)
-    Recovered(message, _) => Block::Error(message)
+    Recovered(_, _) => Block::Error(RECOVERED_PARSE_ERROR)
   }
 }
 
@@ -1021,6 +990,7 @@ fn markdown_ir_to_mdast_json(
     HtmlBlock(value, _) => { "type": "html", "value": value }
     ThematicBreak => { "type": "thematicBreak" }
     Text(value) => { "type": "text", "value": value }
+    ReferenceLinkOpener => { "type": "text", "value": "[" }
     SoftBreak(_) => { "type": "text", "value": "\n" }
     HardBreak(_, _) => { "type": "break" }
     Bold(children, _) =>
@@ -1081,10 +1051,10 @@ fn markdown_ir_to_mdast_json(
         "origin": origin_json(ir.origin()),
         "diagnostics": diagnostics_json(diagnostics),
       }
-    Recovered(message, diagnostics) =>
+    Recovered(value, diagnostics) =>
       {
         "type": "mdastRecovered",
-        "value": message,
+        "value": value,
         "origin": origin_json(ir.origin()),
         "diagnostics": diagnostics_json(diagnostics),
       }

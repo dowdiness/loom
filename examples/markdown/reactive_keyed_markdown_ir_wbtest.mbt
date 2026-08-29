@@ -14,11 +14,8 @@ fn reactive_keyed_markdown_test_parser(
 fn direct_markdown_ir_from_syntax_parser(
   parser : @loom.SyntaxParser,
 ) -> MarkdownIR {
-  let snapshot = parser.snapshot().read_or_abort()
-  experimental_markdown_ir_from_syntax_with_diagnostics(
-    parser.source_id(),
-    snapshot.syntax,
-    snapshot.diagnostics,
+  experimental_markdown_ir_from_syntax_snapshot(
+    parser.snapshot().read_or_abort(),
   )
 }
 
@@ -205,7 +202,7 @@ test "reactive keyed MarkdownIR: prepend reuses existing local plans" {
 }
 
 ///|
-test "reactive keyed MarkdownIR: malformed edit takes live contextual fallback" {
+test "reactive keyed MarkdownIR: unresolved bracket stays on the local path" {
   let source_id = @core.SourceId("markdown-reactive-keyed-contextual")
   let source = "# prefix\n\n[unclosed\n"
   let updated = "# prefix\n\n[changed!\n"
@@ -219,13 +216,13 @@ test "reactive keyed MarkdownIR: malformed edit takes live contextual fallback" 
     label_projection: 0,
     block_resolution: 1,
     placement: 2,
-    contextual_fallback: 1,
+    contextual_fallback: 0,
   })
   shell.dispose()
 }
 
 ///|
-test "reactive keyed MarkdownIR: contextual recovery remains available after gc" {
+test "reactive keyed MarkdownIR: unresolved bracket stays local after gc" {
   let source_id = @core.SourceId("markdown-reactive-keyed-contextual-after-gc")
   let source = "ok\n"
   let updated = "[unclosed\n"
@@ -238,7 +235,7 @@ test "reactive keyed MarkdownIR: contextual recovery remains available after gc"
     updated,
   )
   assert_eq(shell.read(), direct_markdown_ir_from_syntax_parser(parser))
-  assert_eq(shell.counter_snapshot().contextual_fallback, 1)
+  assert_eq(shell.counter_snapshot().contextual_fallback, 0)
   shell.dispose()
 }
 

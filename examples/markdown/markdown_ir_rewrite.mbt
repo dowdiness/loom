@@ -427,6 +427,7 @@ fn local_transform_render(
       }
       "<" + rendered + ">"
     }
+    ReferenceLinkOpener => "["
     Unsupported(_message) | Recovered(_message, _) =>
       // The caller only reaches this branch when target_origin is inside the
       // unsupported/recovered node's origin. Emit the replacement text rather

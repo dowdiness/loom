@@ -2,7 +2,7 @@
 fn inline_text_from_token_kind(kind : SyntaxKind, text : String) -> String? {
   match kind {
     TextToken => Some(strip_backslash_escapes(text))
-    ErrorToken | ErrorNode => Some(text)
+    ErrorToken | ErrorNode | ReferenceLinkOpenerNode => Some(text)
     StarToken => Some("*")
     StarStarToken => Some("**")
     BacktickToken => Some(text)
@@ -511,6 +511,7 @@ fn convert_inline_node(
       }
       inlines.push(Inline::Link(display, url_buf.to_string()))
     }
+    ReferenceLinkOpenerNode => inlines.push(Inline::Text(child.text()))
     ErrorNode =>
       // Error recovery node — preserve recovery as an explicit semantic error.
       inlines.push(Inline::Error(child.text()))

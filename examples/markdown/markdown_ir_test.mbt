@@ -35,38 +35,6 @@ fn assert_markdown_ir_block_matches_direct_parse(source : String) -> Unit raise 
 }
 
 ///|
-fn assert_recovered_markdown_ir_block_matches_direct_parse(
-  source : String,
-  recovered_text : String,
-) -> Unit raise {
-  let ir = markdown_ir_from_source(
-    @core.SourceId("markdown-ir-test-document"),
-    source,
-  )
-  inspect(
-    experimental_markdown_ir_to_block(ir),
-    content=@debug.to_string(
-      parse(@core.SourceId("markdown-ir-test-document"), source),
-    ),
-  )
-  match ir.children() {
-    [paragraph] =>
-      match paragraph.children().search_by(child => child.is_recovered()) {
-        Some(index) => {
-          let recovered = paragraph.children()[index]
-          inspect(recovered.kind_tag(), content="Recovered")
-          inspect(
-            origin_source(source, recovered.origin()),
-            content=recovered_text,
-          )
-        }
-        None => inspect("missing", content="recovered child")
-      }
-    _ => inspect("unexpected", content="one paragraph")
-  }
-}
-
-///|
 fn assert_malformed_link_raws_preserved(
   source : String,
   expected_raw_text : String,
@@ -74,12 +42,6 @@ fn assert_malformed_link_raws_preserved(
   let ir = markdown_ir_from_source(
     @core.SourceId("markdown-ir-test-document"),
     source,
-  )
-  inspect(
-    experimental_markdown_ir_to_block(ir),
-    content=@debug.to_string(
-      parse(@core.SourceId("markdown-ir-test-document"), source),
-    ),
   )
   match ir.children() {
     [paragraph] => {
@@ -568,7 +530,7 @@ test "experimental MarkdownIR: mdast JSON includes recovery metadata" {
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(
-      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"mdastRecovered","value":"[","origin":{"start":0,"end":1},"diagnostics":["recovered malformed Markdown: [ [0,1]"]},{"type":"text","value":"text"},{"type":"mdastRaw","value":"]","origin":{"start":5,"end":6},"diagnostics":["raw recovered Markdown [5,6]"]},{"type":"mdastRaw","value":"(","origin":{"start":6,"end":7},"diagnostics":["raw recovered Markdown [6,7]"]}]}]}
+      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"text","value":"[text"},{"type":"mdastRaw","value":"]","origin":{"start":5,"end":6},"diagnostics":["raw recovered Markdown [5,6]"]},{"type":"mdastRaw","value":"(","origin":{"start":6,"end":7},"diagnostics":["raw recovered Markdown [6,7]"]}]}]}
     ),
   )
 }
@@ -1034,9 +996,15 @@ test "experimental MarkdownIR: Block adapter matches direct parse for inline for
 }
 
 ///|
-test "experimental MarkdownIR: genuine inline ErrorNodes stay explicit" {
-  assert_recovered_markdown_ir_block_matches_direct_parse("[unclosed\n", "[")
-  assert_recovered_markdown_ir_block_matches_direct_parse("[text\n", "[")
+test "experimental MarkdownIR: unresolved link openers stay literal" {
+  for source in ["[unclosed\n", "[text\n"] {
+    let ir = markdown_ir_from_source(
+      @core.SourceId("markdown-ir-test-document"),
+      source,
+    )
+    assert_false(ir.children()[0].children().any(child => child.is_recovered()))
+    assert_markdown_ir_block_matches_direct_parse(source)
+  }
 }
 
 ///|
@@ -1046,62 +1014,6 @@ test "experimental MarkdownIR: lex-valid malformed heading/list recovery matches
   ]
   for source in sources {
     assert_markdown_ir_block_matches_direct_parse(source)
-  }
-}
-
-///|
-test "experimental MarkdownIR: recovered nodes carry parser recovery diagnostics" {
-  let source = "[unclosed\n"
-  let ir = markdown_ir_from_source(
-    @core.SourceId("markdown-ir-test-document"),
-    source,
-  )
-  match ir.children() {
-    [paragraph] =>
-      match paragraph.children().search_by(child => child.is_recovered()) {
-        Some(index) => {
-          let recovered = paragraph.children()[index]
-          inspect(recovered.diagnostics().length(), content="1")
-          inspect(
-            recovered.diagnostics()[0].format(),
-            content="recovered malformed Markdown: [ [0,1]",
-          )
-        }
-        None => inspect("missing", content="recovered child")
-      }
-    _ => inspect("unexpected", content="one paragraph")
-  }
-}
-
-///|
-test "experimental MarkdownIR: incoming diagnostics are attached to recovered nodes" {
-  let source = "[unclosed\n"
-  let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
-    _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
-  }
-  let diagnostic = @core.lexer_diagnostic_at(
-    @core.SourceId("markdown-ir-test-document"),
-    "synthetic recovery diagnostic",
-    0,
-    1,
-    "synthetic-recovery",
-  )
-  let ir = experimental_markdown_ir_from_cst_with_diagnostics(
-    @core.SourceId("markdown-ir-test-document"),
-    cst,
-    @core.DiagnosticSet::single(diagnostic),
-  )
-  match ir.children() {
-    [paragraph] =>
-      match paragraph.children().search_by(child => child.is_recovered()) {
-        Some(index) =>
-          inspect(
-            paragraph.children()[index].diagnostics()[0].format(),
-            content="synthetic recovery diagnostic [0,1]",
-          )
-        None => inspect("missing", content="recovered child")
-      }
-    _ => inspect("unexpected", content="one paragraph")
   }
 }
 
@@ -1135,67 +1047,6 @@ test "experimental MarkdownIR: diagnostics do not reclassify literal emphasis" {
           inspect(text.diagnostics().length(), content="0")
         }
         _ => inspect("unexpected", content="one literal text child")
-      }
-    _ => inspect("unexpected", content="one paragraph")
-  }
-}
-
-///|
-test "experimental MarkdownIR: zero-width incoming diagnostics attach only with positive overlap" {
-  let source = "[unclosed\n"
-  let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
-    _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
-  }
-  let diagnostics = @core.DiagnosticSet::empty()
-  diagnostics.push(
-    @core.lexer_diagnostic_at(
-      @core.SourceId("markdown-ir-test-document"),
-      "zero-width at recovered start",
-      0,
-      0,
-      "synthetic-zero",
-    ),
-  )
-  diagnostics.push(
-    @core.lexer_diagnostic_at(
-      @core.SourceId("markdown-ir-test-document"),
-      "positive recovered overlap",
-      0,
-      1,
-      "synthetic-positive",
-    ),
-  )
-  diagnostics.push(
-    @core.lexer_diagnostic_at(
-      @core.SourceId("markdown-ir-test-document"),
-      "zero-width at recovered end",
-      1,
-      1,
-      "synthetic-zero",
-    ),
-  )
-  let ir = experimental_markdown_ir_from_cst_with_diagnostics(
-    @core.SourceId("markdown-ir-test-document"),
-    cst,
-    diagnostics,
-  )
-  match ir.children() {
-    [paragraph] =>
-      match paragraph.children().search_by(child => child.is_recovered()) {
-        Some(index) => {
-          let recovered = paragraph.children()[index]
-          inspect(origin_source(source, recovered.origin()), content="[")
-          inspect(
-            recovered
-            .diagnostics()
-            .iter()
-            .map(diagnostic => diagnostic.format())
-            .collect()
-            .join("|"),
-            content="positive recovered overlap [0,1]",
-          )
-        }
-        None => inspect("missing", content="recovered child")
       }
     _ => inspect("unexpected", content="one paragraph")
   }
@@ -1243,7 +1094,7 @@ test "experimental MarkdownIR: incoming diagnostics are attached to raw nodes" {
 }
 
 ///|
-test "experimental MarkdownIR: unclosed link parens preserve orphan tokens as raw" {
+test "experimental MarkdownIR: unclosed link parens keep opener text and orphan raw tokens" {
   let source = "[text](\n"
   let ir = markdown_ir_from_source(
     @core.SourceId("markdown-ir-test-document"),
@@ -1259,8 +1110,12 @@ test "experimental MarkdownIR: unclosed link parens preserve orphan tokens as ra
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
-        [recovered, text, raw_bracket, raw_paren] => {
-          inspect(recovered.kind_tag(), content="Recovered")
+        [opener, text, raw_bracket, raw_paren] => {
+          inspect(opener.kind_tag(), content="Text")
+          match opener.text_value() {
+            Some(value) => inspect(value, content="[")
+            None => inspect("missing", content="opener text value")
+          }
           match text.text_value() {
             Some(value) => inspect(value, content="text")
             None => inspect("missing", content="text value")
@@ -1272,7 +1127,7 @@ test "experimental MarkdownIR: unclosed link parens preserve orphan tokens as ra
           inspect(origin_source(source, raw_paren.origin()), content="(")
           inspect(raw_paren.diagnostics().length(), content="1")
         }
-        _ => inspect("unexpected", content="recovered text raw raw")
+        _ => inspect("unexpected", content="opener text raw raw")
       }
     _ => inspect("unexpected", content="one paragraph")
   }
@@ -1292,59 +1147,7 @@ test "experimental MarkdownIR: mdastRaw export carries injected diagnostics" {
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(
-      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"mdastRecovered","value":"[","origin":{"start":0,"end":1},"diagnostics":["recovered malformed Markdown: [ [0,1]"]},{"type":"text","value":"text"},{"type":"mdastRaw","value":"]","origin":{"start":5,"end":6},"diagnostics":["synthetic raw bracket diagnostic [5,6]"]},{"type":"mdastRaw","value":"(","origin":{"start":6,"end":7},"diagnostics":["synthetic raw paren diagnostic [6,7]"]}]}]}
-    ),
-  )
-}
-
-///|
-test "experimental MarkdownIR: mdastRecovered export carries injected diagnostics" {
-  let source = "[text](\n"
-  let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
-    _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
-  }
-  let diagnostic = @core.lexer_diagnostic_at(
-    @core.SourceId("markdown-ir-test-document"),
-    "synthetic recovered diagnostic",
-    0,
-    1,
-    "synthetic-recovery",
-  )
-  let ir = experimental_markdown_ir_from_cst_with_diagnostics(
-    @core.SourceId("markdown-ir-test-document"),
-    cst,
-    @core.DiagnosticSet::single(diagnostic),
-  )
-  inspect(
-    experimental_markdown_ir_to_mdast_json(ir).stringify(),
-    content=(
-      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"mdastRecovered","value":"[","origin":{"start":0,"end":1},"diagnostics":["synthetic recovered diagnostic [0,1]"]},{"type":"text","value":"text"},{"type":"mdastRaw","value":"]","origin":{"start":5,"end":6},"diagnostics":["raw recovered Markdown [5,6]"]},{"type":"mdastRaw","value":"(","origin":{"start":6,"end":7},"diagnostics":["raw recovered Markdown [6,7]"]}]}]}
-    ),
-  )
-}
-
-///|
-test "experimental MarkdownIR: direct syntax entry point attaches injected diagnostics to mdast recovered node" {
-  let source = "[text](\n"
-  let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
-    _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
-  }
-  let diagnostic = @core.lexer_diagnostic_at(
-    @core.SourceId("markdown-ir-test-document"),
-    "direct syntax recovered diagnostic",
-    0,
-    1,
-    "synthetic-recovery",
-  )
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
-    @core.SourceId("markdown-ir-test-document"),
-    @seam.SyntaxNode::from_cst(cst),
-    @core.DiagnosticSet::single(diagnostic),
-  )
-  inspect(
-    experimental_markdown_ir_to_mdast_json(ir).stringify(),
-    content=(
-      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"mdastRecovered","value":"[","origin":{"start":0,"end":1},"diagnostics":["direct syntax recovered diagnostic [0,1]"]},{"type":"text","value":"text"},{"type":"mdastRaw","value":"]","origin":{"start":5,"end":6},"diagnostics":["raw recovered Markdown [5,6]"]},{"type":"mdastRaw","value":"(","origin":{"start":6,"end":7},"diagnostics":["raw recovered Markdown [6,7]"]}]}]}
+      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"text","value":"[text"},{"type":"mdastRaw","value":"]","origin":{"start":5,"end":6},"diagnostics":["synthetic raw bracket diagnostic [5,6]"]},{"type":"mdastRaw","value":"(","origin":{"start":6,"end":7},"diagnostics":["synthetic raw paren diagnostic [6,7]"]}]}]}
     ),
   )
 }
@@ -1365,7 +1168,7 @@ test "experimental MarkdownIR: mdast position export converts UTF-16 origins to 
 }
 
 ///|
-test "experimental MarkdownIR: mdast position export covers raw and recovered nodes" {
+test "experimental MarkdownIR: mdast position export covers literal and raw nodes" {
   let source = "[text](\n"
   let ir = markdown_ir_from_source(
     @core.SourceId("markdown-ir-test-document"),
@@ -1374,7 +1177,7 @@ test "experimental MarkdownIR: mdast position export covers raw and recovered no
   inspect(
     experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
     content=(
-      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"mdastRecovered","value":"[","origin":{"start":0,"end":1},"diagnostics":["recovered malformed Markdown: [ [0,1]"],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":1,"column":2,"offset":1}}},{"type":"text","value":"text","position":{"start":{"line":1,"column":2,"offset":1},"end":{"line":1,"column":6,"offset":5}}},{"type":"mdastRaw","value":"]","origin":{"start":5,"end":6},"diagnostics":["raw recovered Markdown [5,6]"],"position":{"start":{"line":1,"column":6,"offset":5},"end":{"line":1,"column":7,"offset":6}}},{"type":"mdastRaw","value":"(","origin":{"start":6,"end":7},"diagnostics":["raw recovered Markdown [6,7]"],"position":{"start":{"line":1,"column":7,"offset":6},"end":{"line":1,"column":8,"offset":7}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":1,"column":8,"offset":7}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":2,"column":1,"offset":8}}}
+      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"text","value":"[","position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":1,"column":2,"offset":1}}},{"type":"text","value":"text","position":{"start":{"line":1,"column":2,"offset":1},"end":{"line":1,"column":6,"offset":5}}},{"type":"mdastRaw","value":"]","origin":{"start":5,"end":6},"diagnostics":["raw recovered Markdown [5,6]"],"position":{"start":{"line":1,"column":6,"offset":5},"end":{"line":1,"column":7,"offset":6}}},{"type":"mdastRaw","value":"(","origin":{"start":6,"end":7},"diagnostics":["raw recovered Markdown [6,7]"],"position":{"start":{"line":1,"column":7,"offset":6},"end":{"line":1,"column":8,"offset":7}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":1,"column":8,"offset":7}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":2,"column":1,"offset":8}}}
     ),
   )
 }
@@ -1504,7 +1307,7 @@ test "experimental MarkdownIR: adjacent malformed links preserve raw delimiters"
   assert_malformed_link_raws_preserved("[text](url\n", "](")
   assert_malformed_link_raws_preserved("[text](\nnext\n", "](")
   assert_malformed_link_raws_preserved("[*x](url\n", "](")
-  assert_malformed_link_raws_preserved("\\[prefix [text](\n", "](")
+  assert_malformed_link_raws_preserved("\\[prefix [text](\n", "")
 }
 
 ///|
@@ -2496,7 +2299,7 @@ test "experimental MarkdownIR: checked formatter rejects opaque compatibility in
       document,
     ) {
     Err(OpaqueNode(kind, Some(_))) =>
-      assert_eq(kind, MarkdownIRCanonicalOpaqueKind::Recovered)
+      assert_eq(kind, MarkdownIRCanonicalOpaqueKind::Raw)
     other =>
       fail("expected checked opaque rejection, got " + @debug.to_string(other))
   }
@@ -2688,7 +2491,7 @@ test "experimental MarkdownIR: Inline adapter renders raw children as text" {
   match block {
     Document([Paragraph(inlines)]) =>
       match inlines {
-        [Error("["), Text("text"), Text("]"), Text("("), Text("url")] => ()
+        [Text("["), Text("text"), Text("]"), Text("("), Text("url")] => ()
         _ => inspect(block, content="raw delimiters lowered as inline text")
       }
     _ => inspect(block, content="one paragraph document")
@@ -2716,7 +2519,7 @@ test "experimental MarkdownIR: canonical formatter passes raw text through" {
 }
 
 ///|
-test "experimental MarkdownIR: preserve rewrite keeps recovered source slice" {
+test "experimental MarkdownIR: preserve rewrite keeps unresolved bracket text" {
   let source = "[unclosed\n"
   let ir = markdown_ir_from_source(
     @core.SourceId("markdown-ir-test-document"),
@@ -2726,16 +2529,19 @@ test "experimental MarkdownIR: preserve rewrite keeps recovered source slice" {
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
-        [recovered, _] if recovered.is_recovered() =>
-          inspect(origin_source(source, recovered.origin()), content="[")
-        _ => inspect("unexpected", content="recovered opener plus text")
+        [opener, text] => {
+          assert_false(opener.is_recovered())
+          inspect(origin_source(source, opener.origin()), content="[")
+          inspect(origin_source(source, text.origin()), content="unclosed")
+        }
+        _ => inspect("unexpected", content="literal opener plus text")
       }
     _ => inspect("unexpected", content="one paragraph")
   }
 }
 
 ///|
-test "experimental MarkdownIR: local transform replaces recovered text" {
+test "experimental MarkdownIR: local transform replaces unresolved bracket text" {
   let source = "[unclosed\n"
   let ir = markdown_ir_from_source(
     @core.SourceId("markdown-ir-test-document"),
@@ -2744,16 +2550,16 @@ test "experimental MarkdownIR: local transform replaces recovered text" {
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
-        [recovered, _] if recovered.is_recovered() => {
+        [opener, _] => {
           let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
             ir,
             source,
-            target_origin=recovered.origin(),
+            target_origin=opener.origin(),
             replacement_text="world",
           )
           inspect(local_rewrite, content="worldunclosed\n")
         }
-        _ => inspect("unexpected", content="recovered opener plus text")
+        _ => inspect("unexpected", content="literal opener plus text")
       }
     _ => inspect("unexpected", content="one paragraph")
   }
@@ -2866,7 +2672,7 @@ test "experimental MarkdownIR: local transform replaces raw delimiter in malform
 }
 
 ///|
-test "experimental MarkdownIR: local transform replaces recovered opener in malformed link" {
+test "experimental MarkdownIR: local transform replaces literal prefix in malformed link" {
   let source = "[text](\n"
   let ir = markdown_ir_from_source(
     @core.SourceId("markdown-ir-test-document"),
@@ -2875,11 +2681,11 @@ test "experimental MarkdownIR: local transform replaces recovered opener in malf
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
-        [recovered, _, _, _] if recovered.is_recovered() => {
+        [opener, _, _, _] if !opener.is_recovered() => {
           let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
             ir,
             source,
-            target_origin=recovered.origin(),
+            target_origin=opener.origin(),
             replacement_text="R",
           )
           inspect(local_rewrite, content="Rtext](\n")

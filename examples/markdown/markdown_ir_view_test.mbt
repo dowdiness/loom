@@ -124,7 +124,7 @@ fn markdown_ir_view_test_collect_external_tags(
       }
     Unsupported(message~) => "Unsupported:" + message
     Raw(value~) => "Raw:" + value
-    Recovered(message~) => "Recovered:" + message
+    Recovered(value~) => "Recovered:" + value
   }
   tags.push(tag)
   for child in node.children() {
@@ -275,11 +275,14 @@ test "MarkdownIR public view exposes link and image reference surfaces" {
 }
 
 ///|
-test "MarkdownIR public view keeps recovery and returned arrays detached" {
-  let document = markdown_ir_view_test_document("[unclosed\n")
+test "MarkdownIR public view keeps genuine recovery and returned arrays detached" {
+  let document = genuine_recovery_source_ir(
+    @core.SourceId("markdown-ir-public-view-recovery"),
+    "unexpected",
+  )
   let recovered = markdown_ir_view_test_first_recovered(document).unwrap()
   match recovered.view() {
-    Recovered(message~) => assert_true(message.length() > 0)
+    Recovered(value~) => assert_true(value.length() > 0)
     _ => fail("expected recovered MarkdownIR")
   }
   let diagnostic_count = recovered.diagnostics().length()

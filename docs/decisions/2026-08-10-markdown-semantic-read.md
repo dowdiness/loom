@@ -40,7 +40,9 @@ handle for document-aware consumers.
 a diagnostics view that correspond to the same parser revision.
 - `MarkdownDocument::semantic_read()` is the explicit semantic-read entry
 point. The document remains lazy with respect to MarkdownIR; creating the
-handle captures the snapshot and eagerly lowers MarkdownIR exactly once.
+handle captures the snapshot and eagerly lowers MarkdownIR exactly once. The
+lowering reuses the document-owned source rather than reconstructing it from the
+CST.
 - `MarkdownSemanticRead::root() -> MarkdownSemanticReadNode` creates the
 read-bound semantic tree view. Its nodes expose only read-only navigation and
 inspection (`children()`, `view()`, and observational `origin()`).
@@ -95,7 +97,9 @@ consumers from accidentally pairing semantic data with unrelated source text.
 - The public seam gains a real source-bound ownership model and a compositional
   read handle instead of another shallow adapter.
 - Creating a handle pays the MarkdownIR lowering cost even when no target is
-  subsequently used; the source-bound benchmark suite measures this path.
+  subsequently used; the source-bound benchmark suite measures this path. It
+  does not pay an additional complete-source reconstruction because the document
+  already owns the coherent source.
 - A retained handle keeps its source/syntax/diagnostic snapshot and MarkdownIR
   alive for the value lifetime; callers release it through ordinary MoonBit
   ownership when the read is no longer needed.

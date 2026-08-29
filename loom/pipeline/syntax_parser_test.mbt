@@ -42,8 +42,14 @@ test "SyntaxParser::new publishes initial source / syntax / diagnostics" {
   let parser = SyntaxParser::new(source_id, "hello", syntax_test_language())
   inspect(parser.source().read_or_abort(), content="hello")
   debug_inspect(parser.diagnostics().read_or_abort().format(), content="[]")
-  inspect(parser.snapshot().read_or_abort().source, content="hello")
-  inspect(parser.snapshot().read_or_abort().reuse_count, content="0")
+  let snapshot = parser.snapshot().read_or_abort()
+  inspect(snapshot.source_id.value(), content="pipeline-syntax-initial-source")
+  inspect(snapshot.source, content="hello")
+  inspect(snapshot.reuse_count, content="0")
+  inspect(
+    snapshot.copy().source_id.value(),
+    content="pipeline-syntax-initial-source",
+  )
   ignore(parser.syntax_tree().read_or_abort())
 }
 
@@ -53,6 +59,10 @@ test "SyntaxParser::set_source updates syntax and diagnostics" {
   let parser = SyntaxParser::new(source_id, "ok", syntax_test_language())
   parser.set_source("@bad")
   inspect(parser.source().read_or_abort(), content="@bad")
+  inspect(
+    parser.snapshot().read_or_abort().source_id.value(),
+    content="pipeline-syntax-update-source",
+  )
   debug_inspect(
     parser.diagnostics().read_or_abort().format(),
     content=(
@@ -70,6 +80,10 @@ test "SyntaxParser::apply_edit advances source and reuse count" {
   let parser = SyntaxParser::new(source_id, "abc", syntax_test_language())
   parser.apply_edit(@core.Edit::new(0, 3, 6), "abcdef")
   inspect(parser.source().read_or_abort(), content="abcdef")
+  inspect(
+    parser.snapshot().read_or_abort().source_id.value(),
+    content="pipeline-syntax-edit-source",
+  )
   inspect(parser.snapshot().read_or_abort().reuse_count, content="1")
 }
 

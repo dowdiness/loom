@@ -111,12 +111,18 @@ test "typed angle nodes use append-only raw kinds" {
   assert_eq(EmailAutolinkNode.to_raw(), @seam.RawKind(43))
   assert_eq(InlineHtmlNode.to_raw(), @seam.RawKind(44))
   assert_eq(@seam.ToRawKind::to_raw(TaskListMarkerNode), @seam.RawKind(45))
+  assert_eq(@seam.ToRawKind::to_raw(ReferenceLinkOpenerNode), @seam.RawKind(46))
   assert_eq(@seam.FromRawKind::from_raw(@seam.RawKind(42)), UriAutolinkNode)
   assert_eq(@seam.FromRawKind::from_raw(@seam.RawKind(43)), EmailAutolinkNode)
   assert_eq(@seam.FromRawKind::from_raw(@seam.RawKind(44)), InlineHtmlNode)
+  assert_eq(
+    @seam.FromRawKind::from_raw(@seam.RawKind(46)),
+    ReferenceLinkOpenerNode,
+  )
   assert_true(!UriAutolinkNode.is_token())
   assert_true(!EmailAutolinkNode.is_token())
   assert_true(!InlineHtmlNode.is_token())
+  assert_true(!ReferenceLinkOpenerNode.is_token())
 }
 
 ///|
