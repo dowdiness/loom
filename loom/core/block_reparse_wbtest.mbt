@@ -126,3 +126,11 @@ test "find_reparseable_ancestor admits only strict block interior" {
     content="true",
   )
 }
+
+///|
+test "detached block text preserves Unicode content" {
+  let source = "prefix paragraph 日本語 😀 suffix"
+  let view = source[7:source.length() - 7]
+  let detached = detach_block_text(view)
+  assert_eq(detached, view.to_owned())
+}

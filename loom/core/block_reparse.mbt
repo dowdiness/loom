@@ -366,6 +366,24 @@ fn merge_diagnostics(
 }
 
 ///|
+#cfg(target="js")
+extern "js" fn detach_owned_block_text(text : String) -> String =
+  #| (text) => text.split("").join("")
+
+///|
+#cfg(not(target="js"))
+fn detach_owned_block_text(text : String) -> String {
+  text
+}
+
+///|
+/// Materialize a block-local string without retaining a larger JS source
+/// backing through `String::unsafe_substring`.
+fn detach_block_text(view : StringView) -> String {
+  detach_owned_block_text(view.to_owned())
+}
+
+///|
 /// Orchestrate block-level incremental reparse.
 ///
 /// 1. Find reparseable ancestor containing the edit
@@ -422,7 +440,7 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(
       !(block_spec.may_reparse_boundary)(ancestor, edit, block_text_view) {
       continue
     }
-    let block_text = block_text_view.to_owned()
+    let block_text = detach_block_text(block_text_view)
     let block_lex = lex(source_id, block_text)
     let block_tokens = block_lex.tokens
     let block_starts = block_lex.starts
