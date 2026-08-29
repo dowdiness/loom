@@ -85,6 +85,28 @@ pub fn experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
 ) -> Result[String, MarkdownIRHtmlRenderError]
 pub fn experimental_markdown_ir_to_commonmark_html(MarkdownIR) -> String
 
+// ── Parser-bound incremental semantic publication ────────────────────────────
+
+pub struct MarkdownSemanticSession
+pub fn MarkdownSemanticSession::MarkdownSemanticSession(
+  @loom.SyntaxParser,
+  extensions? : MarkdownExtensions,
+  first_revision_key? : Int
+) -> MarkdownSemanticSession
+pub fn MarkdownSemanticSession::next_revision_key(
+  MarkdownSemanticSession
+) -> Int
+pub fn MarkdownSemanticSession::publish(
+  MarkdownSemanticSession
+) -> MarkdownSemanticPublication
+pub struct MarkdownSemanticPublication
+pub fn MarkdownSemanticPublication::document(
+  MarkdownSemanticPublication
+) -> MarkdownIR
+pub fn MarkdownSemanticPublication::top_level_revision_keys(
+  MarkdownSemanticPublication
+) -> ArrayView[Int]
+
 // ── Source-bound semantic document ───────────────────────────────────────────
 
 pub struct MarkdownDocument

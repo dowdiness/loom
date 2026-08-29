@@ -279,6 +279,12 @@ pub fn MarkdownSemanticAttachment::dispose(Self) -> Unit
 pub fn MarkdownSemanticAttachment::document(Self) -> MarkdownIR
 pub fn MarkdownSemanticAttachment::source_document(Self) -> MarkdownDocument
 
+pub struct MarkdownSemanticPublication {
+  // private fields
+}
+pub fn MarkdownSemanticPublication::document(Self) -> MarkdownIR
+pub fn MarkdownSemanticPublication::top_level_revision_keys(Self) -> ArrayView[Int]
+
 pub struct MarkdownSemanticRead {
   // private fields
 }
@@ -304,6 +310,13 @@ pub(all) enum MarkdownSemanticSelectionKind {
   Title
   AutolinkDisplay
 } derive(Eq, @debug.Debug)
+
+pub struct MarkdownSemanticSession {
+  // private fields
+}
+pub fn MarkdownSemanticSession::MarkdownSemanticSession(@pipeline.SyntaxParser, extensions? : MarkdownExtensions, first_revision_key? : Int) -> Self
+pub fn MarkdownSemanticSession::next_revision_key(Self) -> Int
+pub fn MarkdownSemanticSession::publish(Self) -> MarkdownSemanticPublication
 
 pub(all) enum OrderedListDelimiter {
   Period
