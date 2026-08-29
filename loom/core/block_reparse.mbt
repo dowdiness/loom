@@ -368,7 +368,7 @@ fn merge_diagnostics(
 ///|
 #cfg(target="js")
 extern "js" fn detach_owned_block_text(text : String) -> String =
-  #| (text) => text.split("").join("")
+  #| (text) => [" ", text].join("").slice(1)
 
 ///|
 #cfg(not(target="js"))

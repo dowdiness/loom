@@ -6,7 +6,7 @@ fn char_at(input : String, pos : Int) -> Char? {
 ///|
 #cfg(target="js")
 extern "js" fn detach_owned_lexeme(text : String) -> String =
-  #| (text) => text.split("").join("")
+  #| (text) => [" ", text].join("").slice(1)
 
 ///|
 #cfg(not(target="js"))
