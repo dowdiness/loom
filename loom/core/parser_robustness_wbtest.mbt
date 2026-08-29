@@ -183,7 +183,11 @@ test "reparse_block offsets new structured diagnostics and drops stale block dia
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
     let (tokens, starts) = test_tokenize_with_starts(source)
-    LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+    lex_result_from_owned_or_abort(
+      tokens,
+      starts,
+      diagnostics=DiagnosticSet::empty(),
+    )
   }
   let result = reparse_block(
     SourceId("parser-context-source"),
@@ -743,7 +747,11 @@ test "reparse_block selector decline widens to parent" {
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
     let (tokens, starts) = test_tokenize_with_starts(source)
-    LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+    lex_result_from_owned_or_abort(
+      tokens,
+      starts,
+      diagnostics=DiagnosticSet::empty(),
+    )
   }
   let result = reparse_block(
     SourceId("parser-context-source"),
@@ -1169,7 +1177,11 @@ test "reparse_block selected failure does not widen" {
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
     let (tokens, starts) = test_tokenize_with_starts(source)
-    LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+    lex_result_from_owned_or_abort(
+      tokens,
+      starts,
+      diagnostics=DiagnosticSet::empty(),
+    )
   }
   let result = reparse_block(
     SourceId("parser-context-source"),
@@ -1226,7 +1238,11 @@ test "reparse_block balance failure does not widen" {
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
     let (tokens, starts) = test_tokenize_with_starts(source)
-    LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+    lex_result_from_owned_or_abort(
+      tokens,
+      starts,
+      diagnostics=DiagnosticSet::empty(),
+    )
   }
   let result = reparse_block(
     SourceId("parser-context-source"),

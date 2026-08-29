@@ -171,5 +171,7 @@ fn lex(source_id : @core.SourceId, input : String) -> @core.LexResult[Token] {
     buffer.get_tokens(),
     buffer.get_starts(),
     diagnostics=buffer.get_diagnostics(),
-  )
+  ) catch {
+    error => abort("graph lexer adapter defect: " + @debug.to_string(error))
+  }
 }
