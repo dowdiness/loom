@@ -124,7 +124,10 @@ test "semantic session definition changes fall back and seed the next edit" {
   assert_semantic_publication_matches_direct(parser, next, extensions)
   let next_keys = next.top_level_revision_keys()
   assert_eq(next_keys[0], fallback_keys[0])
-  assert_true(next_keys[next_keys.length() - 1] != fallback_keys[fallback_keys.length() - 1])
+  assert_true(
+    next_keys[next_keys.length() - 1] !=
+    fallback_keys[fallback_keys.length() - 1],
+  )
 }
 
 ///|

@@ -47,12 +47,7 @@ pub fn MarkdownSemanticSession::MarkdownSemanticSession(
   extensions? : MarkdownExtensions = MarkdownExtensions::none(),
   first_revision_key? : Int = 0,
 ) -> MarkdownSemanticSession {
-  {
-    parser,
-    extensions,
-    previous: None,
-    next_revision_key: first_revision_key,
-  }
+  { parser, extensions, previous: None, next_revision_key: first_revision_key }
 }
 
 ///|
