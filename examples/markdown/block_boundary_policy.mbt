@@ -8,7 +8,7 @@ fn is_block_boundary(token : Token) -> Bool {
     | BlockQuoteMarker
     | ThematicBreak
     | CodeFenceOpen(_, _)
-    | HtmlBlockOpen(_)
+    | HtmlBlockOpen(_, _)
     | BlankLine
     | EOF => true
     _ => false
@@ -16,11 +16,24 @@ fn is_block_boundary(token : Token) -> Bool {
 }
 
 ///|
+/// Type 7 HTML block opens do not interrupt paragraphs (CommonMark).
+/// Types 1–6 still do. `is_block_boundary` keeps all `HtmlBlockOpen` as
+/// document structure markers.
+fn html_block_open_interrupts_paragraph(token : Token) -> Bool {
+  match token {
+    HtmlBlockOpen(_, kind) => kind.interrupts_paragraph()
+    _ => false
+  }
+}
+
+///|
 /// Ordered lists can interrupt paragraphs only when the start number is 1.
 /// Other ordered-list-looking lines remain paragraph text after a soft break.
+/// Type 7 HTML block opens likewise stay in the paragraph.
 fn token_breaks_paragraph_after_newline(token : Token) -> Bool {
   match token {
     OrderedListMarker(marker) => marker.start() == 1
+    HtmlBlockOpen(_, _) => html_block_open_interrupts_paragraph(token)
     _ => is_block_boundary(token)
   }
 }
@@ -43,6 +56,9 @@ fn token_can_start_lazy_list_item_continuation(
     Newline | EOF => false
     OrderedListMarker(_) if allow_ordered_marker =>
       !token_breaks_paragraph_after_newline(token)
+    // Non-interrupting HtmlBlockOpen (Type 7) may continue a lazy list item
+    // paragraph; interrupting kinds remain hard block boundaries.
+    HtmlBlockOpen(_, kind) => !kind.interrupts_paragraph()
     _ => !is_block_boundary(token)
   }
 }

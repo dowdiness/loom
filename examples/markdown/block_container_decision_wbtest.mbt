@@ -112,6 +112,7 @@ fn continuation_action_name(action : BlockContinuationAction) -> String {
     ContinueNoPrefix => "no-prefix"
     ContinueIndentedStructuralPrefix => "indented-structural-prefix"
     ContinueListMarkerPrefix => "list-marker-prefix"
+    ContinueInlineHtmlPrefix => "inline-html-prefix"
     ContinueIndentationPrefix => "indentation-prefix"
     ContinueOrderedMarkerAsText => "ordered-marker-as-text"
     ContinueQuoteMarker(prefix) =>

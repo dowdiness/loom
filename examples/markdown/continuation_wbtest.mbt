@@ -95,6 +95,17 @@ test "continuation decisions: root variants" {
       _ => abort("expected root ListMarkerPrefix for non-1 ordered marker")
     }
   })
+
+  // Type 7 HTML block opens do not interrupt paragraphs.
+  let type7 = continuation_context_at_newline(
+    source_id, "Foo\n<a href=\"bar\">\nbaz\n",
+  )
+  assert_decision_public_state_pure(type7, () => {
+    match decide_root_paragraph_continuation(type7) {
+      Continue(ContinueInlineHtmlPrefix) => ()
+      _ => abort("expected root InlineHtmlPrefix for type 7")
+    }
+  })
 }
 
 ///|
@@ -129,6 +140,15 @@ test "continuation decisions: root Stop" {
     match decide_root_paragraph_continuation(ordered_one) {
       Stop => ()
       _ => abort("expected root Stop for ordered start 1")
+    }
+  })
+
+  // Type 6 HTML block opens interrupt paragraphs.
+  let type6 = continuation_context_at_newline(source_id, "para\n</td>\n")
+  assert_decision_public_state_pure(type6, () => {
+    match decide_root_paragraph_continuation(type6) {
+      Stop => ()
+      _ => abort("expected root Stop for type 6 HtmlBlockOpen")
     }
   })
 }

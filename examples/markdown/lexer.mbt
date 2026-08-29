@@ -85,12 +85,6 @@ fn ordered_list_marker_at(input : String, pos : Int) -> OrderedListMarker? {
 }
 
 ///|
-priv enum HtmlBlockType {
-  Until(String)
-  Raw
-}
-
-///|
 fn find_line_end(input : String, pos : Int) -> Int {
   let mut line_end = pos
   while line_end < input.length() {
@@ -255,7 +249,7 @@ fn line_is_complete_type7_html_tag(line : StringView) -> Bool {
 }
 
 ///|
-fn classify_html_block_opening(line : StringView) -> HtmlBlockType? {
+fn classify_html_block_opening(line : StringView) -> HtmlBlockKind? {
   let trimmed = line.trim_start()
   guard trimmed.has_prefix("<") else { return None }
   if trimmed.has_prefix("<!--") {
@@ -275,13 +269,15 @@ fn classify_html_block_opening(line : StringView) -> HtmlBlockType? {
   }
   let name_start = if trimmed.has_prefix("</") { 2 } else { 1 }
   match extract_html_tag_name(trimmed, name_start) {
-    Some((tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
+    // Type 1 is open tags only (`<pre>`, not `</pre>`).
+    Some((tag, tag_end)) if name_start == 1 &&
+      html_tag_name_follow_is_valid(trimmed, tag_end) &&
       is_type1_tag_name(tag) => Some(Until("</" + tag.to_lower() + ">"))
     Some((tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
-      is_type6_tag_name(tag) => Some(Raw)
+      is_type6_tag_name(tag) => Some(Type6)
     Some((_tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
       (name_start == 1 || name_start == 2) &&
-      line_is_complete_type7_html_tag(trimmed) => Some(Raw)
+      line_is_complete_type7_html_tag(trimmed) => Some(Type7)
     _ => None
   }
 }
@@ -289,10 +285,18 @@ fn classify_html_block_opening(line : StringView) -> HtmlBlockType? {
 ///|
 fn html_block_mode_after_open(
   line : StringView,
-  block_type : HtmlBlockType,
+  kind : HtmlBlockKind,
 ) -> MarkdownLexMode {
-  match block_type {
-    Raw => HtmlBlockRaw
+  match kind {
+    Type6 => HtmlBlockRaw
+    // Type 7 EndLine is essential under ModeLexer: mode commits before the
+    // interrupt decision, so do not enter blank-body mode until/unless the
+    // open starts a block. Emit the open line's trailing break as Newline via
+    // HtmlBlockEndLine — returning to LineStart at the break itself would
+    // mis-lex it as BlankLine. Later lines stay on LineStart so they can
+    // reclassify (e.g. Type 6 `</td>` after a Type 7 `</pre>` that joined a
+    // paragraph).
+    Type7 => HtmlBlockEndLine
     Until(delimiter) =>
       if line.to_lower().contains(delimiter) {
         HtmlBlockEndLine
@@ -307,15 +311,15 @@ fn produce_html_block_open(
   input : String,
   pos : Int,
   line_end : Int,
-  block_type : HtmlBlockType,
+  kind : HtmlBlockKind,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let line : StringView = input[pos:line_end]
   (
     Produced(
-      @core.TokenInfo::new(HtmlBlockOpen(line.to_owned()), line_end - pos),
+      @core.TokenInfo::new(HtmlBlockOpen(line.to_owned(), kind), line_end - pos),
       next_offset=line_end,
     ),
-    html_block_mode_after_open(line, block_type),
+    html_block_mode_after_open(line, kind),
   )
 }
 
@@ -485,8 +489,7 @@ fn lex_line_start(
     ['<', ..] => {
       let line : StringView = input[pos:line_end]
       match classify_html_block_opening(line) {
-        Some(block_type) =>
-          produce_html_block_open(input, pos, line_end, block_type)
+        Some(kind) => produce_html_block_open(input, pos, line_end, kind)
         None => lex_inline(input, pos, same_line_cache)
       }
     }

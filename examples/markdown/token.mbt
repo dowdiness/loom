@@ -278,6 +278,34 @@ fn ordered_list_marker_from_text(text : String) -> OrderedListMarker? {
 }
 
 ///|
+/// CommonMark HTML block open classification (types 1–7).
+/// Carried on `HtmlBlockOpen` — classify once in the lexer.
+pub(all) enum HtmlBlockKind {
+  /// Types 1–5: end when a line contains the delimiter.
+  Until(String)
+  /// Type 6: end on blank line; may interrupt a paragraph.
+  Type6
+  /// Type 7: end on blank line; must not interrupt a paragraph.
+  Type7
+} derive(Eq, Debug)
+
+///|
+fn HtmlBlockKind::interrupts_paragraph(self : HtmlBlockKind) -> Bool {
+  match self {
+    Type7 => false
+    Until(_) | Type6 => true
+  }
+}
+
+///|
+fn HtmlBlockKind::ends_on_blank(self : HtmlBlockKind) -> Bool {
+  match self {
+    Type6 | Type7 => true
+    Until(_) => false
+  }
+}
+
+///|
 pub(all) enum Token {
   HeadingMarker(Int) // "# " = 1, "## " = 2, etc. (includes trailing space)
   ListMarker // "- " or "* " or "+ " (includes trailing space)
@@ -286,7 +314,7 @@ pub(all) enum Token {
   ThematicBreak
   CodeFenceOpen(Int, String) // backtick count, info string
   CodeFenceClose // closing fence
-  HtmlBlockOpen(String) // opening line of an HTML block
+  HtmlBlockOpen(String, HtmlBlockKind) // opening line + classification
   HtmlText(String) // line of HTML block content
   BlankLine // empty or whitespace-only line
   Star // *
@@ -316,7 +344,7 @@ pub impl Show for Token with fn output(self, logger) {
       ThematicBreak => "---"
       CodeFenceOpen(n, info) => "`".repeat(n) + info
       CodeFenceClose => "```"
-      HtmlBlockOpen(s) => s
+      HtmlBlockOpen(s, _) => s
       HtmlText(s) => s
       BlankLine => ""
       Star => "*"
@@ -361,7 +389,7 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
       ThematicBreak => 33 // ThematicBreakToken
       CodeFenceOpen(_, _) => 2 // CodeFenceOpenToken
       CodeFenceClose => 3 // CodeFenceCloseToken
-      HtmlBlockOpen(_) => 35 // HtmlBlockOpenToken
+      HtmlBlockOpen(_, _) => 35 // HtmlBlockOpenToken
       HtmlText(_) => 36 // HtmlTextToken
       BlankLine => 4 // BlankLineToken
       Star => 5 // StarToken
@@ -395,7 +423,7 @@ test "tokens map to their corresponding syntax raw kind" {
     (ThematicBreak, ThematicBreakToken),
     (CodeFenceOpen(3, ""), CodeFenceOpenToken),
     (CodeFenceClose, CodeFenceCloseToken),
-    (HtmlBlockOpen("<div>"), HtmlBlockOpenToken),
+    (HtmlBlockOpen("<div>", Type6), HtmlBlockOpenToken),
     (HtmlText("text"), HtmlTextToken),
     (BlankLine, BlankLineToken),
     (Star, StarToken),

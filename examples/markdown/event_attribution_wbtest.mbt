@@ -92,7 +92,7 @@ fn event_attribution_payload_stats(
         units += text.length()
         text_units += text.length()
       }
-      HtmlBlockOpen(text) | HtmlText(text) => {
+      HtmlBlockOpen(text, _) | HtmlText(text) => {
         copies += 1
         units += text.length()
         html_units += text.length()
@@ -258,7 +258,7 @@ test "event attribution: deterministic transcript remains stable" {
       #|delimiter-heavy|source=520|tokens=293|reads=9798/3429/3428|token-max=41|diagnostics=0|payload=111/339|payload-units=339/0/0/0/0/0|backticks=8
       #|recovery-heavy|source=372|tokens=113|reads=3942/1288/1284|token-max=54|diagnostics=0|payload=40/300|payload-units=300/0/0/0/0/0|backticks=0
       #|inline-html|source=124|tokens=37|reads=1442/413/412|token-max=48|diagnostics=0|payload=24/112|payload-units=112/0/0/0/0/0|backticks=4
-      #|html|source=208|tokens=29|reads=182/36/32|token-max=11|diagnostics=0|payload=12/192|payload-units=0/192/0/0/0/0|backticks=0
+      #|html|source=208|tokens=29|reads=186/36/32|token-max=11|diagnostics=0|payload=12/192|payload-units=0/192/0/0/0/0|backticks=0
       #|fenced-code|source=160|tokens=37|reads=226/40/36|token-max=9|diagnostics=0|payload=16/116|payload-units=0/0/88/0/28/0|backticks=0
       #|nested-container|source=104|tokens=41|reads=938/292/290|token-max=37|diagnostics=0|payload=4/36|payload-units=36/0/0/0/0/0|backticks=0
       #|
@@ -272,7 +272,7 @@ test "event attribution: deterministic transcript remains stable" {
       #|delimiter-heavy|source=8320|tokens=4673|reads=156318/54909/54908|token-max=41|diagnostics=0|payload=1791/5439|payload-units=5439/0/0/0/0/0|backticks=128
       #|recovery-heavy|source=5952|tokens=1793|reads=63042/20608/20544|token-max=54|diagnostics=0|payload=640/4800|payload-units=4800/0/0/0/0/0|backticks=0
       #|inline-html|source=1984|tokens=577|reads=23042/6653/6652|token-max=48|diagnostics=0|payload=384/1792|payload-units=1792/0/0/0/0/0|backticks=64
-      #|html|source=3328|tokens=449|reads=2882/576/512|token-max=11|diagnostics=0|payload=192/3072|payload-units=0/3072/0/0/0/0|backticks=0
+      #|html|source=3328|tokens=449|reads=2946/576/512|token-max=11|diagnostics=0|payload=192/3072|payload-units=0/3072/0/0/0/0|backticks=0
       #|fenced-code|source=2560|tokens=577|reads=3586/640/576|token-max=9|diagnostics=0|payload=256/1856|payload-units=0/0/1408/0/448/0|backticks=0
       #|nested-container|source=1718|tokens=641|reads=14858/4792/4790|token-max=37|diagnostics=0|payload=64/630|payload-units=630/0/0/0/0/0|backticks=0
       #|

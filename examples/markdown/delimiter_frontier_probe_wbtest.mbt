@@ -54,7 +54,7 @@ fn probe_kind(token : Token) -> ProbeTokenKind {
     | ThematicBreak
     | CodeFenceOpen(_, _)
     | CodeFenceClose
-    | HtmlBlockOpen(_)
+    | HtmlBlockOpen(_, _)
     | HtmlText(_)
     | BlankLine
     | CodeText(_)
