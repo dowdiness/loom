@@ -46,11 +46,12 @@ conformance target over MarkdownIR, not the internal ideal.
 | mdast / unist JSON | Interchange/export shape for the JavaScript Markdown ecosystem, including optional unist positions converted at the adapter boundary. | Internal representation, parser correctness proof, editor model, or source-preservation mechanism. |
 | HTML | Rendering behavior and CommonMark conformance oracle. The HTML backend is a target adapter with an explicit raw-HTML safety mode. | Definition of MarkdownIR shape or mdast compatibility. |
 
-Current public surfaces stay valid while MarkdownIR is introduced:
+Current public surfaces separate common and structural consumers:
 
-- `markdown_grammar` continues to be the parser integration surface initially.
-- `parse`, `parse_markdown`, and `parse_cst` keep their current behavior until a
-  deliberate migration changes them.
+- `parse` and `IncrementalParser` produce detached `MarkdownDocument` values for
+  common semantic consumers.
+- `parse_block_ast`, `parse_cst`, and `markdown_grammar` remain explicit
+  advanced integration surfaces for Block/CST consumers.
 - `markdown_fold_node` may remain the direct `SyntaxNode -> Block` algebra until
   the `SyntaxNode -> MarkdownIR -> Block/Inline` adapter is proven.
 - Canopy's Markdown projection memos currently consume `@markdown.Block`; the
@@ -263,23 +264,24 @@ Implementation guidance for future PRs:
 
 ## API migration and compatibility plan
 
-Migration is additive until an explicit compatibility PR says otherwise.
+The 0.1 API now separates the common semantic-document path from explicit
+advanced compatibility paths.
 
 Compatibility floor:
 
-- `parse(source_id, source) -> Block` remains the tolerant high-level parser.
-  Lex failures still fold to `Block::Error`, and recovered parser structure
-  still lowers to the current editor model.
-- `parse_markdown(source_id, source)` remains the diagnostics-returning
-  high-level path over the current `Block` / `Inline` projection. It returns
-  `(Block, @core.DiagnosticSet)` and may raise `@core.LexError`; parser recovery
-  diagnostics stay in the returned diagnostic set.
+- `parse(source, source_id?, extensions?) -> MarkdownDocument` is the common
+  one-shot parser. It returns a recovered semantic document plus diagnostics;
+  only internal parser or tree-construction defects raise `Failure`.
+- `parse_block_ast(source_id, source) -> Block` is the explicitly advanced
+  tolerant `Block` adapter used by legacy projection tests and structural
+  consumers. It is not a wrapper around the common document API.
 - `parse_cst(source_id, source)` remains the CST entry point, returning
   `(@seam.CstNode, @core.DiagnosticSet)` and possibly raising `@core.LexError`.
   It must not start returning MarkdownIR or hiding parser diagnostics.
-- The caller supplies a stable `SourceId` for the document. Markdown does not
-  derive one from source text or diagnostics, and `DiagnosticOrigin` remains
-  the separate producer identity.
+- A single detached document may use the default source identity because the
+  document resolves its own source snapshot. Callers aggregating diagnostics
+  from multiple documents supply distinct stable `SourceId` values;
+  `DiagnosticOrigin` remains the separate producer identity.
 - `markdown_spec` remains the Markdown `LanguageSpec`; `LanguageSpec`,
   lexer/recovery choices, and block-reparse configuration stay parser-side.
 - `markdown_grammar` remains `Grammar[Token, SyntaxKind, Block]` initially, so
@@ -309,10 +311,9 @@ New MarkdownIR surfaces:
   payloads. The private storage enum remains an implementation detail; existing
   kind tags and optional accessors stay compatible during the experimental
   migration.
-- Compatibility tests must pin the existing source-aware `parse` /
-  `parse_markdown` / `parse_cst` / `markdown_grammar` behavior, including the
-  LexError-raising signatures for `parse_markdown` and `parse_cst`, before any
-  migration changes those surfaces.
+- Compatibility tests pin the source-first `parse` document contract and the
+  advanced `parse_block_ast` / `parse_cst` / `markdown_grammar` behavior.
+  `parse_cst` retains its existing failure and diagnostic contract.
 - Canopy integration stays `SyncEditor[@markdown.Block]` through
   `lang/markdown/companion` and `ProjNode[@markdown.Block]` / `SourceMap`
   projection memos until its compatibility PR deliberately changes that contract.
@@ -602,8 +603,9 @@ Generated-interface review gate:
 
 When this contract turns into code, reviewers should first verify that the PR:
 
-- preserves existing source-aware parser signatures and compatibility tests,
-  including LexError-raising `parse_markdown` and `parse_cst` behavior;
+- preserves the source-first document parser contract and the advanced
+  `parse_block_ast` / `parse_cst` compatibility tests, including `parse_cst`
+  failure and diagnostic behavior;
 - lowers from `SyntaxNode`/CST plus source origins into typed IR, without generic
   token or trivia arrays on semantic nodes;
 - models raw HTML, unsupported extensions, and recovery explicitly, with target

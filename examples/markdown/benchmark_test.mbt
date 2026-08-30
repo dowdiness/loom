@@ -89,7 +89,10 @@ test "markdown: 10x (~200 lines) - tokenize" (b : @bench.T) {
 test "markdown: 10x (~200 lines) - full parse" (b : @bench.T) {
   let source = scaled_markdown_doc(10)
   b.bench(() => {
-    let ast = try! parse(@core.SourceId("markdown-benchmark-document"), source)
+    let ast = try! parse_block_ast(
+      @core.SourceId("markdown-benchmark-document"),
+      source,
+    )
     b.keep(ast)
   })
 }
@@ -127,7 +130,10 @@ test "markdown: 50x (~1000 lines) - tokenize" (b : @bench.T) {
 test "markdown: 50x (~1000 lines) - full parse" (b : @bench.T) {
   let source = scaled_markdown_doc(50)
   b.bench(() => {
-    let ast = try! parse(@core.SourceId("markdown-benchmark-document"), source)
+    let ast = try! parse_block_ast(
+      @core.SourceId("markdown-benchmark-document"),
+      source,
+    )
     b.keep(ast)
   })
 }
@@ -164,7 +170,10 @@ test "markdown: 100x (~2000 lines) - tokenize" (b : @bench.T) {
 test "markdown: 100x (~2000 lines) - full parse" (b : @bench.T) {
   let source = scaled_markdown_doc(100)
   b.bench(() => {
-    let ast = try! parse(@core.SourceId("markdown-benchmark-document"), source)
+    let ast = try! parse_block_ast(
+      @core.SourceId("markdown-benchmark-document"),
+      source,
+    )
     b.keep(ast)
   })
 }
@@ -210,7 +219,10 @@ test "markdown: realistic doc - full parse (CST)" (b : @bench.T) {
 test "markdown: realistic doc - full parse (CST+AST)" (b : @bench.T) {
   let source = realistic_markdown_doc()
   b.bench(() => {
-    let ast = try! parse(@core.SourceId("markdown-benchmark-document"), source)
+    let ast = try! parse_block_ast(
+      @core.SourceId("markdown-benchmark-document"),
+      source,
+    )
     b.keep(ast)
   })
 }

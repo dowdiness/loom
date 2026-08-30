@@ -71,7 +71,10 @@ test "delimiter integration: official examples keep direct and MarkdownIR Block 
     let via_ir = experimental_markdown_ir_to_block(
       delimiter_integration_ir_from_source(source_id, source),
     )
-    inspect(via_ir, content=@debug.to_string(parse(source_id, source)))
+    inspect(
+      via_ir,
+      content=@debug.to_string(parse_block_ast(source_id, source)),
+    )
   }
 }
 
@@ -254,7 +257,7 @@ test "delimiter integration: links scope delimiters and code spans stay opaque" 
 test "delimiter integration: literal marker after soft break preserves spacing" {
   let source_id = @core.SourceId("markdown-delimiter-soft-break-spacing")
   let source = "a\n_b\n"
-  let direct = parse(source_id, source)
+  let direct = parse_block_ast(source_id, source)
   inspect(
     direct,
     content="Document([Paragraph([Text(\"a\"), Text(\" \"), Text(\"_b\")])])",
@@ -281,7 +284,7 @@ test "delimiter integration: literal marker coalescing respects source barriers"
   ]
   for case in cases {
     let (source, expected) = case
-    let direct = parse(source_id, source)
+    let direct = parse_block_ast(source_id, source)
     inspect(direct, content=expected)
     inspect(
       experimental_markdown_ir_to_block(

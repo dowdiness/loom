@@ -249,7 +249,7 @@ test "syntax kind: emphasis CST shape uses append-only raw kinds" {
 
 ///|
 test "parse: heading" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "# Hello\n",
   )
@@ -259,7 +259,10 @@ test "parse: heading" {
 ///|
 test "parse: ATX heading keeps unmatched emphasis literal at line ending" {
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "# *foo\nbar*\n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "# *foo\nbar*\n",
+    ),
     content="Document([Heading(1, [Text(\"*foo\")]), Paragraph([Text(\"bar*\")])])",
   )
 }
@@ -267,26 +270,35 @@ test "parse: ATX heading keeps unmatched emphasis literal at line ending" {
 ///|
 test "parse: setext heading preserves legacy heading depth" {
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "Foo\n---\n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "Foo\n---\n",
+    ),
     content="Document([Heading(2, [Text(\"Foo\")])])",
   )
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "Foo\n- \n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "Foo\n- \n",
+    ),
     content="Document([Heading(2, [Text(\"Foo\")])])",
   )
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "Foo\n-  \n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "Foo\n-  \n",
+    ),
     content="Document([Heading(2, [Text(\"Foo\")])])",
   )
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "First\nsecond\n---\n",
     ),
     content="Document([Heading(2, [Text(\"First\"), Text(\"second\")])])",
   )
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "First\nsecond\n===\n",
     ),
@@ -297,7 +309,7 @@ test "parse: setext heading preserves legacy heading depth" {
 ///|
 test "parse: setext underline bounds literal unmatched emphasis" {
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "Foo *bar\n====\nbaz*\n",
     ),
@@ -308,7 +320,7 @@ test "parse: setext underline bounds literal unmatched emphasis" {
 ///|
 test "parse: setext continuation bounds literal unmatched emphasis" {
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "Foo\nbar *baz\n====\nqux*\n",
     ),
@@ -326,7 +338,7 @@ test "parse: setext continuation bounds literal unmatched emphasis" {
 ///|
 test "parse: ordered list item setext probe stops at ordered item boundary" {
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "1. Foo\n2. bar\n---\n",
     ),
@@ -349,7 +361,7 @@ test "parse: ordered list item setext probe stops at ordered item boundary" {
 
 ///|
 test "parse: paragraph" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "Hello world\n",
   )
@@ -359,7 +371,7 @@ test "parse: paragraph" {
 ///|
 test "parse: three-space-prefixed fence is code block" {
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "   ```\ncode\n   ```\n",
     ),
@@ -370,7 +382,7 @@ test "parse: three-space-prefixed fence is code block" {
 ///|
 test "parse: tilde fence is code block" {
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "~~~moonbit\nlet x = 1\n~~~\n",
     ),
@@ -381,7 +393,7 @@ test "parse: tilde fence is code block" {
 ///|
 test "parse: tilde fence retains backticks in info string" {
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "~~~`moonbit\nlet x = 1\n~~~\n",
     ),
@@ -392,7 +404,7 @@ test "parse: tilde fence retains backticks in info string" {
 ///|
 test "parse: indented fence interrupts root paragraph" {
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "foo\n  ```\ncode\n```\n",
     ),
@@ -554,7 +566,7 @@ test "parse: blank-line blockquote indented code remains quoted child" {
 
 ///|
 test "parse: blockquote preserves legacy text projection" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "> quote\n",
   )
@@ -588,7 +600,7 @@ test "parse: blockquote lazy continuation stays in quoted paragraph CST" {
 
 ///|
 test "parse: blockquote lazy continuation preserves legacy text projection" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "> bar\nbaz\n",
   )
@@ -618,7 +630,10 @@ test "parse: blockquote lazy continuation rejects thematic break line" {
 
 ///|
 test "parse: thematic break preserves legacy text projection" {
-  let block = parse(@core.SourceId("markdown-parser-test-document"), "---\n")
+  let block = parse_block_ast(
+    @core.SourceId("markdown-parser-test-document"),
+    "---\n",
+  )
   inspect(block, content="Document([Paragraph([Text(\"---\")])])")
 }
 
@@ -755,7 +770,7 @@ test "parse: list-item indented HTML remains list child" {
 
 ///|
 test "parse: list-item thematic break preserves legacy text projection" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- * * *\n",
   )
@@ -927,7 +942,7 @@ test "parse: quoted setext heading code span crosses soft-line continuation" {
 
 ///|
 test "parse: multi-line paragraph" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "line one\nline two\n\n",
   )
@@ -939,7 +954,7 @@ test "parse: multi-line paragraph" {
 
 ///|
 test "parse: multi-line paragraph unparse keeps soft break" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "line one\nline two\n\n",
   )
@@ -948,7 +963,7 @@ test "parse: multi-line paragraph unparse keeps soft break" {
 
 ///|
 test "parse: code block" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "```python\nx = 1\n```\n",
   )
@@ -957,7 +972,7 @@ test "parse: code block" {
 
 ///|
 test "parse: list" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- one\n- two\n",
   )
@@ -969,7 +984,7 @@ test "parse: list" {
 
 ///|
 test "parse: nested list stays editor-compatible" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- parent\n  - child\n",
   )
@@ -1066,7 +1081,7 @@ test "parse: indented non-one ordered marker starts nested ordered CST container
 
 ///|
 test "parse: loose list separated by blank line" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- one\n\n- two\n",
   )
@@ -1078,7 +1093,10 @@ test "parse: loose list separated by blank line" {
 
 ///|
 test "parse: list item lazy continuation stays in item" {
-  let block = parse(@core.SourceId("markdown-parser-test-document"), "- a\nb\n")
+  let block = parse_block_ast(
+    @core.SourceId("markdown-parser-test-document"),
+    "- a\nb\n",
+  )
   inspect(
     block,
     content="Document([UnorderedList([UnorderedListItem([Text(\"a\"), Text(\"\\n\"), Text(\"b\")])])])",
@@ -1087,7 +1105,7 @@ test "parse: list item lazy continuation stays in item" {
 
 ///|
 test "parse: non-one ordered marker lazy continuation stays in item" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- a\n2. b\n",
   )
@@ -1100,15 +1118,24 @@ test "parse: non-one ordered marker lazy continuation stays in item" {
 ///|
 test "parse: empty list item does not start lazy continuation paragraph" {
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "- \nfoo\n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "- \nfoo\n",
+    ),
     content="Document([UnorderedList([UnorderedListItem([])]), Paragraph([Text(\"foo\")])])",
   )
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "-   \nfoo\n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "-   \nfoo\n",
+    ),
     content="Document([UnorderedList([UnorderedListItem([])]), Paragraph([Text(\"foo\")])])",
   )
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "- \n2. foo\n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "- \n2. foo\n",
+    ),
     content=(
       #|Document(
       #|  [
@@ -1122,7 +1149,10 @@ test "parse: empty list item does not start lazy continuation paragraph" {
     ),
   )
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "-   \n2. foo\n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "-   \n2. foo\n",
+    ),
     content=(
       #|Document(
       #|  [
@@ -1140,18 +1170,21 @@ test "parse: empty list item does not start lazy continuation paragraph" {
 ///|
 test "parse: list item preserves whitespace-only inline syntax" {
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "- ` `\n"),
+    parse_block_ast(@core.SourceId("markdown-parser-test-document"), "- ` `\n"),
     content="Document([UnorderedList([UnorderedListItem([InlineCode(\" \")])])])",
   )
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "- [](/)\n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "- [](/)\n",
+    ),
     content="Document([UnorderedList([UnorderedListItem([Link([], \"/\")])])])",
   )
 }
 
 ///|
 test "parse: blank-line-separated marker change starts a new list" {
-  let same = parse(
+  let same = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- one\n\n- two\n",
   )
@@ -1159,7 +1192,7 @@ test "parse: blank-line-separated marker change starts a new list" {
     same,
     content="Document([UnorderedList([UnorderedListItem([Text(\"one\")]), UnorderedListItem([Text(\"two\")])])])",
   )
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- one\n\n+ two\n",
   )
@@ -1176,7 +1209,7 @@ test "parse: blank-line-separated marker change starts a new list" {
 
 ///|
 test "parse: ordered list delimiter change starts a new editor-compatible list" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "1. one\n2. two\n3) three\n",
   )
@@ -1208,7 +1241,7 @@ test "parse: ordered list delimiter change starts a new editor-compatible list" 
 
 ///|
 test "parse: non-one ordered marker does not interrupt paragraph" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "The number of windows is\n14.  The doors are 6.\n",
   )
@@ -1231,7 +1264,7 @@ test "parse: non-one ordered marker does not interrupt paragraph" {
 
 ///|
 test "parse: one-start ordered marker interrupts paragraph" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "The number of windows is\n1.  The doors are 6.\n",
   )
@@ -1254,7 +1287,7 @@ test "parse: one-start ordered marker interrupts paragraph" {
 
 ///|
 test "parse: ordered list unparse preserves start and delimiter" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "3) three\n4) four\n",
   )
@@ -1263,7 +1296,7 @@ test "parse: ordered list unparse preserves start and delimiter" {
 
 ///|
 test "parse: mixed document" {
-  let block = parse(
+  let block = parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "# Title\n\nSome text\n\n- item\n",
   )
@@ -1324,7 +1357,10 @@ test "parse: code span crosses a paragraph soft-line continuation" {
 ///|
 test "parse: blank line does not supply a code-span closer" {
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "`open\n\nclose`\n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "`open\n\nclose`\n",
+    ),
     content=(
       #|Document(
       #|  [
@@ -1400,7 +1436,10 @@ test "parse: nested emphasis uses block quote code-span continuation" {
 ///|
 test "parse: ATX heading uses maximal code-span runs" {
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "# ``a`b``\n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "# ``a`b``\n",
+    ),
     content="Document([Heading(1, [InlineCode(\"a`b\")])])",
   )
 }
@@ -1408,7 +1447,10 @@ test "parse: ATX heading uses maximal code-span runs" {
 ///|
 test "parse: setext heading uses maximal code-span runs" {
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "``a`b``\n---\n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "``a`b``\n---\n",
+    ),
     content="Document([Heading(2, [InlineCode(\"a`b\")])])",
   )
 }
@@ -1416,7 +1458,10 @@ test "parse: setext heading uses maximal code-span runs" {
 ///|
 test "parse: setext heading code span crosses soft-line continuation" {
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "``a\nb``\n---\n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "``a\nb``\n---\n",
+    ),
     content="Document([Heading(2, [InlineCode(\"a b\")])])",
   )
 }
@@ -1424,7 +1469,10 @@ test "parse: setext heading code span crosses soft-line continuation" {
 ///|
 test "parse: code span crosses a list item lazy continuation" {
   inspect(
-    parse(@core.SourceId("markdown-parser-test-document"), "- `code\nmore`\n"),
+    parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "- `code\nmore`\n",
+    ),
     content="Document([UnorderedList([UnorderedListItem([InlineCode(\"code more\")])])])",
   )
 }
@@ -1432,7 +1480,7 @@ test "parse: code span crosses a list item lazy continuation" {
 ///|
 test "parse: code span does not cross a list-item paragraph boundary" {
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "- `open\n\n`close\n",
     ),

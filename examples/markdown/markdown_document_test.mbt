@@ -7,9 +7,7 @@ fn markdown_document_test_parser(
 }
 
 ///|
-fn markdown_document_test_find_heading(
-  node : MarkdownSemanticReadNode,
-) -> MarkdownSemanticReadNode? {
+fn markdown_document_test_find_heading(node : MarkdownNode) -> MarkdownNode? {
   match node.view() {
     Heading(..) => Some(node)
     _ => {
@@ -25,9 +23,7 @@ fn markdown_document_test_find_heading(
 }
 
 ///|
-fn markdown_document_test_find_link(
-  node : MarkdownSemanticReadNode,
-) -> MarkdownSemanticReadNode? {
+fn markdown_document_test_find_link(node : MarkdownNode) -> MarkdownNode? {
   match node.view() {
     Link(..) => Some(node)
     _ => {
@@ -43,9 +39,7 @@ fn markdown_document_test_find_link(
 }
 
 ///|
-fn markdown_document_test_find_image(
-  node : MarkdownSemanticReadNode,
-) -> MarkdownSemanticReadNode? {
+fn markdown_document_test_find_image(node : MarkdownNode) -> MarkdownNode? {
   match node.view() {
     Image(..) => Some(node)
     _ => {
@@ -61,9 +55,7 @@ fn markdown_document_test_find_image(
 }
 
 ///|
-fn markdown_document_test_find_autolink(
-  node : MarkdownSemanticReadNode,
-) -> MarkdownSemanticReadNode? {
+fn markdown_document_test_find_autolink(node : MarkdownNode) -> MarkdownNode? {
   match node.view() {
     Autolink(..) => Some(node)
     _ => {
@@ -80,12 +72,12 @@ fn markdown_document_test_find_autolink(
 
 ///|
 fn markdown_document_test_collect_task_states(
-  node : MarkdownSemanticReadNode,
+  node : MarkdownNode,
   states : Array[Bool?],
 ) -> Unit {
   match node.view() {
-    ListItem(task~, ..) | OrderedListItem(task~, ..) =>
-      states.push(task.map(task => task.checked()))
+    ListItem(task_checked~, ..) | OrderedListItem(task_checked~, ..) =>
+      states.push(task_checked)
     _ => ()
   }
   for child in node.children() {
@@ -95,9 +87,9 @@ fn markdown_document_test_collect_task_states(
 
 ///|
 fn markdown_document_test_expect_node(
-  node : MarkdownSemanticReadNode?,
+  node : MarkdownNode?,
   message : String,
-) -> MarkdownSemanticReadNode {
+) -> MarkdownNode {
   match node {
     Some(node) => node
     None => abort(message)
@@ -119,7 +111,7 @@ fn markdown_document_test_expect_selection(
 test "MarkdownDocument owns one parser snapshot" {
   let source_id = @core.SourceId("markdown-document-snapshot")
   let source = "# heading\n\nparagraph\n"
-  let document = parse_document(source_id, source)
+  let document = parse(source, source_id~)
   assert_eq(document.source_id(), source_id)
   assert_eq(document.source(), source)
   assert_eq(document.diagnostics().length(), 0)
@@ -133,7 +125,7 @@ test "MarkdownDocument owns one parser snapshot" {
 ///|
 test "MarkdownDocument keeps GFM task syntax literal by default" {
   let source_id = @core.SourceId("markdown-commonmark-task-list-literal")
-  let document = parse_document(source_id, "- [ ] todo\n")
+  let document = parse("- [ ] todo\n", source_id~)
   assert_eq(document.diagnostics().length(), 0)
   let read = document.semantic_read()
   match read.root().children() {
@@ -141,7 +133,7 @@ test "MarkdownDocument keeps GFM task syntax literal by default" {
       match list.children() {
         [item] => {
           match item.view() {
-            ListItem(task=None, ..) => ()
+            ListItem(task_checked=None, ..) => ()
             _ => fail("expected CommonMark list item without task semantics")
           }
           match item.children() {
@@ -214,9 +206,9 @@ test "direct MarkdownIR lowering opts in to task-list semantics" {
 ///|
 test "MarkdownSemanticRead exposes an unchecked GFM task list item" {
   let source_id = @core.SourceId("markdown-semantic-read-task-list")
-  let document = parse_document(
-    source_id,
+  let document = parse(
     "- [ ] todo\n",
+    source_id~,
     extensions=MarkdownExtensions::task_list(),
   )
   let read = document.semantic_read()
@@ -225,11 +217,7 @@ test "MarkdownSemanticRead exposes an unchecked GFM task list item" {
       match list.children() {
         [item] => {
           match item.view() {
-            ListItem(task=Some(task), ..) => {
-              assert_false(task.checked())
-              assert_eq(task.marker_origin().start(), 2)
-              assert_eq(task.marker_origin().end(), 5)
-            }
+            ListItem(task_checked=Some(false), ..) => ()
             _ => fail("expected an unchecked task list item")
           }
           match item.children() {
@@ -265,9 +253,9 @@ test "MarkdownSemanticRead exposes an unchecked GFM task list item" {
 
 ///|
 test "MarkdownSemanticRead recognizes a task marker before continued content" {
-  let read = parse_document(
-    @core.SourceId("markdown-semantic-read-continued-task"),
+  let read = parse(
     "- [x]\n  continued\n",
+    source_id=@core.SourceId("markdown-semantic-read-continued-task"),
     extensions=MarkdownExtensions::task_list(),
   ).semantic_read()
   match read.root().children() {
@@ -275,7 +263,7 @@ test "MarkdownSemanticRead recognizes a task marker before continued content" {
       match list.children() {
         [item] => {
           match item.view() {
-            ListItem(task=Some(task), ..) => assert_true(task.checked())
+            ListItem(task_checked=Some(true), ..) => ()
             _ => fail("expected a checked task list item")
           }
           match item.children() {
@@ -310,9 +298,9 @@ test "MarkdownSemanticRead follows the GFM task marker boundary" {
     #|- [y] ordinary
     #|- [x]no-separator
     #|
-  let read = parse_document(
-    @core.SourceId("markdown-semantic-read-task-boundary"),
+  let read = parse(
     source,
+    source_id=@core.SourceId("markdown-semantic-read-task-boundary"),
     extensions=MarkdownExtensions::task_list(),
   ).semantic_read()
   let states : Array[Bool?] = []
@@ -340,9 +328,9 @@ test "MarkdownSemanticRead follows the GFM task marker boundary" {
 
 ///|
 test "MarkdownSemanticRead permits definitions before the first task paragraph" {
-  let read = parse_document(
-    @core.SourceId("markdown-semantic-read-task-after-definition"),
+  let read = parse(
     "- [ref]: /url\n  [x] task\n",
+    source_id=@core.SourceId("markdown-semantic-read-task-after-definition"),
     extensions=MarkdownExtensions::task_list(),
   ).semantic_read()
   let states : Array[Bool?] = []
@@ -374,9 +362,9 @@ test "MarkdownSemanticRead permits definitions before the first task paragraph" 
 ///|
 test "MarkdownSemanticRead does not promote a later paragraph task marker" {
   let source_id = @core.SourceId("markdown-semantic-read-later-task-marker")
-  let read = parse_document(
-    source_id,
+  let read = parse(
     "- first\n\n  [x] second\n",
+    source_id~,
     extensions=MarkdownExtensions::task_list(),
   ).semantic_read()
   match read.root().children() {
@@ -384,7 +372,7 @@ test "MarkdownSemanticRead does not promote a later paragraph task marker" {
       match list.children() {
         [item] => {
           match item.view() {
-            ListItem(task=None, ..) => ()
+            ListItem(task_checked=None, ..) => ()
             _ => fail("expected an ordinary list item")
           }
           match item.children() {
@@ -408,9 +396,9 @@ test "MarkdownSemanticRead does not promote a later paragraph task marker" {
 
 ///|
 test "MarkdownSemanticRead requires the first content block to be a paragraph" {
-  let read = parse_document(
-    @core.SourceId("markdown-semantic-read-task-after-heading"),
+  let read = parse(
     "- # heading\n\n  [x] later\n",
+    source_id=@core.SourceId("markdown-semantic-read-task-after-heading"),
     extensions=MarkdownExtensions::task_list(),
   ).semantic_read()
   let states : Array[Bool?] = []
@@ -420,9 +408,9 @@ test "MarkdownSemanticRead requires the first content block to be a paragraph" {
 
 ///|
 test "MarkdownSemanticRead keeps an unresolved bracket as ordinary text" {
-  let document = parse_document(
-    @core.SourceId("markdown-semantic-read-unresolved-bracket"),
+  let document = parse(
     "[unclosed\n",
+    source_id=@core.SourceId("markdown-semantic-read-unresolved-bracket"),
   )
   assert_eq(document.diagnostics().length(), 0)
   let read = document.semantic_read()
@@ -452,13 +440,13 @@ test "MarkdownSemanticRead keeps an unresolved bracket as ordinary text" {
 test "MarkdownSemanticRead adapters reuse captured source" {
   let source_id = @core.SourceId("markdown-semantic-read-adapters")
   let source = "[old](https://example.test \"title\")\n"
-  let read = parse_document(source_id, source).semantic_read()
+  let read = parse(source, source_id~).semantic_read()
   assert_eq(markdown_semantic_read_preserve_rewrite(read), source)
   assert_eq(
     markdown_semantic_read_to_mdast_json_with_positions(read).stringify(),
     experimental_markdown_ir_to_mdast_json_with_positions(read.ir(), source).stringify(),
   )
-  let direct = parse(source_id, source)
+  let direct = parse_block_ast(source_id, source)
   assert_eq(markdown_semantic_read_to_block(read), direct)
 }
 
@@ -466,7 +454,7 @@ test "MarkdownSemanticRead adapters reuse captured source" {
 test "MarkdownSemanticRead selections rewrite only their read snapshot" {
   let source_id = @core.SourceId("markdown-semantic-read-selections")
   let source = "# old\n\n[link](https://example.test \"title\")\n\n<https://example.org>\n"
-  let read = parse_document(source_id, source).semantic_read()
+  let read = parse(source, source_id~).semantic_read()
   let root = read.root()
   let heading = markdown_document_test_expect_node(
     markdown_document_test_find_heading(root),
@@ -528,9 +516,9 @@ test "MarkdownSemanticRead selections rewrite only their read snapshot" {
 
 ///|
 test "MarkdownSemanticRead selections cover whole nodes and missing targets" {
-  let read = parse_document(
-    @core.SourceId("markdown-semantic-read-selection-kinds"),
+  let read = parse(
     "# heading\n\n[link](https://example.test)\n",
+    source_id=@core.SourceId("markdown-semantic-read-selection-kinds"),
   ).semantic_read()
   let root = read.root()
   assert_true(
@@ -568,9 +556,9 @@ test "MarkdownSemanticRead selections cover whole nodes and missing targets" {
 ///|
 test "MarkdownSemanticRead content selections rewrite link and image labels" {
   let source = "[link label](https://example.test)\n\n![image alt](https://image.test)\n"
-  let read = parse_document(
-    @core.SourceId("markdown-semantic-read-content-selections"),
+  let read = parse(
     source,
+    source_id=@core.SourceId("markdown-semantic-read-content-selections"),
   ).semantic_read()
   let root = read.root()
   let link = markdown_document_test_expect_node(
@@ -609,7 +597,7 @@ test "MarkdownSemanticRead content selections rewrite link and image labels" {
 test "MarkdownSemanticRead survives its source document" {
   let source_id = @core.SourceId("markdown-semantic-read-detached")
   let read = {
-    let document = parse_document(source_id, "detached\n")
+    let document = parse("detached\n", source_id~)
     document.semantic_read()
   }
   assert_eq(markdown_semantic_read_preserve_rewrite(read), "detached\n")
@@ -631,4 +619,51 @@ test "MarkdownSemanticAttachment source_document tracks parser snapshots" {
   let first_read = first.semantic_read()
   attachment.dispose()
   assert_eq(markdown_semantic_read_preserve_rewrite(first_read), "first\n")
+}
+
+///|
+test "parse creates a detached document with a default source identity" {
+  let document = parse("# Hello\n")
+  assert_eq(document.source(), "# Hello\n")
+  assert_eq(document.source_id(), @core.SourceId("markdown"))
+  assert_eq(document.root().view(), MarkdownNodeView::Document)
+}
+
+///|
+test "parse preserves an explicit source identity" {
+  let source_id = @core.SourceId("notes/readme.md")
+  let document = parse("body\n", source_id~)
+  assert_eq(document.source_id(), source_id)
+}
+
+///|
+test "MarkdownDocument resolves only its own source snapshot" {
+  let source_id = @core.SourceId("notes/readme.md")
+  let document = parse("first\nsecond\n", source_id~)
+  let snapshot = @core.SourceResolver::resolve_source(document, source_id)
+  guard snapshot is Some(snapshot) else {
+    fail("expected document source snapshot")
+  }
+  assert_eq(snapshot.name(), "notes/readme.md")
+  assert_eq(snapshot.text(), "first\nsecond\n")
+  assert_true(
+    @core.SourceResolver::resolve_source(document, @core.SourceId("other.md"))
+    is None,
+  )
+}
+
+///|
+test "parse recovers malformed Markdown into a semantic document" {
+  let document = parse("[unclosed\n")
+  let root = document.root()
+  assert_eq(root.view(), MarkdownNodeView::Document)
+  assert_true(root.children().length() > 0)
+}
+
+///|
+test "html escapes raw HTML by default" {
+  assert_eq(
+    html(parse("<script>alert(1)</script>\n")),
+    "&lt;script&gt;alert(1)&lt;/script&gt;\n",
+  )
 }

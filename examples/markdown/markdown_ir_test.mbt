@@ -27,7 +27,10 @@ fn experimental_markdown_ir_from_cst_with_diagnostics(
 ///|
 /// Compare the two Block adapter paths for lex-valid current-subset fixtures.
 fn assert_markdown_ir_block_matches_direct_parse(source : String) -> Unit raise {
-  let direct = parse(@core.SourceId("markdown-ir-test-document"), source)
+  let direct = parse_block_ast(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   let via_ir = experimental_markdown_ir_to_block(
     markdown_ir_from_source(@core.SourceId("markdown-ir-test-document"), source),
   )
@@ -1104,7 +1107,7 @@ test "experimental MarkdownIR: unclosed link parens keep opener text and orphan 
   inspect(
     via_ir,
     content=@debug.to_string(
-      parse(@core.SourceId("markdown-ir-test-document"), source),
+      parse_block_ast(@core.SourceId("markdown-ir-test-document"), source),
     ),
   )
   match ir.children() {
@@ -1320,7 +1323,7 @@ test "experimental MarkdownIR: unclosed code fence remains a code block" {
   inspect(
     experimental_markdown_ir_to_block(ir),
     content=@debug.to_string(
-      parse(@core.SourceId("markdown-ir-test-document"), source),
+      parse_block_ast(@core.SourceId("markdown-ir-test-document"), source),
     ),
   )
   match ir.children() {
@@ -1452,7 +1455,7 @@ test "experimental MarkdownIR: local transform widens code fence for backticks" 
     "```\nold code\n```\n", "line\n```\nline", "````\nline\n```\nline\n````\n",
   )
   inspect(
-    parse(@core.SourceId("markdown-ir-test-document"), result),
+    parse_block_ast(@core.SourceId("markdown-ir-test-document"), result),
     content="Document([CodeBlock(\"\", \"line\\n```\\nline\")])",
   )
 }
@@ -1463,7 +1466,7 @@ test "experimental MarkdownIR: local transform preserves unclosed code fence" {
     "```\nold\n", "new", "```\nnew\n",
   )
   inspect(
-    parse(@core.SourceId("markdown-ir-test-document"), result),
+    parse_block_ast(@core.SourceId("markdown-ir-test-document"), result),
     content="Document([CodeBlock(\"\", \"new\")])",
   )
 }
@@ -1474,7 +1477,7 @@ test "experimental MarkdownIR: local transform widens unclosed code fence" {
     "```\nold\n", "line\n```\nline", "````\nline\n```\nline\n",
   )
   inspect(
-    parse(@core.SourceId("markdown-ir-test-document"), result),
+    parse_block_ast(@core.SourceId("markdown-ir-test-document"), result),
     content="Document([CodeBlock(\"\", \"line\\n```\\nline\")])",
   )
 }
@@ -1514,7 +1517,7 @@ test "experimental MarkdownIR: local transform rewrites empty closed code fence"
           )
           inspect(result, content="```\nnew\n```\n")
           inspect(
-            parse(@core.SourceId("markdown-ir-test-document"), result),
+            parse_block_ast(@core.SourceId("markdown-ir-test-document"), result),
             content="Document([CodeBlock(\"\", \"new\")])",
           )
         }
@@ -1545,7 +1548,7 @@ test "experimental MarkdownIR: local transform rewrites empty unclosed code fenc
           )
           inspect(result, content="```\nnew\n")
           inspect(
-            parse(@core.SourceId("markdown-ir-test-document"), result),
+            parse_block_ast(@core.SourceId("markdown-ir-test-document"), result),
             content="Document([CodeBlock(\"\", \"new\")])",
           )
         }
@@ -1576,7 +1579,7 @@ test "experimental MarkdownIR: local transform rewrites empty EOF code fence" {
           )
           inspect(result, content="```\nnew\n")
           inspect(
-            parse(@core.SourceId("markdown-ir-test-document"), result),
+            parse_block_ast(@core.SourceId("markdown-ir-test-document"), result),
             content="Document([CodeBlock(\"\", \"new\")])",
           )
         }
@@ -1592,7 +1595,7 @@ test "experimental MarkdownIR: empty code fence rewrite preserves replacement tr
     "```\n```\n", "new\n", "```\nnew\n\n```\n",
   )
   inspect(
-    parse(@core.SourceId("markdown-ir-test-document"), result),
+    parse_block_ast(@core.SourceId("markdown-ir-test-document"), result),
     content="Document([CodeBlock(\"\", \"new\\n\")])",
   )
 }
@@ -1603,7 +1606,7 @@ test "experimental MarkdownIR: unclosed EOF code fence preserves replacement tra
     "```\nold", "new\n", "```\nnew\n\n",
   )
   inspect(
-    parse(@core.SourceId("markdown-ir-test-document"), result),
+    parse_block_ast(@core.SourceId("markdown-ir-test-document"), result),
     content="Document([CodeBlock(\"\", \"new\\n\")])",
   )
 }
@@ -1666,7 +1669,7 @@ test "experimental MarkdownIR: unmatched inline delimiters adapt to text" {
   inspect(
     block,
     content=@debug.to_string(
-      parse(@core.SourceId("markdown-ir-test-document"), source),
+      parse_block_ast(@core.SourceId("markdown-ir-test-document"), source),
     ),
   )
   match ir.children() {
@@ -2255,7 +2258,7 @@ test "experimental MarkdownIR: checked canonical formatter validates block conte
   let formatted = assert_checked_canonical_round_trip("\\-\\-\\-\n")
   assert_eq(formatted, "\\-\\-\\-")
   assert_eq(
-    parse(@core.SourceId("markdown-ir-test-document"), formatted),
+    parse_block_ast(@core.SourceId("markdown-ir-test-document"), formatted),
     Document([Paragraph([Text("---")])]),
   )
 }
@@ -2323,7 +2326,7 @@ test "experimental MarkdownIR: canonical code fence exceeds content backtick run
   )
   inspect(formatted, content="````\n```\n````")
   inspect(
-    parse(@core.SourceId("markdown-ir-test-document"), formatted),
+    parse_block_ast(@core.SourceId("markdown-ir-test-document"), formatted),
     content="Document([CodeBlock(\"\", \"```\")])",
   )
 }
@@ -2435,7 +2438,7 @@ test "experimental MarkdownIR: canonical format preserves code block info string
   )
   inspect(formatted, content="```moonbit\nlet x = 1\n```")
   inspect(
-    parse(@core.SourceId("markdown-ir-test-document"), formatted),
+    parse_block_ast(@core.SourceId("markdown-ir-test-document"), formatted),
     content="Document([CodeBlock(\"moonbit\", \"let x = 1\")])",
   )
 }
@@ -2485,7 +2488,7 @@ test "experimental MarkdownIR: Inline adapter renders raw children as text" {
   inspect(
     block,
     content=@debug.to_string(
-      parse(@core.SourceId("markdown-ir-test-document"), source),
+      parse_block_ast(@core.SourceId("markdown-ir-test-document"), source),
     ),
   )
   match block {

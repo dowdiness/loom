@@ -8,15 +8,12 @@ fn assert_markdown_ir_legacy_block_matches_direct_fold(
   }
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let direct = fold_markdown_syntax_with_source(syntax, source)
-  let parsed = parse(source_id, source)
-  let (parsed_markdown, parsed_diagnostics) = parse_markdown(source_id, source)
+  let parsed = parse_block_ast(source_id, source)
   assert_eq(parsed, direct)
-  assert_eq(parsed_markdown, direct)
-  assert_eq(parsed_diagnostics, diagnostics)
   let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, syntax, diagnostics,
   )
-  let document = parse_document(source_id, source)
+  let document = parse(source, source_id~)
   assert_eq(document.diagnostics(), diagnostics)
   assert_eq(markdown_semantic_read_to_block(document.semantic_read()), direct)
   inspect(

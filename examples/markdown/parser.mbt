@@ -7,17 +7,7 @@ pub fn parse_cst(
 }
 
 ///|
-pub fn parse_markdown(
-  source_id : @core.SourceId,
-  source : String,
-) -> (Block, @core.DiagnosticSet) raise {
-  let (cst, diags) = parse_cst(source_id, source)
-  let syntax = @seam.SyntaxNode::from_cst(cst)
-  (fold_markdown_syntax_with_source(syntax, source), diags)
-}
-
-///|
-pub fn parse(
+pub fn parse_block_ast(
   source_id : @core.SourceId,
   source : String,
 ) -> Block raise Failure {

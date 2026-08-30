@@ -1,9 +1,19 @@
 # ADR: Markdown Block projection cutover follows staged parity gates
 
 **Date:** 2026-08-10
-**Status:** Accepted
+**Status:** Superseded by the 2026-08-30 Markdown library API cutover
 **Related:** [MarkdownIR architecture and target contract](../architecture/markdown-ir.md), [MarkdownIR performance policy](2026-06-16-markdown-ir-performance-policy.md), [Markdown projection attachment](2026-08-03-markdown-projection-attachment-boundary.md), [MarkdownIR exhaustive read view](2026-08-04-markdown-ir-exhaustive-read-view.md)
 **Implementation plan:** Issue-scoped; implement with a parity-first, two-commit migration slice.
+
+## Supersession note
+
+The parity gates described below passed and the later cutover is now complete.
+The common `parse(source, source_id?, extensions?)` entry point returns a
+detached `MarkdownDocument`; the old `parse` Block signature and
+`parse_markdown` were removed. `parse_block_ast` remains the explicit advanced
+Block projection oracle, while `parse_cst`, `markdown_grammar`, and
+`markdown_fold_node` remain available for structural consumers. The rest of
+this ADR records the staged pre-cutover decision in its historical tense.
 
 ## Context
 

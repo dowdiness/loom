@@ -1,36 +1,38 @@
 ///|
-/// A source-aware Markdown document from one complete parser snapshot.
+/// A detached Markdown document from one complete parser snapshot.
 ///
-/// The document owns the source text, syntax snapshot, and diagnostics that
-/// were produced together. It does not lower MarkdownIR until `semantic_read`
-/// is requested.
+/// The document owns source text, diagnostics, and its complete semantic root.
+/// It does not retain a parser runtime or require one for later reads.
 pub struct MarkdownDocument {
   priv source_id : @core.SourceId
   priv source : String
-  priv syntax : @seam.SyntaxNode
   priv diagnostics : @core.DiagnosticSet
-  priv extensions : MarkdownExtensions
+  priv ir : MarkdownIR
 }
 
 ///|
-/// Parse one source snapshot into an owning source-aware document.
+/// Parse one source snapshot into a detached semantic document.
 ///
-/// Lowering uses CommonMark semantics by default. Pass `extensions` to opt in
-/// to supported semantic extensions for this document's reads. Lexing failures
-/// propagate with the same error behavior as `parse_cst`.
-pub fn parse_document(
-  source_id : @core.SourceId,
+/// Malformed Markdown is represented by recovered nodes and diagnostics. A
+/// raised `Failure` indicates an internal parser or tree-construction defect.
+pub fn parse(
   source : String,
+  source_id? : @core.SourceId = @core.SourceId("markdown"),
   extensions? : MarkdownExtensions = MarkdownExtensions::none(),
-) -> MarkdownDocument raise {
-  let (cst, diagnostics) = parse_cst(source_id, source)
-  {
-    source_id,
-    source,
-    syntax: @seam.SyntaxNode::from_cst(cst),
-    diagnostics,
-    extensions,
+) -> MarkdownDocument raise Failure {
+  let (cst, parse_diagnostics) = parse_cst(source_id, source) catch {
+    Failure::Failure(_) as failure => raise failure
+    error => fail("internal Markdown parse failure: " + @debug.to_string(error))
   }
+  let diagnostics = parse_diagnostics.copy()
+  let ir = experimental_markdown_ir_from_syntax_core(
+    source_id,
+    @seam.SyntaxNode::from_cst(cst),
+    source,
+    Some(diagnostics),
+    extensions,
+  )
+  { source_id, source, diagnostics, ir }
 }
 
 ///|
@@ -38,13 +40,13 @@ pub fn parse_document(
 fn markdown_document_from_snapshot(
   source_id : @core.SourceId,
   snapshot : @loom.ParseSnapshot[Block],
+  ir : MarkdownIR,
 ) -> MarkdownDocument {
   {
     source_id,
     source: snapshot.source,
-    syntax: snapshot.syntax,
     diagnostics: snapshot.diagnostics.copy(),
-    extensions: MarkdownExtensions::none(),
+    ir,
   }
 }
 
@@ -66,22 +68,11 @@ pub fn MarkdownDocument::diagnostics(
 }
 
 ///|
-/// Lower this document exactly once into a detached semantic read.
-///
-/// The returned read keeps the source facts needed by source-aware adapters;
-/// it remains valid after this document and its parser no longer exist.
+/// Return a detached advanced semantic read over this document's retained root.
 pub fn MarkdownDocument::semantic_read(
   self : MarkdownDocument,
 ) -> MarkdownSemanticRead {
-  let lowering_diagnostics = self.diagnostics.copy()
-  let ir = experimental_markdown_ir_from_syntax_core(
-    self.source_id,
-    self.syntax,
-    self.source,
-    Some(lowering_diagnostics),
-    self.extensions,
-  )
-  { document: self, ir }
+  { document: self, ir: self.ir }
 }
 
 ///|
@@ -97,51 +88,9 @@ pub fn MarkdownSemanticRead::ir(self : MarkdownSemanticRead) -> MarkdownIR {
 }
 
 ///|
-/// Return a read-bound root node.
-pub fn MarkdownSemanticRead::root(
-  self : MarkdownSemanticRead,
-) -> MarkdownSemanticReadNode {
+/// Return the stable opaque root node for this advanced semantic read.
+pub fn MarkdownSemanticRead::root(self : MarkdownSemanticRead) -> MarkdownNode {
   { read: self, node: self.ir }
-}
-
-///|
-/// A read-bound, opaque semantic node.
-pub struct MarkdownSemanticReadNode {
-  priv read : MarkdownSemanticRead
-  priv node : MarkdownIR
-}
-
-///|
-pub fn MarkdownSemanticReadNode::view(
-  self : MarkdownSemanticReadNode,
-) -> MarkdownIRView {
-  self.node.view()
-}
-
-///|
-pub fn MarkdownSemanticReadNode::origin(
-  self : MarkdownSemanticReadNode,
-) -> MarkdownIROrigin {
-  self.node.origin()
-}
-
-///|
-pub fn MarkdownSemanticReadNode::children(
-  self : MarkdownSemanticReadNode,
-) -> Array[MarkdownSemanticReadNode] {
-  self.node.children().map(child => { read: self.read, node: child })
-}
-
-///|
-/// Select one source-owned semantic region from this read-bound node.
-pub fn MarkdownSemanticReadNode::selection(
-  self : MarkdownSemanticReadNode,
-  kind~ : MarkdownSemanticSelectionKind,
-) -> MarkdownSemanticSelection? {
-  match markdown_semantic_selection_origin(self.node, kind) {
-    Some(origin) => Some({ read: self.read, origin })
-    None => None
-  }
 }
 
 ///|
@@ -227,5 +176,21 @@ pub fn markdown_semantic_read_local_transform_rewrite(
     selection.read.document.source,
     target_origin=selection.origin,
     replacement_text~,
+  )
+}
+
+///|
+/// Resolve the source snapshot owned by this detached document.
+pub impl @diagnostic.SourceResolver for MarkdownDocument with fn resolve_source(
+  self,
+  source_id,
+) {
+  guard source_id == self.source_id else { return None }
+  Some(
+    @core.SourceSnapshot::SourceSnapshot(
+      source_id.value(),
+      self.source,
+      @core.LineIndex::new(self.source),
+    ),
   )
 }

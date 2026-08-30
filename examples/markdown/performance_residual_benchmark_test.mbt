@@ -158,11 +158,11 @@ fn perf_residual_project_readme_excerpt() -> String {
     #|pub let markdown_spec : @core.LanguageSpec[Token, SyntaxKind]
     #|pub let markdown_mode_lexer : @core.ModeLexer[Token, MarkdownLexMode]
     #|
-    #|pub fn try! parse(@core.SourceId, String) -> Block
-    #|pub fn parse_markdown(
-    #|  @core.SourceId,
+    #|pub fn parse(
     #|  String,
-    #|) -> (Block, @core.DiagnosticSet) raise @core.LexError
+    #|  source_id? : @core.SourceId,
+    #|) -> MarkdownDocument raise Failure
+    #|pub fn parse_block_ast(@core.SourceId, String) -> Block raise Failure
     #|pub fn parse_cst(
     #|  @core.SourceId,
     #|  String,
@@ -258,7 +258,12 @@ fn bench_perf_residual_cst(b : @bench.T, source : String) -> Unit {
 ///|
 fn bench_perf_residual_ast(b : @bench.T, source : String) -> Unit {
   b.bench(fn() {
-    b.keep(try! parse(@core.SourceId("markdown-performance-residual"), source))
+    b.keep(
+      try! parse_block_ast(
+        @core.SourceId("markdown-performance-residual"),
+        source,
+      ),
+    )
   })
 }
 
