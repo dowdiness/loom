@@ -36,20 +36,20 @@ unrelated `(MarkdownIR, source)` pair.
 Introduce a source-bound document seam and an owning, detached `semantic read`
 handle for document-aware consumers.
 
-- A source-bound document owns one coherent parser snapshot: source, syntax, and
-a diagnostics view that correspond to the same parser revision.
-- `MarkdownDocument::semantic_read()` is the explicit semantic-read entry
-point. The document remains lazy with respect to MarkdownIR; creating the
-handle captures the snapshot and eagerly lowers MarkdownIR exactly once. The
-lowering reuses the document-owned source rather than reconstructing it from the
-CST.
-- `MarkdownSemanticRead::root() -> MarkdownSemanticReadNode` creates the
-read-bound semantic tree view. Its nodes expose only read-only navigation and
-inspection (`children()`, `view()`, and observational `origin()`).
-- `MarkdownSemanticReadNode::selection(kind~ : MarkdownSemanticSelectionKind)
--> MarkdownSemanticSelection?` creates an opaque selection owned by the same
-read. `MarkdownSemanticSelectionKind` covers whole-node, content, destination,
-title, and autolink-display targets; a missing target returns `None`.
+- A source-bound document owns one coherent parser snapshot: source,
+  diagnostics, and the completed semantic root from the same parser revision.
+- Batch `parse` and `IncrementalParser::snapshot()` converge on this detached
+  `MarkdownDocument`. Semantic lowering happens once during document creation;
+  later root and advanced-read access reuse the retained result.
+- `MarkdownDocument::root() -> MarkdownNode` is the common semantic tree seam.
+  `MarkdownSemanticRead::root()` returns the same opaque node type for advanced
+  source-aware adapters. Nodes expose read-only navigation and inspection
+  (`children()`, `view()`, and observational `origin()`).
+- `MarkdownNode::selection(kind~ : MarkdownSemanticSelectionKind) ->
+  MarkdownSemanticSelection?` creates an opaque selection owned by the same
+  read. `MarkdownSemanticSelectionKind` covers whole-node, content,
+  destination, title, and autolink-display targets; a missing target returns
+  `None`.
 - `MarkdownSemanticRead::ir()` exposes the immutable MarkdownIR value already
 owned by the handle for existing IR-only target adapters. Its raw origins are
 not valid inputs to the new source-aware rewrite seam.
@@ -64,8 +64,8 @@ read-bound selection only and no independently supplied source string.
 and may consume the handle's read-only IR view. Existing direct parser and
 compatibility entry points remain available while parity evidence and the
 separate cutover decision are completed.
-- The one-lowering guarantee is a public handle-structure contract. It is not
-represented by a runtime counter, read identity, or document-global memo.
+- The one-lowering guarantee is a public document-structure contract. It is
+  not represented by a runtime counter or read identity.
 - Existing IR-only target contracts are reused rather than replaced by a fixed
 target bundle.
 
@@ -75,7 +75,7 @@ reintroduce independently supplied source/IR pairs or free rewrite origins.
 ## Rationale
 
 The handle makes the source/IR pairing a property of one public seam rather
-than a caller convention. Eager lowering gives the handle a simple immutable
+than a caller convention. Eager lowering gives the document a simple immutable
 lifecycle: no hidden mutable lazy state, no first-target timing ambiguity, and
 no repeated lowering when targets are composed. Detached ownership lets a
 consumer retain a read across parser edits and attachment disposal without
@@ -96,13 +96,13 @@ consumers from accidentally pairing semantic data with unrelated source text.
 
 - The public seam gains a real source-bound ownership model and a compositional
   read handle instead of another shallow adapter.
-- Creating a handle pays the MarkdownIR lowering cost even when no target is
+- Creating a document pays the semantic lowering cost even when no target is
   subsequently used; the source-bound benchmark suite measures this path. It
-  does not pay an additional complete-source reconstruction because the document
-  already owns the coherent source.
-- A retained handle keeps its source/syntax/diagnostic snapshot and MarkdownIR
-  alive for the value lifetime; callers release it through ordinary MoonBit
-  ownership when the read is no longer needed.
+  does not pay an additional complete-source reconstruction because the
+  document already owns the coherent source.
+- A retained document or advanced read keeps its source, diagnostics, and
+  semantic root alive for the value lifetime; callers release it through
+  ordinary MoonBit ownership when the value is no longer needed.
 - Read-bound node and selection types add public surface, but they keep
   source-aware rewrite targets local to one read and leave raw origin access
   observational only.

@@ -1,168 +1,78 @@
 # `dowdiness/markdown`
 
-Markdown parser example for [`dowdiness/loom`](../../loom/).
+A source-aware Markdown library built on [`dowdiness/loom`](../../loom/).
+It provides batch and incremental producers that converge on the same detached
+semantic document.
 
-Demonstrates **mode-aware lexing** — `@core.ModeLexer[Token, Mode]` —
-the way to handle languages whose token grammar depends on the current
-context (line start vs inline vs inside a fenced code block).
-
-## Public API overview
-
-This section highlights the main entry points.
+## Common API
 
 ```mbt nocheck
-// ── Grammar ───────────────────────────────────────────────────────────────────
-
-pub let markdown_grammar    : @loom.Grammar[Token, SyntaxKind, Block]
-pub let markdown_spec       : @core.LanguageSpec[Token, SyntaxKind]
-pub let markdown_mode_lexer : @core.ModeLexer[Token, MarkdownLexMode]
-
-// ── High-level parsing ────────────────────────────────────────────────────────
-
-pub fn parse(@core.SourceId, String) -> Block                              // lex errors fold into Block::Error
-pub fn parse_markdown(@core.SourceId, String) -> (Block, @core.DiagnosticSet) // returns diagnostics
-  raise @core.LexError
-pub fn parse_cst(@core.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet)
-  raise @core.LexError
-// `parse_document` is the source-bound snapshot entry point.
-pub fn parse_document(@core.SourceId, String) -> MarkdownDocument
-  raise @core.LexError
-
-// ── CST → AST ─────────────────────────────────────────────────────────────────
-
-pub fn markdown_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> Block) -> Block
-
-// ── Parser-backed editor role spans ───────────────────────────────────────────
-
-pub fn project_markdown_roles(@seam.SyntaxNode) -> Array[MarkdownRoleSpan]
-pub fn export_markdown_role_spans(Array[MarkdownRoleSpan]) -> Json
-pub fn attach_markdown_role_spans(@loom.SyntaxParser) -> MarkdownRoleSpansAttachment
-
-// ── Parser-backed editor Block projection ────────────────────────────────────
-
-pub fn attach_markdown_projection(@loom.SyntaxParser) -> MarkdownProjectionAttachment
-
-// ── Experimental MarkdownIR M1 slice ──────────────────────────────────────────
-
-pub fn experimental_markdown_ir_from_syntax(
-  @core.SourceId, @seam.SyntaxNode
-) -> MarkdownIR
-pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
-  @core.SourceId, @seam.SyntaxNode, @core.DiagnosticSet
-) -> MarkdownIR
-pub fn experimental_markdown_ir_from_syntax_snapshot(
-  @loom.SyntaxSnapshot
-) -> MarkdownIR
-pub fn experimental_markdown_ir_to_block(MarkdownIR) -> Block
-pub fn experimental_markdown_ir_to_mdast_json(MarkdownIR) -> Json
-pub fn experimental_markdown_ir_to_mdast_json_with_positions(MarkdownIR, String) -> Json
-pub fn experimental_markdown_ir_preserve_rewrite(MarkdownIR, String) -> String
-pub fn experimental_markdown_ir_local_transform_rewrite(
-  MarkdownIR, String, target_origin~ : MarkdownIROrigin, replacement_text~ : String
-) -> String
-pub fn experimental_markdown_ir_canonical_format(
-  @core.SourceId, MarkdownIR
-) -> String
-pub fn experimental_markdown_ir_canonical_format_checked(
-  @core.SourceId, MarkdownIR
-)
-  -> Result[String, MarkdownIRCanonicalFormatFailure]
-pub(all) enum RawHtmlPolicy {
-  Escape
-  Omit
-  Reject
-  Passthrough
-}
-pub(all) enum RawHtmlSurface {
-  RawHtmlBlock
-  RawHtmlInline
-}
-pub(all) enum MarkdownIRHtmlRenderError {
-  RawHtmlRejected(RawHtmlSurface, MarkdownIROrigin)
-}
-pub fn experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
-  MarkdownIR, RawHtmlPolicy
-) -> Result[String, MarkdownIRHtmlRenderError]
-pub fn experimental_markdown_ir_to_commonmark_html(MarkdownIR) -> String
-
-// ── Parser-bound incremental semantic publication ────────────────────────────
-
-pub struct MarkdownSemanticSession
-pub fn MarkdownSemanticSession::MarkdownSemanticSession(
-  @loom.SyntaxParser,
+pub fn parse(
+  source : String,
+  source_id? : @diagnostic.SourceId,
   extensions? : MarkdownExtensions,
-  first_revision_key? : Int
-) -> MarkdownSemanticSession
-pub fn MarkdownSemanticSession::next_revision_key(
-  MarkdownSemanticSession
-) -> Int
-pub fn MarkdownSemanticSession::publish(
-  MarkdownSemanticSession
-) -> MarkdownSemanticPublication
-pub struct MarkdownSemanticPublication
-pub fn MarkdownSemanticPublication::document(
-  MarkdownSemanticPublication
-) -> MarkdownIR
-pub fn MarkdownSemanticPublication::top_level_revision_keys(
-  MarkdownSemanticPublication
-) -> ArrayView[Int]
+) -> MarkdownDocument raise Failure
 
-// ── Source-bound semantic document ───────────────────────────────────────────
+pub(all) struct IncrementalParser { /* opaque */ }
+pub fn IncrementalParser::IncrementalParser(
+  source : String,
+  source_id? : @diagnostic.SourceId,
+  extensions? : MarkdownExtensions,
+) -> IncrementalParser raise Failure
+pub fn IncrementalParser::update(
+  IncrementalParser,
+  source : String,
+  changes? : @text_change.ChangeSet,
+) -> Unit raise
+pub fn IncrementalParser::snapshot(IncrementalParser) -> MarkdownDocument
 
-pub struct MarkdownDocument
-pub fn MarkdownDocument::source_id(MarkdownDocument) -> @core.SourceId
-pub fn MarkdownDocument::source(MarkdownDocument) -> String
+pub fn MarkdownDocument::root(MarkdownDocument) -> MarkdownNode
 pub fn MarkdownDocument::diagnostics(MarkdownDocument) -> @core.DiagnosticSet
-pub fn MarkdownDocument::semantic_read(MarkdownDocument) -> MarkdownSemanticRead
-pub struct MarkdownSemanticRead
-pub fn MarkdownSemanticRead::ir(MarkdownSemanticRead) -> MarkdownIR
-pub fn MarkdownSemanticRead::root(MarkdownSemanticRead) -> MarkdownSemanticReadNode
-pub struct MarkdownSemanticReadNode
-pub fn MarkdownSemanticReadNode::children(MarkdownSemanticReadNode)
-  -> Array[MarkdownSemanticReadNode]
-pub fn MarkdownSemanticReadNode::view(MarkdownSemanticReadNode) -> MarkdownIRView
-pub fn MarkdownSemanticReadNode::origin(MarkdownSemanticReadNode) -> MarkdownIROrigin
-pub fn MarkdownSemanticReadNode::selection(
-  MarkdownSemanticReadNode, kind~ : MarkdownSemanticSelectionKind
-) -> MarkdownSemanticSelection?
-pub struct MarkdownSemanticSelection
-pub(all) enum MarkdownSemanticSelectionKind {
-  WholeNode
-  Content
-  Destination
-  Title
-  AutolinkDisplay
-}
-pub fn markdown_semantic_read_to_block(MarkdownSemanticRead) -> Block
-pub fn markdown_semantic_read_to_mdast_json_with_positions(
-  MarkdownSemanticRead
-) -> Json
-pub fn markdown_semantic_read_preserve_rewrite(MarkdownSemanticRead) -> String
-pub fn markdown_semantic_read_local_transform_rewrite(
-  MarkdownSemanticSelection, replacement_text~ : String
-) -> String
-pub fn MarkdownSemanticAttachment::source_document(
-  MarkdownSemanticAttachment
-) -> MarkdownDocument
-
-// ── Lexing ────────────────────────────────────────────────────────────────────
-
-pub fn tokenize(String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
-pub fn markdown_lex_step(String, Int, MarkdownLexMode)
-  -> (@core.LexStep[Token], MarkdownLexMode)
+pub fn MarkdownNode::view(MarkdownNode) -> MarkdownNodeView
+pub fn MarkdownNode::children(MarkdownNode) -> Array[MarkdownNode]
+pub fn html(MarkdownDocument) -> String
 ```
 
-Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).
+`parse(source)` uses a document-local `SourceId("markdown")`; pass an explicit
+stable source ID when aggregating diagnostics from several documents.
+`MarkdownDocument` implements `SourceResolver`, owns its source and completed
+semantic root, and remains valid after its producer is gone. Malformed Markdown
+returns a recovered document plus diagnostics. A raised `Failure` indicates an
+internal parser or tree-construction defect.
 
-Note that `parse` is **not** `raise` — lexing failures fold into
-`Block::Error`, while parser recovery may preserve malformed inline source as
-text or error-shaped IR. If you need diagnostics, use `parse_markdown` instead.
-Pass the same stable `SourceId` through parsing, diagnostic-aware lowering, and
-canonical-format verification for one source snapshot. `SyntaxSnapshot` carries
-that source identity together with source, syntax, and diagnostics, so
-`experimental_markdown_ir_from_syntax_snapshot` cannot mix those facts and does
-not rebuild source from CST tokens. A producer name is not a source identity,
-and `tokenize(String)` remains the source-agnostic raw lexer entry point.
+`IncrementalParser::update` always treats the new source as authoritative. An
+optional `ChangeSet` is validated as an old-to-new performance hint before the
+candidate document is parsed. A mismatch raises `MarkdownUpdateError` without
+mutating the previous state. `snapshot()` returns the same detached
+`MarkdownDocument` type as batch parsing. The current implementation may use a
+full parse internally; reuse strategy is not part of this public contract.
+
+`html(document)` escapes raw HTML by default. `MarkdownNode` is opaque; its
+exhaustive `MarkdownNodeView` retains rendering semantics including reference
+forms, autolink kind, hard-break form, list markers/spread, and task checked
+state without exposing grammar, CST, parser runtime, or MarkdownIR.
+
+## Advanced and unstable API
+
+Structural editors may still use `parse_cst`, `markdown_grammar`, `Block`,
+`MarkdownSemanticRead`, MarkdownIR, projection attachments, and source-aware
+rewrite selections. These compatibility surfaces remain public while Canopy's
+advanced structural consumers migrate, but they are not the recommended entry
+point for new parse/render integrations. `parse_block_ast` is a legacy
+Block-facing adapter, not a compatibility wrapper for the common document API.
+
+Parser-bound structural consumers that need repeated MarkdownIR publication
+may use `MarkdownSemanticSession`. It retains one successful generation,
+publishes read-only top-level revision keys for proven reusable blocks, and
+falls back to canonical direct lowering whenever reuse is ambiguous. This is an
+advanced parser-lifetime API; common consumers should prefer
+`IncrementalParser` and detached `MarkdownDocument` snapshots.
+
+The package also demonstrates mode-aware lexing with
+`@core.ModeLexer[Token, Mode]` for grammars whose tokens depend on line-start,
+inline, and fenced-code context.
+
+Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).
 
 ### Emphasis token and CST compatibility
 
@@ -236,7 +146,7 @@ preferred surface for a new exhaustive adapter.
 CommonMark semantics remain the default. The parser recognizes task-shaped
 list-item prefixes losslessly, but default MarkdownIR lowering keeps them as
 literal paragraph text. Pass `MarkdownExtensions::task_list()` through
-`parse_document` or the direct `experimental_markdown_ir_from_syntax*` lowering
+`parse`/`IncrementalParser` or the direct `experimental_markdown_ir_from_syntax*` lowering
 functions to enable the GFM task-list-item extension explicitly.
 
 With that extension enabled, a marker at the start of the first paragraph
@@ -266,8 +176,8 @@ HTML surface and source origin. Malformed recovery `Raw` is not valid HTML and
 remains escaped under every policy. mdast export is independent of rendering
 policy and continues to preserve valid HTML as an `html` node. The
 position-aware mdast export must receive the exact source string that produced
-the IR. The established parser surfaces (`parse`, `parse_markdown`, `parse_cst`,
-`markdown_grammar`, and `markdown_fold_node`) remain the one-shot and
+the IR. The advanced parser surfaces (`parse_block_ast`, `parse_cst`,
+`markdown_grammar`, and `markdown_fold_node`) remain the `Block` and
 `Parser[Block]` compatibility path. Long-lived editor integrations can attach
 the keyed path with `attach_markdown_projection` while continuing to consume
 the same `Block` / `Inline` model. Source-aware integrations over an existing
@@ -276,14 +186,14 @@ consume the complete owning MarkdownIR document through `document()`.
 
 ### Source-bound semantic document
 
-`parse_document(source_id, source)` owns one complete source, syntax snapshot,
-and parser `DiagnosticSet`. Construction is lazy with respect to MarkdownIR;
-`semantic_read()` is the explicit eager step that creates one detached
-`MarkdownSemanticRead` and lowers MarkdownIR exactly once for that handle.
-`MarkdownSemanticRead::root()` exposes read-bound nodes. Their observational
-`view()`/`origin()` and `children()` methods support navigation, while
-`selection(kind~)` creates an opaque target that remains tied to the same read.
-Missing content, destination, title, or autolink-display targets return `None`.
+`parse(source, source_id?, extensions?)` owns one complete source, diagnostics,
+and semantic root. Lowering happens once during document construction;
+`semantic_read()` is the advanced compatibility handle over that retained root
+and does not lower it again. Both `MarkdownDocument::root()` and
+`MarkdownSemanticRead::root()` expose the same opaque `MarkdownNode` contract.
+Its `view()`/`origin()` and `children()` methods support navigation, while
+`selection(kind~)` creates an opaque target tied to the same read. Missing
+content, destination, title, or autolink-display targets return `None`.
 
 The three source-aware adapters consume the read:
 `markdown_semantic_read_to_block`,

@@ -54,7 +54,7 @@ test "escaped emphasis recovery: direct and MarkdownIR lowering parity matrix" {
   for source in sources {
     inspect(
       escaped_emphasis_ir_block(source_id, source),
-      content=@debug.to_string(parse(source_id, source)),
+      content=@debug.to_string(parse_block_ast(source_id, source)),
     )
   }
 }
@@ -64,7 +64,7 @@ test "delimiter lowering: unmatched closer capacity is literal text" {
   let source_id = @core.SourceId("markdown-unmatched-closer-literal")
   let source = "\\*a b**\n"
   inspect(
-    parse(source_id, source),
+    parse_block_ast(source_id, source),
     content="Document([Paragraph([Text(\"*a b**\")])])",
   )
   inspect(
@@ -78,7 +78,7 @@ test "delimiter lowering: list-item literal markers stay coalesced" {
   let source_id = @core.SourceId("markdown-list-item-literal-markers")
   let source = "- \\*a \\*b**\n"
   inspect(
-    parse(source_id, source),
+    parse_block_ast(source_id, source),
     content="Document([UnorderedList([UnorderedListItem([Text(\"*a *b**\")])])])",
   )
   inspect(

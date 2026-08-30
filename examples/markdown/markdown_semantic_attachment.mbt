@@ -55,9 +55,11 @@ pub fn MarkdownSemanticAttachment::source_document(
 ) -> MarkdownDocument {
   guard !self.disposed else { abort("MarkdownSemanticAttachment is disposed") }
   let snapshot = self.parser.snapshot().read_or_abort()
+  let ir = self.shell.read()
   let document = markdown_document_from_snapshot(
     self.parser.source_id(),
     snapshot,
+    ir,
   )
   self.shell.scope.collect()
   document

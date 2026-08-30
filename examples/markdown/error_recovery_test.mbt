@@ -1,7 +1,7 @@
 ///|
 test "literal fallback: unclosed bold delimiter" {
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-error-recovery-unclosed-bold"),
       "**unclosed\n",
     ),
@@ -12,7 +12,7 @@ test "literal fallback: unclosed bold delimiter" {
 ///|
 test "literal fallback: unclosed link opener" {
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-error-recovery-unclosed-link"),
       "[unclosed\n",
     ),
@@ -23,7 +23,7 @@ test "literal fallback: unclosed link opener" {
 ///|
 test "error recovery: unclosed code fence" {
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-error-recovery-unclosed-fence"),
       "```\ncode without close\n",
     ),
@@ -34,7 +34,7 @@ test "error recovery: unclosed code fence" {
 ///|
 test "error recovery: unmatched code-span run stays literal" {
   inspect(
-    parse(
+    parse_block_ast(
       @core.SourceId("markdown-error-recovery-unmatched-code-span"),
       "``unclosed *em*\n",
     ),

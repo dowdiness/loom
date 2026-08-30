@@ -9,8 +9,27 @@ import {
 pub fn compute_text_change(String, String) -> TextChange
 
 // Errors
+pub(all) suberror ChangeSetError {
+  NegativeSourceLength
+  NegativeRange(index~ : Int, start~ : Int, delete_len~ : Int)
+  ReplaceAll(index~ : Int)
+  Unordered(index~ : Int)
+  Overlapping(index~ : Int)
+  OutOfBounds(index~ : Int, end~ : Int, source_length~ : Int)
+  ResultLengthOverflow(index~ : Int)
+} derive(Eq, @debug.Debug)
 
 // Types and methods
+pub(all) struct ChangeSet {
+  // private fields
+}
+pub fn ChangeSet::ChangeSet(source_length~ : Int, changes~ : Array[TextChange]) -> Self raise ChangeSetError
+pub fn ChangeSet::apply(Self, String) -> String?
+pub fn ChangeSet::empty(Int) -> Self raise ChangeSetError
+pub fn ChangeSet::is_empty(Self) -> Bool
+pub fn ChangeSet::result_length(Self) -> Int
+pub fn ChangeSet::source_length(Self) -> Int
+
 pub(all) enum TextChange {
   ReplaceRange(start~ : Int, delete_len~ : Int, inserted~ : String)
   ReplaceAll(String)

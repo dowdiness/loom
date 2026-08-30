@@ -42,8 +42,6 @@ jobs:
         run: bash scripts/bench-check-selftest.sh
       - name: MarkdownIR performance guard self-test
         run: bash scripts/markdown-ir-perf-guard-selftest.sh
-      - name: Markdown source-bound API capability probe self-test
-        run: bash scripts/markdown-source-bound-api-kind-selftest.sh
       - name: Validate checked-in detector policy
         run: bash bench-check.sh --validate
 
@@ -65,12 +63,8 @@ jobs:
       BENCH_TARGET: ${{ matrix.target }}
       DELIMITER_PERF_HARNESS_PATH: examples/markdown/delimiter_performance_wbtest.mbt
       DELIMITER_PERF_ADAPTER_PATH: examples/markdown/delimiter_performance_api_wbtest.mbt
-      DELIMITER_PERF_LEGACY_ADAPTER_PATH: scripts/tests/markdown-delimiter-performance-legacy-api-wbtest.mbt
       SOURCE_BOUND_PERF_HARNESS_PATH: examples/markdown/markdown_document_benchmark_wbtest.mbt
       SOURCE_BOUND_PERF_ADAPTER_PATH: examples/markdown/markdown_document_benchmark_api_wbtest.mbt
-      SOURCE_BOUND_PERF_LEGACY_ADAPTER_PATH: scripts/tests/markdown-document-benchmark-legacy-api-wbtest.mbt
-      SOURCE_BOUND_PERF_LEGACY_BENCHMARK_PATH: examples/markdown/markdown_document_benchmark_test.mbt
-      SOURCE_BOUND_PERF_CAPABILITY_PROBE_PATH: scripts/markdown-source-bound-api-kind.sh
     steps:
       - name: Checkout base
         uses: actions/checkout@v5
@@ -103,19 +97,20 @@ jobs:
           source_path="perf-head/$DELIMITER_PERF_HARNESS_PATH"
           snapshot_dir="$RUNNER_TEMP/markdown-delimiter-perf-harness"
           snapshot_path="$snapshot_dir/delimiter_performance_wbtest.mbt"
-          current_adapter_source="perf-head/$DELIMITER_PERF_ADAPTER_PATH"
-          current_adapter_snapshot="$snapshot_dir/delimiter_performance_api_wbtest.mbt"
-          legacy_adapter_source="perf-head/$DELIMITER_PERF_LEGACY_ADAPTER_PATH"
-          legacy_adapter_snapshot="$snapshot_dir/delimiter_performance_legacy_api_wbtest.mbt"
+          base_adapter_source="perf-base/$DELIMITER_PERF_ADAPTER_PATH"
+          base_adapter_snapshot="$snapshot_dir/base-delimiter-performance-api-wbtest.mbt"
+          head_adapter_source="perf-head/$DELIMITER_PERF_ADAPTER_PATH"
+          head_adapter_snapshot="$snapshot_dir/head-delimiter-performance-api-wbtest.mbt"
 
           git -C perf-head ls-files --error-unmatch -- \
             "$DELIMITER_PERF_HARNESS_PATH" \
-            "$DELIMITER_PERF_ADAPTER_PATH" \
-            "$DELIMITER_PERF_LEGACY_ADAPTER_PATH" >/dev/null
+            "$DELIMITER_PERF_ADAPTER_PATH" >/dev/null
+          git -C perf-base ls-files --error-unmatch -- \
+            "$DELIMITER_PERF_ADAPTER_PATH" >/dev/null
           for tracked_input in \
             "$source_path" \
-            "$current_adapter_source" \
-            "$legacy_adapter_source"; do
+            "$base_adapter_source" \
+            "$head_adapter_source"; do
             if [[ ! -f "$tracked_input" || -L "$tracked_input" ]]; then
               echo "delimiter benchmark input must be a tracked regular file: $tracked_input" >&2
               exit 1
@@ -124,30 +119,23 @@ jobs:
 
           install -d -m 0755 "$snapshot_dir"
           install -m 0644 "$source_path" "$snapshot_path"
-          install -m 0644 "$current_adapter_source" "$current_adapter_snapshot"
-          install -m 0644 "$legacy_adapter_source" "$legacy_adapter_snapshot"
+          install -m 0644 "$base_adapter_source" "$base_adapter_snapshot"
+          install -m 0644 "$head_adapter_source" "$head_adapter_snapshot"
           harness_sha256=$(sha256sum "$snapshot_path" | awk '{print $1}')
-          current_adapter_sha256=$(sha256sum "$current_adapter_snapshot" | awk '{print $1}')
-          legacy_adapter_sha256=$(sha256sum "$legacy_adapter_snapshot" | awk '{print $1}')
-          if git -C perf-base cat-file -e "HEAD:$DELIMITER_PERF_ADAPTER_PATH"; then
-            base_adapter_kind=current
-          else
-            base_adapter_kind=legacy
-          fi
+          base_adapter_sha256=$(sha256sum "$base_adapter_snapshot" | awk '{print $1}')
+          head_adapter_sha256=$(sha256sum "$head_adapter_snapshot" | awk '{print $1}')
 
           echo "Markdown delimiter benchmark harness SHA-256: $harness_sha256"
-          echo "Markdown delimiter current API adapter SHA-256: $current_adapter_sha256"
-          echo "Markdown delimiter legacy API adapter SHA-256: $legacy_adapter_sha256"
-          echo "Markdown delimiter base API adapter: $base_adapter_kind"
+          echo "Markdown delimiter base adapter SHA-256: $base_adapter_sha256"
+          echo "Markdown delimiter head adapter SHA-256: $head_adapter_sha256"
           echo "Benchmark refs: base=$base_sha head=$head_sha"
           {
             echo "DELIMITER_PERF_HARNESS_SNAPSHOT=$snapshot_path"
             echo "DELIMITER_PERF_HARNESS_SHA256=$harness_sha256"
-            echo "DELIMITER_PERF_CURRENT_ADAPTER_SNAPSHOT=$current_adapter_snapshot"
-            echo "DELIMITER_PERF_CURRENT_ADAPTER_SHA256=$current_adapter_sha256"
-            echo "DELIMITER_PERF_LEGACY_ADAPTER_SNAPSHOT=$legacy_adapter_snapshot"
-            echo "DELIMITER_PERF_LEGACY_ADAPTER_SHA256=$legacy_adapter_sha256"
-            echo "DELIMITER_PERF_BASE_ADAPTER_KIND=$base_adapter_kind"
+            echo "DELIMITER_PERF_BASE_ADAPTER_SNAPSHOT=$base_adapter_snapshot"
+            echo "DELIMITER_PERF_BASE_ADAPTER_SHA256=$base_adapter_sha256"
+            echo "DELIMITER_PERF_HEAD_ADAPTER_SNAPSHOT=$head_adapter_snapshot"
+            echo "DELIMITER_PERF_HEAD_ADAPTER_SHA256=$head_adapter_sha256"
           } >> "$GITHUB_ENV"
       - name: Snapshot shared source-bound benchmark harness
         shell: bash
@@ -157,22 +145,20 @@ jobs:
           source_path="perf-head/$SOURCE_BOUND_PERF_HARNESS_PATH"
           snapshot_dir="$RUNNER_TEMP/markdown-source-bound-perf-harness"
           snapshot_path="$snapshot_dir/markdown_document_benchmark_wbtest.mbt"
-          current_adapter_source="perf-head/$SOURCE_BOUND_PERF_ADAPTER_PATH"
-          current_adapter_snapshot="$snapshot_dir/markdown_document_benchmark_api_wbtest.mbt"
-          legacy_adapter_source="perf-head/$SOURCE_BOUND_PERF_LEGACY_ADAPTER_PATH"
-          legacy_adapter_snapshot="$snapshot_dir/markdown-document-benchmark-legacy-api-wbtest.mbt"
-          classifier_path="perf-head/$SOURCE_BOUND_PERF_CAPABILITY_PROBE_PATH"
+          base_adapter_source="perf-base/$SOURCE_BOUND_PERF_ADAPTER_PATH"
+          base_adapter_snapshot="$snapshot_dir/base-markdown-document-benchmark-api-wbtest.mbt"
+          head_adapter_source="perf-head/$SOURCE_BOUND_PERF_ADAPTER_PATH"
+          head_adapter_snapshot="$snapshot_dir/head-markdown-document-benchmark-api-wbtest.mbt"
 
           git -C perf-head ls-files --error-unmatch -- \
             "$SOURCE_BOUND_PERF_HARNESS_PATH" \
-            "$SOURCE_BOUND_PERF_ADAPTER_PATH" \
-            "$SOURCE_BOUND_PERF_LEGACY_ADAPTER_PATH" \
-            "$SOURCE_BOUND_PERF_CAPABILITY_PROBE_PATH" >/dev/null
+            "$SOURCE_BOUND_PERF_ADAPTER_PATH" >/dev/null
+          git -C perf-base ls-files --error-unmatch -- \
+            "$SOURCE_BOUND_PERF_ADAPTER_PATH" >/dev/null
           for tracked_input in \
             "$source_path" \
-            "$current_adapter_source" \
-            "$legacy_adapter_source" \
-            "$classifier_path"; do
+            "$base_adapter_source" \
+            "$head_adapter_source"; do
             if [[ ! -f "$tracked_input" || -L "$tracked_input" ]]; then
               echo "source-bound benchmark input must be a tracked regular file: $tracked_input" >&2
               exit 1
@@ -181,25 +167,22 @@ jobs:
 
           install -d -m 0755 "$snapshot_dir"
           install -m 0644 "$source_path" "$snapshot_path"
-          install -m 0644 "$current_adapter_source" "$current_adapter_snapshot"
-          install -m 0644 "$legacy_adapter_source" "$legacy_adapter_snapshot"
+          install -m 0644 "$base_adapter_source" "$base_adapter_snapshot"
+          install -m 0644 "$head_adapter_source" "$head_adapter_snapshot"
           harness_sha256=$(sha256sum "$snapshot_path" | awk '{print $1}')
-          current_adapter_sha256=$(sha256sum "$current_adapter_snapshot" | awk '{print $1}')
-          legacy_adapter_sha256=$(sha256sum "$legacy_adapter_snapshot" | awk '{print $1}')
-          base_adapter_kind=$(bash "$classifier_path" perf-base)
+          base_adapter_sha256=$(sha256sum "$base_adapter_snapshot" | awk '{print $1}')
+          head_adapter_sha256=$(sha256sum "$head_adapter_snapshot" | awk '{print $1}')
 
           echo "Markdown source-bound benchmark harness SHA-256: $harness_sha256"
-          echo "Markdown source-bound current API adapter SHA-256: $current_adapter_sha256"
-          echo "Markdown source-bound legacy API adapter SHA-256: $legacy_adapter_sha256"
-          echo "Markdown source-bound base API capability: $base_adapter_kind"
+          echo "Markdown source-bound base adapter SHA-256: $base_adapter_sha256"
+          echo "Markdown source-bound head adapter SHA-256: $head_adapter_sha256"
           {
             echo "SOURCE_BOUND_PERF_HARNESS_SNAPSHOT=$snapshot_path"
             echo "SOURCE_BOUND_PERF_HARNESS_SHA256=$harness_sha256"
-            echo "SOURCE_BOUND_PERF_CURRENT_ADAPTER_SNAPSHOT=$current_adapter_snapshot"
-            echo "SOURCE_BOUND_PERF_CURRENT_ADAPTER_SHA256=$current_adapter_sha256"
-            echo "SOURCE_BOUND_PERF_LEGACY_ADAPTER_SNAPSHOT=$legacy_adapter_snapshot"
-            echo "SOURCE_BOUND_PERF_LEGACY_ADAPTER_SHA256=$legacy_adapter_sha256"
-            echo "SOURCE_BOUND_PERF_BASE_ADAPTER_KIND=$base_adapter_kind"
+            echo "SOURCE_BOUND_PERF_BASE_ADAPTER_SNAPSHOT=$base_adapter_snapshot"
+            echo "SOURCE_BOUND_PERF_BASE_ADAPTER_SHA256=$base_adapter_sha256"
+            echo "SOURCE_BOUND_PERF_HEAD_ADAPTER_SNAPSHOT=$head_adapter_snapshot"
+            echo "SOURCE_BOUND_PERF_HEAD_ADAPTER_SHA256=$head_adapter_sha256"
           } >> "$GITHUB_ENV"
       - name: Install MoonBit
         env:
@@ -214,17 +197,13 @@ jobs:
           (cd perf-base && moon update)
           (cd perf-head && moon update)
       # Compare base/head on one runner for each backend matrix leg. Alternate
-      # execution order to cancel thermal and host-load drift. The delimiter and
-      # source-bound benchmark harnesses are snapshotted from head and overlaid
-      # identically on each checkout so a PR can introduce fail-closed rows
-      # without making its base output structurally incomparable. Private
-      # adapters isolate parser-construction API cutovers; the source-bound
-      # capability probe identifies current versus known legacy API surfaces.
-      # An unknown capability fails the snapshot step rather than enabling
-      # calibration. Pre-document bases report source-bound rows as explicit
-      # non-gating cutover characterization; current-adapter rows use the
-      # source-bound guard thresholds. The checker blocks persistent regressions;
-      # the weekly detector remains the more sensitive absolute-baseline alert.
+      # execution order to cancel thermal and host-load drift. Benchmark
+      # harnesses are snapshotted from head and overlaid identically so row
+      # structure remains comparable. Each revision supplies its own private
+      # source-bound API adapter; API changes therefore do not require a
+      # compatibility wrapper or a capability classifier. The checker blocks
+      # persistent regressions; the weekly detector remains the more sensitive
+      # absolute-baseline alert.
       - name: Compare Markdown performance
         run: |
           set -euo pipefail
@@ -238,7 +217,6 @@ jobs:
             rm -f "$checkout/$DELIMITER_PERF_ADAPTER_PATH"
             rm -f "$checkout/$SOURCE_BOUND_PERF_HARNESS_PATH"
             rm -f "$checkout/$SOURCE_BOUND_PERF_ADAPTER_PATH"
-            rm -f "$checkout/$SOURCE_BOUND_PERF_LEGACY_BENCHMARK_PATH"
           }
 
           remove_all_overlays() {
@@ -264,10 +242,9 @@ jobs:
 
           verify_overlay() {
             local checkout="$1"
-            local adapter_sha256="$DELIMITER_PERF_CURRENT_ADAPTER_SHA256"
-            if [[ "$checkout" == "perf-base" &&
-                  "$DELIMITER_PERF_BASE_ADAPTER_KIND" == "legacy" ]]; then
-              adapter_sha256="$DELIMITER_PERF_LEGACY_ADAPTER_SHA256"
+            local adapter_sha256="$DELIMITER_PERF_HEAD_ADAPTER_SHA256"
+            if [[ "$checkout" == "perf-base" ]]; then
+              adapter_sha256="$DELIMITER_PERF_BASE_ADAPTER_SHA256"
             fi
             verify_file_hash \
               "$checkout/$DELIMITER_PERF_HARNESS_PATH" \
@@ -280,10 +257,9 @@ jobs:
           }
           verify_source_bound_overlay() {
             local checkout="$1"
-            local adapter_sha256="$SOURCE_BOUND_PERF_CURRENT_ADAPTER_SHA256"
-            if [[ "$checkout" == "perf-base" &&
-                  "$SOURCE_BOUND_PERF_BASE_ADAPTER_KIND" == "legacy" ]]; then
-              adapter_sha256="$SOURCE_BOUND_PERF_LEGACY_ADAPTER_SHA256"
+            local adapter_sha256="$SOURCE_BOUND_PERF_HEAD_ADAPTER_SHA256"
+            if [[ "$checkout" == "perf-base" ]]; then
+              adapter_sha256="$SOURCE_BOUND_PERF_BASE_ADAPTER_SHA256"
             fi
             verify_file_hash \
               "$checkout/$SOURCE_BOUND_PERF_HARNESS_PATH" \
@@ -297,19 +273,15 @@ jobs:
 
           install_overlay() {
             local checkout="$1"
-            local adapter_snapshot="$DELIMITER_PERF_CURRENT_ADAPTER_SNAPSHOT"
-            local adapter_sha256="$DELIMITER_PERF_CURRENT_ADAPTER_SHA256"
-            local source_adapter_snapshot="$SOURCE_BOUND_PERF_CURRENT_ADAPTER_SNAPSHOT"
-            local source_adapter_sha256="$SOURCE_BOUND_PERF_CURRENT_ADAPTER_SHA256"
-            if [[ "$checkout" == "perf-base" &&
-                  "$DELIMITER_PERF_BASE_ADAPTER_KIND" == "legacy" ]]; then
-              adapter_snapshot="$DELIMITER_PERF_LEGACY_ADAPTER_SNAPSHOT"
-              adapter_sha256="$DELIMITER_PERF_LEGACY_ADAPTER_SHA256"
-            fi
-            if [[ "$checkout" == "perf-base" &&
-                  "$SOURCE_BOUND_PERF_BASE_ADAPTER_KIND" == "legacy" ]]; then
-              source_adapter_snapshot="$SOURCE_BOUND_PERF_LEGACY_ADAPTER_SNAPSHOT"
-              source_adapter_sha256="$SOURCE_BOUND_PERF_LEGACY_ADAPTER_SHA256"
+            local adapter_snapshot="$DELIMITER_PERF_HEAD_ADAPTER_SNAPSHOT"
+            local adapter_sha256="$DELIMITER_PERF_HEAD_ADAPTER_SHA256"
+            local source_adapter_snapshot="$SOURCE_BOUND_PERF_HEAD_ADAPTER_SNAPSHOT"
+            local source_adapter_sha256="$SOURCE_BOUND_PERF_HEAD_ADAPTER_SHA256"
+            if [[ "$checkout" == "perf-base" ]]; then
+              adapter_snapshot="$DELIMITER_PERF_BASE_ADAPTER_SNAPSHOT"
+              adapter_sha256="$DELIMITER_PERF_BASE_ADAPTER_SHA256"
+              source_adapter_snapshot="$SOURCE_BOUND_PERF_BASE_ADAPTER_SNAPSHOT"
+              source_adapter_sha256="$SOURCE_BOUND_PERF_BASE_ADAPTER_SHA256"
             fi
             remove_overlay "$checkout"
             verify_file_hash \
@@ -415,9 +387,6 @@ jobs:
           echo "Checking $BENCH_TARGET Markdown performance"
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             export MARKDOWN_DELIMITER_PERF_CALIBRATION=1
-          fi
-          if [[ "$SOURCE_BOUND_PERF_BASE_ADAPTER_KIND" == legacy ]]; then
-            export MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION=1
           fi
           bash perf-head/scripts/markdown-ir-perf-guard.sh \
             "$output_dir/base-1.txt" "$output_dir/head-1.txt" \

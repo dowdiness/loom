@@ -72,7 +72,9 @@ fn bench_perf_cst(b : @bench.T, count : Int) -> Unit {
 fn bench_perf_ast(b : @bench.T, count : Int) -> Unit {
   let source = perf_paragraph_doc(count)
   b.bench(fn() {
-    b.keep(try! parse(@core.SourceId("markdown-perf-envelope"), source))
+    b.keep(
+      try! parse_block_ast(@core.SourceId("markdown-perf-envelope"), source),
+    )
   })
 }
 

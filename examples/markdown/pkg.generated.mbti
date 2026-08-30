@@ -7,6 +7,7 @@ import {
   "dowdiness/loom/core",
   "dowdiness/loom/pipeline",
   "dowdiness/seam",
+  "dowdiness/text_change",
   "moonbitlang/core/debug",
 }
 
@@ -41,6 +42,8 @@ pub fn experimental_markdown_ir_to_mdast_json_with_positions(MarkdownIR, String)
 
 pub fn export_markdown_role_spans(Array[MarkdownRoleSpan]) -> Json
 
+pub fn html(MarkdownDocument) -> String
+
 pub fn markdown_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> Block) -> Block
 
 pub let markdown_grammar : @loom.Grammar[Token, SyntaxKind, Block]
@@ -59,19 +62,20 @@ pub fn markdown_semantic_read_to_mdast_json_with_positions(MarkdownSemanticRead)
 
 pub let markdown_spec : @core.LanguageSpec[Token, SyntaxKind]
 
-pub fn parse(@diagnostic.SourceId, String) -> Block raise Failure
+pub fn parse(String, source_id? : @diagnostic.SourceId, extensions? : MarkdownExtensions) -> MarkdownDocument raise Failure
+
+pub fn parse_block_ast(@diagnostic.SourceId, String) -> Block raise Failure
 
 pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise
-
-pub fn parse_document(@diagnostic.SourceId, String, extensions? : MarkdownExtensions) -> MarkdownDocument raise
-
-pub fn parse_markdown(@diagnostic.SourceId, String) -> (Block, @core.DiagnosticSet) raise
 
 pub fn project_markdown_roles(@seam.SyntaxNode) -> Array[MarkdownRoleSpan]
 
 pub fn tokenize(String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
 
 // Errors
+pub suberror MarkdownUpdateError {
+  ChangeSetMismatch
+} derive(Eq, @debug.Debug)
 
 // Types and methods
 pub(all) enum Block {
@@ -90,6 +94,13 @@ pub impl @core.Renderable for Block
 pub impl @core.TreeNode for Block
 pub impl Show for Block
 
+pub(all) struct IncrementalParser {
+  // private fields
+}
+pub fn IncrementalParser::IncrementalParser(String, source_id? : @diagnostic.SourceId, extensions? : MarkdownExtensions) -> Self raise Failure
+pub fn IncrementalParser::snapshot(Self) -> MarkdownDocument
+pub fn IncrementalParser::update(Self, String, changes? : @text_change.ChangeSet) -> Unit raise
+
 pub(all) enum Inline {
   Text(String)
   Bold(Array[Inline])
@@ -102,19 +113,31 @@ pub impl @core.Renderable for Inline
 pub impl @core.TreeNode for Inline
 pub impl Show for Inline
 
+pub(all) enum MarkdownAutolinkKind {
+  Uri
+  Email
+} derive(Eq, @debug.Debug)
+
 pub struct MarkdownDocument {
   // private fields
 }
 pub fn MarkdownDocument::diagnostics(Self) -> @core.DiagnosticSet
+pub fn MarkdownDocument::root(Self) -> MarkdownNode
 pub fn MarkdownDocument::semantic_read(Self) -> MarkdownSemanticRead
 pub fn MarkdownDocument::source(Self) -> String
 pub fn MarkdownDocument::source_id(Self) -> @diagnostic.SourceId
+pub impl @diagnostic.SourceResolver for MarkdownDocument
 
 pub struct MarkdownExtensions {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn MarkdownExtensions::none() -> Self
 pub fn MarkdownExtensions::task_list() -> Self
+
+pub(all) enum MarkdownHardBreakForm {
+  TrailingSpaces(Int)
+  Backslash
+} derive(Eq, @debug.Debug)
 
 pub struct MarkdownIR {
   // private fields
@@ -234,12 +257,54 @@ pub fn MarkdownLexSession::MarkdownLexSession() -> Self
 pub fn MarkdownLexSession::reset(Self) -> Unit
 pub fn MarkdownLexSession::step(Self, String, Int, MarkdownLexMode) -> (@core.LexStep[Token], MarkdownLexMode)
 
+pub(all) struct MarkdownNode {
+  // private fields
+}
+pub fn MarkdownNode::children(Self) -> Array[Self]
+pub fn MarkdownNode::origin(Self) -> MarkdownIROrigin
+pub fn MarkdownNode::selection(Self, kind~ : MarkdownSemanticSelectionKind) -> MarkdownSemanticSelection?
+pub fn MarkdownNode::view(Self) -> MarkdownNodeView
+
+pub(all) enum MarkdownNodeView {
+  Document
+  Heading(depth~ : Int)
+  Paragraph
+  BlockQuote
+  UnorderedList(spread~ : Bool, marker~ : UnorderedListMarker?)
+  OrderedList(spread~ : Bool, marker~ : OrderedListMarker?)
+  ListItem(spread~ : Bool, marker~ : UnorderedListMarker?, task_checked~ : Bool?)
+  OrderedListItem(spread~ : Bool, marker~ : OrderedListMarker?, task_checked~ : Bool?)
+  CodeBlock(info~ : String, value~ : String)
+  HtmlBlock(value~ : String)
+  ThematicBreak
+  Text(value~ : String)
+  Bold
+  Italic
+  InlineCode(value~ : String)
+  Link(destination~ : String, title~ : String?, reference_form~ : MarkdownReferenceForm)
+  Image(destination~ : String, title~ : String?, reference_form~ : MarkdownReferenceForm)
+  Autolink(kind~ : MarkdownAutolinkKind, display~ : String, destination~ : String)
+  InlineHtml(value~ : String)
+  SoftBreak
+  HardBreak(form~ : MarkdownHardBreakForm)
+  Unsupported(message~ : String)
+  Raw(value~ : String)
+  Recovered(value~ : String)
+} derive(Eq, @debug.Debug)
+
 pub struct MarkdownProjectionAttachment {
   // private fields
 }
 pub fn MarkdownProjectionAttachment::collect(Self) -> Unit
 pub fn MarkdownProjectionAttachment::dispose(Self) -> Unit
 pub fn MarkdownProjectionAttachment::projection(Self) -> Block
+
+pub(all) enum MarkdownReferenceForm {
+  Inline
+  FullReference
+  CollapsedReference
+  ShortcutReference
+} derive(Eq, @debug.Debug)
 
 pub(all) enum MarkdownRole {
   HeadingMarker
@@ -289,15 +354,7 @@ pub struct MarkdownSemanticRead {
   // private fields
 }
 pub fn MarkdownSemanticRead::ir(Self) -> MarkdownIR
-pub fn MarkdownSemanticRead::root(Self) -> MarkdownSemanticReadNode
-
-pub struct MarkdownSemanticReadNode {
-  // private fields
-}
-pub fn MarkdownSemanticReadNode::children(Self) -> Array[Self]
-pub fn MarkdownSemanticReadNode::origin(Self) -> MarkdownIROrigin
-pub fn MarkdownSemanticReadNode::selection(Self, kind~ : MarkdownSemanticSelectionKind) -> MarkdownSemanticSelection?
-pub fn MarkdownSemanticReadNode::view(Self) -> MarkdownIRView
+pub fn MarkdownSemanticRead::root(Self) -> MarkdownNode
 
 pub struct MarkdownSemanticSelection {
   // private fields

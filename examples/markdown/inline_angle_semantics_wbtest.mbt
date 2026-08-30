@@ -499,7 +499,7 @@ test "issue 893: an autolink deactivates an enclosing ordinary link" {
     ]),
   ])
   assert_eq(
-    parse(@core.SourceId("issue-893-direct-nested-autolink"), source),
+    parse_block_ast(@core.SourceId("issue-893-direct-nested-autolink"), source),
     expected,
   )
   assert_eq(
@@ -534,7 +534,10 @@ test "issue 893: an autolink deactivates every enclosing ordinary link" {
     ]),
   ])
   assert_eq(
-    parse(@core.SourceId("issue-893-direct-nested-autolink-stack"), source),
+    parse_block_ast(
+      @core.SourceId("issue-893-direct-nested-autolink-stack"),
+      source,
+    ),
     expected,
   )
   assert_eq(
@@ -574,7 +577,7 @@ test "inline angle MarkdownIR uses legacy editor types without changing links" {
     experimental_markdown_ir_to_block(
       inline_angle_ir_from_source(ordinary_link_source),
     ),
-    parse(
+    parse_block_ast(
       @core.SourceId("inline-angle-existing-link-projection"),
       ordinary_link_source,
     ),

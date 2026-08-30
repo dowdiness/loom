@@ -75,3 +75,114 @@ test "ReplaceAll adopts the complete text" {
   debug_inspect(change.apply("old"), content="Some(\"complete\")")
   inspect(change.is_noop(), content="false")
 }
+
+///|
+test "ChangeSet empty and single replacement" {
+  let empty = ChangeSet::empty(3)
+  inspect(empty.is_empty(), content="true")
+  inspect(empty.source_length(), content="3")
+  inspect(empty.result_length(), content="3")
+  debug_inspect(empty.apply("abc"), content="Some(\"abc\")")
+  let set = ChangeSet::ChangeSet(source_length=5, changes=[
+    TextChange::ReplaceRange(start=1, delete_len=3, inserted="XY"),
+  ])
+  inspect(set.is_empty(), content="false")
+  inspect(set.result_length(), content="4")
+  debug_inspect(set.apply("abcde"), content="Some(\"aXYe\")")
+}
+
+///|
+test "ChangeSet applies multiple adjacent original-coordinate edits" {
+  let set = ChangeSet::ChangeSet(source_length=6, changes=[
+    TextChange::ReplaceRange(start=1, delete_len=1, inserted="XX"),
+    TextChange::ReplaceRange(start=2, delete_len=2, inserted="Y"),
+    TextChange::ReplaceRange(start=4, delete_len=0, inserted="Z"),
+  ])
+  debug_inspect(set.apply("abcdef"), content="Some(\"aXXYZef\")")
+  inspect(set.result_length(), content="7")
+}
+
+///|
+test "ChangeSet normalizes empty no-ops" {
+  let set = ChangeSet::ChangeSet(source_length=2, changes=[
+    TextChange::ReplaceRange(start=1, delete_len=0, inserted=""),
+  ])
+  inspect(set.is_empty(), content="true")
+  debug_inspect(set.apply("ab"), content="Some(\"ab\")")
+}
+
+///|
+test "ChangeSet rejects invalid changes" {
+  try ChangeSet::empty(-1) catch {
+    e => debug_inspect(e, content="NegativeSourceLength")
+  } noraise {
+    _ => fail("expected negative source length to raise")
+  }
+  try
+    ChangeSet::ChangeSet(source_length=3, changes=[
+      TextChange::ReplaceRange(start=-1, delete_len=0, inserted=""),
+    ])
+  catch {
+    e =>
+      debug_inspect(e, content="NegativeRange(index=0, start=-1, delete_len=0)")
+  } noraise {
+    _ => fail("expected negative range to raise")
+  }
+  try
+    ChangeSet::ChangeSet(source_length=3, changes=[
+      TextChange::ReplaceRange(start=2, delete_len=2, inserted=""),
+    ])
+  catch {
+    e =>
+      debug_inspect(e, content="OutOfBounds(index=0, end=4, source_length=3)")
+  } noraise {
+    _ => fail("expected out of bounds to raise")
+  }
+  try
+    ChangeSet::ChangeSet(source_length=4, changes=[
+      TextChange::ReplaceRange(start=1, delete_len=2, inserted=""),
+      TextChange::ReplaceRange(start=2, delete_len=1, inserted=""),
+    ])
+  catch {
+    e => debug_inspect(e, content="Overlapping(index=1)")
+  } noraise {
+    _ => fail("expected overlap to raise")
+  }
+  try
+    ChangeSet::ChangeSet(source_length=4, changes=[
+      TextChange::ReplaceRange(start=2, delete_len=0, inserted="x"),
+      TextChange::ReplaceRange(start=1, delete_len=0, inserted="y"),
+    ])
+  catch {
+    e => debug_inspect(e, content="Unordered(index=1)")
+  } noraise {
+    _ => fail("expected unordered changes to raise")
+  }
+  try
+    ChangeSet::ChangeSet(source_length=3, changes=[TextChange::ReplaceAll("x")])
+  catch {
+    e => debug_inspect(e, content="ReplaceAll(index=0)")
+  } noraise {
+    _ => fail("expected ReplaceAll to raise")
+  }
+}
+
+///|
+test "ChangeSet rejects source mismatch and surrogate boundaries" {
+  let set = ChangeSet::ChangeSet(source_length=3, changes=[
+    TextChange::ReplaceRange(start=1, delete_len=1, inserted="x"),
+  ])
+  debug_inspect(set.apply("ab"), content="None")
+  let surrogate = ChangeSet::ChangeSet(source_length=3, changes=[
+    TextChange::ReplaceRange(start=2, delete_len=1, inserted="x"),
+  ])
+  debug_inspect(surrogate.apply("a😀b"), content="None")
+}
+
+///|
+test "ChangeSet defensively owns the changes array" {
+  let changes = [TextChange::ReplaceRange(start=1, delete_len=1, inserted="x")]
+  let set = ChangeSet::ChangeSet(source_length=3, changes~)
+  changes[0] = TextChange::ReplaceAll("wrong")
+  debug_inspect(set.apply("abc"), content="Some(\"axc\")")
+}

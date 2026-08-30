@@ -8,6 +8,126 @@ pub(all) enum TextChange {
 } derive(Eq, Debug)
 
 ///|
+pub(all) suberror ChangeSetError {
+  NegativeSourceLength
+  NegativeRange(index~ : Int, start~ : Int, delete_len~ : Int)
+  ReplaceAll(index~ : Int)
+  Unordered(index~ : Int)
+  Overlapping(index~ : Int)
+  OutOfBounds(index~ : Int, end~ : Int, source_length~ : Int)
+  ResultLengthOverflow(index~ : Int)
+} derive(Eq, Debug)
+
+///|
+/// An atomic collection of replacements in the original source coordinates.
+///
+/// The fields are intentionally private: construct a set with `ChangeSet::ChangeSet`
+/// so that its ordering and length invariants are always checked.
+pub(all) struct ChangeSet {
+  priv source_length : Int
+  priv result_length : Int
+  priv changes : Array[TextChange]
+}
+
+///|
+/// Validate and construct an atomic set of UTF-16 source-coordinate changes.
+pub fn ChangeSet::ChangeSet(
+  source_length~ : Int,
+  changes~ : Array[TextChange],
+) -> ChangeSet raise ChangeSetError {
+  if source_length < 0 {
+    raise ChangeSetError::NegativeSourceLength
+  }
+  let mut previous_start : Int? = None
+  let mut previous_end = 0
+  let mut result_length = source_length
+  for index, change in changes {
+    match change {
+      ReplaceAll(_) => raise ChangeSetError::ReplaceAll(index~)
+      ReplaceRange(start~, delete_len~, inserted~) => {
+        if start < 0 || delete_len < 0 {
+          raise ChangeSetError::NegativeRange(index~, start~, delete_len~)
+        }
+        if previous_start is Some(previous_start) && start < previous_start {
+          raise ChangeSetError::Unordered(index~)
+        }
+        if start < previous_end {
+          raise ChangeSetError::Overlapping(index~)
+        }
+        if delete_len > @int.MAX_VALUE - start {
+          raise ChangeSetError::OutOfBounds(
+            index~,
+            end=@int.MAX_VALUE,
+            source_length~,
+          )
+        }
+        let end = start + delete_len
+        if end > source_length {
+          raise ChangeSetError::OutOfBounds(index~, end~, source_length~)
+        }
+        let delta = inserted.length() - delete_len
+        if delta > 0 && result_length > @int.MAX_VALUE - delta {
+          raise ChangeSetError::ResultLengthOverflow(index~)
+        }
+        result_length = result_length + delta
+        previous_start = Some(start)
+        previous_end = end
+      }
+    }
+  }
+  {
+    source_length,
+    result_length,
+    changes: changes.filter(change => !change.is_noop()),
+  }
+}
+
+///|
+/// Construct an empty change set for a source of the given UTF-16 length.
+pub fn ChangeSet::empty(source_length : Int) -> ChangeSet raise ChangeSetError {
+  ChangeSet::ChangeSet(source_length~, changes=[])
+}
+
+///|
+pub fn ChangeSet::source_length(self : ChangeSet) -> Int {
+  self.source_length
+}
+
+///|
+pub fn ChangeSet::result_length(self : ChangeSet) -> Int {
+  self.result_length
+}
+
+///|
+pub fn ChangeSet::is_empty(self : ChangeSet) -> Bool {
+  self.changes.is_empty()
+}
+
+///|
+/// Apply every replacement against the original source coordinates.
+pub fn ChangeSet::apply(self : ChangeSet, source : String) -> String? {
+  guard source.length() == self.source_length else { return None }
+  let builder = StringBuilder(size_hint=self.result_length)
+  let mut cursor = 0
+  for change in self.changes {
+    match change {
+      ReplaceRange(start~, delete_len~, inserted~) => {
+        guard source.get_view(start=cursor, end=start) is Some(prefix) else {
+          return None
+        }
+        builder.write_stringview(prefix)
+        builder.write_string(inserted)
+        cursor = start + delete_len
+      }
+      ReplaceAll(_) => return None
+    }
+  }
+  guard source.get_view(start=cursor) is Some(suffix) else { return None }
+  builder.write_stringview(suffix)
+  Some(builder.to_string())
+}
+
+///|
 fn cluster_equal(
   old_text : String,
   old_start : Int,

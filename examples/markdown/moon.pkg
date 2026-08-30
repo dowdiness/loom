@@ -6,6 +6,7 @@ import {
   "dowdiness/loom/projection",
   "dowdiness/incr",
   "dowdiness/markdown/payload_lexer",
+  "dowdiness/text_change",
   "moonbitlang/core/debug",
   "moonbitlang/core/bench",
   "moonbitlang/core/string",
