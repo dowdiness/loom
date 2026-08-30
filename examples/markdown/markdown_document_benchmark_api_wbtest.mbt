@@ -64,7 +64,10 @@ fn markdown_document_benchmark_local_rewrite_runner(
       match paragraph.children() {
         [link] =>
           match
-            link.selection(kind=MarkdownSemanticSelectionKind::Destination) {
+            read.selection(
+              link,
+              kind=MarkdownSemanticSelectionKind::Destination,
+            ) {
             Some(selection) => selection
             None => abort("source-bound local-rewrite target missing")
           }

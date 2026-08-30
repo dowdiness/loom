@@ -1,7 +1,8 @@
 # ADR: Parser-Bound Markdown Semantic Publications
 
 **Date:** 2026-08-30
-**Status:** Accepted
+**Status:** Superseded
+**Superseded by:** [Markdown Document Update Evidence](2026-08-30-markdown-document-update-evidence.md)
 **Issue:** N/A — product-driven performance and retention investigation.
 **Implementation plan:** N/A — bounded implementation validated against the direct lowering oracle.
 

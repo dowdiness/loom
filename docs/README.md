@@ -93,7 +93,8 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
-- [decisions/2026-08-30-parser-bound-markdown-semantic-publication.md](decisions/2026-08-30-parser-bound-markdown-semantic-publication.md) — **Accepted** one-generation parser-bound Markdown semantic publications, conservative direct fallback, monotonic top-level revision keys, and JavaScript source-backing detachment
+- [decisions/2026-08-30-markdown-document-update-evidence.md](decisions/2026-08-30-markdown-document-update-evidence.md) — **Accepted** canonical Markdown document updates, gated direct-previous block matches, lightweight semantic nodes, and renderer-owned reuse keys
+- [decisions/2026-08-30-parser-bound-markdown-semantic-publication.md](decisions/2026-08-30-parser-bound-markdown-semantic-publication.md) — **Superseded** parser-owned top-level revision keys; retained for the original performance and source-backing evidence
 - [decisions/2026-08-28-safe-block-boundary-reparse.md](decisions/2026-08-28-safe-block-boundary-reparse.md) — **Accepted** narrow GO for grammar-owned Markdown paragraph exact-start replacements; all ambiguous, marker, terminator, EOF, and non-paragraph boundaries fail closed (#933)
 - [decisions/2026-08-10-markdown-semantic-read.md](decisions/2026-08-10-markdown-semantic-read.md) — **Accepted** source-bound `semantic read` ownership, eager one-shot MarkdownIR lowering, and read-only IR interop (#913)
 - [decisions/2026-08-10-markdown-block-adapter-cutover.md](decisions/2026-08-10-markdown-block-adapter-cutover.md) — **Accepted** staged direct-CST versus source-aware IR-backed `Block` parity; high-level one-shot callers remain direct until the document-backed gate and a follow-up cutover decision pass

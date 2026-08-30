@@ -47,8 +47,8 @@ pub(all) enum MarkdownNodeView {
   HtmlBlock(value~ : String)
   ThematicBreak
   Text(value~ : String)
-  Bold
-  Italic
+  Strong
+  Emphasis
   InlineCode(value~ : String)
   Link(
     destination~ : String,
@@ -74,16 +74,16 @@ pub(all) enum MarkdownNodeView {
 } derive(Eq, Debug)
 
 ///|
-/// Detached, opaque semantic node owned by one document read.
+/// Detached, opaque semantic node owned by one document snapshot.
 pub(all) struct MarkdownNode {
-  priv read : MarkdownSemanticRead
+  priv document_marker : Ref[Unit]
   priv node : MarkdownIR
 }
 
 ///|
 /// Return this detached document's retained semantic root.
 pub fn MarkdownDocument::root(self : MarkdownDocument) -> MarkdownNode {
-  self.semantic_read().root()
+  { document_marker: self.node_marker, node: self.ir }
 }
 
 ///|
@@ -95,25 +95,9 @@ pub fn MarkdownNode::view(self : MarkdownNode) -> MarkdownNodeView {
 ///|
 /// Return detached opaque child nodes.
 pub fn MarkdownNode::children(self : MarkdownNode) -> Array[MarkdownNode] {
-  self.node.children().map(node => { read: self.read, node })
-}
-
-///|
-/// Return the advanced source origin retained by this node.
-pub fn MarkdownNode::origin(self : MarkdownNode) -> MarkdownIROrigin {
-  self.node.origin()
-}
-
-///|
-/// Select one source-owned semantic region from this node.
-pub fn MarkdownNode::selection(
-  self : MarkdownNode,
-  kind~ : MarkdownSemanticSelectionKind,
-) -> MarkdownSemanticSelection? {
-  match markdown_semantic_selection_origin(self.node, kind) {
-    Some(origin) => Some({ read: self.read, origin })
-    None => None
-  }
+  self.node
+  .children()
+  .map(node => { document_marker: self.document_marker, node })
 }
 
 ///|
@@ -155,8 +139,8 @@ fn markdown_node_view_from_ir(view : MarkdownIRView) -> MarkdownNodeView {
     HtmlBlock(value~) => MarkdownNodeView::HtmlBlock(value~)
     ThematicBreak => MarkdownNodeView::ThematicBreak
     Text(value~) => MarkdownNodeView::Text(value~)
-    Bold => MarkdownNodeView::Bold
-    Italic => MarkdownNodeView::Italic
+    Bold => MarkdownNodeView::Strong
+    Italic => MarkdownNodeView::Emphasis
     InlineCode(value~) => MarkdownNodeView::InlineCode(value~)
     Link(destination~, title~, surface~) =>
       MarkdownNodeView::Link(

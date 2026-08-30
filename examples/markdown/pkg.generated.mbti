@@ -123,10 +123,25 @@ pub struct MarkdownDocument {
 }
 pub fn MarkdownDocument::diagnostics(Self) -> @core.DiagnosticSet
 pub fn MarkdownDocument::root(Self) -> MarkdownNode
+pub fn MarkdownDocument::selection(Self, MarkdownNode, kind~ : MarkdownSemanticSelectionKind) -> MarkdownSemanticSelection?
 pub fn MarkdownDocument::semantic_read(Self) -> MarkdownSemanticRead
 pub fn MarkdownDocument::source(Self) -> String
 pub fn MarkdownDocument::source_id(Self) -> @diagnostic.SourceId
+pub fn MarkdownDocument::source_span(Self, MarkdownNode) -> @diagnostic.SourceSpan?
 pub impl @diagnostic.SourceResolver for MarkdownDocument
+
+pub struct MarkdownDocumentUpdate {
+  // private fields
+}
+pub fn MarkdownDocumentUpdate::as_previous(Self) -> MarkdownPreviousUpdate
+pub fn MarkdownDocumentUpdate::document(Self) -> MarkdownDocument
+pub fn MarkdownDocumentUpdate::top_level_blocks(Self, previous~ : MarkdownPreviousUpdate?) -> ArrayView[MarkdownTopLevelBlock]
+
+pub struct MarkdownDocumentUpdates {
+  // private fields
+}
+pub fn MarkdownDocumentUpdates::MarkdownDocumentUpdates(@pipeline.SyntaxParser, extensions? : MarkdownExtensions) -> Self
+pub fn MarkdownDocumentUpdates::document_update(Self) -> MarkdownDocumentUpdate
 
 pub struct MarkdownExtensions {
   // private fields
@@ -261,8 +276,6 @@ pub(all) struct MarkdownNode {
   // private fields
 }
 pub fn MarkdownNode::children(Self) -> Array[Self]
-pub fn MarkdownNode::origin(Self) -> MarkdownIROrigin
-pub fn MarkdownNode::selection(Self, kind~ : MarkdownSemanticSelectionKind) -> MarkdownSemanticSelection?
 pub fn MarkdownNode::view(Self) -> MarkdownNodeView
 
 pub(all) enum MarkdownNodeView {
@@ -278,8 +291,8 @@ pub(all) enum MarkdownNodeView {
   HtmlBlock(value~ : String)
   ThematicBreak
   Text(value~ : String)
-  Bold
-  Italic
+  Strong
+  Emphasis
   InlineCode(value~ : String)
   Link(destination~ : String, title~ : String?, reference_form~ : MarkdownReferenceForm)
   Image(destination~ : String, title~ : String?, reference_form~ : MarkdownReferenceForm)
@@ -291,6 +304,10 @@ pub(all) enum MarkdownNodeView {
   Raw(value~ : String)
   Recovered(value~ : String)
 } derive(Eq, @debug.Debug)
+
+pub struct MarkdownPreviousUpdate {
+  // private fields
+}
 
 pub struct MarkdownProjectionAttachment {
   // private fields
@@ -344,17 +361,12 @@ pub fn MarkdownSemanticAttachment::dispose(Self) -> Unit
 pub fn MarkdownSemanticAttachment::document(Self) -> MarkdownIR
 pub fn MarkdownSemanticAttachment::source_document(Self) -> MarkdownDocument
 
-pub struct MarkdownSemanticPublication {
-  // private fields
-}
-pub fn MarkdownSemanticPublication::document(Self) -> MarkdownIR
-pub fn MarkdownSemanticPublication::top_level_revision_keys(Self) -> ArrayView[Int]
-
 pub struct MarkdownSemanticRead {
   // private fields
 }
 pub fn MarkdownSemanticRead::ir(Self) -> MarkdownIR
 pub fn MarkdownSemanticRead::root(Self) -> MarkdownNode
+pub fn MarkdownSemanticRead::selection(Self, MarkdownNode, kind~ : MarkdownSemanticSelectionKind) -> MarkdownSemanticSelection?
 
 pub struct MarkdownSemanticSelection {
   // private fields
@@ -368,12 +380,11 @@ pub(all) enum MarkdownSemanticSelectionKind {
   AutolinkDisplay
 } derive(Eq, @debug.Debug)
 
-pub struct MarkdownSemanticSession {
+pub struct MarkdownTopLevelBlock {
   // private fields
 }
-pub fn MarkdownSemanticSession::MarkdownSemanticSession(@pipeline.SyntaxParser, extensions? : MarkdownExtensions, first_revision_key? : Int) -> Self
-pub fn MarkdownSemanticSession::next_revision_key(Self) -> Int
-pub fn MarkdownSemanticSession::publish(Self) -> MarkdownSemanticPublication
+pub fn MarkdownTopLevelBlock::matched_previous_block_index(Self) -> Int?
+pub fn MarkdownTopLevelBlock::node(Self) -> MarkdownNode
 
 pub(all) enum OrderedListDelimiter {
   Period

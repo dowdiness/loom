@@ -8,6 +8,7 @@ pub struct MarkdownDocument {
   priv source : String
   priv diagnostics : @core.DiagnosticSet
   priv ir : MarkdownIR
+  priv node_marker : Ref[Unit]
 }
 
 ///|
@@ -32,7 +33,7 @@ pub fn parse(
     Some(diagnostics),
     extensions,
   )
-  { source_id, source, diagnostics, ir }
+  { source_id, source, diagnostics, ir, node_marker: Ref::Ref(()) }
 }
 
 ///|
@@ -47,6 +48,23 @@ fn markdown_document_from_snapshot(
     source: snapshot.source,
     diagnostics: snapshot.diagnostics.copy(),
     ir,
+    node_marker: Ref::Ref(()),
+  }
+}
+
+///|
+/// Build a document from one parser-owned syntax snapshot.
+fn markdown_document_from_syntax_snapshot(
+  source_id : @core.SourceId,
+  snapshot : @loom.SyntaxSnapshot,
+  ir : MarkdownIR,
+) -> MarkdownDocument {
+  {
+    source_id,
+    source: snapshot.source,
+    diagnostics: snapshot.diagnostics.copy(),
+    ir,
+    node_marker: Ref::Ref(()),
   }
 }
 
@@ -90,7 +108,7 @@ pub fn MarkdownSemanticRead::ir(self : MarkdownSemanticRead) -> MarkdownIR {
 ///|
 /// Return the stable opaque root node for this advanced semantic read.
 pub fn MarkdownSemanticRead::root(self : MarkdownSemanticRead) -> MarkdownNode {
-  { read: self, node: self.ir }
+  { document_marker: self.document.node_marker, node: self.ir }
 }
 
 ///|
@@ -135,6 +153,52 @@ fn markdown_semantic_selection_origin(
         _ => None
       }
   }
+}
+
+///|
+/// Return the source span of a node produced by this exact document snapshot.
+pub fn MarkdownDocument::source_span(
+  self : MarkdownDocument,
+  node : MarkdownNode,
+) -> @core.SourceSpan? {
+  guard physical_equal(self.node_marker, node.document_marker) else {
+    return None
+  }
+  let origin = node.node.origin()
+  let range = try
+    @core.TextRange::from_offsets(origin.start(), origin.end())
+  catch {
+    _ => abort("invalid retained Markdown node origin")
+  } noraise {
+    range => range
+  }
+  Some(@core.SourceSpan::SourceSpan(self.source_id, range))
+}
+
+///|
+/// Select one source-owned semantic region from a node in this document.
+pub fn MarkdownDocument::selection(
+  self : MarkdownDocument,
+  node : MarkdownNode,
+  kind~ : MarkdownSemanticSelectionKind,
+) -> MarkdownSemanticSelection? {
+  guard physical_equal(self.node_marker, node.document_marker) else {
+    return None
+  }
+  match markdown_semantic_selection_origin(node.node, kind) {
+    Some(origin) => Some({ read: self.semantic_read(), origin })
+    None => None
+  }
+}
+
+///|
+/// Select one source-owned semantic region from a node in this read.
+pub fn MarkdownSemanticRead::selection(
+  self : MarkdownSemanticRead,
+  node : MarkdownNode,
+  kind~ : MarkdownSemanticSelectionKind,
+) -> MarkdownSemanticSelection? {
+  self.document.selection(node, kind~)
 }
 
 ///|
