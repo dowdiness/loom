@@ -49,6 +49,10 @@ parser.set_source("λx.x + 2")
 let edit = @loom.Edit::new(0, 0, 1)          // start, old_len, new_len
 parser.apply_edit(edit, " λx.x + 2")
 
+// One atomic editor-neutral transition in original-source UTF-16 coordinates.
+// `new_source` is authoritative; the ChangeSet must reproduce it exactly.
+parser.apply_changes(changes, new_source)
+
 // Diagnostics are published as a reactive cell.
 let diagnostics = parser.diagnostics().read_or_abort()
 ```
@@ -85,6 +89,7 @@ For smaller references, see [`examples/json`](../examples/json/),
 @loom.Parser              // reactive parser handle with an AST view
 @loom.SyntaxParser        // reactive CST/diagnostics handle, no AST required
 @loom.SyntaxSnapshot      // source-id/source/syntax/diagnostics/reuse snapshot
+@loom.ParserUpdateError   // recoverable ChangeSet/source mismatch
 @loom.ImperativeParser    // lower-level edit-driven engine
 @loom.new_parser          // build Parser[Ast] from a Grammar
 @loom.new_syntax_parser   // build SyntaxParser from a SyntaxGrammar
@@ -127,8 +132,9 @@ Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).
 
 Use **`Parser[Ast]`** when callers need an AST view. Use **`SyntaxParser`**
 when callers only need CST/diagnostics, or when the AST is not naturally `Eq`.
-Both handles support `apply_edit` and `set_source`. Both publish `@incr` cells
-that downstream `Derived` cells can compose with.
+Both handles support `apply_edit`, validated atomic `apply_changes`, and
+`set_source`. Both publish `@incr` cells that downstream `Derived` cells can
+compose with.
 
 Reach for `ImperativeParser` only when you do not need the reactive graph.
 

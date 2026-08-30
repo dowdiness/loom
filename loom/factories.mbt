@@ -91,7 +91,6 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
         incremental_relex_enabled~,
         mode_relex~,
       )
-      token_buf.val = Some(buffer)
       let (cst, diagnostics, _) = @core.parse_tokens_indexed(
         source_id,
         source,
@@ -104,8 +103,11 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       let lex_diagnostics = buffer.get_diagnostics()
       let all_diagnostics = lex_diagnostics.copy()
       all_diagnostics.add_all(diagnostics)
-      last_parse_diags.val = diagnostics
       let syntax = @seam.SyntaxNode::from_cst(cst)
+      // Commit hidden session state only after lexing and parsing complete.
+      // A Failure above leaves the previously accepted incremental state intact.
+      token_buf.val = Some(buffer)
+      last_parse_diags.val = diagnostics
       old_token_cache.val = @core.OldTokenCache::empty() // new tree — old cache invalid
       (syntax, all_diagnostics, 0)
     },

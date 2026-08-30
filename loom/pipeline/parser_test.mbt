@@ -176,6 +176,160 @@ fn test_imperative_language_with_counter(
 }
 
 ///|
+#warnings("-unused_error_type")
+fn test_failing_full_parse_language() -> @incremental.ImperativeLanguage[String] {
+  let full_parse = fn(
+    _source_id : @core.SourceId,
+    source : String,
+  ) raise Failure {
+    if source == "boom" {
+      raise Failure("injected full parse failure")
+    }
+    let cst = @seam.build_tree(
+      [@seam.ParseEvent::Token(@seam.RawKind(1), source)],
+      @seam.RawKind(0),
+      policy=@seam.CstMetadataPolicy::unclassified(),
+    ) catch {
+      _ => abort("build_tree failed in failing test language")
+    }
+    (@seam.SyntaxNode::from_cst(cst), @core.DiagnosticSet::empty(), 0)
+  }
+  @incremental.ImperativeLanguage::new(
+    full_parse~,
+    incremental_parse=fn(source_id, source, _old, _edit) raise Failure {
+      full_parse(source_id, source)
+    },
+    to_ast=node => node.text(),
+  )
+}
+
+///|
+test "Parser keeps the accepted transition after full parse failure" {
+  let parser = Parser::new(
+    @core.SourceId("pipeline-parser-transactional-failure"),
+    "abc",
+    test_failing_full_parse_language(),
+  )
+  let failed : Result[Unit, Error] = Ok(parser.set_source("boom")) catch {
+    error => Err(error)
+  }
+  assert_true(failed is Err(Failure(_)))
+  inspect(parser.source().read_or_abort(), content="abc")
+  inspect(parser.ast().read_or_abort(), content="abc")
+  let changes = @text_change.ChangeSet::ChangeSet(source_length=3, changes=[
+    @text_change.TextChange::ReplaceRange(start=1, delete_len=1, inserted="X"),
+  ])
+  parser.apply_changes(changes, "aXc")
+  inspect(parser.source().read_or_abort(), content="aXc")
+  inspect(parser.ast().read_or_abort(), content="aXc")
+}
+
+///|
+test "Parser::apply_changes accepts one validated multi-range transition" {
+  let parse_count : Ref[Int] = Ref(0)
+  let parser = Parser::new(
+    @core.SourceId("pipeline-parser-multi-range"),
+    "abcdef",
+    test_imperative_language_with_counter(parse_count),
+  )
+  let changes = @text_change.ChangeSet::ChangeSet(source_length=6, changes=[
+    @text_change.TextChange::ReplaceRange(start=1, delete_len=1, inserted="B"),
+    @text_change.TextChange::ReplaceRange(start=4, delete_len=1, inserted="E"),
+  ])
+  parser.apply_changes(changes, "aBcdEf")
+  inspect(parser.source().read_or_abort(), content="aBcdEf")
+  inspect(parse_count.val, content="2")
+}
+
+///|
+test "Parser::apply_changes preserves same-position order and UTF-16 boundaries" {
+  let parser = Parser::new(
+    @core.SourceId("pipeline-parser-utf16"),
+    "😀x",
+    test_imperative_language(),
+  )
+  let insertions = @text_change.ChangeSet::ChangeSet(source_length=3, changes=[
+    @text_change.TextChange::ReplaceRange(start=2, delete_len=0, inserted="A"),
+    @text_change.TextChange::ReplaceRange(start=2, delete_len=0, inserted="B"),
+  ])
+  parser.apply_changes(insertions, "😀ABx")
+  inspect(parser.source().read_or_abort(), content="😀ABx")
+  let split_surrogate = @text_change.ChangeSet::ChangeSet(source_length=5, changes=[
+    @text_change.TextChange::ReplaceRange(start=1, delete_len=0, inserted="Z"),
+  ])
+  let result : Result[Unit, Error] = Ok(
+    parser.apply_changes(split_surrogate, "?"),
+  ) catch {
+    error => Err(error)
+  }
+  assert_true(result is Err(ParserUpdateError::ChangeSetMismatch))
+  inspect(parser.source().read_or_abort(), content="😀ABx")
+}
+
+///|
+test "Parser::apply_changes makes one final reactive observation" {
+  let parser = Parser::new(
+    @core.SourceId("pipeline-parser-one-observation"),
+    "abcd",
+    test_imperative_language(),
+  )
+  let mut observations = 0
+  let observed = @incr.Derived(parser.runtime(), () => {
+    observations = observations + 1
+    parser.source().get_or_abort()
+  })
+  let watch = observed.watch()
+  inspect(watch.read_or_abort(), content="abcd")
+  inspect(observations, content="1")
+  let changes = @text_change.ChangeSet::ChangeSet(source_length=4, changes=[
+    @text_change.TextChange::ReplaceRange(start=0, delete_len=1, inserted="A"),
+    @text_change.TextChange::ReplaceRange(start=3, delete_len=1, inserted="D"),
+  ])
+  parser.apply_changes(changes, "AbcD")
+  inspect(watch.read_or_abort(), content="AbcD")
+  inspect(observations, content="2")
+  watch.dispose()
+}
+
+///|
+test "Parser::apply_changes rejects mismatched evidence before mutation" {
+  let parse_count : Ref[Int] = Ref(0)
+  let parser = Parser::new(
+    @core.SourceId("pipeline-parser-mismatch"),
+    "abc",
+    test_imperative_language_with_counter(parse_count),
+  )
+  let changes = @text_change.ChangeSet::ChangeSet(source_length=3, changes=[
+    @text_change.TextChange::ReplaceRange(start=1, delete_len=1, inserted="X"),
+  ])
+  let result : Result[Unit, Error] = Ok(parser.apply_changes(changes, "abc")) catch {
+    error => Err(error)
+  }
+  match result {
+    Err(ParserUpdateError::ChangeSetMismatch) => ()
+    _ => fail("expected ChangeSetMismatch")
+  }
+  inspect(parser.source().read_or_abort(), content="abc")
+  inspect(parser.ast().read_or_abort(), content="3")
+  inspect(parse_count.val, content="1")
+}
+
+///|
+test "Parser::apply_changes validates a semantic no-op without parsing" {
+  let parse_count : Ref[Int] = Ref(0)
+  let parser = Parser::new(
+    @core.SourceId("pipeline-parser-change-noop"),
+    "abc",
+    test_imperative_language_with_counter(parse_count),
+  )
+  let changes = @text_change.ChangeSet::ChangeSet(source_length=3, changes=[
+    @text_change.TextChange::ReplaceRange(start=1, delete_len=1, inserted="b"),
+  ])
+  parser.apply_changes(changes, "abc")
+  inspect(parse_count.val, content="1")
+}
+
+///|
 test "Parser::set_source is a no-op when source is unchanged" {
   // Editors / LSP flows routinely emit repeated identical snapshots.
   // Identity `set_source` must not rerun the engine — the engine still

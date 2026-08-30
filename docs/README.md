@@ -93,6 +93,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-08-30-editor-neutral-atomic-parser-transitions.md](decisions/2026-08-30-editor-neutral-atomic-parser-transitions.md) — **Accepted** validated `ChangeSet` transitions, transactional full parsing, and one final reactive publication (#928)
 - [decisions/2026-08-30-markdown-document-update-evidence.md](decisions/2026-08-30-markdown-document-update-evidence.md) — **Accepted** canonical Markdown document updates, gated direct-previous block matches, lightweight semantic nodes, and renderer-owned reuse keys
 - [decisions/2026-08-30-parser-bound-markdown-semantic-publication.md](decisions/2026-08-30-parser-bound-markdown-semantic-publication.md) — **Superseded** parser-owned top-level revision keys; retained for the original performance and source-backing evidence
 - [decisions/2026-08-28-safe-block-boundary-reparse.md](decisions/2026-08-28-safe-block-boundary-reparse.md) — **Accepted** narrow GO for grammar-owned Markdown paragraph exact-start replacements; all ambiguous, marker, terminator, EOF, and non-paragraph boundaries fail closed (#933)

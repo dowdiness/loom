@@ -137,6 +137,24 @@ fn syntax_test_language_with_counter(
 }
 
 ///|
+test "SyntaxParser::apply_changes delegates one validated transition" {
+  let parse_count : Ref[Int] = Ref(0)
+  let parser = SyntaxParser::new(
+    @core.SourceId("pipeline-syntax-multi-range"),
+    "abcd",
+    syntax_test_language_with_counter(parse_count),
+  )
+  let changes = @text_change.ChangeSet::ChangeSet(source_length=4, changes=[
+    @text_change.TextChange::ReplaceRange(start=0, delete_len=1, inserted="A"),
+    @text_change.TextChange::ReplaceRange(start=3, delete_len=1, inserted="D"),
+  ])
+  parser.apply_changes(changes, "AbcD")
+  inspect(parser.source().read_or_abort(), content="AbcD")
+  inspect(parser.snapshot().read_or_abort().reuse_count, content="0")
+  inspect(parse_count.val, content="2")
+}
+
+///|
 test "SyntaxParser::set_source is a no-op when source is unchanged" {
   let parse_count : Ref[Int] = Ref(0)
   let source_id = @core.SourceId("pipeline-syntax-noop-source")

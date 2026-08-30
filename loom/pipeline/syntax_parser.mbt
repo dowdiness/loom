@@ -99,6 +99,19 @@ pub fn SyntaxParser::set_source(
 }
 
 ///|
+/// Apply one validated, editor-neutral source transition atomically.
+///
+/// This syntax-only adapter delegates validation, transactional full parsing,
+/// and final publication to its canonical `Parser[Unit]` owner.
+pub fn SyntaxParser::apply_changes(
+  self : SyntaxParser,
+  changes : @text_change.ChangeSet,
+  new_source : String,
+) -> Unit raise {
+  self.parser.apply_changes(changes, new_source)
+}
+
+///|
 /// Apply a text `Edit` using CST-node-level reuse. The snapshot input is
 /// updated atomically inside `Runtime::batch` after the engine advances.
 pub fn SyntaxParser::apply_edit(

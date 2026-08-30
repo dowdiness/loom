@@ -166,6 +166,8 @@ pub using @pipeline {type Parser}
 
 pub using @core {type ParserContext}
 
+pub using @pipeline {type ParserUpdateError}
+
 pub using @core {type PrefixLexer}
 
 pub using @projection {type ProjectionIdentityBaseline}

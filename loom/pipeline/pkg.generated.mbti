@@ -7,17 +7,22 @@ import {
   "dowdiness/loom/core",
   "dowdiness/loom/incremental",
   "dowdiness/seam",
+  "dowdiness/text_change",
   "moonbitlang/core/debug",
 }
 
 // Values
 
 // Errors
+pub suberror ParserUpdateError {
+  ChangeSetMismatch
+} derive(Eq, @debug.Debug)
 
 // Types and methods
 pub struct Parser[Ast] {
   // private fields
 }
+pub fn[Ast : Eq] Parser::apply_changes(Self[Ast], @text_change.ChangeSet, String) -> Unit raise
 pub fn[Ast : Eq] Parser::apply_edit(Self[Ast], @core.Edit, String) -> Unit raise Failure
 pub fn[Ast] Parser::ast(Self[Ast]) -> @cells.Derived[Ast]
 pub fn[Ast] Parser::diagnostics(Self[Ast]) -> @cells.Derived[@core.DiagnosticSet]
@@ -32,6 +37,7 @@ pub fn[Ast] Parser::syntax_tree(Self[Ast]) -> @cells.Derived[@seam.SyntaxNode]
 pub struct SyntaxParser {
   // private fields
 }
+pub fn SyntaxParser::apply_changes(Self, @text_change.ChangeSet, String) -> Unit raise
 pub fn SyntaxParser::apply_edit(Self, @core.Edit, String) -> Unit raise Failure
 pub fn SyntaxParser::diagnostics(Self) -> @cells.Derived[@core.DiagnosticSet]
 pub fn SyntaxParser::new(@diagnostic.SourceId, String, @incremental.ImperativeLanguage[Unit], runtime? : @cells.Runtime) -> Self raise Failure

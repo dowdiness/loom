@@ -1,12 +1,19 @@
 ///|
+/// A supplied change set does not describe the authoritative updated source.
+pub suberror ParserUpdateError {
+  ChangeSetMismatch
+} derive(Eq, Debug)
+
+///|
 /// Unified `Parser[Ast]` — wraps `@incremental.ImperativeParser` and publishes
 /// a coherent parse snapshot plus derived read-only `@incr.Derived` views.
 ///
-/// Accepts two update methods:
+/// Accepts three update methods:
 /// - `apply_edit(edit, new_source)` — CST-node-level reuse via the engine.
+/// - `apply_changes(changes, new_source)` — validated atomic full reparse.
 /// - `set_source(source)` — full reparse, discarding incremental state.
 ///
-/// Both methods update one private snapshot `Input` inside `Runtime::batch`
+/// All methods update one private snapshot `Input` inside `Runtime::batch`
 /// after the engine has advanced, so downstream consumers see one coherent
 /// parse state regardless of which method was called.
 ///
@@ -112,6 +119,24 @@ pub fn[Ast : Eq] Parser::set_source(
   }
   let snapshot = self.engine.reset(source)
   self.rt.batch(() => self.snapshot_input.set(snapshot))
+}
+
+///|
+/// Apply one validated, editor-neutral source transition atomically.
+///
+/// `new_source` is authoritative. `changes` is evidence that it follows from
+/// the currently accepted source in original-source UTF-16 coordinates. A
+/// mismatch is rejected before parsing. Only the final full-parse snapshot is
+/// published.
+pub fn[Ast : Eq] Parser::apply_changes(
+  self : Parser[Ast],
+  changes : @text_change.ChangeSet,
+  new_source : String,
+) -> Unit raise {
+  guard changes.apply(self.engine.get_source()) == Some(new_source) else {
+    raise ParserUpdateError::ChangeSetMismatch
+  }
+  self.set_source(new_source)
 }
 
 ///|
