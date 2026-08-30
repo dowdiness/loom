@@ -28,6 +28,7 @@ pub fn IncrementalParser::snapshot(IncrementalParser) -> MarkdownDocument
 
 pub fn MarkdownDocument::root(MarkdownDocument) -> MarkdownNode
 pub fn MarkdownDocument::diagnostics(MarkdownDocument) -> @core.DiagnosticSet
+pub fn MarkdownDocument::source_span(MarkdownDocument, MarkdownNode) -> @core.SourceSpan?
 pub fn MarkdownNode::view(MarkdownNode) -> MarkdownNodeView
 pub fn MarkdownNode::children(MarkdownNode) -> Array[MarkdownNode]
 pub fn html(MarkdownDocument) -> String
@@ -61,12 +62,15 @@ advanced structural consumers migrate, but they are not the recommended entry
 point for new parse/render integrations. `parse_block_ast` is a legacy
 Block-facing adapter, not a compatibility wrapper for the common document API.
 
-Parser-bound structural consumers that need repeated MarkdownIR publication
-may use `MarkdownSemanticSession`. It retains one successful generation,
-publishes read-only top-level revision keys for proven reusable blocks, and
-falls back to canonical direct lowering whenever reuse is ambiguous. This is an
-advanced parser-lifetime API; common consumers should prefer
-`IncrementalParser` and detached `MarkdownDocument` snapshots.
+Parser-bound structural consumers that need top-level reuse evidence may use
+`MarkdownDocumentUpdates`. It retains one successful semantic baseline and
+returns canonical `MarkdownDocumentUpdate` values. A consumer passes its
+accepted `MarkdownPreviousUpdate` to `top_level_blocks(previous~)`; only the
+direct previous result from the same producer can expose positive block-index
+matches. Missing, skipped, foreign, diagnostic-bearing, definition-changing, or
+ambiguous updates fail closed to unmatched blocks. Markdown allocates no
+renderer key. This is an advanced parser-lifetime API; common consumers should
+prefer `IncrementalParser` and detached `MarkdownDocument` snapshots.
 
 The package also demonstrates mode-aware lexing with
 `@core.ModeLexer[Token, Mode]` for grammars whose tokens depend on line-start,
@@ -191,9 +195,13 @@ and semantic root. Lowering happens once during document construction;
 `semantic_read()` is the advanced compatibility handle over that retained root
 and does not lower it again. Both `MarkdownDocument::root()` and
 `MarkdownSemanticRead::root()` expose the same opaque `MarkdownNode` contract.
-Its `view()`/`origin()` and `children()` methods support navigation, while
-`selection(kind~)` creates an opaque target tied to the same read. Missing
-content, destination, title, or autolink-display targets return `None`.
+A node retains only its local semantic subtree plus a private marker for the
+exact document snapshot. Its `view()` and `children()` methods are
+position-independent. `MarkdownDocument::source_span(node)` and
+`MarkdownDocument::selection(node, kind~)` validate that marker before returning
+source-aware values; the read's `selection(node, kind~)` method delegates to the
+same check. Missing content, destination, title, or autolink-display targets
+return `None`.
 
 The three source-aware adapters consume the read:
 `markdown_semantic_read_to_block`,

@@ -469,19 +469,22 @@ test "MarkdownSemanticRead selections rewrite only their read snapshot" {
     "expected autolink",
   )
   let heading_selection = markdown_document_test_expect_selection(
-    heading.selection(kind=MarkdownSemanticSelectionKind::Content),
+    read.selection(heading, kind=MarkdownSemanticSelectionKind::Content),
     "expected heading content selection",
   )
   let destination_selection = markdown_document_test_expect_selection(
-    link.selection(kind=MarkdownSemanticSelectionKind::Destination),
+    read.selection(link, kind=MarkdownSemanticSelectionKind::Destination),
     "expected link destination selection",
   )
   let title_selection = markdown_document_test_expect_selection(
-    link.selection(kind=MarkdownSemanticSelectionKind::Title),
+    read.selection(link, kind=MarkdownSemanticSelectionKind::Title),
     "expected link title selection",
   )
   let display_selection = markdown_document_test_expect_selection(
-    autolink.selection(kind=MarkdownSemanticSelectionKind::AutolinkDisplay),
+    read.selection(
+      autolink,
+      kind=MarkdownSemanticSelectionKind::AutolinkDisplay,
+    ),
     "expected autolink display selection",
   )
   assert_eq(
@@ -522,7 +525,8 @@ test "MarkdownSemanticRead selections cover whole nodes and missing targets" {
   ).semantic_read()
   let root = read.root()
   assert_true(
-    root.selection(kind=MarkdownSemanticSelectionKind::WholeNode) is Some(_),
+    read.selection(root, kind=MarkdownSemanticSelectionKind::WholeNode)
+    is Some(_),
   )
   let heading = markdown_document_test_expect_node(
     markdown_document_test_find_heading(root),
@@ -533,23 +537,26 @@ test "MarkdownSemanticRead selections cover whole nodes and missing targets" {
     "expected link",
   )
   assert_true(
-    link.selection(kind=MarkdownSemanticSelectionKind::WholeNode) is Some(_),
+    read.selection(link, kind=MarkdownSemanticSelectionKind::WholeNode)
+    is Some(_),
   )
   assert_true(
-    heading.selection(kind=MarkdownSemanticSelectionKind::Destination) is None,
-  )
-  assert_true(
-    heading.selection(kind=MarkdownSemanticSelectionKind::Title) is None,
-  )
-  assert_true(
-    heading.selection(kind=MarkdownSemanticSelectionKind::AutolinkDisplay)
+    read.selection(heading, kind=MarkdownSemanticSelectionKind::Destination)
     is None,
   )
   assert_true(
-    link.selection(kind=MarkdownSemanticSelectionKind::Content) is Some(_),
+    read.selection(heading, kind=MarkdownSemanticSelectionKind::Title) is None,
   )
   assert_true(
-    link.selection(kind=MarkdownSemanticSelectionKind::AutolinkDisplay) is None,
+    read.selection(heading, kind=MarkdownSemanticSelectionKind::AutolinkDisplay)
+    is None,
+  )
+  assert_true(
+    read.selection(link, kind=MarkdownSemanticSelectionKind::Content) is Some(_),
+  )
+  assert_true(
+    read.selection(link, kind=MarkdownSemanticSelectionKind::AutolinkDisplay)
+    is None,
   )
 }
 
@@ -570,11 +577,11 @@ test "MarkdownSemanticRead content selections rewrite link and image labels" {
     "expected image",
   )
   let link_content = markdown_document_test_expect_selection(
-    link.selection(kind=MarkdownSemanticSelectionKind::Content),
+    read.selection(link, kind=MarkdownSemanticSelectionKind::Content),
     "expected link content selection",
   )
   let image_content = markdown_document_test_expect_selection(
-    image.selection(kind=MarkdownSemanticSelectionKind::Content),
+    read.selection(image, kind=MarkdownSemanticSelectionKind::Content),
     "expected image content selection",
   )
   assert_eq(

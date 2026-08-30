@@ -67,25 +67,50 @@ and its diagnostics together so source-aware consumers cannot pair semantic data
 with unrelated source text.
 _Avoid_: Source/IR pair, document wrapper
 
-**Semantic read**:
-An owning, detached read of a source-bound document that captures one coherent
-parser snapshot and lowers its MarkdownIR exactly once when the read is
-created. Multiple target adapters may consume the same read, and it remains
-valid after the originating document or parser lifecycle ends. Source-aware
-target selection comes from read-bound semantic nodes and selections, not from
-free origins.
-_Avoid_: Semantic operation, per-target lowering, borrowed read, free origin
+**Markdown document update**:
+One canonical current semantic document plus top-level block matches computed
+against one direct previous update. Matches are visible only when the consumer
+supplies its accepted previous-update value.
+_Avoid_: Semantic publication, keyed document, render plan, derivation
 
-**Read-bound semantic node**:
-An opaque node view produced by one semantic read. It retains that read's
-ownership while allowing source-aware consumers to navigate semantic children
-and request a bound selection.
-_Avoid_: MarkdownIR node, raw semantic node
+**Top-level semantic block match**:
+Proof that one current top-level block has the same position-independent
+semantic content as one block in a validated direct previous document update.
+The complete match is one-to-one; absence of a match does not prove content
+changed.
+_Avoid_: Stable block ID, render key, source-position equality
+
+**Previous update**:
+A lightweight, process-local representation of one accepted Markdown document
+update when it is supplied while reading a later update's block matches. It is
+not document identity, a durable revision, a retained document, or a
+serialization value.
+_Avoid_: Document version, revision key, lineage ID, update token, update handle,
+baseline, predecessor
+
+**Semantic node**:
+An opaque, position-independent traversal value that retains only its local
+semantic subtree. It does not retain source text, diagnostics, parser state, or
+the complete document. Source-aware operations accept it only with the document
+that produced it.
+_Avoid_: Read-bound node, MarkdownIR node, source-owning node
+
+**Source-aware node query**:
+A query that combines a semantic node with the exact Markdown document that
+produced it to obtain source-bound information. Node traversal itself does not
+expose source positions.
+_Avoid_: Free node origin, node-owned source capability
+
+**Semantic read**:
+An advanced compatibility view over a source-bound document's retained
+MarkdownIR. Conversion and rewrite adapters may consume it, but ordinary
+semantic nodes do not retain it.
+_Avoid_: Semantic operation, per-target lowering, borrowed read
 
 **Semantic selection**:
-An opaque source-aware rewrite target produced by a read-bound semantic node. It
-retains the owning semantic read and cannot be constructed from a
-`MarkdownIROrigin` value.
+An opaque source-aware rewrite target produced by a document or semantic read
+for one of its own nodes. It retains the owning read and cannot be constructed
+from a free `MarkdownIROrigin` value.
 _Avoid_: Target origin, free origin
 
 **Source-aware IR-backed Block adapter**:
