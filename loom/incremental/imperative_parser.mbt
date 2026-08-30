@@ -87,10 +87,14 @@ pub fn[Ast] ImperativeParser::reset(
   self : ImperativeParser[Ast],
   source : String,
 ) -> ParseSnapshot[Ast] raise Failure {
+  let (syntax, diagnostics, reuse_count) = (self.lang.full_parse)(
+    self.source_id,
+    source,
+  )
   self.source = source
   self.snapshot = None
   self.prev_cst = None
-  self.parse()
+  self.accept_tree(source, syntax, diagnostics, reuse_count)
 }
 
 ///|

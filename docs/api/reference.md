@@ -284,8 +284,9 @@ Creates the unified `Parser[Ast]` reactive handle (post Stage 6, ADR
 [2026-04-17-unified-parser-proposal.md](../decisions/2026-04-17-unified-parser-proposal.md)).
 `Parser[Ast]` wraps `ImperativeParser` and publishes a coherent
 `ParseSnapshot[Ast]` plus derived source, syntax, AST, and diagnostics views.
-One type, two update paths (`apply_edit` + `set_source`); downstream consumers
-attach reactive derived cells via `parser.runtime()`.
+One type owns three update paths: incremental `apply_edit`, validated atomic
+`apply_changes`, and whole-source `set_source`. Downstream consumers attach
+reactive derived cells via `parser.runtime()`.
 
 Runtime ownership follows the parser surface: omitting `runtime?` creates a
 fresh parser-owned runtime, while supplying `runtime?` joins a caller-owned

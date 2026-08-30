@@ -2,9 +2,9 @@
 
 loom exposes two reactive parser handles for application code:
 **`Parser[Ast]`** when you want an AST view, and **`SyntaxParser`** when you only
-need source, CST, diagnostics, and reuse metadata. Both handle edit-driven
-updates (typing, CRDT ops) and whole-source resets through a single reactive
-handle.
+need source, CST, diagnostics, and reuse metadata. Both handle single edits,
+validated atomic `ChangeSet` transitions, and whole-source resets through a
+single reactive handle.
 
 ## Quick decision
 
@@ -12,15 +12,18 @@ Use `Parser[Ast]` when your grammar has an AST fold and `Ast : Eq`. If your
 AST is not naturally `Eq`, or a consumer only needs reactive CST/diagnostics,
 use `SyntaxParser` via `new_syntax_parser`.
 
-If you have an `Edit { start, old_len, new_len }`, call
-`apply_edit(edit, new_source)`; otherwise call `set_source(new_source)`. Both
-reactive handles update their input/derived graph atomically.
+Call `apply_edit(edit, new_source)` for one incremental edit. Call
+`apply_changes(changes, new_source)` when one editor-neutral transition has
+several original-source UTF-16 replacements. Call `set_source(new_source)` when
+there is no validated change evidence. All three paths publish one coherent
+snapshot.
 
 ## What `Parser[Ast]` gives you
 
 | Capability | How |
 |---|---|
-| Edit-driven update | `parser.apply_edit(edit, new_source)` |
+| Single incremental edit | `parser.apply_edit(edit, new_source)` |
+| Validated atomic transition | `parser.apply_changes(changes, new_source)` |
 | Whole-source reset | `parser.set_source(new_source)` |
 | Stable source identity | `parser.source_id()` — the caller-supplied `SourceId` |
 | Validated CST subtree reuse | via the underlying `ImperativeParser` engine |
@@ -30,7 +33,11 @@ reactive handles update their input/derived graph atomically.
 | Recovery | malformed input still publishes a recovered `SyntaxNode` plus structured diagnostics |
 
 `Parser[Ast]` updates one parse snapshot input under `Runtime::batch` so
-consumers never observe a half-updated graph.
+consumers never observe a half-updated graph. `apply_changes` first requires
+`changes.apply(current_source) == Some(new_source)`, then performs a
+transactional full parse. `ParserUpdateError::ChangeSetMismatch` leaves the
+accepted parser state unchanged; malformed language syntax still publishes a
+recovered snapshot with diagnostics.
 
 ## Runtime ownership and attachments
 
@@ -112,7 +119,8 @@ lifecycle.
 
 | Capability | How |
 |---|---|
-| Edit-driven update | `parser.apply_edit(edit, new_source)` |
+| Single incremental edit | `parser.apply_edit(edit, new_source)` |
+| Validated atomic transition | `parser.apply_changes(changes, new_source)` |
 | Whole-source reset | `parser.set_source(new_source)` |
 | Stable source identity | `parser.source_id()` — the caller-supplied `SourceId` |
 | Validated CST subtree reuse | via the underlying `ImperativeParser[Unit]` engine |

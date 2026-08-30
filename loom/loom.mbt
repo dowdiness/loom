@@ -113,7 +113,12 @@ pub using @incremental {type ImperativeParser, type ParseSnapshot}
 
 ///|
 // Reactive parsers — wrap ImperativeParser with input/derived outputs
-pub using @pipeline {type Parser, type SyntaxParser, type SyntaxSnapshot}
+pub using @pipeline {
+  type Parser,
+  type ParserUpdateError,
+  type SyntaxParser,
+  type SyntaxSnapshot,
+}
 
 // Grammar and factory functions (new_imperative_parser, new_parser,
 // new_syntax_parser) are defined in grammar.mbt and factories.mbt in this
