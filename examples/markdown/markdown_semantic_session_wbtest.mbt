@@ -27,6 +27,56 @@ fn assert_semantic_publication_matches_direct(
 }
 
 ///|
+test "semantic publication classifies origin-shift eligibility explicitly" {
+  let origin = MarkdownIROrigin(start=0, end=1)
+  let text = MarkdownIR::text("x", origin)
+  let inline = MarkdownIR::link_with_metadata(
+    [text],
+    "/target",
+    None,
+    LinkReferenceForm::InlineLinkForm,
+    origin,
+    None,
+    None,
+    None,
+    None,
+  )
+  assert_true(publication_node_can_shift(inline))
+  assert_true(
+    publication_node_can_shift(MarkdownIR::image_from_link(inline, origin)),
+  )
+  for
+    form in [
+      LinkReferenceForm::FullReferenceLinkForm,
+      LinkReferenceForm::CollapsedReferenceLinkForm,
+      LinkReferenceForm::ShortcutReferenceLinkForm,
+    ] {
+    let reference = MarkdownIR::link_with_metadata(
+      [text],
+      "/target",
+      None,
+      form,
+      origin,
+      None,
+      None,
+      None,
+      None,
+    )
+    assert_false(publication_node_can_shift(reference))
+    assert_false(
+      publication_node_can_shift(MarkdownIR::image_from_link(reference, origin)),
+    )
+  }
+  let raw = MarkdownIR::{ node: Raw("x", []), origin }
+  let recovered = MarkdownIR::{ node: Recovered("x", []), origin }
+  assert_false(publication_node_can_shift(raw))
+  assert_false(publication_node_can_shift(recovered))
+  assert_false(
+    publication_can_shift(MarkdownIR::paragraph([raw], origin, None)),
+  )
+}
+
+///|
 test "semantic session can continue a caller-owned revision-key sequence" {
   let source = "Alpha.\n\nBeta.\n"
   let parser = try! @loom.new_syntax_parser(

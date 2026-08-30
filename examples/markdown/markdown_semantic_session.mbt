@@ -98,17 +98,43 @@ fn MarkdownSemanticSession::direct_publication(
 }
 
 ///|
+fn publication_node_can_shift(ir : MarkdownIR) -> Bool {
+  // Keep this match exhaustive: every new semantic variant must make an
+  // explicit origin-shift decision before it can enter the reuse path.
+  match ir.view() {
+    Link(surface~, ..) | Image(surface~, ..) =>
+      surface.form is MarkdownIRLinkReferenceForm::InlineLinkForm
+    Raw(..) | Recovered(..) => false
+    Document
+    | Heading(..)
+    | Paragraph
+    | BlockQuote
+    | UnorderedList(..)
+    | OrderedList(..)
+    | ListItem(..)
+    | OrderedListItem(..)
+    | CodeBlock(..)
+    | HtmlBlock(..)
+    | ThematicBreak
+    | Text(..)
+    | Bold
+    | Italic
+    | InlineCode(..)
+    | Autolink(..)
+    | InlineHtml(..)
+    | SoftBreak
+    | HardBreak(..)
+    | Unsupported(..) => true
+  }
+}
+
+///|
 fn publication_can_shift(ir : MarkdownIR) -> Bool {
   let pending = [ir]
   while !pending.is_empty() {
     let current = pending.pop().unwrap()
-    match current.node {
-      Link(_, _, _, surface) | Image(_, _, _, surface) =>
-        if surface.form != LinkReferenceForm::InlineLinkForm {
-          return false
-        }
-      Raw(_, _) | Recovered(_, _) => return false
-      _ => ()
+    if !publication_node_can_shift(current) {
+      return false
     }
     for child in current.children() {
       pending.push(child)
