@@ -84,10 +84,15 @@ One of five paired fallback runs measured 1.101; the pooled p95 and the median
 paired ratio (0.954) remained within the 1.03 adoption gate. These are local
 product measurements, not CI thresholds.
 
-After explicit Chromium garbage collection, 1,000 edits increased used heap by
-about 29 MB for the candidate and 235 MB for the direct baseline. After 5,000
-candidate edits, the increase was about 35 MB, consistent with retained state
-bounded by document shape rather than edit count.
+After replacing per-code-unit splitting with sentinel join-and-slice for the
+required JavaScript copy, explicit Chromium garbage collection measured about
+2.5 MB of used-heap growth after 1,000 candidate edits and 10.2 MB after 5,000
+candidate edits. The direct baseline retained about 235 MB after 1,000 edits.
+These product-level totals include document-sized retained publications and
+other browser or application bookkeeping, so they are not evidence of a flat
+heap bound. Together with the isolated backing-store probe, they show that old
+full-source generations no longer dominate retention as they did in the direct
+baseline.
 
 ## Consequences
 
@@ -101,8 +106,9 @@ bounded by document shape rather than edit count.
   retaining larger backing sources.
 - Top-level revision keys are presentation-neutral reuse evidence, not stable
   document identities and not durable serialization keys.
-- Retained render closures may add document-size-proportional heap, but old
-  source generations no longer grow with edit count.
+- Retained render closures may add document-size-proportional heap, and other
+  product state may still grow across edits; the eliminated failure mode is
+  retention of an old full-source backing store through short token payloads.
 
 ## Alternatives rejected
 
