@@ -433,6 +433,7 @@ fn lower_contextual_resolved_block(
   source : String,
   lookup : (String) -> LinkReferenceDefinition?,
   diagnostics_in_block : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> ResolvedLocalBlock {
   let context : MarkdownIRLoweringContext = {
     source_id,
@@ -440,7 +441,7 @@ fn lower_contextual_resolved_block(
     reference_definition_lookup: lookup,
     diagnostics_in_origin: diagnostics_in_block,
     deferred_reference_candidates: None,
-    extensions: MarkdownExtensions::none(),
+    extensions,
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
     experimental_markdown_ir_fold_node_with_diags(node, lower, context)

@@ -4,6 +4,22 @@ fn char_at(input : String, pos : Int) -> Char? {
 }
 
 ///|
+#cfg(target="js")
+extern "js" fn detach_owned_lexeme(text : String) -> String =
+  #| (text) => [" ", text].join("").slice(1)
+
+///|
+#cfg(not(target="js"))
+fn detach_owned_lexeme(text : String) -> String {
+  text
+}
+
+///|
+fn detach_lexeme(text : StringView) -> String {
+  detach_owned_lexeme(text.to_owned())
+}
+
+///|
 fn produced_until(
   token : Token,
   pos : Int,
@@ -312,7 +328,7 @@ fn produce_html_block_open(
   let line : StringView = input[pos:line_end]
   (
     Produced(
-      @core.TokenInfo::new(HtmlBlockOpen(line.to_owned()), line_end - pos),
+      @core.TokenInfo::new(HtmlBlockOpen(detach_lexeme(line)), line_end - pos),
       next_offset=line_end,
     ),
     html_block_mode_after_open(line, block_type),
@@ -423,7 +439,7 @@ fn lex_line_start(
         (
           Produced(
             @core.TokenInfo::new(
-              Indentation(input[pos:end].to_owned()),
+              Indentation(detach_lexeme(input[pos:end])),
               end - pos,
             ),
             next_offset=end,
@@ -532,7 +548,7 @@ fn lex_code_fence(
               (
                 Produced(
                   @core.TokenInfo::new(
-                    CodeFenceOpen(length, info_text),
+                    CodeFenceOpen(length, detach_lexeme(info_text[:])),
                     info.len,
                   ),
                   next_offset=next,
@@ -564,7 +580,10 @@ fn lex_code_fence(
     }
     (
       Produced(
-        @core.TokenInfo::new(CodeFenceOpen(n, info.to_owned()), info_end - pos),
+        @core.TokenInfo::new(
+          CodeFenceOpen(n, detach_lexeme(info)),
+          info_end - pos,
+        ),
         next_offset=info_end,
       ),
       mode,
@@ -689,7 +708,7 @@ fn lex_inline(
         let text : StringView = input[pos:end]
         (
           Produced(
-            @core.TokenInfo::new(Text(text.to_owned()), end - pos),
+            @core.TokenInfo::new(Text(detach_lexeme(text)), end - pos),
             next_offset=end,
           ),
           Inline,
@@ -725,7 +744,7 @@ fn emit_code_text_line(
   let text : StringView = input[pos:line_end]
   (
     Produced(
-      @core.TokenInfo::new(CodeText(text.to_owned()), line_end - pos),
+      @core.TokenInfo::new(CodeText(detach_lexeme(text)), line_end - pos),
       next_offset=line_end,
     ),
     mode,
@@ -752,7 +771,7 @@ fn lex_quoted_code_block_line_prefix(
         (
           Produced(
             @core.TokenInfo::new(
-              Indentation(input[pos:end].to_owned()),
+              Indentation(detach_lexeme(input[pos:end])),
               end - pos,
             ),
             next_offset=end,
@@ -918,7 +937,7 @@ fn emit_html_text_line(
   let text : StringView = input[pos:line_end]
   (
     Produced(
-      @core.TokenInfo::new(HtmlText(text.to_owned()), line_end - pos),
+      @core.TokenInfo::new(HtmlText(detach_lexeme(text)), line_end - pos),
       next_offset=line_end,
     ),
     mode,
@@ -992,7 +1011,7 @@ fn lex_html_block_until(
       }
       (
         Produced(
-          @core.TokenInfo::new(HtmlText(text.to_owned()), line_end - pos),
+          @core.TokenInfo::new(HtmlText(detach_lexeme(text)), line_end - pos),
           next_offset=line_end,
         ),
         next_mode,
