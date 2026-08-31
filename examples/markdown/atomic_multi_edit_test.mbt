@@ -83,6 +83,41 @@ test "atomic multi-edit uses a bounded reparse forest for safe paragraphs" {
 }
 
 ///|
+test "atomic multi-edit forest matches fresh parse across line terminators" {
+  for entry in [("lf", "\n"), ("crlf", "\r\n"), ("cr", "\r")] {
+    let (name, terminator) = entry
+    let source = "Alpha 😀 remains stable.\{terminator}\{terminator}Beta remains stable.\{terminator}\{terminator}"
+    let first = source.find("remains").unwrap()
+    let second = source.find("Beta remains").unwrap() + "Beta ".length()
+    let changes = @text_change.ChangeSet::ChangeSet(
+      source_length=source.length(),
+      changes=[
+        @text_change.TextChange::ReplaceRange(
+          start=first,
+          delete_len=1,
+          inserted="R",
+        ),
+        @text_change.TextChange::ReplaceRange(
+          start=second,
+          delete_len=1,
+          inserted="R",
+        ),
+      ],
+    )
+    let updated = changes.apply(source).unwrap()
+    let source_id = @core.SourceId("markdown-atomic-terminator-\{name}")
+    let parser = @loom.new_parser(source_id, source, markdown_grammar)
+    parser.apply_changes(changes, updated)
+    let actual = parser.snapshot().read_or_abort()
+    let expected = @loom.new_parser(source_id, updated, markdown_grammar)
+    assert_eq(actual.syntax, expected.syntax_tree().read_or_abort())
+    assert_eq(actual.ast, expected.ast().read_or_abort())
+    assert_eq(actual.diagnostics, expected.diagnostics().read_or_abort())
+    assert_eq(actual.reuse_count, 2)
+  }
+}
+
+///|
 test "atomic multi-edit falls back for a structural same-length change" {
   let source_id = @core.SourceId("markdown-atomic-structural-fallback")
   let source = "Alpha remains stable.\n\nBeta remains stable.\n\n"
