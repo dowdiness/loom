@@ -40,6 +40,9 @@ pub fn[Ast] ParseSnapshot::copy(
 ///   Returns the recovered syntax tree, structured diagnostics, and reuse
 ///   count. The closure captures and updates TokenBuffer and parser state.
 ///
+/// `atomic_parse` — optional conservative multi-change candidate parser.
+///   `None` requests the transactional full-parse fallback.
+///
 /// `to_ast` — convert a syntax tree to Ast.
 pub struct ImperativeLanguage[Ast] {
   priv full_parse : (@core.SourceId, String) -> (
@@ -53,6 +56,12 @@ pub struct ImperativeLanguage[Ast] {
     @seam.SyntaxNode,
     @core.Edit,
   ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) raise Failure
+  priv atomic_parse : ((
+    @core.SourceId,
+    String,
+    @seam.SyntaxNode,
+    @text_change.ChangeSet,
+  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int)? raise Failure)?
   priv to_ast : (@seam.SyntaxNode) -> Ast
   priv get_fold_stats : (() -> @core.FoldStats)?
 }
@@ -70,8 +79,14 @@ pub fn[Ast] ImperativeLanguage::new(
     @core.DiagnosticSet,
     Int,
   ) raise Failure,
+  atomic_parse? : ((
+    @core.SourceId,
+    String,
+    @seam.SyntaxNode,
+    @text_change.ChangeSet,
+  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int)? raise Failure)? = None,
   to_ast~ : (@seam.SyntaxNode) -> Ast,
   get_fold_stats? : (() -> @core.FoldStats)? = None,
 ) -> ImperativeLanguage[Ast] {
-  { full_parse, incremental_parse, to_ast, get_fold_stats }
+  { full_parse, incremental_parse, atomic_parse, to_ast, get_fold_stats }
 }

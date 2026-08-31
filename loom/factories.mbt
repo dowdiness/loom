@@ -111,6 +111,66 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       old_token_cache.val = @core.OldTokenCache::empty() // new tree — old cache invalid
       (syntax, all_diagnostics, 0)
     },
+    atomic_parse=Some((source_id, source, old_syntax, changes) => {
+      guard block_reparse_spec is Some(block_spec) else { return None }
+      match token_buf.val {
+        Some(buffer) if !buffer.get_diagnostics().is_empty() => return None
+        _ => ()
+      }
+      let mut applicable = true
+      let mut edit_count = 0
+      let mut candidate_root = old_syntax.cst_node()
+      let mut candidate_diagnostics = last_parse_diags.val
+      changes.each(change => {
+        if applicable {
+          edit_count += 1
+          match change {
+            @text_change.TextChange::ReplaceRange(
+              start~,
+              delete_len~,
+              inserted~
+            ) =>
+              if edit_count > 32 || delete_len != inserted.length() {
+                applicable = false
+              } else {
+                let edit = @core.Edit::new(start, delete_len, inserted.length())
+                match
+                  @core.reparse_block(
+                    source_id,
+                    old_syntax,
+                    source,
+                    edit,
+                    detached_lex,
+                    spec,
+                    block_spec,
+                    candidate_diagnostics,
+                    splice_root=candidate_root,
+                  ) {
+                  Some((next_root, next_diagnostics)) => {
+                    candidate_root = next_root
+                    candidate_diagnostics = next_diagnostics
+                  }
+                  None => applicable = false
+                }
+              }
+            @text_change.TextChange::ReplaceAll(_) => applicable = false
+          }
+        }
+      })
+      guard applicable && edit_count > 0 else { return None }
+      // The accepted syntax is current, but the edit-indexed token state is not.
+      // Invalidate it atomically; the next single edit rebuilds on demand.
+      token_buf.val = None
+      last_parse_diags.val = candidate_diagnostics
+      old_token_cache.val = @core.OldTokenCache::empty()
+      Some(
+        (
+          @seam.SyntaxNode::from_cst(candidate_root),
+          candidate_diagnostics.copy(),
+          edit_count,
+        ),
+      )
+    }),
     incremental_parse=(source_id, source, old_syntax, edit) => {
       // Block reparse pre-check: attempt narrow subtree reparse before
       // updating the TokenBuffer. If the edit is strictly interior to a

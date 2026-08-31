@@ -104,6 +104,17 @@ pub fn ChangeSet::is_empty(self : ChangeSet) -> Bool {
 }
 
 ///|
+/// Visit replacements in validated original-source coordinate order.
+///
+/// The callback cannot mutate the change set's private storage.
+pub fn ChangeSet::each(
+  self : ChangeSet,
+  visit : (TextChange) -> Unit raise?,
+) -> Unit raise? {
+  self.changes.each(visit)
+}
+
+///|
 /// Apply every replacement against the original source coordinates.
 pub fn ChangeSet::apply(self : ChangeSet, source : String) -> String? {
   guard source.length() == self.source_length else { return None }

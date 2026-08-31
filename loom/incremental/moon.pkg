@@ -1,4 +1,5 @@
 import {
   "dowdiness/loom/core",
   "dowdiness/seam",
+  "dowdiness/text_change",
 }

@@ -191,6 +191,21 @@ pub fn find_reparseable_ancestor(
 }
 
 ///|
+fn node_at_physical_path(
+  root : @seam.CstNode,
+  path : Array[Int],
+) -> @seam.CstNode? {
+  let mut node = root
+  for index in path {
+    guard node.children().get(index) is Some(@seam.CstElement::Node(child)) else {
+      return None
+    }
+    node = child
+  }
+  Some(node)
+}
+
+///|
 /// Path-copy splice: walk nodes along path, replace bottom-up using
 /// policy-preserving reconstruction. Returns a new root CstNode with the node
 /// at `path` replaced by `new_node`.
@@ -404,8 +419,10 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(
   spec : LanguageSpec[T, K],
   block_spec : BlockReparseSpec[T, K],
   old_diagnostics : DiagnosticSet,
+  splice_root? : @seam.CstNode,
 ) -> (@seam.CstNode, DiagnosticSet)? raise Failure {
   let root_cst = tree.cst_node()
+  let target_root = splice_root.unwrap_or(root_cst)
   let mut owned_boundary_failed = false
   for
     candidate in find_reparseable_ancestors(
@@ -500,9 +517,14 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(
             continue
           }
         }
+        guard node_at_physical_path(target_root, path) is Some(current_target) &&
+          current_target.kind() == ancestor.kind() &&
+          current_target.text_len() == ancestor.end() - ancestor.start() else {
+          return None
+        }
         let new_diags = block_lex_diags.copy()
         new_diags.add_all(parse_diags)
-        let new_root = splice_tree(root_cst, path, new_block)
+        let new_root = splice_tree(target_root, path, new_block)
         let merged = merge_diagnostics(
           source_id,
           old_diagnostics,
