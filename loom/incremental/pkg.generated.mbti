@@ -5,6 +5,7 @@ import {
   "dowdiness/diagnostic",
   "dowdiness/loom/core",
   "dowdiness/seam",
+  "dowdiness/text_change",
   "moonbitlang/core/debug",
   "moonbitlang/core/ref",
 }
@@ -42,11 +43,12 @@ pub fn DamageTracker::stats(Self) -> String
 pub struct ImperativeLanguage[Ast] {
   // private fields
 }
-pub fn[Ast] ImperativeLanguage::new(full_parse~ : (@diagnostic.SourceId, String) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) raise Failure, incremental_parse~ : (@diagnostic.SourceId, String, @seam.SyntaxNode, @core.Edit) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) raise Failure, to_ast~ : (@seam.SyntaxNode) -> Ast, get_fold_stats? : (() -> @core.FoldStats)?) -> Self[Ast]
+pub fn[Ast] ImperativeLanguage::new(full_parse~ : (@diagnostic.SourceId, String) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) raise Failure, incremental_parse~ : (@diagnostic.SourceId, String, @seam.SyntaxNode, @core.Edit) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) raise Failure, atomic_parse? : ((@diagnostic.SourceId, String, @seam.SyntaxNode, @text_change.ChangeSet) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int)? raise Failure)?, to_ast~ : (@seam.SyntaxNode) -> Ast, get_fold_stats? : (() -> @core.FoldStats)?) -> Self[Ast]
 
 pub struct ImperativeParser[Ast] {
   // private fields
 }
+pub fn[Ast] ImperativeParser::apply_changes(Self[Ast], @text_change.ChangeSet, String) -> ParseSnapshot[Ast] raise Failure
 pub fn[Ast] ImperativeParser::current(Self[Ast]) -> ParseSnapshot[Ast]?
 pub fn[Ast] ImperativeParser::diagnostics(Self[Ast]) -> @core.DiagnosticSet
 pub fn[Ast] ImperativeParser::edit(Self[Ast], @core.Edit, String) -> ParseSnapshot[Ast] raise Failure

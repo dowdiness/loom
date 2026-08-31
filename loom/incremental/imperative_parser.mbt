@@ -80,6 +80,28 @@ pub fn[Ast] ImperativeParser::edit(
 }
 
 ///|
+/// Apply a validated atomic transition through an optional language fast path,
+/// falling back to a transactional full parse.
+pub fn[Ast] ImperativeParser::apply_changes(
+  self : ImperativeParser[Ast],
+  changes : @text_change.ChangeSet,
+  new_source : String,
+) -> ParseSnapshot[Ast] raise Failure {
+  match (self.snapshot, self.lang.atomic_parse) {
+    (Some(old_snapshot), Some(parse_atomic)) =>
+      match
+        parse_atomic(self.source_id, new_source, old_snapshot.syntax, changes) {
+        Some((syntax, diagnostics, reuse_count)) => {
+          self.source = new_source
+          self.accept_tree(new_source, syntax, diagnostics, reuse_count)
+        }
+        None => self.reset(new_source)
+      }
+    _ => self.reset(new_source)
+  }
+}
+
+///|
 /// Reset the parser to a new source string, discarding all incremental state.
 /// Use this when the source changes in a way that cannot be expressed as an
 /// Edit (e.g. after a structural edit regenerates the text in a hybrid editor).

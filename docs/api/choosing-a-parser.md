@@ -34,10 +34,12 @@ snapshot.
 
 `Parser[Ast]` updates one parse snapshot input under `Runtime::batch` so
 consumers never observe a half-updated graph. `apply_changes` first requires
-`changes.apply(current_source) == Some(new_source)`, then performs a
-transactional full parse. `ParserUpdateError::ChangeSetMismatch` leaves the
-accepted parser state unchanged; malformed language syntax still publishes a
-recovered snapshot with diagnostics.
+`changes.apply(current_source) == Some(new_source)`, then computes candidate
+state without exposing intermediate snapshots. A bounded grammar-approved
+reparse forest handles safe batches; unsupported batches use transactional full
+parsing. `ParserUpdateError::ChangeSetMismatch` leaves the accepted parser state
+unchanged; malformed language syntax still publishes a recovered snapshot with
+diagnostics.
 
 ## Runtime ownership and attachments
 

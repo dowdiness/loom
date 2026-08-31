@@ -25,6 +25,7 @@ pub(all) struct ChangeSet {
 }
 pub fn ChangeSet::ChangeSet(source_length~ : Int, changes~ : Array[TextChange]) -> Self raise ChangeSetError
 pub fn ChangeSet::apply(Self, String) -> String?
+pub fn ChangeSet::each(Self, (TextChange) -> Unit raise?) -> Unit raise?
 pub fn ChangeSet::empty(Int) -> Self raise ChangeSetError
 pub fn ChangeSet::is_empty(Self) -> Bool
 pub fn ChangeSet::result_length(Self) -> Int

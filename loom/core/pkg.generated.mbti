@@ -35,7 +35,7 @@ pub fn[R : @diagnostic.SourceResolver] render_diagnostics_plain(ArrayView[@diagn
 
 pub fn[R : @diagnostic.SourceResolver, D : @diagnostic.TextDisplay] render_diagnostics_plain_with_display(ArrayView[@diagnostic.Diagnostic], R, D) -> String raise @diagnostic.DiagnosticRenderError
 
-pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(@diagnostic.SourceId, @seam.SyntaxNode, String, Edit, (@diagnostic.SourceId, String) -> LexResult[T], LanguageSpec[T, K], BlockReparseSpec[T, K], DiagnosticSet) -> (@seam.CstNode, DiagnosticSet)? raise Failure
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K] reparse_block(@diagnostic.SourceId, @seam.SyntaxNode, String, Edit, (@diagnostic.SourceId, String) -> LexResult[T], LanguageSpec[T, K], BlockReparseSpec[T, K], DiagnosticSet, splice_root? : @seam.CstNode) -> (@seam.CstNode, DiagnosticSet)? raise Failure
 
 pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode) -> @seam.CstNode raise Failure
 

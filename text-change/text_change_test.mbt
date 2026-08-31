@@ -186,3 +186,17 @@ test "ChangeSet defensively owns the changes array" {
   changes[0] = TextChange::ReplaceAll("wrong")
   debug_inspect(set.apply("abc"), content="Some(\"axc\")")
 }
+
+///|
+test "ChangeSet visits validated changes without exposing storage" {
+  let set = ChangeSet::ChangeSet(source_length=4, changes=[
+    TextChange::ReplaceRange(start=0, delete_len=1, inserted="A"),
+    TextChange::ReplaceRange(start=3, delete_len=1, inserted="D"),
+  ])
+  let visited : Array[TextChange] = []
+  set.each(change => visited.push(change))
+  assert_eq(visited, [
+    TextChange::ReplaceRange(start=0, delete_len=1, inserted="A"),
+    TextChange::ReplaceRange(start=3, delete_len=1, inserted="D"),
+  ])
+}

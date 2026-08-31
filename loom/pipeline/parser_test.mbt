@@ -204,6 +204,68 @@ fn test_failing_full_parse_language() -> @incremental.ImperativeLanguage[String]
 }
 
 ///|
+#warnings("-unused_error_type")
+fn test_atomic_language(
+  atomic_count : Ref[Int],
+  fail_atomic : Ref[Bool],
+) -> @incremental.ImperativeLanguage[String] {
+  let full_parse = fn(
+    _source_id : @core.SourceId,
+    source : String,
+  ) raise Failure {
+    let cst = @seam.build_tree(
+      [@seam.ParseEvent::Token(@seam.RawKind(1), source)],
+      @seam.RawKind(0),
+      policy=@seam.CstMetadataPolicy::unclassified(),
+    ) catch {
+      _ => abort("build_tree failed in atomic test language")
+    }
+    (@seam.SyntaxNode::from_cst(cst), @core.DiagnosticSet::empty(), 0)
+  }
+  @incremental.ImperativeLanguage::new(
+    full_parse~,
+    incremental_parse=fn(source_id, source, _old, _edit) raise Failure {
+      full_parse(source_id, source)
+    },
+    atomic_parse=Some(fn(source_id, source, _old, _changes) raise Failure {
+      atomic_count.val = atomic_count.val + 1
+      if fail_atomic.val {
+        raise Failure("injected atomic parse failure")
+      }
+      let (syntax, diagnostics, _) = full_parse(source_id, source)
+      Some((syntax, diagnostics, 1))
+    }),
+    to_ast=node => node.text(),
+  )
+}
+
+///|
+test "Parser keeps accepted state after atomic parse failure" {
+  let atomic_count : Ref[Int] = Ref(0)
+  let fail_atomic : Ref[Bool] = Ref(true)
+  let parser = Parser::new(
+    @core.SourceId("pipeline-parser-atomic-failure"),
+    "abc",
+    test_atomic_language(atomic_count, fail_atomic),
+  )
+  let changes = @text_change.ChangeSet::ChangeSet(source_length=3, changes=[
+    @text_change.TextChange::ReplaceRange(start=1, delete_len=1, inserted="X"),
+  ])
+  let failed : Result[Unit, Error] = Ok(parser.apply_changes(changes, "aXc")) catch {
+    error => Err(error)
+  }
+  assert_true(failed is Err(Failure(_)))
+  inspect(parser.source().read_or_abort(), content="abc")
+  inspect(parser.ast().read_or_abort(), content="abc")
+  inspect(atomic_count.val, content="1")
+  fail_atomic.val = false
+  parser.apply_changes(changes, "aXc")
+  inspect(parser.source().read_or_abort(), content="aXc")
+  inspect(parser.ast().read_or_abort(), content="aXc")
+  inspect(atomic_count.val, content="2")
+}
+
+///|
 test "Parser keeps the accepted transition after full parse failure" {
   let parser = Parser::new(
     @core.SourceId("pipeline-parser-transactional-failure"),
@@ -267,27 +329,31 @@ test "Parser::apply_changes preserves same-position order and UTF-16 boundaries"
 }
 
 ///|
-test "Parser::apply_changes makes one final reactive observation" {
+test "Parser::apply_changes fast path makes one final reactive observation" {
+  let atomic_count : Ref[Int] = Ref(0)
+  let fail_atomic : Ref[Bool] = Ref(false)
   let parser = Parser::new(
     @core.SourceId("pipeline-parser-one-observation"),
     "abcd",
-    test_imperative_language(),
+    test_atomic_language(atomic_count, fail_atomic),
   )
   let mut observations = 0
-  let observed = @incr.Derived(parser.runtime(), () => {
+  let observed = @incr.EagerDerived::EagerDerived(parser.runtime(), fn() {
     observations = observations + 1
     parser.source().get_or_abort()
   })
   let watch = observed.watch()
   inspect(watch.read_or_abort(), content="abcd")
-  inspect(observations, content="1")
+  let observations_before_update = observations
   let changes = @text_change.ChangeSet::ChangeSet(source_length=4, changes=[
     @text_change.TextChange::ReplaceRange(start=0, delete_len=1, inserted="A"),
     @text_change.TextChange::ReplaceRange(start=3, delete_len=1, inserted="D"),
   ])
   parser.apply_changes(changes, "AbcD")
+  assert_eq(observations, observations_before_update + 1)
   inspect(watch.read_or_abort(), content="AbcD")
-  inspect(observations, content="2")
+  inspect(atomic_count.val, content="1")
+  assert_eq(observations, observations_before_update + 1)
   watch.dispose()
 }
 

@@ -10,7 +10,7 @@ pub suberror ParserUpdateError {
 ///
 /// Accepts three update methods:
 /// - `apply_edit(edit, new_source)` — CST-node-level reuse via the engine.
-/// - `apply_changes(changes, new_source)` — validated atomic full reparse.
+/// - `apply_changes(changes, new_source)` — validated atomic batch update.
 /// - `set_source(source)` — full reparse, discarding incremental state.
 ///
 /// All methods update one private snapshot `Input` inside `Runtime::batch`
@@ -126,8 +126,8 @@ pub fn[Ast : Eq] Parser::set_source(
 ///
 /// `new_source` is authoritative. `changes` is evidence that it follows from
 /// the currently accepted source in original-source UTF-16 coordinates. A
-/// mismatch is rejected before parsing. Only the final full-parse snapshot is
-/// published.
+/// mismatch is rejected before parsing. Only the final accepted snapshot is
+/// published; unsupported fast paths use transactional full parsing.
 pub fn[Ast : Eq] Parser::apply_changes(
   self : Parser[Ast],
   changes : @text_change.ChangeSet,
@@ -136,7 +136,11 @@ pub fn[Ast : Eq] Parser::apply_changes(
   guard changes.apply(self.engine.get_source()) == Some(new_source) else {
     raise ParserUpdateError::ChangeSetMismatch
   }
-  self.set_source(new_source)
+  if new_source == self.engine.get_source() {
+    return
+  }
+  let snapshot = self.engine.apply_changes(changes, new_source)
+  self.rt.batch(() => self.snapshot_input.set(snapshot))
 }
 
 ///|
