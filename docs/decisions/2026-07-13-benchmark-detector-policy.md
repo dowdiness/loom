@@ -62,9 +62,10 @@ workloads, timed boundary, and benchmark rows remain identical. Each revision
 supplies its own tracked adapter; CI snapshots and verifies the base and head
 adapters independently instead of classifying old APIs or installing
 compatibility adapters. A manual calibration mode checks out the same commit on
-both sides and disables only the delimiter performance verdict; all other
-verdicts and input validation stay active. These PR-guard thresholds are
-separate from the scheduled detector's 15% threshold and eligibility policy.
+both sides and disables the delimiter and adversarial-complexity performance
+verdicts; all other performance verdicts and input validation stay active.
+These PR-guard thresholds are separate from the scheduled detector's 15%
+threshold and eligibility policy.
 
 On 2026-09-09, the adversarial Markdown complexity rows graduated from
 calibration to the default pull-request gate. The unmatched-opener subject and

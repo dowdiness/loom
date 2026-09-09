@@ -416,9 +416,10 @@ assert_stdout_contains 'hard ceiling'
 # The ceiling is inclusive: 2x is exactly +100% and fails above, while a
 # configured +100.1% ceiling permits the same measurements.
 
+# Calibration suppresses only the performance verdict, not input validation.
 cp "$fixture/base-1" "$fixture/missing-complexity"
 sed -i "/$complexity_opener_small/,+1d" "$fixture/missing-complexity"
-run_case 2 \
+MARKDOWN_COMPLEXITY_PERF_CALIBRATION=1 run_case 2 \
   "$fixture/base-1" "$fixture/missing-complexity" \
   "$fixture/base-2" "$fixture/green-2" \
   "$fixture/base-3" "$fixture/green-3"
