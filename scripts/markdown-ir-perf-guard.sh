@@ -25,6 +25,9 @@ readonly source_bound_control_threshold_percent="${MARKDOWN_SOURCE_BOUND_CONTROL
 readonly delimiter_calibration="${MARKDOWN_DELIMITER_PERF_CALIBRATION:-0}"
 readonly source_bound_calibration="${MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION:-0}"
 readonly verbose="${MARKDOWN_PERF_GUARD_VERBOSE:-0}"
+readonly complexity_source_growth_ceiling="${MARKDOWN_COMPLEXITY_SOURCE_GROWTH_CEILING:-8}"
+readonly complexity_depth_growth_ceiling="${MARKDOWN_COMPLEXITY_DEPTH_GROWTH_CEILING:-100}"
+readonly complexity_calibration="${MARKDOWN_COMPLEXITY_PERF_CALIBRATION:-1}"
 readonly realistic_direct='markdown: realistic doc - lowering SyntaxNode -> Block'
 readonly realistic_ir='markdown: realistic doc - lowering SyntaxNode -> MarkdownIR -> Block'
 readonly scaled_direct='markdown: 50x doc - lowering SyntaxNode -> Block'
@@ -46,6 +49,12 @@ readonly source_bound_preserve='perf source-bound preserve rewrite 100 paragraph
 readonly source_bound_local='perf source-bound local rewrite selection'
 readonly source_bound_ir_only='perf source-bound IR-only target through read'
 readonly source_bound_attachment='perf source-bound attachment source_document'
+readonly complexity_opener_small='markdown adversarial unmatched opener small full parse'
+readonly complexity_control_small='markdown adversarial unmatched opener small plain control'
+readonly complexity_opener_large='markdown adversarial unmatched opener large full parse'
+readonly complexity_control_large='markdown adversarial unmatched opener large plain control'
+readonly complexity_nested_32='markdown adversarial nested-link depth 32 full parse'
+readonly complexity_nested_48='markdown adversarial nested-link depth 48 full parse'
 
 readonly -a case_labels=(
   'realistic'
@@ -150,9 +159,10 @@ usage() {
 Usage: markdown-ir-perf-guard.sh BASE_1 HEAD_1 BASE_2 HEAD_2 BASE_3 HEAD_3
 
 Each argument is raw `moon bench` output containing the four Markdown lowering,
-eight delimiter/plain-control benchmarks, and the source-bound control plus
-eight source-bound benchmarks. Exit 0 means no persistent regression, 1 means
-regression, and 2 means the comparison input or verifier is invalid.
+eight delimiter/plain-control benchmarks, the source-bound control plus eight
+source-bound benchmarks, and six adversarial-complexity benchmarks. Exit 0
+means no persistent regression, 1 means regression, and 2 means the comparison
+input or verifier is invalid.
 
 MARKDOWN_IR_PERF_HARD_CEILING_PERCENT=100 is the default inclusive raw-slowdown
 ceiling. Override it with a positive percentage when runner policy requires it.
@@ -171,6 +181,12 @@ ceiling defaults to 200%, and its control threshold defaults to 50%.
 MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION=1 explicitly disables only the
 source-bound performance verdict so pre-document legacy-vs-current rows can be
 reported as cutover characterization without weakening current-adapter gates.
+
+MARKDOWN_COMPLEXITY_SOURCE_GROWTH_CEILING=8 is the candidate inclusive ceiling
+for both unmatched-opener and equal-length plain-control 4x source growth.
+MARKDOWN_COMPLEXITY_DEPTH_GROWTH_CEILING=100 is the candidate inclusive ceiling
+for nested-link depth 32-to-48 growth. MARKDOWN_COMPLEXITY_PERF_CALIBRATION=1
+is the default and keeps both verdicts non-gating while recording ratios.
 MARKDOWN_PERF_GUARD_VERBOSE=1 prints every base/head trial row; the default
 output prints only the compact result and expands details on failure.
 EOF
@@ -221,6 +237,17 @@ fi
 if [[ ! "$source_bound_control_threshold_percent" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
   infra_fail "MARKDOWN_SOURCE_BOUND_CONTROL_PERF_THRESHOLD_PERCENT must be a non-negative number"
 fi
+if [[ "$complexity_calibration" != 0 && "$complexity_calibration" != 1 ]]; then
+  infra_fail "MARKDOWN_COMPLEXITY_PERF_CALIBRATION must be 0 or 1"
+fi
+if [[ ! "$complexity_source_growth_ceiling" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
+  ! awk -v value="$complexity_source_growth_ceiling" 'BEGIN { exit !(value > 0) }'; then
+  infra_fail "MARKDOWN_COMPLEXITY_SOURCE_GROWTH_CEILING must be a positive number"
+fi
+if [[ ! "$complexity_depth_growth_ceiling" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
+  ! awk -v value="$complexity_depth_growth_ceiling" 'BEGIN { exit !(value > 0) }'; then
+  infra_fail "MARKDOWN_COMPLEXITY_DEPTH_GROWTH_CEILING must be a positive number"
+fi
 delimiter_gated=1
 if [[ "$delimiter_calibration" == 1 ]]; then
   delimiter_gated=0
@@ -231,15 +258,29 @@ if [[ "$source_bound_calibration" == 1 ]]; then
   source_bound_gated=0
 fi
 readonly source_bound_gated
+complexity_gated=1
+if [[ "$complexity_calibration" == 1 ]]; then
+  complexity_gated=0
+fi
+readonly complexity_gated
 
 work_dir=$(mktemp -d)
 details_file="$work_dir/trial-details.txt"
 calibration_file="$work_dir/calibration.tsv"
+complexity_calibration_file="$work_dir/complexity-calibration.tsv"
 trap 'rm -rf "$work_dir"' EXIT
 for ((case_index = 0; case_index < case_count; case_index++)); do
   printf '%s\n' "${case_controls[$case_index]}"
   printf '%s\n' "${case_subjects[$case_index]}"
 done > "$work_dir/expected-benchmarks.txt"
+cat >> "$work_dir/expected-benchmarks.txt" <<EOF
+$complexity_opener_small
+$complexity_control_small
+$complexity_opener_large
+$complexity_control_large
+$complexity_nested_32
+$complexity_nested_48
+EOF
 
 parse_bench_output() {
   local input="$1" label="$2" output="$3"
@@ -323,6 +364,9 @@ for ((case_index = 0; case_index < case_count; case_index++)); do
   case_bad_counts+=(0)
   case_control_bad_counts+=(0)
 done
+complexity_head_subject_bad_count=0
+complexity_head_control_bad_count=0
+complexity_head_depth_bad_count=0
 
 if [[ "$verbose" == 1 ]]; then
   printf 'Markdown lowering PR performance guard (IR threshold: +%s%% raw+normalized; IR hard ceiling: >=+%s%% raw; direct threshold: +%s%% raw; persistence: %s/%s)\n' \
@@ -342,6 +386,13 @@ if [[ "$verbose" == 1 ]]; then
   else
     printf 'CALIBRATION: source-bound verdict disabled explicitly; recording deltas only\n'
   fi
+  if [[ "$complexity_gated" -eq 1 ]]; then
+    printf 'Markdown complexity gate (source growth ceiling: >=%sx; depth growth ceiling: >=%sx; persistence: %s/%s)\n' \
+      "$complexity_source_growth_ceiling" "$complexity_depth_growth_ceiling" \
+      "$trial_pairs" "$trial_pairs"
+  else
+    printf 'CALIBRATION: Markdown complexity verdict disabled; recording scale ratios only\n'
+  fi
 else
   if [[ "$delimiter_calibration" == 1 &&
         "$source_bound_calibration" == 1 ]]; then
@@ -357,6 +408,15 @@ else
     printf 'Markdown performance: %s alternating base/head trials; IR +%s%%; delimiter +%s%%; source-bound +%s%%\n' \
       "$trial_pairs" "$threshold_percent" "$delimiter_threshold_percent" \
       "$source_bound_threshold_percent"
+  fi
+fi
+if [[ "$verbose" != 1 ]]; then
+  if [[ "$complexity_gated" -eq 1 ]]; then
+    printf 'Markdown complexity: source <%sx; depth <%sx; persistence %s/%s\n' \
+      "$complexity_source_growth_ceiling" "$complexity_depth_growth_ceiling" \
+      "$trial_pairs" "$trial_pairs"
+  else
+    printf 'Markdown complexity: calibration (non-gating)\n'
   fi
 fi
 
@@ -421,6 +481,71 @@ check_case() {
   case_bad="$bad"
   case_control_bad="$control_bad"
 }
+check_complexity_trial() {
+  local trial="$1"
+  local base_tsv="$work_dir/base-$trial.tsv" head_tsv="$work_dir/head-$trial.tsv"
+  local base_opener_small base_opener_large base_control_small base_control_large
+  local base_nested_32 base_nested_48 head_opener_small head_opener_large
+  local head_control_small head_control_large head_nested_32 head_nested_48 metrics
+  base_opener_small=$(read_value "$base_tsv" "$complexity_opener_small")
+  base_opener_large=$(read_value "$base_tsv" "$complexity_opener_large")
+  base_control_small=$(read_value "$base_tsv" "$complexity_control_small")
+  base_control_large=$(read_value "$base_tsv" "$complexity_control_large")
+  base_nested_32=$(read_value "$base_tsv" "$complexity_nested_32")
+  base_nested_48=$(read_value "$base_tsv" "$complexity_nested_48")
+  head_opener_small=$(read_value "$head_tsv" "$complexity_opener_small")
+  head_opener_large=$(read_value "$head_tsv" "$complexity_opener_large")
+  head_control_small=$(read_value "$head_tsv" "$complexity_control_small")
+  head_control_large=$(read_value "$head_tsv" "$complexity_control_large")
+  head_nested_32=$(read_value "$head_tsv" "$complexity_nested_32")
+  head_nested_48=$(read_value "$head_tsv" "$complexity_nested_48")
+
+  metrics=$(awk \
+    -v bos="$base_opener_small" -v bol="$base_opener_large" \
+    -v bcs="$base_control_small" -v bcl="$base_control_large" \
+    -v bn32="$base_nested_32" -v bn48="$base_nested_48" \
+    -v hos="$head_opener_small" -v hol="$head_opener_large" \
+    -v hcs="$head_control_small" -v hcl="$head_control_large" \
+    -v hn32="$head_nested_32" -v hn48="$head_nested_48" \
+    -v source_ceiling="$complexity_source_growth_ceiling" \
+    -v depth_ceiling="$complexity_depth_growth_ceiling" '
+      BEGIN {
+        if (bos <= 0 || bol <= 0 || bcs <= 0 || bcl <= 0 ||
+            bn32 <= 0 || bn48 <= 0 || hos <= 0 || hol <= 0 ||
+            hcs <= 0 || hcl <= 0 || hn32 <= 0 || hn48 <= 0) exit 2
+        bs = bol / bos
+        bc = bcl / bcs
+        bd = bn48 / bn32
+        hs = hol / hos
+        hc = hcl / hcs
+        hd = hn48 / hn32
+        bn = bs / bc
+        hn = hs / hc
+        printf "%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%d\t%d\t%d", \
+          bs, bc, bn, bd, hs, hc, hn, hd, \
+          (hs >= source_ceiling), (hc >= source_ceiling), (hd >= depth_ceiling)
+      }
+    ') || infra_fail "non-positive or invalid complexity measurement in trial $trial"
+
+  local bs bc bn bd hs hc hn hd hsb hcb hdb status
+  IFS=$'\t' read -r bs bc bn bd hs hc hn hd hsb hcb hdb <<< "$metrics"
+  complexity_head_subject_bad_count=$((complexity_head_subject_bad_count + hsb))
+  complexity_head_control_bad_count=$((complexity_head_control_bad_count + hcb))
+  complexity_head_depth_bad_count=$((complexity_head_depth_bad_count + hdb))
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$trial" "$bs" "$bc" "$bn" "$bd" "$hs" "$hc" "$hn" "$hd" \
+    >> "$complexity_calibration_file"
+  status=ok
+  if [[ "$complexity_gated" -eq 0 ]]; then
+    status=CALIBRATION
+  elif [[ "$hsb" -eq 1 || "$hcb" -eq 1 || "$hdb" -eq 1 ]]; then
+    status=BAD
+  fi
+  printf '  trial %s %-38s base subject/control/normalized/depth %s/%s/%s/%s x; head %s/%s/%s/%s x; %s\n' \
+    "$trial" "Markdown adversarial complexity" "$bs" "$bc" "$bn" "$bd" \
+    "$hs" "$hc" "$hn" "$hd" "$status" >> "$details_file"
+}
+
 
 for trial in 1 2 3; do
   for ((case_index = 0; case_index < case_count; case_index++)); do
@@ -455,6 +580,9 @@ for trial in 1 2 3; do
     case_control_bad_counts[case_index]=$((case_control_bad_counts[case_index] + case_control_bad))
   done
 done
+for trial in 1 2 3; do
+  check_complexity_trial "$trial"
+done
 
 bad_realistic="${case_bad_counts[0]}"
 bad_scaled="${case_bad_counts[1]}"
@@ -462,6 +590,20 @@ bad_direct_realistic="${case_control_bad_counts[0]}"
 bad_direct_scaled="${case_control_bad_counts[1]}"
 
 failed=0
+if [[ "$complexity_gated" -eq 1 ]]; then
+  if [[ "$complexity_head_subject_bad_count" -eq "$trial_pairs" ]]; then
+    printf 'FAIL: persistent unmatched-opener growth violation\n'
+    failed=1
+  fi
+  if [[ "$complexity_head_control_bad_count" -eq "$trial_pairs" ]]; then
+    printf 'FAIL: persistent plain-control growth violation\n'
+    failed=1
+  fi
+  if [[ "$complexity_head_depth_bad_count" -eq "$trial_pairs" ]]; then
+    printf 'FAIL: persistent nested-link depth-growth violation\n'
+    failed=1
+  fi
+fi
 if [[ "$bad_realistic" -eq "$trial_pairs" || "$bad_scaled" -eq "$trial_pairs" ]]; then
   printf 'FAIL: persistent MarkdownIR lowering regression'
   [[ "$bad_realistic" -eq "$trial_pairs" ]] && printf ' [realistic]'
@@ -587,6 +729,27 @@ if [[ "$source_bound_calibration" == 1 && "$verbose" != 1 ]]; then
       "$label" "$raw_min" "$raw_max" "$normalized_min" "$normalized_max"
   done
 fi
+if [[ "$complexity_calibration" == 1 && "$verbose" != 1 ]]; then
+  printf 'CALIBRATION: Markdown complexity verdict disabled; ratio ranges over %s trials\n' \
+    "$trial_pairs"
+  awk -F '\t' '
+    NR == 1 {
+      for (i = 2; i <= 9; i++) min[i] = max[i] = $i
+    }
+    {
+      for (i = 2; i <= 9; i++) {
+        if ($i < min[i]) min[i] = $i
+        if ($i > max[i]) max[i] = $i
+      }
+    }
+    END {
+      printf "  base subject %.3f..%.3f x; control %.3f..%.3f x; normalized %.3f..%.3f x; depth %.3f..%.3f x\n", \
+        min[2], max[2], min[3], max[3], min[4], max[4], min[5], max[5]
+      printf "  head subject %.3f..%.3f x; control %.3f..%.3f x; normalized %.3f..%.3f x; depth %.3f..%.3f x\n", \
+        min[6], max[6], min[7], max[7], min[8], max[8], min[9], max[9]
+    }
+  ' "$complexity_calibration_file"
+fi
 if [[ "$verbose" == 1 || "$failed" -eq 1 ]]; then
   cat "$details_file"
 fi
@@ -608,6 +771,15 @@ for ((case_index = 0; case_index < case_count; case_index++)); do
     has_non_persistent=1
   fi
 done
+if [[ "$complexity_gated" -eq 1 ]] &&
+  (( (complexity_head_subject_bad_count > 0 &&
+       complexity_head_subject_bad_count < trial_pairs) ||
+     (complexity_head_control_bad_count > 0 &&
+       complexity_head_control_bad_count < trial_pairs) ||
+     (complexity_head_depth_bad_count > 0 &&
+       complexity_head_depth_bad_count < trial_pairs) )); then
+  has_non_persistent=1
+fi
 if [[ "$has_non_persistent" -eq 1 ]]; then
   printf ' (non-persistent observations: IR realistic=%s/%s, IR 50x=%s/%s, direct realistic=%s/%s, direct 50x=%s/%s' \
     "$bad_realistic" "$trial_pairs" "$bad_scaled" "$trial_pairs" \
@@ -635,6 +807,23 @@ if [[ "$has_non_persistent" -eq 1 ]]; then
       fi
     fi
   done
+  if [[ "$complexity_gated" -eq 1 ]]; then
+    if [[ "$complexity_head_subject_bad_count" -gt 0 &&
+          "$complexity_head_subject_bad_count" -lt "$trial_pairs" ]]; then
+      printf ', unmatched-opener growth=%s/%s' \
+        "$complexity_head_subject_bad_count" "$trial_pairs"
+    fi
+    if [[ "$complexity_head_control_bad_count" -gt 0 &&
+          "$complexity_head_control_bad_count" -lt "$trial_pairs" ]]; then
+      printf ', plain-control growth=%s/%s' \
+        "$complexity_head_control_bad_count" "$trial_pairs"
+    fi
+    if [[ "$complexity_head_depth_bad_count" -gt 0 &&
+          "$complexity_head_depth_bad_count" -lt "$trial_pairs" ]]; then
+      printf ', nested-link depth growth=%s/%s' \
+        "$complexity_head_depth_bad_count" "$trial_pairs"
+    fi
+  fi
   printf ')'
 fi
 printf '\n'
