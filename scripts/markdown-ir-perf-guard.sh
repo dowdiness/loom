@@ -27,7 +27,7 @@ readonly source_bound_calibration="${MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION:-0}"
 readonly verbose="${MARKDOWN_PERF_GUARD_VERBOSE:-0}"
 readonly complexity_source_growth_ceiling="${MARKDOWN_COMPLEXITY_SOURCE_GROWTH_CEILING:-8}"
 readonly complexity_depth_growth_ceiling="${MARKDOWN_COMPLEXITY_DEPTH_GROWTH_CEILING:-100}"
-readonly complexity_calibration="${MARKDOWN_COMPLEXITY_PERF_CALIBRATION:-1}"
+readonly complexity_calibration="${MARKDOWN_COMPLEXITY_PERF_CALIBRATION:-0}"
 readonly realistic_direct='markdown: realistic doc - lowering SyntaxNode -> Block'
 readonly realistic_ir='markdown: realistic doc - lowering SyntaxNode -> MarkdownIR -> Block'
 readonly scaled_direct='markdown: 50x doc - lowering SyntaxNode -> Block'
@@ -182,11 +182,11 @@ MARKDOWN_SOURCE_BOUND_PERF_CALIBRATION=1 explicitly disables only the
 source-bound performance verdict so pre-document legacy-vs-current rows can be
 reported as cutover characterization without weakening current-adapter gates.
 
-MARKDOWN_COMPLEXITY_SOURCE_GROWTH_CEILING=8 is the candidate inclusive ceiling
+MARKDOWN_COMPLEXITY_SOURCE_GROWTH_CEILING=8 is the default inclusive ceiling
 for both unmatched-opener and equal-length plain-control 4x source growth.
-MARKDOWN_COMPLEXITY_DEPTH_GROWTH_CEILING=100 is the candidate inclusive ceiling
+MARKDOWN_COMPLEXITY_DEPTH_GROWTH_CEILING=100 is the default inclusive ceiling
 for nested-link depth 32-to-48 growth. MARKDOWN_COMPLEXITY_PERF_CALIBRATION=1
-is the default and keeps both verdicts non-gating while recording ratios.
+explicitly disables both verdicts while recording ratios.
 MARKDOWN_PERF_GUARD_VERBOSE=1 prints every base/head trial row; the default
 output prints only the compact result and expands details on failure.
 EOF

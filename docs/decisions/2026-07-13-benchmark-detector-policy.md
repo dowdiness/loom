@@ -66,6 +66,15 @@ both sides and disables only the delimiter performance verdict; all other
 verdicts and input validation stay active. These PR-guard thresholds are
 separate from the scheduled detector's 15% threshold and eligibility policy.
 
+On 2026-09-09, the adversarial Markdown complexity rows graduated from
+calibration to the default pull-request gate. The unmatched-opener subject and
+equal-length plain control each have an inclusive 8x ceiling for 4x source
+growth. Nested-link depth 32-to-48 growth has an inclusive 100x ceiling. A
+signal blocks only when the head reaches its ceiling in all three trials;
+subject/control-normalized growth remains diagnostic. Explicit
+`MARKDOWN_COMPLEXITY_PERF_CALIBRATION=1` disables only these complexity
+verdicts, while required-row and measurement validation remain fail-closed.
+
 ## Rationale
 
 Eligibility is a benchmark-level maintenance decision, not a property that can
@@ -90,6 +99,17 @@ other two trials were -2.3% and -10.2%. The 50% relative/control thresholds
 therefore remain above observed A/A noise, while three-of-three persistence
 prevents a single control outlier from blocking. The 100% hard ceiling remains
 an independent catastrophic-slowdown backstop.
+
+The complexity ceilings are supported by the exact same-SHA, three-pair
+[GitHub Actions calibration](https://github.com/dowdiness/loom/actions/runs/34342228665)
+on commit `a51d8af7dfe6b0557e9202e69b716c3c392c0d9d`. JavaScript observed
+subject growth of 4.435–4.682x, control growth of 3.772–3.857x, normalized
+growth of 1.150–1.241x, and depth growth of 1.477–1.527x. wasm-gc observed
+subject growth of 5.844–6.120x, control growth of 3.949–3.964x, normalized
+growth of 1.480–1.544x, and depth growth of 1.464–1.490x. Both targets stayed
+below the candidate ceilings on both base and head in every trial. If the gate
+later produces a suspected false positive, rerun exact same-SHA calibration
+before changing either ceiling.
 
 No universal absolute nanosecond floor was added because #644 did not establish
 one safe across all benchmark scales. The policy can evolve through reviewed
