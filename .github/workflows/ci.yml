@@ -387,6 +387,7 @@ jobs:
           echo "Checking $BENCH_TARGET Markdown performance"
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             export MARKDOWN_DELIMITER_PERF_CALIBRATION=1
+            export MARKDOWN_COMPLEXITY_PERF_CALIBRATION=1
           fi
           bash perf-head/scripts/markdown-ir-perf-guard.sh \
             "$output_dir/base-1.txt" "$output_dir/head-1.txt" \

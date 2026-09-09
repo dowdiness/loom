@@ -185,28 +185,31 @@ run_case 0 \
 assert_stdout_contains 'PASS: no persistent Markdown lowering regression'
 assert_stdout_contains 'Delimiter performance gate (subject threshold: +50% raw+normalized; hard ceiling: >=+100% raw; plain-control threshold: +50% raw'
 
-assert_stdout_contains 'CALIBRATION: Markdown complexity verdict disabled'
-
-MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 0 \
-  "$fixture/base-1" "$fixture/base-1" \
-  "$fixture/base-2" "$fixture/base-2" \
-  "$fixture/base-3" "$fixture/base-3"
 assert_stdout_contains 'Markdown complexity gate (source growth ceiling: >=8x; depth growth ceiling: >=100x'
 
+# Explicit A/A calibration keeps complexity rows required and reports ratios
+# without making a complexity performance verdict.
+MARKDOWN_COMPLEXITY_PERF_CALIBRATION=1 run_case 0 \
+  "$fixture/base-1" "$fixture/complexity-subject-threshold-1" \
+  "$fixture/base-2" "$fixture/complexity-subject-threshold-2" \
+  "$fixture/base-3" "$fixture/complexity-subject-threshold-3"
+assert_stdout_contains 'CALIBRATION: Markdown complexity verdict disabled'
+assert_stdout_contains 'head 8.000/4.000/2.000/1.500 x; CALIBRATION'
+
 # Complexity ceilings are inclusive and must persist in all three head trials.
-MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 1 \
+run_case 1 \
   "$fixture/base-1" "$fixture/complexity-subject-threshold-1" \
   "$fixture/base-2" "$fixture/complexity-subject-threshold-2" \
   "$fixture/base-3" "$fixture/complexity-subject-threshold-3"
 assert_stdout_contains 'FAIL: persistent unmatched-opener growth violation'
 
-MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 1 \
+run_case 1 \
   "$fixture/base-1" "$fixture/complexity-control-threshold-1" \
   "$fixture/base-2" "$fixture/complexity-control-threshold-2" \
   "$fixture/base-3" "$fixture/complexity-control-threshold-3"
 assert_stdout_contains 'FAIL: persistent plain-control growth violation'
 
-MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 1 \
+run_case 1 \
   "$fixture/base-1" "$fixture/complexity-depth-threshold-1" \
   "$fixture/base-2" "$fixture/complexity-depth-threshold-2" \
   "$fixture/base-3" "$fixture/complexity-depth-threshold-3"
@@ -214,7 +217,7 @@ assert_stdout_contains 'FAIL: persistent nested-link depth-growth violation'
 
 # Equal 16x subject and control growth normalizes to 1x; both raw invariants
 # remain independently actionable.
-MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 1 \
+run_case 1 \
   "$fixture/base-1" "$fixture/complexity-shared-1" \
   "$fixture/base-2" "$fixture/complexity-shared-2" \
   "$fixture/base-3" "$fixture/complexity-shared-3"
@@ -223,7 +226,7 @@ assert_stdout_contains 'FAIL: persistent plain-control growth violation'
 assert_stdout_contains 'head 16.000/16.000/1.000/'
 
 # Two suspicious trials are reported but do not fail.
-MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 0 \
+run_case 0 \
   "$fixture/base-1" "$fixture/complexity-subject-threshold-1" \
   "$fixture/base-2" "$fixture/complexity-subject-threshold-2" \
   "$fixture/base-3" "$fixture/base-3"
@@ -231,7 +234,7 @@ assert_stdout_contains 'unmatched-opener growth=2/3'
 
 # Gating requires a healthy base. Once enabled, a persistent head violation
 # fails even when base already violates, including a further head worsening.
-MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 1 \
+run_case 1 \
   "$fixture/complexity-subject-threshold-1" "$fixture/complexity-subject-worse-1" \
   "$fixture/complexity-subject-threshold-2" "$fixture/complexity-subject-worse-2" \
   "$fixture/complexity-subject-threshold-3" "$fixture/complexity-subject-worse-3"
@@ -413,9 +416,10 @@ assert_stdout_contains 'hard ceiling'
 # The ceiling is inclusive: 2x is exactly +100% and fails above, while a
 # configured +100.1% ceiling permits the same measurements.
 
+# Calibration suppresses only the performance verdict, not input validation.
 cp "$fixture/base-1" "$fixture/missing-complexity"
 sed -i "/$complexity_opener_small/,+1d" "$fixture/missing-complexity"
-run_case 2 \
+MARKDOWN_COMPLEXITY_PERF_CALIBRATION=1 run_case 2 \
   "$fixture/base-1" "$fixture/missing-complexity" \
   "$fixture/base-2" "$fixture/green-2" \
   "$fixture/base-3" "$fixture/green-3"
