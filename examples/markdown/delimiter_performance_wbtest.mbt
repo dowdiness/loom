@@ -299,6 +299,69 @@ fn assert_delimiter_performance_incremental_parity(
 }
 
 ///|
+fn markdown_adversarial_unmatched_opener_source(size : Int) -> String {
+  guard size > 0 else {
+    abort("unmatched-opener fixture size must be positive")
+  }
+  "[".repeat(size)
+}
+
+///|
+fn markdown_adversarial_plain_control_source(size : Int) -> String {
+  guard size > 0 else { abort("plain-control fixture size must be positive") }
+  "x".repeat(size)
+}
+
+///|
+fn markdown_adversarial_nested_link_source(depth : Int) -> String {
+  guard depth > 0 else { abort("nested-link fixture depth must be positive") }
+  "[".repeat(depth) + "a" + "](/u)".repeat(depth)
+}
+
+///|
+test "Markdown adversarial complexity fixture dimensions are exact" {
+  let small = markdown_adversarial_unmatched_opener_source(8192)
+  let large = markdown_adversarial_unmatched_opener_source(32768)
+  let small_control = markdown_adversarial_plain_control_source(8192)
+  let large_control = markdown_adversarial_plain_control_source(32768)
+  assert_eq(small.length(), 8192)
+  assert_eq(large.length(), small.length() * 4)
+  assert_eq(small_control.length(), small.length())
+  assert_eq(large_control.length(), large.length())
+  assert_eq(large_control.length(), small_control.length() * 4)
+  assert_eq(markdown_adversarial_nested_link_source(32).length(), 193)
+  assert_eq(markdown_adversarial_nested_link_source(48).length(), 289)
+}
+
+///|
+test "Markdown adversarial complexity fixtures preserve complete source" {
+  let fixtures = [
+    (
+      "unmatched-opener-small",
+      markdown_adversarial_unmatched_opener_source(8192),
+    ),
+    (
+      "unmatched-opener-large",
+      markdown_adversarial_unmatched_opener_source(32768),
+    ),
+    ("plain-control-small", markdown_adversarial_plain_control_source(8192)),
+    ("plain-control-large", markdown_adversarial_plain_control_source(32768)),
+    ("nested-link-depth-32", markdown_adversarial_nested_link_source(32)),
+    ("nested-link-depth-48", markdown_adversarial_nested_link_source(48)),
+  ]
+  for fixture in fixtures {
+    let (label, source) = fixture
+    let (cst, _) = parse_cst(
+      @core.SourceId("markdown-adversarial-complexity-" + label),
+      source,
+    ) catch {
+      _ => fail("adversarial fixture parse failed: " + label)
+    }
+    assert_eq(@seam.SyntaxNode::from_cst(cst).text(), source)
+  }
+}
+
+///|
 test "delimiter performance workload is deterministic and length matched" {
   assert_eq(delimiter_performance_motifs().length(), 7)
   for repeat_count in [64, 256] {
@@ -455,6 +518,60 @@ fn benchmark_delimiter_performance_incremental_cycle(
     try! parser.apply_edit(fixture.edit, fixture.source)
     b.keep(parser.syntax_tree().read_or_abort())
   })
+}
+
+///|
+test "markdown adversarial unmatched opener small full parse" (b : @bench.T) {
+  benchmark_delimiter_performance_full_parse(
+    b,
+    "markdown-adversarial-unmatched-opener-small",
+    markdown_adversarial_unmatched_opener_source(8192),
+  )
+}
+
+///|
+test "markdown adversarial unmatched opener small plain control" (b : @bench.T) {
+  benchmark_delimiter_performance_full_parse(
+    b,
+    "markdown-adversarial-unmatched-opener-small-control",
+    markdown_adversarial_plain_control_source(8192),
+  )
+}
+
+///|
+test "markdown adversarial unmatched opener large full parse" (b : @bench.T) {
+  benchmark_delimiter_performance_full_parse(
+    b,
+    "markdown-adversarial-unmatched-opener-large",
+    markdown_adversarial_unmatched_opener_source(32768),
+  )
+}
+
+///|
+test "markdown adversarial unmatched opener large plain control" (b : @bench.T) {
+  benchmark_delimiter_performance_full_parse(
+    b,
+    "markdown-adversarial-unmatched-opener-large-control",
+    markdown_adversarial_plain_control_source(32768),
+  )
+}
+
+///|
+test "markdown adversarial nested-link depth 32 full parse" (b : @bench.T) {
+  benchmark_delimiter_performance_full_parse(
+    b,
+    "markdown-adversarial-nested-link-depth-32",
+    markdown_adversarial_nested_link_source(32),
+  )
+}
+
+///|
+test "markdown adversarial nested-link depth 48 full parse" (b : @bench.T) {
+  benchmark_delimiter_performance_full_parse(
+    b,
+    "markdown-adversarial-nested-link-depth-48",
+    markdown_adversarial_nested_link_source(48),
+  )
 }
 
 ///|

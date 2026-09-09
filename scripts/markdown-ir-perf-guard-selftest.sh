@@ -26,6 +26,12 @@ readonly source_bound_preserve='perf source-bound preserve rewrite 100 paragraph
 readonly source_bound_local='perf source-bound local rewrite selection'
 readonly source_bound_ir_only='perf source-bound IR-only target through read'
 readonly source_bound_attachment='perf source-bound attachment source_document'
+readonly complexity_opener_small='markdown adversarial unmatched opener small full parse'
+readonly complexity_control_small='markdown adversarial unmatched opener small plain control'
+readonly complexity_opener_large='markdown adversarial unmatched opener large full parse'
+readonly complexity_control_large='markdown adversarial unmatched opener large plain control'
+readonly complexity_nested_32='markdown adversarial nested-link depth 32 full parse'
+readonly complexity_nested_48='markdown adversarial nested-link depth 48 full parse'
 
 write_output() {
   local path="$1" realistic_direct="$2" realistic_ir="$3"
@@ -73,6 +79,18 @@ write_output() {
   100 us
 [bench] ("$source_bound_attachment") ok
   100 us
+[bench] ("$complexity_opener_small") ok
+  100 us
+[bench] ("$complexity_control_small") ok
+  100 us
+[bench] ("$complexity_opener_large") ok
+  500 us
+[bench] ("$complexity_control_large") ok
+  400 us
+[bench] ("$complexity_nested_32") ok
+  100 us
+[bench] ("$complexity_nested_48") ok
+  150 us
 EOF
 }
 
@@ -140,6 +158,20 @@ for trial in 1 2 3; do
     "$fixture/delimiter-hard-ceiling-$trial"
   sed -i "/$plain_256_full/{n;s/1 ms/2 ms/;}" \
     "$fixture/delimiter-hard-ceiling-$trial"
+  cp "$fixture/base-$trial" "$fixture/complexity-subject-threshold-$trial"
+  sed -i "/$complexity_opener_large/{n;s/500 us/800 us/;}" \
+    "$fixture/complexity-subject-threshold-$trial"
+  cp "$fixture/base-$trial" "$fixture/complexity-control-threshold-$trial"
+  sed -i "/$complexity_control_large/{n;s/400 us/800 us/;}" \
+    "$fixture/complexity-control-threshold-$trial"
+  cp "$fixture/base-$trial" "$fixture/complexity-shared-$trial"
+  sed -i "/$complexity_opener_large/{n;s/500 us/1.6 ms/;}" \
+    "$fixture/complexity-shared-$trial"
+  sed -i "/$complexity_control_large/{n;s/400 us/1.6 ms/;}" \
+    "$fixture/complexity-shared-$trial"
+  cp "$fixture/base-$trial" "$fixture/complexity-depth-threshold-$trial"
+  sed -i "/$complexity_nested_48/{n;s/150 us/10 ms/;}" \
+    "$fixture/complexity-depth-threshold-$trial"
 done
 
 run_case 0 \
@@ -148,6 +180,58 @@ run_case 0 \
   "$fixture/base-3" "$fixture/green-3"
 assert_stdout_contains 'PASS: no persistent Markdown lowering regression'
 assert_stdout_contains 'Delimiter performance gate (subject threshold: +50% raw+normalized; hard ceiling: >=+100% raw; plain-control threshold: +50% raw'
+
+assert_stdout_contains 'CALIBRATION: Markdown complexity verdict disabled'
+
+MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 0 \
+  "$fixture/base-1" "$fixture/base-1" \
+  "$fixture/base-2" "$fixture/base-2" \
+  "$fixture/base-3" "$fixture/base-3"
+assert_stdout_contains 'Markdown complexity gate (source growth ceiling: >=8x; depth growth ceiling: >=100x'
+
+# Complexity ceilings are inclusive and must persist in all three head trials.
+MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 1 \
+  "$fixture/base-1" "$fixture/complexity-subject-threshold-1" \
+  "$fixture/base-2" "$fixture/complexity-subject-threshold-2" \
+  "$fixture/base-3" "$fixture/complexity-subject-threshold-3"
+assert_stdout_contains 'FAIL: persistent unmatched-opener growth violation'
+
+MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 1 \
+  "$fixture/base-1" "$fixture/complexity-control-threshold-1" \
+  "$fixture/base-2" "$fixture/complexity-control-threshold-2" \
+  "$fixture/base-3" "$fixture/complexity-control-threshold-3"
+assert_stdout_contains 'FAIL: persistent plain-control growth violation'
+
+MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 1 \
+  "$fixture/base-1" "$fixture/complexity-depth-threshold-1" \
+  "$fixture/base-2" "$fixture/complexity-depth-threshold-2" \
+  "$fixture/base-3" "$fixture/complexity-depth-threshold-3"
+assert_stdout_contains 'FAIL: persistent nested-link depth-growth violation'
+
+# Equal 16x subject and control growth normalizes to 1x; both raw invariants
+# remain independently actionable.
+MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 1 \
+  "$fixture/base-1" "$fixture/complexity-shared-1" \
+  "$fixture/base-2" "$fixture/complexity-shared-2" \
+  "$fixture/base-3" "$fixture/complexity-shared-3"
+assert_stdout_contains 'FAIL: persistent unmatched-opener growth violation'
+assert_stdout_contains 'FAIL: persistent plain-control growth violation'
+assert_stdout_contains 'head 16.000/16.000/1.000/'
+
+# Two suspicious trials are reported but do not fail.
+MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 0 \
+  "$fixture/base-1" "$fixture/complexity-subject-threshold-1" \
+  "$fixture/base-2" "$fixture/complexity-subject-threshold-2" \
+  "$fixture/base-3" "$fixture/base-3"
+assert_stdout_contains 'unmatched-opener growth=2/3'
+
+# A persistent violation already present on base is classified, not attributed
+# to the PR.
+MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 0 \
+  "$fixture/complexity-subject-threshold-1" "$fixture/complexity-subject-threshold-1" \
+  "$fixture/complexity-subject-threshold-2" "$fixture/complexity-subject-threshold-2" \
+  "$fixture/complexity-subject-threshold-3" "$fixture/complexity-subject-threshold-3"
+assert_stdout_contains 'EXISTING: base already violates unmatched-opener growth ceiling'
 
 run_case 1 \
   "$fixture/base-1" "$fixture/source-bound-regression-1" \
@@ -324,6 +408,32 @@ assert_stdout_contains 'hard ceiling'
 
 # The ceiling is inclusive: 2x is exactly +100% and fails above, while a
 # configured +100.1% ceiling permits the same measurements.
+
+cp "$fixture/base-1" "$fixture/missing-complexity"
+sed -i "/$complexity_opener_small/,+1d" "$fixture/missing-complexity"
+run_case 2 \
+  "$fixture/base-1" "$fixture/missing-complexity" \
+  "$fixture/base-2" "$fixture/green-2" \
+  "$fixture/base-3" "$fixture/green-3"
+assert_stderr_contains "missing benchmark: $complexity_opener_small"
+
+cp "$fixture/base-1" "$fixture/duplicate-complexity"
+printf '[bench] ("%s") ok\n  2 ms\n' "$complexity_nested_48" \
+  >> "$fixture/duplicate-complexity"
+run_case 2 \
+  "$fixture/base-1" "$fixture/duplicate-complexity" \
+  "$fixture/base-2" "$fixture/green-2" \
+  "$fixture/base-3" "$fixture/green-3"
+assert_stderr_contains "duplicate benchmark: $complexity_nested_48"
+
+cp "$fixture/base-1" "$fixture/non-positive-complexity"
+sed -i "/$complexity_control_small/{n;s/100 us/0 us/;}" \
+  "$fixture/non-positive-complexity"
+run_case 2 \
+  "$fixture/base-1" "$fixture/non-positive-complexity" \
+  "$fixture/base-2" "$fixture/green-2" \
+  "$fixture/base-3" "$fixture/green-3"
+assert_stderr_contains 'non-positive or invalid complexity measurement'
 MARKDOWN_IR_PERF_HARD_CEILING_PERCENT=100.1 \
 MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT=100.1 run_case 0 \
   "$fixture/base-1" "$fixture/drift-1" \
@@ -395,6 +505,28 @@ MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT=not-a-number run_case 2 \
   "$fixture/base-2" "$fixture/green-2" \
   "$fixture/base-3" "$fixture/green-3"
 assert_stderr_contains 'MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT must be a non-negative number'
+
+MARKDOWN_COMPLEXITY_PERF_CALIBRATION=2 run_case 2 \
+  "$fixture/base-1" "$fixture/green-1" \
+  "$fixture/base-2" "$fixture/green-2" \
+  "$fixture/base-3" "$fixture/green-3"
+assert_stderr_contains 'MARKDOWN_COMPLEXITY_PERF_CALIBRATION must be 0 or 1'
+
+for invalid_complexity_source_ceiling in not-a-number 0; do
+  MARKDOWN_COMPLEXITY_SOURCE_GROWTH_CEILING="$invalid_complexity_source_ceiling" run_case 2 \
+    "$fixture/base-1" "$fixture/green-1" \
+    "$fixture/base-2" "$fixture/green-2" \
+    "$fixture/base-3" "$fixture/green-3"
+  assert_stderr_contains 'MARKDOWN_COMPLEXITY_SOURCE_GROWTH_CEILING must be a positive number'
+done
+
+for invalid_complexity_depth_ceiling in not-a-number 0; do
+  MARKDOWN_COMPLEXITY_DEPTH_GROWTH_CEILING="$invalid_complexity_depth_ceiling" run_case 2 \
+    "$fixture/base-1" "$fixture/green-1" \
+    "$fixture/base-2" "$fixture/green-2" \
+    "$fixture/base-3" "$fixture/green-3"
+  assert_stderr_contains 'MARKDOWN_COMPLEXITY_DEPTH_GROWTH_CEILING must be a positive number'
+done
 
 MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT=not-a-number run_case 2 \
   "$fixture/base-1" "$fixture/green-1" \

@@ -69,6 +69,7 @@ Understanding how the layers fit together. Principles only — no specific types
 - [architecture/polymorphism-patterns.md](architecture/polymorphism-patterns.md) — choosing between generic, trait object, struct-of-closures, defunctionalization
 - [architecture/block-reparse.md](architecture/block-reparse.md) — Block Reparse Architecture
 - [architecture/egraph-vs-egglog.md](architecture/egraph-vs-egglog.md) — EGraph vs Egglog: when to use which, how Canopy uses both
+- [superpowers/specs/2026-09-09-markdown-adversarial-complexity-sentinel-design.md](superpowers/specs/2026-09-09-markdown-adversarial-complexity-sentinel-design.md) — implemented source-length and nesting-depth Markdown complexity sentinels; verdicts remain in calibration mode pending same-SHA CI evidence
 - [superpowers/specs/2026-07-14-parser-context-lookahead-rename-design.md](superpowers/specs/2026-07-14-parser-context-lookahead-rename-design.md) — approved #716 clean cutover from `ParserContext::speculative` to `ParserContext::lookahead`
 - [superpowers/specs/2026-07-14-markdown-code-span-authoring-contract-design.md](superpowers/specs/2026-07-14-markdown-code-span-authoring-contract-design.md) — draft #484 contract for CommonMark code-span normalization, raw-source fidelity, and block-editor authoring facts
 - [superpowers/specs/2026-07-15-markdown-projection-identity-design.md](superpowers/specs/2026-07-15-markdown-projection-identity-design.md) — approved #341 policy for MarkdownIR-to-editor identity anchors, semantic keys, recovery, and view-local projection IDs
