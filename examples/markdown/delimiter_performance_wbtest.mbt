@@ -362,6 +362,29 @@ test "Markdown adversarial complexity fixtures preserve complete source" {
 }
 
 ///|
+test "Markdown adversarial nested-link fixtures preserve link semantics" {
+  for depth in [32, 48] {
+    let source = markdown_adversarial_nested_link_source(depth)
+    let source_id = @core.SourceId(
+      "markdown-adversarial-nested-link-semantics-\{depth}",
+    )
+    let (cst, diagnostics) = try! parse_cst(source_id, source)
+    assert_true(diagnostics.is_empty())
+    let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+      source_id,
+      @seam.SyntaxNode::from_cst(cst),
+      diagnostics,
+    )
+    let expected = "<p>" +
+      "[".repeat(depth - 1) +
+      "<a href=\"/u\">a</a>" +
+      "](/u)".repeat(depth - 1) +
+      "</p>\n"
+    assert_eq(experimental_markdown_ir_to_commonmark_html(ir), expected)
+  }
+}
+
+///|
 test "delimiter performance workload is deterministic and length matched" {
   assert_eq(delimiter_performance_motifs().length(), 7)
   for repeat_count in [64, 256] {

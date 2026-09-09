@@ -172,6 +172,10 @@ for trial in 1 2 3; do
   cp "$fixture/base-$trial" "$fixture/complexity-depth-threshold-$trial"
   sed -i "/$complexity_nested_48/{n;s/150 us/10 ms/;}" \
     "$fixture/complexity-depth-threshold-$trial"
+  cp "$fixture/complexity-subject-threshold-$trial" \
+    "$fixture/complexity-subject-worse-$trial"
+  sed -i "/$complexity_opener_large/{n;s/800 us/1.6 ms/;}" \
+    "$fixture/complexity-subject-worse-$trial"
 done
 
 run_case 0 \
@@ -225,13 +229,13 @@ MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 0 \
   "$fixture/base-3" "$fixture/base-3"
 assert_stdout_contains 'unmatched-opener growth=2/3'
 
-# A persistent violation already present on base is classified, not attributed
-# to the PR.
-MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 0 \
-  "$fixture/complexity-subject-threshold-1" "$fixture/complexity-subject-threshold-1" \
-  "$fixture/complexity-subject-threshold-2" "$fixture/complexity-subject-threshold-2" \
-  "$fixture/complexity-subject-threshold-3" "$fixture/complexity-subject-threshold-3"
-assert_stdout_contains 'EXISTING: base already violates unmatched-opener growth ceiling'
+# Gating requires a healthy base. Once enabled, a persistent head violation
+# fails even when base already violates, including a further head worsening.
+MARKDOWN_COMPLEXITY_PERF_CALIBRATION=0 run_case 1 \
+  "$fixture/complexity-subject-threshold-1" "$fixture/complexity-subject-worse-1" \
+  "$fixture/complexity-subject-threshold-2" "$fixture/complexity-subject-worse-2" \
+  "$fixture/complexity-subject-threshold-3" "$fixture/complexity-subject-worse-3"
+assert_stdout_contains 'FAIL: persistent unmatched-opener growth violation'
 
 run_case 1 \
   "$fixture/base-1" "$fixture/source-bound-regression-1" \

@@ -367,9 +367,6 @@ done
 complexity_head_subject_bad_count=0
 complexity_head_control_bad_count=0
 complexity_head_depth_bad_count=0
-complexity_base_subject_bad_count=0
-complexity_base_control_bad_count=0
-complexity_base_depth_bad_count=0
 
 if [[ "$verbose" == 1 ]]; then
   printf 'Markdown lowering PR performance guard (IR threshold: +%s%% raw+normalized; IR hard ceiling: >=+%s%% raw; direct threshold: +%s%% raw; persistence: %s/%s)\n' \
@@ -524,18 +521,14 @@ check_complexity_trial() {
         hd = hn48 / hn32
         bn = bs / bc
         hn = hs / hc
-        printf "%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%d\t%d\t%d\t%d\t%d\t%d", \
+        printf "%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%d\t%d\t%d", \
           bs, bc, bn, bd, hs, hc, hn, hd, \
-          bs >= source_ceiling, bc >= source_ceiling, bd >= depth_ceiling, \
-          hs >= source_ceiling, hc >= source_ceiling, hd >= depth_ceiling
+          (hs >= source_ceiling), (hc >= source_ceiling), (hd >= depth_ceiling)
       }
     ') || infra_fail "non-positive or invalid complexity measurement in trial $trial"
 
-  local bs bc bn bd hs hc hn hd bsb bcb bdb hsb hcb hdb status
-  IFS=$'\t' read -r bs bc bn bd hs hc hn hd bsb bcb bdb hsb hcb hdb <<< "$metrics"
-  complexity_base_subject_bad_count=$((complexity_base_subject_bad_count + bsb))
-  complexity_base_control_bad_count=$((complexity_base_control_bad_count + bcb))
-  complexity_base_depth_bad_count=$((complexity_base_depth_bad_count + bdb))
+  local bs bc bn bd hs hc hn hd hsb hcb hdb status
+  IFS=$'\t' read -r bs bc bn bd hs hc hn hd hsb hcb hdb <<< "$metrics"
   complexity_head_subject_bad_count=$((complexity_head_subject_bad_count + hsb))
   complexity_head_control_bad_count=$((complexity_head_control_bad_count + hcb))
   complexity_head_depth_bad_count=$((complexity_head_depth_bad_count + hdb))
@@ -598,32 +591,16 @@ bad_direct_scaled="${case_control_bad_counts[1]}"
 
 failed=0
 if [[ "$complexity_gated" -eq 1 ]]; then
-  complexity_regression=0
   if [[ "$complexity_head_subject_bad_count" -eq "$trial_pairs" ]]; then
-    if [[ "$complexity_base_subject_bad_count" -eq "$trial_pairs" ]]; then
-      printf 'EXISTING: base already violates unmatched-opener growth ceiling\n'
-    else
-      printf 'FAIL: persistent unmatched-opener growth violation\n'
-      complexity_regression=1
-    fi
+    printf 'FAIL: persistent unmatched-opener growth violation\n'
+    failed=1
   fi
   if [[ "$complexity_head_control_bad_count" -eq "$trial_pairs" ]]; then
-    if [[ "$complexity_base_control_bad_count" -eq "$trial_pairs" ]]; then
-      printf 'EXISTING: base already violates plain-control growth ceiling\n'
-    else
-      printf 'FAIL: persistent plain-control growth violation\n'
-      complexity_regression=1
-    fi
+    printf 'FAIL: persistent plain-control growth violation\n'
+    failed=1
   fi
   if [[ "$complexity_head_depth_bad_count" -eq "$trial_pairs" ]]; then
-    if [[ "$complexity_base_depth_bad_count" -eq "$trial_pairs" ]]; then
-      printf 'EXISTING: base already violates nested-link depth-growth ceiling\n'
-    else
-      printf 'FAIL: persistent nested-link depth-growth violation\n'
-      complexity_regression=1
-    fi
-  fi
-  if [[ "$complexity_regression" -eq 1 ]]; then
+    printf 'FAIL: persistent nested-link depth-growth violation\n'
     failed=1
   fi
 fi
