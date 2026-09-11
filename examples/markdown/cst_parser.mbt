@@ -184,7 +184,8 @@ fn execute_root_block_start(
       parse_indented_code_block_from_current_line(ctx, min_indent=4)
     StartParagraph(prefixed) => {
       let prefix = current_line_prefix(prefixed)
-      if !try_parse_setext_heading(ctx, prefix) {
+      if !root_paragraph_has_setext_candidate(ctx, prefix) ||
+        !try_parse_setext_heading(ctx, prefix) {
         parse_paragraph_with_prefix(ctx, prefix)
       }
     }
@@ -249,6 +250,66 @@ fn decide_setext_continuation(
 }
 
 ///|
+/// Avoids a full indexed inline parse and rollback for ordinary paragraphs.
+/// It follows the real parser's policy and continuation rules under lookahead.
+/// False positives are safe because the full parser validates candidates;
+/// false negatives would change document structure.
+fn[T] inline_container_has_setext_candidate(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  policy : InlineParsePolicy,
+  handler : ContinuationHandler[T],
+  initial_indentation_prefix : Bool,
+  allow_list_marker : Bool,
+  min_indent : Int,
+) -> Bool {
+  ctx.lookahead(() => {
+    if initial_indentation_prefix {
+      ctx.emit_token(IndentationToken)
+    }
+    while true {
+      while !token_is_inline_end(ctx.peek(), policy) {
+        emit_current_token_with_actual_kind(ctx)
+      }
+      guard ctx.peek() is Newline else { return false }
+      if setext_underline_depth_after_newline(
+          ctx,
+          allow_list_marker~,
+          min_indent~,
+        )
+        is Some(_) {
+        return true
+      }
+      match (handler.decide)() {
+        Continue(action) => (handler.consume)(action)
+        Stop => return false
+      }
+    } nobreak {
+      false
+    }
+  })
+}
+
+///|
+/// Keep this policy and handler in sync with `try_parse_setext_heading`.
+fn root_paragraph_has_setext_candidate(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  prefix : LinePrefix?,
+) -> Bool {
+  let handler : ContinuationHandler[BlockContinuationAction] = {
+    decide: () => decide_setext_continuation(ctx),
+    consume: action => consume_block_continuation(ctx, action),
+  }
+  inline_container_has_setext_candidate(
+    ctx,
+    InlineParsePolicy::setext_heading(),
+    handler,
+    prefix is Some(_),
+    true,
+    0,
+  )
+}
+
+///|
 fn try_parse_setext_heading(
   ctx : @core.ParserContext[Token, SyntaxKind],
   prefix : LinePrefix?,
@@ -283,6 +344,7 @@ fn try_parse_setext_heading(
 }
 
 ///|
+/// Keep the underline distinct so lowering can recover heading depth.
 fn consume_setext_underline_after_newline(
   ctx : @core.ParserContext[Token, SyntaxKind],
   allow_list_marker~ : Bool,
@@ -1823,6 +1885,34 @@ fn decide_list_item_setext_continuation(
 }
 
 ///|
+/// Keep this policy and handler in sync with
+/// `try_parse_list_item_setext_heading`.
+fn list_item_has_setext_candidate(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
+  allow_ordered_marker~ : Bool,
+) -> Bool {
+  let handler : ContinuationHandler[BlockContinuationAction] = {
+    decide: () => {
+      decide_list_item_setext_continuation(
+        ctx,
+        content_indent,
+        allow_ordered_marker~,
+      )
+    },
+    consume: action => consume_block_continuation(ctx, action),
+  }
+  inline_container_has_setext_candidate(
+    ctx,
+    InlineParsePolicy::list_item_setext_heading(allow_ordered_marker~),
+    handler,
+    false,
+    false,
+    content_indent,
+  )
+}
+
+///|
 fn try_parse_list_item_setext_heading(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_indent : Int,
@@ -2409,6 +2499,7 @@ fn parse_list_item_body(
   } else if line_at_offset_is_thematic_break(ctx, 0) {
     parse_inline_thematic_break(ctx)
   } else if !has_paragraph_content ||
+    !list_item_has_setext_candidate(ctx, content_indent, allow_ordered_marker~) ||
     !try_parse_list_item_setext_heading(
       ctx,
       content_indent,
