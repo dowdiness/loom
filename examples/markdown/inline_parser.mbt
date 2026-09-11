@@ -389,27 +389,54 @@ fn inline_analysis_token_kind(
 }
 
 ///|
+/// True only when analysis can emit the same `TextToken` as the full parser.
+/// The analysis kind excludes angle text and every indexed delimiter.
+fn inline_analysis_token_can_commit(
+  token : Token,
+  kind : InlineAnalysisTokenKind,
+  policy : InlineParsePolicy,
+) -> Bool {
+  guard kind == AnalysisOther else { return false }
+  match token {
+    Text(_) | Indentation(_) | StarStar => true
+    OrderedListMarker(_) => policy.allows_ordered_marker()
+    _ => false
+  }
+}
+
+///|
 fn collect_inline_analysis_tokens(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
   continue_line : () -> Bool,
-) -> Array[InlineAnalysisToken] {
+) -> (Array[InlineAnalysisToken], Bool) {
   let tokens : Array[InlineAnalysisToken] = []
+  let mut can_commit = true
   while true {
     while !token_is_inline_end(ctx.peek(), policy) {
+      let token = ctx.peek()
       let range = ctx.current_token_range()
       let text = ctx.current_token_text()
+      let kind = inline_analysis_token_kind(token, text)
+      let token_can_commit = inline_analysis_token_can_commit(
+        token, kind, policy,
+      )
+      can_commit = can_commit && token_can_commit
       tokens.push({
-        kind: inline_analysis_token_kind(ctx.peek(), text),
+        kind,
         text,
         start: range.start,
         end: range.end,
         first: first_char_in_inline_text(text),
         last: last_char_in_inline_text(text),
-        ends_with_odd_backslashes: ctx.peek() is Text(_) &&
+        ends_with_odd_backslashes: token is Text(_) &&
         text_ends_with_odd_backslashes(text),
       })
-      ctx.emit_current_token()
+      if token_can_commit {
+        ctx.emit_token(TextToken)
+      } else {
+        ctx.emit_current_token()
+      }
     }
     if ctx.peek() is Newline {
       let boundary_start = ctx.current_token_range().start
@@ -431,7 +458,7 @@ fn collect_inline_analysis_tokens(
       break
     }
   }
-  tokens
+  (tokens, can_commit)
 }
 
 ///|
@@ -1489,17 +1516,25 @@ priv enum ContinuationDecision[T] {
 }
 
 ///|
-priv struct ContinuationHandler[T] {
-  decide : () -> ContinuationDecision[T]
-  consume : (T) -> Unit
+/// Applies the parser-local effects chosen by a continuation decision.
+///
+/// Both decision and application may run speculatively and more than once.
+/// Implementations must mutate only `ParserContext` state covered by its
+/// checkpoint; external state, I/O, and non-checkpointed configuration are
+/// outside this contract.
+priv trait InlineContinuationAction {
+  fn apply(Self, @core.ParserContext[Token, SyntaxKind]) -> Unit
 }
 
 ///|
-fn[T] continuation_step(handler : ContinuationHandler[T]) -> () -> Bool {
+fn[T : InlineContinuationAction] continuation_step(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  decide : () -> ContinuationDecision[T],
+) -> () -> Bool {
   () => {
-    match (handler.decide)() {
+    match decide() {
       Continue(action) => {
-        (handler.consume)(action)
+        T::apply(action, ctx)
         true
       }
       Stop => false
@@ -1513,9 +1548,14 @@ fn parse_indexed_inline_container_with_continue_line(
   policy : InlineParsePolicy,
   continue_line : () -> Bool,
 ) -> Unit {
-  let analysis_tokens = ctx.lookahead(() => {
-    collect_inline_analysis_tokens(ctx, policy, continue_line)
-  })
+  let checkpoint = ctx.checkpoint()
+  let (analysis_tokens, can_commit) = collect_inline_analysis_tokens(
+    ctx, policy, continue_line,
+  )
+  if can_commit {
+    return
+  }
+  ctx.restore(checkpoint)
   let delimiters = build_code_span_delimiter_index(analysis_tokens)
   let links = index_inline_links(analysis_tokens, delimiters)
   let delimiter_plan = build_inline_delimiter_plan(
@@ -1546,12 +1586,12 @@ fn parse_indexed_inline_container_with_continue_line(
 }
 
 ///|
-fn[T] parse_indexed_inline_container(
+fn[T : InlineContinuationAction] parse_indexed_inline_container(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
-  handler : ContinuationHandler[T],
+  decide : () -> ContinuationDecision[T],
 ) -> Unit {
-  let continue_line = continuation_step(handler)
+  let continue_line = continuation_step(ctx, decide)
   parse_indexed_inline_container_with_continue_line(ctx, policy, continue_line)
 }
 
@@ -1643,7 +1683,7 @@ fn parse_indexed_inline_angles_in_literal_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
 ) -> Unit {
-  let analysis_tokens = ctx.lookahead(() => {
+  let (analysis_tokens, _) = ctx.lookahead(() => {
     collect_inline_analysis_tokens(ctx, policy, () => false)
   })
   let delimiters = build_code_span_delimiter_index(analysis_tokens)

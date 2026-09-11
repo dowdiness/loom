@@ -55,6 +55,29 @@ also insufficient as an enforcement boundary if the callback can capture the
 full `ParserContext`; a stronger guarantee requires a capability-boundary
 redesign of the grammar-author API.
 
+## 2026-09-11 Markdown continuation follow-up
+
+Markdown replaced its paired decision/application closures with a private
+`InlineContinuationAction` trait. This narrows how an action implementation is
+selected, but it does not narrow capabilities: both the decision closure and
+`apply` still receive the full `ParserContext`. Their effects remain governed by
+this ADR's checkpoint audit, including the prohibition on external state, I/O,
+and non-checkpointed configuration. Invocation count is not a contract.
+
+A bounded conditional-commit prototype then tested whether a plain inline
+analysis pass could become the committed parse. Five alternating
+baseline/candidate pairs showed large matched-plain and mixed-Markdown
+improvements on both targets. Representative parsing remained neutral. HTML
+controls nominally exceeded the two-percent budget, but by small absolute
+amounts with pair-to-pair dispersion overlapping zero; tokenize-only movement
+also demonstrated noise outside the changed parser path.
+
+The maintainer accepted that bounded control risk, so Markdown now retains the
+checkpoint when analysis proves that every inline token has its final
+`TextToken` kind. Otherwise it restores and follows the existing full parse.
+This is grammar-local conditional parsing, not a broader transaction promise or
+public `ParserContext` API.
+
 ## Rationale
 
 The four Markdown consumers establish a repeated, low-level parser-owned

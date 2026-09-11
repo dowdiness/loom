@@ -807,11 +807,9 @@ fn parse_invalid_reference_definition_angle_destination_paragraph(
       ctx,
       InlineParsePolicy::paragraph(),
     )
-    let handler : ContinuationHandler[BlockContinuationAction] = {
-      decide: () => decide_root_paragraph_continuation(ctx),
-      consume: action => consume_block_continuation(ctx, action),
-    }
-    parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
+    parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), () => {
+      decide_root_paragraph_continuation(ctx)
+    })
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
