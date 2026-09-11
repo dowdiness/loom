@@ -162,9 +162,6 @@ test "incremental: indented code extra content line matches full parse" {
 }
 
 ///|
-/// Fence-looking indented closer: detached relex may emit CodeText instead of
-/// CodeFenceClose, so CST/role `tree_diff` is skipped (`require_cst=false`).
-/// Diagnostics, AST, IR, and HTML still match a full parse.
 test "incremental: fence-looking indented closer matches full parse" {
   ignore(
     assert_block_container_incremental_parity(
@@ -172,7 +169,19 @@ test "incremental: fence-looking indented closer matches full parse" {
       "    ```\n    aaa\n",
       @core.Edit::insert("    ```\n    aaa\n".length(), "    ```\n".length()),
       "    ```\n    aaa\n    ```\n",
-      require_cst=false,
+    ),
+  )
+}
+
+///|
+test "incremental: relex does not borrow a later fence indent" {
+  let source = "```\nearly\n```\n- item\n    ```\nlater\n"
+  ignore(
+    assert_block_container_incremental_parity(
+      "earlier fence relex with later open fence",
+      source,
+      @core.Edit::replace(4, 10, 12),
+      "```\n    ```\n```\n- item\n    ```\nlater\n",
     ),
   )
 }
