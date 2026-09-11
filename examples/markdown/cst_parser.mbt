@@ -20,6 +20,14 @@ priv enum LinePrefix {
 }
 
 ///|
+/// Parser-owned structural context for an HTML block.
+priv enum HtmlBlockContainerContext {
+  HtmlRoot
+  HtmlBlockQuote
+  HtmlListItem(Int)
+}
+
+///|
 /// Who owns the structural indent before a blockquote marker on continuation
 /// lines. Root markers allow ≤3 columns; a list item may own a wider band.
 priv enum BlockQuotePrefixOwnership {
