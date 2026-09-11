@@ -2,6 +2,31 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-09-11 (Markdown Setext candidate prefilter)
+
+- Pull request: [#947](https://github.com/dowdiness/loom/pull/947)
+- Base revision: `13755f59`
+- Head revision: `65727728`
+- Environment: WSL2, Linux 6.18.33.2, x86_64; Node `v24.14.1`
+- Toolchain: Moon `0.1.20260814`, moonc `v0.10.8+8606a5800`
+- Corpus: `mixed-v1`, 2,005 lines and 34,884 bytes
+- Product operation: source to `Block` through CST plus AST
+- Command, run at both revisions on the same machine:
+  `moon bench --release --target <target> -p dowdiness/markdown -f
+  performance_residual_benchmark_test.mbt -i 4`
+
+Each result reports ten samples as `mean ± σ`. Moon calibrated the inner run
+count independently for each revision and target.
+
+| Target | Base mean ± σ | Head mean ± σ | Change |
+|---|---:|---:|---:|
+| JavaScript | 18.54 ms ± 2.44 ms | 13.83 ms ± 1.66 ms | -25.4% |
+| wasm-gc | 12.50 ms ± 0.48 ms | 9.79 ms ± 0.27 ms | -21.7% |
+
+The private candidate scan avoids the full speculative inline parse and
+rollback when a paragraph cannot become a Setext heading. The existing full
+Setext parser remains the final validator for every admitted candidate.
+
 ## 2026-08-10 (Markdown source-bound semantic document)
 
 - Issue: [#913](https://github.com/dowdiness/loom/issues/913)

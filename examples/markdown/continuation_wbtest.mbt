@@ -191,6 +191,81 @@ test "continuation decisions: setext Stop" {
 }
 
 ///|
+fn assert_root_setext_candidate_is_complete(
+  source : String,
+  prefixed : Bool,
+) -> Unit {
+  let source_id = @core.SourceId("markdown-root-setext-candidate-parity")
+  let candidate_ctx = continuation_context(source_id, source)
+  let parse_ctx = continuation_context(source_id, source)
+  let prefix = current_line_prefix(prefixed)
+  let candidate = root_paragraph_has_setext_candidate(candidate_ctx, prefix)
+  let parsed = try_parse_setext_heading(parse_ctx, prefix)
+  guard !parsed || candidate else {
+    abort("root Setext candidate scan rejected a valid heading")
+  }
+}
+
+///|
+fn list_item_setext_body_context(
+  source_id : @core.SourceId,
+  source : String,
+) -> (@core.ParserContext[Token, SyntaxKind], Int) {
+  let ctx = continuation_context(source_id, source)
+  let marker_start_column = consume_list_item_prefix(ctx)
+  let content_indent = current_list_item_content_indent(
+    ctx, marker_start_column,
+  )
+  ctx.emit_token(ListMarkerToken)
+  (ctx, content_indent)
+}
+
+///|
+fn assert_list_item_setext_candidate_is_complete(source : String) -> Unit {
+  let source_id = @core.SourceId("markdown-list-setext-candidate-parity")
+  let (candidate_ctx, candidate_indent) = list_item_setext_body_context(
+    source_id, source,
+  )
+  let (parse_ctx, parse_indent) = list_item_setext_body_context(
+    source_id, source,
+  )
+  let candidate = list_item_has_setext_candidate(
+    candidate_ctx,
+    candidate_indent,
+    allow_ordered_marker=true,
+  )
+  let parsed = try_parse_list_item_setext_heading(
+    parse_ctx,
+    parse_indent,
+    allow_ordered_marker=true,
+  )
+  guard !parsed || candidate else {
+    abort("list-item Setext candidate scan rejected a valid heading")
+  }
+}
+
+///|
+test "Setext candidate scan admits every full-parser success" {
+  for
+    case in [
+      ("Title\n---\n", false),
+      ("Foo *bar\nbaz*\n====\n", false),
+      ("`Foo\n----\n`\n", false),
+      ("  Indented\n  ===\n", true),
+      ("Foo\n2. continuation\n---\n", false),
+    ] {
+    let (source, prefixed) = case
+    assert_root_setext_candidate_is_complete(source, prefixed)
+  }
+  for
+    source in [
+      "- Listed\n  ---\n", "- Foo *bar\n  baz*\n  ===\n", "- x `a\n  b`\n  ---\n",
+    ] {
+    assert_list_item_setext_candidate_is_complete(source)
+  }
+}
+
+///|
 test "continuation decisions: block-quote variants" {
   let source_id = @core.SourceId("markdown-continuation-block-quote-variants")
   let marker_no_prefix = continuation_context_at_newline(
