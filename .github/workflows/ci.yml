@@ -661,8 +661,18 @@ jobs:
         run: |
           python3 tools/gen_unicode_punctuation_symbol.py
           moon fmt unicode_punctuation_symbol.mbt
-          git ls-files --error-unmatch unicode_punctuation_symbol.mbt
-          git diff --exit-code -- unicode_punctuation_symbol.mbt
+          ../../scripts/check-generated-artifacts.sh \
+            examples/markdown/tools/DerivedGeneralCategory-16.0.0.txt \
+            examples/markdown/tools/UNICODE-LICENSE.txt \
+            examples/markdown/tools/gen_unicode_punctuation_symbol.py \
+            examples/markdown/unicode_punctuation_symbol.mbt
+          node tools/update_commonmark_emphasis_fixtures.mjs
+          moon fmt commonmark_emphasis_html_fixture_data_test.mbt
+          ../../scripts/check-generated-artifacts.sh \
+            examples/markdown/tools/commonmark-0.31.2-spec.json \
+            examples/markdown/tools/commonmark_html_fixture_overrides.json \
+            examples/markdown/tools/update_commonmark_emphasis_fixtures.mjs \
+            examples/markdown/commonmark_emphasis_html_fixture_data_test.mbt
 
   fmt-check-submodules:
     name: Format Check ${{ matrix.name }}
@@ -892,6 +902,9 @@ jobs:
         uses: actions/checkout@v5
         with:
           submodules: recursive
+      - name: Test generated artifact integrity helper
+        run: bash scripts/check-generated-artifacts-selftest.sh
+
       - name: Install MoonBit
         env:
           MOONBIT_INSTALL_VERSION: 0.10.8+8606a5800
@@ -918,7 +931,8 @@ jobs:
             examples/lambda/token/token.mbt \
             --term examples/lambda/meta/term_kind.mbt \
             examples/lambda/token examples/lambda/syntax
-          git diff --exit-code -- examples/lambda/syntax/syntax_kind.mbt
+          scripts/check-generated-artifacts.sh \
+            examples/lambda/syntax/syntax_kind.mbt
       - name: Verify HTML syntax kinds preserve seeded raw IDs
         working-directory: .
         run: |
@@ -932,7 +946,7 @@ jobs:
             examples/html/syntax/element_props.g.mbt \
             examples/html/token/token_impls.g.mbt \
             examples/html/token/sync_point.g.mbt
-          git diff --exit-code -- \
+          scripts/check-generated-artifacts.sh \
             examples/html/syntax/syntax_kind.mbt \
             examples/html/syntax/element_props.g.mbt \
             examples/html/token/token_impls.g.mbt \
@@ -944,7 +958,8 @@ jobs:
           moon run loomgen --target native -- \
             --seed examples/lambda/syntax/syntax_kind.mbt --skip-syntax \
             examples/lambda/token/token.mbt examples/lambda/token
-          git diff --exit-code -- examples/lambda/token/token_impls.g.mbt
+          scripts/check-generated-artifacts.sh \
+            examples/lambda/token/token_impls.g.mbt
       - name: Verify spec generation matches compiled consumer
         working-directory: .
         run: |
@@ -957,7 +972,7 @@ jobs:
             examples/lambda/token/token.mbt \
             --term examples/lambda/meta/term_kind.mbt \
             /tmp/spec-token /tmp/spec-syntax
-          git diff --exit-code -- examples/lambda/spec.g.mbt
+          scripts/check-generated-artifacts.sh examples/lambda/spec.g.mbt
       - name: Verify lambda grammar-ir generation from .loomgrammar
         working-directory: .
         run: |
@@ -972,7 +987,7 @@ jobs:
             --term examples/lambda/meta/term_kind.mbt \
             /tmp/lambda-ir-token /tmp/lambda-ir-syntax
           moon fmt examples/lambda/grammar_ir.g.mbt
-          git diff --exit-code -- examples/lambda/grammar_ir.g.mbt
+          scripts/check-generated-artifacts.sh examples/lambda/grammar_ir.g.mbt
 
 
       - name: Verify json syntax_kind regenerated
@@ -983,7 +998,7 @@ jobs:
             examples/json/token.mbt \
             --term examples/json/meta/term_kind.mbt \
             /tmp/json-token /tmp/json-syntax
-          git diff --exit-code -- examples/json/syntax_kind.mbt
+          scripts/check-generated-artifacts.sh examples/json/syntax_kind.mbt
 
       - name: Verify json spec generation matches compiled consumer
         working-directory: .
@@ -998,7 +1013,7 @@ jobs:
             examples/json/token.mbt \
             --term examples/json/meta/term_kind.mbt \
             /tmp/json-spec-token /tmp/json-spec-syntax
-          git diff --exit-code -- examples/json/spec.g.mbt
+          scripts/check-generated-artifacts.sh examples/json/spec.g.mbt
 
       - name: Verify view fixture generation
         working-directory: .
@@ -1007,7 +1022,8 @@ jobs:
           moon run loomgen --target native -- \
             loomgen/fixtures/view_fixture.mbt \
             /tmp/vf-token /tmp/vf-syntax
-          git diff --exit-code -- /tmp/vf-syntax/views.g.mbt loomgen/fixtures/views_fixture.g.mbt
+          diff -u /tmp/vf-syntax/views.g.mbt loomgen/fixtures/views_fixture.g.mbt
+          scripts/check-generated-artifacts.sh loomgen/fixtures/views_fixture.g.mbt
 
       - name: Verify multi-trivia spec generation
         working-directory: .
@@ -1019,7 +1035,8 @@ jobs:
             --syntax-type MultiTriviaSyntaxKind \
             loomgen/fixtures/multi_trivia_fixture.mbt \
             /tmp/mt-token /tmp/mt-syntax
-          git diff --exit-code -- loomgen/fixtures/multi_trivia_spec.g.mbt
+          scripts/check-generated-artifacts.sh \
+            loomgen/fixtures/multi_trivia_spec.g.mbt
 
       - name: Verify lexmode generation
         working-directory: .
@@ -1042,7 +1059,8 @@ jobs:
         working-directory: .
         run: |
           bash fixtures/grammar_ir_regression/regenerate.sh
-          git diff --exit-code -- fixtures/grammar_ir_regression/grammar_ir.g.mbt
+          scripts/check-generated-artifacts.sh \
+            fixtures/grammar_ir_regression/grammar_ir.g.mbt
           moon check --target native fixtures/grammar_ir_regression
           moon test --target native fixtures/grammar_ir_regression
       - name: Verify line lexer compile-regression fixture
@@ -1050,7 +1068,7 @@ jobs:
         run: |
           bash fixtures/line_lexer_regression/regenerate.sh
           bash fixtures/line_lexer_regression/helper_write_failure.sh
-          git diff --exit-code -- \
+          scripts/check-generated-artifacts.sh \
             loomgen/fixtures/error_node_fixture.g.mbt \
             loomgen/fixtures/rule_grammar_fixture.g.mbt \
             loomgen/fixtures/separated_list_fixture.g.mbt \
@@ -1063,7 +1081,8 @@ jobs:
         working-directory: .
         run: |
           bash fixtures/pattern_lexer_regression/regenerate.sh
-          git diff --exit-code -- fixtures/pattern_lexer_regression/pattern_lexer.g.mbt
+          scripts/check-generated-artifacts.sh \
+            fixtures/pattern_lexer_regression/pattern_lexer.g.mbt
           moon check --target native fixtures/pattern_lexer_regression
           moon test --target native fixtures/pattern_lexer_regression
       - name: Verify Loomgen fixture regeneration
@@ -1080,7 +1099,7 @@ jobs:
             fixtures/pattern_lexer_regression/scaling32/lexer.g.mbt \
             fixtures/pattern_lexer_regression/scaling32/lexer_oracle.g.mbt \
             fixtures/pattern_lexer_regression/differential/lexer_oracle.g.mbt
-          git diff --exit-code -- \
+          scripts/check-generated-artifacts.sh \
             loomgen/fixtures/error_node_fixture.g.mbt \
             loomgen/fixtures/rule_grammar_fixture.g.mbt \
             loomgen/fixtures/separated_list_fixture.g.mbt \
