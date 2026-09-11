@@ -1,7 +1,7 @@
 # Markdown Execution Roadmap
 
 **Status:** Active dependency map.
-**Related:** [MarkdownIR architecture and target contract](markdown-ir.md), [CommonMark completion handoff](../plans/2026-08-01-commonmark-completion-handoff.md), [#327](https://github.com/dowdiness/loom/issues/327), [#329](https://github.com/dowdiness/loom/issues/329), [#330](https://github.com/dowdiness/loom/issues/330), [#721](https://github.com/dowdiness/loom/issues/721), [#723](https://github.com/dowdiness/loom/issues/723)
+**Related:** [MarkdownIR architecture and target contract](markdown-ir.md), [archived CommonMark completion handoff](../archive/completed-phases/2026-08-01-commonmark-completion-handoff.md), [#327](https://github.com/dowdiness/loom/issues/327), [#329](https://github.com/dowdiness/loom/issues/329), [#330](https://github.com/dowdiness/loom/issues/330), [#721](https://github.com/dowdiness/loom/issues/721), [#723](https://github.com/dowdiness/loom/issues/723)
 
 ---
 
