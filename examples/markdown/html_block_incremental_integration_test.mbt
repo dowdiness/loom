@@ -159,3 +159,54 @@ test "incremental HTML body edits retain safe block reuse after projection parit
     inspect(reuse_count, content="1")
   }
 }
+
+///|
+test "incremental HTML type-7 boundary edits match fresh parse" {
+  let source_id = @core.SourceId("markdown-html-incremental-type-7-boundaries")
+  let cases : Array[(String, String, @core.Edit, String, String)] = [
+    (
+      "create type 7 continuation inside paragraph",
+      "Foo\n href=\"bar\">\nbaz\n",
+      @core.Edit::insert("Foo\n".length(), 2),
+      "Foo\n<a href=\"bar\">\nbaz\n",
+      "<p>Foo\n<a href=\"bar\">\nbaz</p>\n",
+    ),
+    (
+      "type 7 becomes interrupting type 6",
+      "Foo\n<x>\nbaz\n",
+      @core.Edit::new("Foo\n<".length(), 1, 3),
+      "Foo\n<div>\nbaz\n",
+      "<p>Foo</p>\n<div>\nbaz\n",
+    ),
+    (
+      "blank line splits standalone type 7 block",
+      "<x>\nbody\nTail\n",
+      @core.Edit::insert("<x>\nbody\n".length(), 1),
+      "<x>\nbody\n\nTail\n",
+      "<x>\nbody\n<p>Tail</p>\n",
+    ),
+  ]
+  for case in cases {
+    let (label, source, edit, updated, expected_html) = case
+    ignore(
+      assert_html_block_incremental_projection_parity(
+        source_id, label, source, edit, updated, expected_html,
+      ),
+    )
+  }
+}
+
+///|
+test "incremental HTML type-1 cross-tag termination matches fresh parse" {
+  let prefix = "<pre>\nbody\n</"
+  ignore(
+    assert_html_block_incremental_projection_parity(
+      @core.SourceId("markdown-html-incremental-type-1-cross-tag"),
+      "replace matching terminator with another type 1 terminator",
+      prefix + "pre>\n*tail*\n",
+      @core.Edit::new(prefix.length(), 3, 6),
+      prefix + "script>\n*tail*\n",
+      "<pre>\nbody\n</script>\n<p><em>tail</em></p>\n",
+    ),
+  )
+}

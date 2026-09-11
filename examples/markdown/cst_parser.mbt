@@ -407,6 +407,8 @@ fn observe_continuation_prefix(
         _ => NoPrefix
       }
     ListMarker | OrderedListMarker(_) => ListMarkerPrefix
+    HtmlBlockOpen(line) if !html_block_open_interrupts_paragraph(line) =>
+      InlineHtmlPrefix
     _ => NoPrefix
   }
 }
@@ -422,6 +424,10 @@ fn emit_paragraph_continuation_prefix(
       ctx.emit_token(TextToken)
     }
     ListMarkerPrefix => ctx.emit_token(TextToken)
+    // Non-interrupting open lines are raw inline HTML inside the paragraph,
+    // not escaped text (CommonMark 148/187).
+    InlineHtmlPrefix =>
+      ctx.node(InlineHtmlNode, fn() { ctx.emit_token(TextToken) })
     NoPrefix => ()
   }
 }
@@ -464,6 +470,10 @@ impl InlineContinuationAction for BlockContinuationAction with fn apply(
     ContinueListMarkerPrefix => {
       ctx.emit_token(NewlineToken)
       emit_paragraph_continuation_prefix(ctx, ListMarkerPrefix)
+    }
+    ContinueInlineHtmlPrefix => {
+      ctx.emit_token(NewlineToken)
+      emit_paragraph_continuation_prefix(ctx, InlineHtmlPrefix)
     }
     ContinueIndentationPrefix => {
       ctx.emit_token(NewlineToken)
@@ -2633,10 +2643,39 @@ fn html_newline_run_continues(
 }
 
 ///|
+fn consume_html_block_html_text_body(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  while ctx.peek() is HtmlText(_) ||
+        (ctx.peek() is Newline && html_newline_run_continues(ctx)) {
+    match ctx.peek() {
+      HtmlText(_) => ctx.emit_token(HtmlTextToken)
+      Newline => ctx.emit_token(NewlineToken)
+      _ => ()
+    }
+    if ctx.peek() is Newline && !(ctx.peek_nth(1) is Newline) {
+      ctx.emit_token(NewlineToken)
+    }
+  }
+}
+
+///|
 fn parse_html_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
   prefix : LinePrefix?,
 ) -> Unit {
+  let open_token = match prefix {
+    Some(_) => ctx.peek_nth(1)
+    None => ctx.peek()
+  }
+  let open_kind = match open_token {
+    HtmlBlockOpen(line) =>
+      match classify_html_block_opening(line.view()) {
+        Some(kind) => kind
+        None => abort("parse_html_block expected a classified HtmlBlockOpen")
+      }
+    _ => abort("parse_html_block expected HtmlBlockOpen")
+  }
   ctx.node(HtmlBlockNode, fn() {
     match prefix {
       Some(_) => ctx.emit_token(IndentationToken)
@@ -2646,23 +2685,34 @@ fn parse_html_block(
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
-    while ctx.peek() is HtmlText(_) ||
-          (ctx.peek() is Newline && html_newline_run_continues(ctx)) {
-      match ctx.peek() {
-        HtmlText(_) => ctx.emit_token(HtmlTextToken)
-        Newline => ctx.emit_token(NewlineToken)
-        _ => ()
+    match open_kind {
+      Type6 => {
+        // HtmlText body until blank / EOF (lexer HtmlBlockRaw).
+        consume_html_block_html_text_body(ctx)
+        while ctx.peek() is Newline {
+          ctx.emit_token(NewlineToken)
+        }
       }
-      if ctx.peek() is Newline && !(ctx.peek_nth(1) is Newline) {
-        ctx.emit_token(NewlineToken)
+      Type7 =>
+        // Type 7 leaves LineStart after open, so body lines are ordinary
+        // tokens until blank / EOF (deferred body under ModeLexer).
+        while !(ctx.peek() is BlankLine) && ctx.peek() != EOF {
+          match ctx.peek() {
+            Newline => ctx.emit_token(NewlineToken)
+            HtmlText(_) => ctx.emit_token(HtmlTextToken)
+            _ => ctx.emit_token(TextToken)
+          }
+        }
+      Type1(_) | Until(_) => {
+        // Types 1–5: HtmlText body until closing delimiter (or EOF).
+        consume_html_block_html_text_body(ctx)
+        // Trailing newline run before EOF: when a delimiter-terminated block
+        // runs to end-of-document without finding its closing tag, blank lines
+        // at the end are part of the block content, not structural separators.
+        while ctx.peek() is Newline {
+          ctx.emit_token(NewlineToken)
+        }
       }
-    }
-    // Trailing newline run before EOF: when a delimiter-terminated block
-    // (type 1/2) runs to end-of-document without finding its closing tag,
-    // blank lines at the end are part of the block content, not structural
-    // separators.  Consume them so html_block_value includes them.
-    while ctx.peek() is Newline {
-      ctx.emit_token(NewlineToken)
     }
   })
 }
