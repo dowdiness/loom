@@ -345,6 +345,7 @@ fn classify_html_block_opening(line : StringView) -> HtmlBlockKind? {
 fn html_block_mode_after_open(
   line : StringView,
   kind : HtmlBlockKind,
+  defer_type6_body : Bool,
 ) -> MarkdownLexMode {
   match kind {
     Type1(delimiter) =>
@@ -353,7 +354,7 @@ fn html_block_mode_after_open(
       } else {
         HtmlBlockUntil(delimiter)
       }
-    Type6 => HtmlBlockRaw
+    Type6 => if defer_type6_body { HtmlBlockEndLine } else { HtmlBlockRaw }
     // Type 7 EndLine is essential under ModeLexer: mode commits before the
     // interrupt decision, so do not enter blank-body mode until/unless the
     // open starts a block. Emit the open line's trailing break as Newline via
@@ -377,6 +378,7 @@ fn produce_html_block_open(
   pos : Int,
   line_end : Int,
   kind : HtmlBlockKind,
+  defer_type6_body? : Bool = false,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let line : StringView = input[pos:line_end]
   (
@@ -384,7 +386,7 @@ fn produce_html_block_open(
       @core.TokenInfo::new(HtmlBlockOpen(detach_lexeme(line)), line_end - pos),
       next_offset=line_end,
     ),
-    html_block_mode_after_open(line, kind),
+    html_block_mode_after_open(line, kind, defer_type6_body),
   )
 }
 
@@ -459,6 +461,27 @@ fn lex_line_start(
   let line_end = match line_end_hint {
     Some(cached) => cached
     None => find_line_end(input, pos)
+  }
+  let same_line_facts = match same_line_cache {
+    Some(cache) =>
+      same_line_list_item_prefix_facts_with_cache(cache, input, pos)
+    None => same_line_list_item_prefix_facts(input, pos)
+  }
+  if same_line_facts.list_marker_count > 0 &&
+    same_line_facts.prefix_end == pos &&
+    char_at(input, pos) is Some('<') {
+    let line : StringView = input[pos:line_end]
+    match classify_html_block_opening(line) {
+      Some(Type6) =>
+        return produce_html_block_open(
+          input,
+          pos,
+          line_end,
+          Type6,
+          defer_type6_body=true,
+        )
+      Some(_) | None => ()
+    }
   }
   let starts_with_indentation = match char_at(input, pos) {
     Some(' ') | Some('\t') => true
@@ -653,6 +676,23 @@ fn lex_block_quote_line_start(
   match input.view(start_offset=pos) {
     ['`', ..] => lex_code_fence(input, pos, '`', same_line_cache, quoted=true)
     ['~', ..] => lex_code_fence(input, pos, '~', same_line_cache, quoted=true)
+    ['<', ..] => {
+      let line_end = line_end_hint.unwrap_or_else(() => {
+        find_line_end(input, pos)
+      })
+      let line : StringView = input[pos:line_end]
+      match classify_html_block_opening(line) {
+        Some(kind) =>
+          produce_html_block_open(
+            input,
+            pos,
+            line_end,
+            kind,
+            defer_type6_body=true,
+          )
+        None => lex_line_start(input, pos, Some(line_end), same_line_cache)
+      }
+    }
     _ => lex_line_start(input, pos, line_end_hint, same_line_cache)
   }
 }
@@ -709,6 +749,20 @@ fn lex_inline(
         produce_token_from(BlockQuoteMarker, pos, 1, BlockQuoteLineStart)
       ['`', ..] => lex_code_fence(input, pos, '`', same_line_cache)
       ['~', ..] => lex_code_fence(input, pos, '~', same_line_cache)
+      ['<', ..] => {
+        let line : StringView = input[pos:same_line_facts.line_end]
+        match classify_html_block_opening(line) {
+          Some(Type6) =>
+            produce_html_block_open(
+              input,
+              pos,
+              same_line_facts.line_end,
+              Type6,
+              defer_type6_body=true,
+            )
+          Some(_) | None => produce_token_from(Text("<"), pos, 1, Inline)
+        }
+      }
       _ => lex_inline(input, pos, same_line_cache)
     }
   } else {

@@ -19,6 +19,11 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Changed
 
+- `examples/markdown` now passes all 652 CommonMark 0.31.2 examples through the
+  clean CST-to-MarkdownIR-to-HTML pipeline. Type 6 HTML blocks that begin after
+  blockquote or list markers retain their container boundaries in direct and
+  incremental parsing.
+
 - **Breaking block-reparse configuration and parser contract:**
   `BlockReparseSpec` is now opaque and constructed with
   `BlockReparseSpec::new`. Existing grammars keep strict-interior admission by

@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=402, xfail=2, skip=0.
+// Baseline: pass=404, xfail=0, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (402, 2, 0)
+  (404, 0, 0)
 }
 
 ///|
@@ -974,9 +974,7 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "html-blocks-174",
       source: "> <div>\n> foo\n\nbar\n",
       expected_html: "<blockquote>\n<div>\nfoo\n</blockquote>\n<p>bar</p>\n",
-      status: CommonMarkHtmlXfail(
-        "HTML block starts inside block quotes are not represented by the current lexer mode.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 175,
@@ -984,9 +982,7 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "html-blocks-175",
       source: "- <div>\n- foo\n",
       expected_html: "<ul>\n<li>\n<div>\n</li>\n<li>foo</li>\n</ul>\n",
-      status: CommonMarkHtmlXfail(
-        "HTML block starts inside list item marker lines are not represented by the current lexer mode.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 176,

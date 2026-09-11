@@ -1,6 +1,7 @@
 # CommonMark 0.31.2 Completion Handoff
 
 **Status:** Active
+**Progress:** Implementation candidate complete in [PR #949](https://github.com/dowdiness/loom/pull/949); main exit audit pending.
 **Decision record:** [ADR 2026-08-01](../decisions/2026-08-01-commonmark-completion-contract.md)
 **Tracker:** [#723](https://github.com/dowdiness/loom/issues/723)
 **Wayfinder:** [#797](https://github.com/dowdiness/loom/issues/797)
@@ -10,6 +11,24 @@
 Move from the measured 437/652 CommonMark 0.31.2 baseline to a clean 652/652
 semantic pipeline while keeping every implementation PR bounded, reversible,
 and independently verifiable.
+
+## Candidate completion evidence
+
+PR #949 reaches the implementation target against the pinned CommonMark 0.31.2
+fixture:
+
+- full clean-pipeline audit: 652/652 passes and render matches;
+- zero diagnostics, `Unsupported`, malformed `Raw`, `Recovered`, adapter-policy
+  rejections, skips, xfails, or HTML mismatches;
+- fixture SHA-256:
+  `d431b29d97b6f73e69d547109cf5081578fac931e72afe95639ebe766c1b2a20`;
+- representative HTML container boundary edits preserve fresh-versus-incremental
+  CST, diagnostics, MarkdownIR origins, and passthrough HTML;
+- the release test suite passes 4131/4131.
+
+This is candidate evidence, not the Phase 4 exit record. After PR #949 merges,
+rerun the audit on `main`, record the merge commit and exact results in #721,
+then complete and archive this plan through the agent documentation protocol.
 
 ## Invariants for every slice
 

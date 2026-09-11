@@ -167,6 +167,8 @@ fn same_line_list_item_block_start_with_facts(
     Some('>') => true
     Some('`') => count_fence_characters(input, pos, '`') >= 3
     Some('~') => count_fence_characters(input, pos, '~') >= 3
+    Some('<') =>
+      classify_html_block_opening(input[pos:facts.line_end]) is Some(Type6)
     _ => false
   }
 }

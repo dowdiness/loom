@@ -210,3 +210,53 @@ test "incremental HTML type-1 cross-tag termination matches fresh parse" {
     ),
   )
 }
+
+///|
+test "incremental HTML container boundary edits match fresh parse" {
+  let source_id = @core.SourceId("markdown-html-incremental-containers")
+  let cases : Array[(String, String, String, String, String, String)] = [
+    (
+      "blockquote text becomes a type 6 HTML block", "> ", "text", "<div>", "\n> foo\n\nbar\n",
+      "<blockquote>\n<div>\nfoo\n</blockquote>\n<p>bar</p>\n",
+    ),
+    (
+      "blockquote HTML block becomes paragraph text", "> ", "<div>", "text", "\n> foo\n\nbar\n",
+      "<blockquote>\n<p>text\nfoo</p>\n</blockquote>\n<p>bar</p>\n",
+    ),
+    (
+      "list item text becomes a type 6 HTML block", "- ", "text", "<div>", "\n- foo\n",
+      "<ul>\n<li>\n<div>\n</li>\n<li>foo</li>\n</ul>\n",
+    ),
+    (
+      "adding a list marker bounds a root HTML block", "", "", "- ", "<div>\n- foo\n",
+      "<ul>\n<li>\n<div>\n</li>\n<li>foo</li>\n</ul>\n",
+    ),
+    (
+      "removing a blockquote marker widens the HTML block", "", "> ", "", "<div>\n> foo\n\nbar\n",
+      "<div>\n> foo\n<p>bar</p>\n",
+    ),
+    (
+      "quoted HTML body edit preserves container semantics", "> <div>\n> ", "foo",
+      "FOO", "\n\nbar\n", "<blockquote>\n<div>\nFOO\n</blockquote>\n<p>bar</p>\n",
+    ),
+  ]
+  for case in cases {
+    let (label, prefix, original, replacement, suffix, expected_html) = case
+    let source = prefix + original + suffix
+    let updated = prefix + replacement + suffix
+    ignore(
+      assert_html_block_incremental_projection_parity(
+        source_id,
+        label,
+        source,
+        @core.Edit::new(
+          prefix.length(),
+          original.length(),
+          replacement.length(),
+        ),
+        updated,
+        expected_html,
+      ),
+    )
+  }
+}

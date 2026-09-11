@@ -248,6 +248,22 @@ test "experimental MarkdownIR: CommonMark HTML fixture xfail fixtures" {
 }
 
 ///|
+test "experimental MarkdownIR: example 174 recognizes block HTML after a blockquote marker" {
+  match commonmark_html_fixture_case_by_example(174) {
+    Some(fixture) => fixture.assert_pass()
+    None => fail("expected CommonMark example 174 fixture")
+  }
+}
+
+///|
+test "experimental MarkdownIR: example 175 recognizes block HTML after a list marker" {
+  match commonmark_html_fixture_case_by_example(175) {
+    Some(fixture) => fixture.assert_pass()
+    None => fail("expected CommonMark example 175 fixture")
+  }
+}
+
+///|
 test "experimental MarkdownIR: example 91 angle boundary supports line endings and EOF" {
   let cases : Array[(String, String)] = [
     ("LF", "<a title=\"a lot\n---\nof dashes\"/>\n"),
