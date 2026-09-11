@@ -177,7 +177,7 @@ fn execute_root_block_start(
     StartCodeFence(prefixed) =>
       parse_code_block_with_prefix(ctx, current_line_prefix(prefixed))
     StartHtmlBlock(prefixed) =>
-      parse_html_block(ctx, current_line_prefix(prefixed))
+      parse_html_block(ctx, current_line_prefix(prefixed), HtmlRoot)
     StartReferenceDefinition => parse_link_reference_definition(ctx)
     StartIndentedCode => parse_indented_code_block(ctx)
     StartIndentedMarkerCode =>
@@ -1009,11 +1009,11 @@ fn parse_block_quote_after_marker(
         BlockQuoteMarker => parse_block_quote_with_prefix(ctx, None, ownership)
         CodeFenceOpen(_, _) =>
           parse_quoted_code_block_with_prefix(ctx, Some(prefix))
-        HtmlBlockOpen(_) => parse_html_block(ctx, Some(prefix))
+        HtmlBlockOpen(_) => parse_html_block(ctx, Some(prefix), HtmlBlockQuote)
         _ => parse_block_quote_paragraph(ctx)
       }
     }
-    HtmlBlockOpen(_) => parse_html_block(ctx, None)
+    HtmlBlockOpen(_) => parse_html_block(ctx, None, HtmlBlockQuote)
     Newline => ctx.emit_token(NewlineToken)
     BlankLine => ctx.emit_token(BlankLineToken)
     EOF => ()
@@ -2080,7 +2080,8 @@ fn parse_list_item_prefixed_block(
         ListOwned(content_indent),
       )
     CodeFenceOpen(_, _) => parse_code_block_with_prefix(ctx, Some(prefix))
-    HtmlBlockOpen(_) => parse_html_block(ctx, Some(prefix))
+    HtmlBlockOpen(_) =>
+      parse_html_block(ctx, Some(prefix), HtmlListItem(content_indent))
     _ => parse_paragraph_with_prefix(ctx, Some(prefix))
   }
 }
@@ -2460,6 +2461,11 @@ fn parse_list_item_body(
       parse_list_item_code_fence_tail(ctx, context)
       return
     }
+    HtmlBlockOpen(_) => {
+      parse_html_block(ctx, None, HtmlListItem(content_indent))
+      parse_list_item_flow_after_body(ctx, context, false)
+      return
+    }
     HeadingMarker(_) => {
       parse_heading(ctx)
       parse_list_item_flow_after_body(ctx, context, true)
@@ -2660,9 +2666,76 @@ fn consume_html_block_html_text_body(
 }
 
 ///|
+/// Consume one Type 6 HTML continuation line after its container prefix.
+fn consume_deferred_html_line(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  while !(ctx.peek() is Newline) &&
+        !(ctx.peek() is BlankLine) &&
+        ctx.peek() != EOF {
+    ctx.emit_token(TextToken)
+  }
+  if ctx.peek() is Newline {
+    ctx.emit_token(NewlineToken)
+  }
+}
+
+///|
+fn consume_container_html_block_body(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  container : HtmlBlockContainerContext,
+) -> Unit {
+  match container {
+    HtmlBlockQuote =>
+      while ctx.peek() is BlockQuoteMarker ||
+            (
+              ctx.peek() is Indentation(_) &&
+              ctx.peek_nth(1) is BlockQuoteMarker
+            ) {
+        if ctx.peek() is Indentation(_) {
+          ctx.emit_token(IndentationToken)
+        }
+        ctx.emit_token(BlockQuoteMarkerToken)
+        consume_deferred_html_line(ctx)
+      }
+    HtmlListItem(content_indent) =>
+      while ctx.peek() is Indentation(_) &&
+            current_token_leading_indent(ctx) >= content_indent {
+        ctx.emit_token(IndentationToken)
+        consume_deferred_html_line(ctx)
+      }
+    HtmlRoot => ()
+  }
+}
+
+///|
+/// Root reuse is unsafe when an edit can reinterpret a raw body line as a
+/// blockquote continuation and move the HTML block under that container.
+fn root_html_block_reuse_is_context_free(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  prefix : LinePrefix?,
+) -> Bool {
+  ctx.lookahead(() => {
+    match prefix {
+      Some(_) => ctx.emit_token(IndentationToken)
+      None => ()
+    }
+    ctx.emit_token(HtmlBlockOpenToken)
+    if ctx.peek() is Newline {
+      ctx.emit_token(NewlineToken)
+    }
+    match ctx.peek() {
+      HtmlText(line) => !line_starts_with_block_quote_marker(line, 0)
+      _ => true
+    }
+  })
+}
+
+///|
 fn parse_html_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
   prefix : LinePrefix?,
+  container : HtmlBlockContainerContext,
 ) -> Unit {
   let open_token = match prefix {
     Some(_) => ctx.peek_nth(1)
@@ -2676,7 +2749,7 @@ fn parse_html_block(
       }
     _ => abort("parse_html_block expected HtmlBlockOpen")
   }
-  ctx.node(HtmlBlockNode, fn() {
+  let parse_body = fn() {
     match prefix {
       Some(_) => ctx.emit_token(IndentationToken)
       None => ()
@@ -2687,8 +2760,11 @@ fn parse_html_block(
     }
     match open_kind {
       Type6 => {
-        // HtmlText body until blank / EOF (lexer HtmlBlockRaw).
-        consume_html_block_html_text_body(ctx)
+        match container {
+          HtmlRoot => consume_html_block_html_text_body(ctx)
+          HtmlBlockQuote | HtmlListItem(_) =>
+            consume_container_html_block_body(ctx, container)
+        }
         while ctx.peek() is Newline {
           ctx.emit_token(NewlineToken)
         }
@@ -2714,7 +2790,16 @@ fn parse_html_block(
         }
       }
     }
-  })
+  }
+  let may_reuse = container is HtmlRoot &&
+    root_html_block_reuse_is_context_free(ctx, prefix)
+  if may_reuse {
+    ctx.node(HtmlBlockNode, parse_body)
+  } else {
+    ctx.start_node(HtmlBlockNode)
+    parse_body()
+    ctx.finish_node()
+  }
 }
 
 ///|

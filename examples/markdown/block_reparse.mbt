@@ -657,6 +657,19 @@ fn unordered_list_ownership_changes(
 }
 
 ///|
+/// Container-owned HTML must reparse with its parent so structural prefixes
+/// cannot be consumed as root HTML text.
+fn html_block_has_container_parent(node : @seam.SyntaxNode) -> Bool {
+  match node.parent() {
+    Some(parent) => {
+      let kind = parent.kind()
+      kind == BlockQuoteNode.to_raw() || kind == ListItemNode.to_raw()
+    }
+    None => false
+  }
+}
+
+///|
 let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = @core.BlockReparseSpec::new(
   is_markdown_reparseable_block,
   fn(node, _, tokens) {
@@ -667,11 +680,15 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = @c
     } else if kind == CodeBlockNode.to_raw() {
       Some(ctx => parse_code_block_if_still_code_block(ctx, node))
     } else if kind == HtmlBlockNode.to_raw() {
-      Some(ctx => {
-        if ctx.peek() is HtmlBlockOpen(_) {
-          parse_html_block(ctx, None)
-        }
-      })
+      if html_block_has_container_parent(node) {
+        None
+      } else {
+        Some(ctx => {
+          if ctx.peek() is HtmlBlockOpen(_) {
+            parse_html_block(ctx, None, HtmlRoot)
+          }
+        })
+      }
     } else if kind == ParagraphNode.to_raw() &&
       paragraph_start_allows_reparse(node.text().to_string_view()) {
       Some(parse_paragraph_if_still_paragraph)

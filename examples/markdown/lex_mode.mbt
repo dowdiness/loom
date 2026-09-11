@@ -9,3 +9,10 @@ pub(all) enum MarkdownLexMode {
   HtmlBlockUntil(String)
   HtmlBlockEndLine
 } derive(Eq, Debug)
+
+///|
+priv enum HtmlBlockContainerContext {
+  HtmlRoot
+  HtmlBlockQuote
+  HtmlListItem(Int)
+}
