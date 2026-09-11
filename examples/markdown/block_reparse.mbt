@@ -295,13 +295,28 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
     [] => false
     [first, ..] => {
       guard first.token is HtmlBlockOpen(open_line) else { return false }
-      let block_type = classify_html_block_opening(open_line.view())
+      guard classify_html_block_opening(open_line.view()) is Some(open_kind) else {
+        return false
+      }
       let mut i = 1
-      // Optional Newline after HtmlBlockOpen
       if i < tokens.length() && tokens[i].token is Newline {
         i = i + 1
       }
-      // HtmlText / Newline loop matching parse_html_block.
+      if open_kind is Type7 {
+        // Type 7 body is LineStart tokens until blank / EOF.
+        while i < tokens.length() {
+          match tokens[i].token {
+            BlankLine => break
+            EOF => {
+              i = i + 1
+              break
+            }
+            _ => i = i + 1
+          }
+        }
+        return i >= tokens.length()
+      }
+      // Types 1–6 use HtmlText until a delimiter or blank line.
       while i < tokens.length() {
         match tokens[i].token {
           HtmlText(_) => i = i + 1
@@ -323,55 +338,41 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
           _ => break
         }
       }
-      // Trailing newline run before EOF — match parse_html_block fix.
       while i < tokens.length() && tokens[i].token is Newline {
         i = i + 1
       }
-      // Trailing EOF is always accepted (token stream terminator).
       if i < tokens.length() && tokens[i].token is EOF {
         i = i + 1
       }
       guard i >= tokens.length() else { return false }
-      // For Until-delimiter blocks, the closing delimiter must be present AND
-      // appear in the last line of consumed content (the block terminator),
-      // not just anywhere.  If the delimiter was removed or is only a
-      // leftover substring earlier in the block, the old span doesn't
-      // cover the complete extent.
-      match block_type {
-        Some(Until(delimiter)) =>
-          html_block_contains_delimiter_at_end(tokens, open_line, delimiter)
-        Some(Raw) => true
-        None => false
+      match open_kind {
+        Type1(_) | Until(_) =>
+          html_block_has_terminator_at_end(tokens, open_line, open_kind)
+        Type6 => true
+        Type7 => false
       }
     }
   }
 }
 
 ///|
-/// Verify that an Until-delimiter HTML block's delimiter is the actual
-/// block terminator.  The delimiter must appear on the last HtmlText line
-/// (or the opening line if it's a single-line block), not as a stray
-/// substring earlier in the block.
-fn html_block_contains_delimiter_at_end(
+/// Verify that a delimiter-backed HTML block ends on its terminator line.
+fn html_block_has_terminator_at_end(
   tokens : Array[@core.TokenInfo[Token]],
   open_line : String,
-  delimiter : String,
+  kind : HtmlBlockKind,
 ) -> Bool {
-  // Single-line block: opening line contains the delimiter.
-  if open_line.to_lower().contains(delimiter) {
-    return true
-  }
-  // Find the last HtmlText token and check it for the delimiter.
-  let mut last_html = None
-  for t in tokens {
-    match t.token {
-      HtmlText(text) => last_html = Some(text)
+  let mut last_line = open_line
+  for token in tokens {
+    match token.token {
+      HtmlText(text) => last_line = text
       _ => ()
     }
   }
-  match last_html {
-    Some(text) => text.to_lower().contains(delimiter)
-    None => false
+  match kind {
+    Type1(_) => line_contains_type1_html_block_end(last_line.view())
+    Until(delimiter) => last_line.to_lower().contains(delimiter)
+    Type6 | Type7 => false
   }
 }
 
