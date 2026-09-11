@@ -6,7 +6,8 @@
 **Supporting decisions:** [#786](https://github.com/dowdiness/loom/issues/786), [#485](https://github.com/dowdiness/loom/issues/485), [#487](https://github.com/dowdiness/loom/issues/487), [#482](https://github.com/dowdiness/loom/issues/482), [#486](https://github.com/dowdiness/loom/issues/486)
 **Ordered handoff:** [#799](https://github.com/dowdiness/loom/issues/799)
 **Related decisions:** [MarkdownIR target contract](2026-06-15-markdown-ir-target-contract.md), [recovery adapter contract](2026-06-17-markdown-ir-recovery-adapter-contract.md), [native inline ownership](2026-07-06-markdown-inline-native-only.md), [block reparse ancestor widening](2026-07-15-block-reparse-ancestor-widening.md)
-**Implementation plan:** [CommonMark completion handoff](../plans/2026-08-01-commonmark-completion-handoff.md)
+**Implementation record:** [Archived CommonMark completion handoff](../archive/completed-phases/2026-08-01-commonmark-completion-handoff.md)
+**Completion:** Verified on `main` at `a4fcde628f3dc559578d0b47707373349cd0d864`; see the [#721 exit record](https://github.com/dowdiness/loom/issues/721#issuecomment-5633660839).
 
 ## Context
 
