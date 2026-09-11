@@ -583,26 +583,17 @@ test "continuation decisions: list-item setext Stop" {
 }
 
 ///|
-/// The combined code/delimiter analysis and actual inline pass must invoke the
-/// same typed continuation action. External counters observe both passes even
-/// though ParserContext restores its own state after the lookahead.
-test "continuation driver: analysis and actual passes consume same action" {
-  let source_id = @core.SourceId("markdown-continuation-driver-pass-parity")
-  let ctx = continuation_context(source_id, "para\nchild\n")
-  let consume_calls = [0]
-  let no_prefix_calls = [0]
-  let handler : ContinuationHandler[BlockContinuationAction] = {
-    decide: () => decide_root_paragraph_continuation(ctx),
-    consume: action => {
-      consume_calls[0] = consume_calls[0] + 1
-      match action {
-        ContinueNoPrefix => no_prefix_calls[0] = no_prefix_calls[0] + 1
-        _ => abort("expected NoPrefix in both parser passes")
-      }
-      consume_block_continuation(ctx, action)
-    },
-  }
-  parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
-  inspect(consume_calls[0], content="2")
-  inspect(no_prefix_calls[0], content="2")
+test "continuation action rolls back with ParserContext lookahead" {
+  let source_id = @core.SourceId("markdown-continuation-action-rollback")
+  let ctx = continuation_context_at_newline(source_id, "para\nchild\n")
+  let before_range = ctx.current_token_range()
+  let before_event = ctx.mark()
+  ctx.lookahead(() => {
+    match decide_root_paragraph_continuation(ctx) {
+      Continue(action) => InlineContinuationAction::apply(action, ctx)
+      Stop => abort("expected paragraph continuation")
+    }
+  })
+  inspect(ctx.current_token_range(), content=before_range.to_string())
+  inspect(ctx.mark(), content=(before_event + 1).to_string())
 }

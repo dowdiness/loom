@@ -254,10 +254,10 @@ fn decide_setext_continuation(
 /// It follows the real parser's policy and continuation rules under lookahead.
 /// False positives are safe because the full parser validates candidates;
 /// false negatives would change document structure.
-fn[T] inline_container_has_setext_candidate(
+fn[T : InlineContinuationAction] inline_container_has_setext_candidate(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
-  handler : ContinuationHandler[T],
+  decide : () -> ContinuationDecision[T],
   initial_indentation_prefix : Bool,
   allow_list_marker : Bool,
   min_indent : Int,
@@ -279,8 +279,8 @@ fn[T] inline_container_has_setext_candidate(
         is Some(_) {
         return true
       }
-      match (handler.decide)() {
-        Continue(action) => (handler.consume)(action)
+      match decide() {
+        Continue(action) => T::apply(action, ctx)
         Stop => return false
       }
     } nobreak {
@@ -290,19 +290,15 @@ fn[T] inline_container_has_setext_candidate(
 }
 
 ///|
-/// Keep this policy and handler in sync with `try_parse_setext_heading`.
+/// Keep this policy and decision in sync with `try_parse_setext_heading`.
 fn root_paragraph_has_setext_candidate(
   ctx : @core.ParserContext[Token, SyntaxKind],
   prefix : LinePrefix?,
 ) -> Bool {
-  let handler : ContinuationHandler[BlockContinuationAction] = {
-    decide: () => decide_setext_continuation(ctx),
-    consume: action => consume_block_continuation(ctx, action),
-  }
   inline_container_has_setext_candidate(
     ctx,
     InlineParsePolicy::setext_heading(),
-    handler,
+    () => decide_setext_continuation(ctx),
     prefix is Some(_),
     true,
     0,
@@ -320,15 +316,9 @@ fn try_parse_setext_heading(
     Some(_) => ctx.emit_token(IndentationToken)
     None => ()
   }
-  let handler : ContinuationHandler[BlockContinuationAction] = {
-    decide: () => decide_setext_continuation(ctx),
-    consume: action => consume_block_continuation(ctx, action),
-  }
-  parse_indexed_inline_container(
-    ctx,
-    InlineParsePolicy::setext_heading(),
-    handler,
-  )
+  parse_indexed_inline_container(ctx, InlineParsePolicy::setext_heading(), () => {
+    decide_setext_continuation(ctx)
+  })
   if consume_setext_underline_after_newline(
       ctx,
       allow_list_marker=true,
@@ -461,11 +451,11 @@ fn continuation_decision_from_transition(
 }
 
 ///|
-fn consume_block_continuation(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  action : BlockContinuationAction,
-) -> Unit {
-  match action {
+impl InlineContinuationAction for BlockContinuationAction with fn apply(
+  self,
+  ctx,
+) {
+  match self {
     ContinueNoPrefix => ctx.emit_token(NewlineToken)
     ContinueIndentedStructuralPrefix => {
       ctx.emit_token(NewlineToken)
@@ -573,11 +563,9 @@ fn parse_paragraph_with_prefix(
       Some(_) => ctx.emit_token(IndentationToken)
       None => ()
     }
-    let handler : ContinuationHandler[BlockContinuationAction] = {
-      decide: () => decide_root_paragraph_continuation(ctx),
-      consume: action => consume_block_continuation(ctx, action),
-    }
-    parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
+    parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), () => {
+      decide_root_paragraph_continuation(ctx)
+    })
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
@@ -662,11 +650,9 @@ fn decide_block_quote_paragraph_continuation(
 fn parse_block_quote_paragraph(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
-  let handler : ContinuationHandler[BlockContinuationAction] = {
-    decide: () => decide_block_quote_paragraph_continuation(ctx),
-    consume: action => consume_block_continuation(ctx, action),
-  }
-  parse_block_quote_paragraph_with_handler(ctx, handler)
+  parse_block_quote_paragraph_with_continuation(ctx, () => {
+    decide_block_quote_paragraph_continuation(ctx)
+  })
 }
 
 ///|
@@ -716,13 +702,9 @@ fn decide_block_quote_heading_continuation(
 fn try_parse_block_quote_setext_heading(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Bool {
-  let handler : ContinuationHandler[BlockContinuationAction] = {
-    decide: () => decide_block_quote_heading_continuation(ctx),
-    consume: action => consume_block_continuation(ctx, action),
-  }
-  try_parse_block_quote_setext_heading_with_handler(
+  try_parse_block_quote_setext_heading_with_continuation(
     ctx,
-    handler,
+    () => decide_block_quote_heading_continuation(ctx),
     () => quoted_setext_underline_depth_after_newline(ctx),
     () => consume_quoted_setext_underline_line(ctx),
   )
@@ -1803,8 +1785,10 @@ fn parse_list_item_inline_content(
 ) -> Unit {
   let has_paragraph_content = list_item_line_starts_paragraph(ctx)
   ignore(try_parse_gfm_task_list_marker(ctx))
-  let handler : ContinuationHandler[BlockContinuationAction] = {
-    decide: () => {
+  parse_indexed_inline_container(
+    ctx,
+    InlineParsePolicy::list_item(allow_ordered_marker~),
+    () => {
       decide_list_item_continuation(
         ctx,
         content_indent,
@@ -1812,12 +1796,6 @@ fn parse_list_item_inline_content(
         has_paragraph_content~,
       )
     },
-    consume: action => consume_block_continuation(ctx, action),
-  }
-  parse_indexed_inline_container(
-    ctx,
-    InlineParsePolicy::list_item(allow_ordered_marker~),
-    handler,
   )
 }
 
@@ -1885,27 +1863,23 @@ fn decide_list_item_setext_continuation(
 }
 
 ///|
-/// Keep this policy and handler in sync with
+/// Keep this policy and decision in sync with
 /// `try_parse_list_item_setext_heading`.
 fn list_item_has_setext_candidate(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_indent : Int,
   allow_ordered_marker~ : Bool,
 ) -> Bool {
-  let handler : ContinuationHandler[BlockContinuationAction] = {
-    decide: () => {
+  inline_container_has_setext_candidate(
+    ctx,
+    InlineParsePolicy::list_item_setext_heading(allow_ordered_marker~),
+    () => {
       decide_list_item_setext_continuation(
         ctx,
         content_indent,
         allow_ordered_marker~,
       )
     },
-    consume: action => consume_block_continuation(ctx, action),
-  }
-  inline_container_has_setext_candidate(
-    ctx,
-    InlineParsePolicy::list_item_setext_heading(allow_ordered_marker~),
-    handler,
     false,
     false,
     content_indent,
@@ -1920,20 +1894,16 @@ fn try_parse_list_item_setext_heading(
 ) -> Bool {
   let cp = ctx.checkpoint()
   ctx.start_node(HeadingNode)
-  let handler : ContinuationHandler[BlockContinuationAction] = {
-    decide: () => {
+  parse_indexed_inline_container(
+    ctx,
+    InlineParsePolicy::list_item_setext_heading(allow_ordered_marker~),
+    () => {
       decide_list_item_setext_continuation(
         ctx,
         content_indent,
         allow_ordered_marker~,
       )
     },
-    consume: action => consume_block_continuation(ctx, action),
-  }
-  parse_indexed_inline_container(
-    ctx,
-    InlineParsePolicy::list_item_setext_heading(allow_ordered_marker~),
-    handler,
   )
   if consume_setext_underline_after_newline(
       ctx,

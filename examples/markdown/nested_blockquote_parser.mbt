@@ -100,7 +100,7 @@ fn repeated_nested_block_quote_depth(
 
 ///|
 priv enum RepeatedNestedBlockQuoteContinuation {
-  ContinueNestedMarkers(Int)
+  ContinueNestedMarkers(BlockQuotePrefixOwnership, Int)
   ContinueExistingQuote(BlockContinuationAction)
 }
 
@@ -125,7 +125,7 @@ fn repeated_nested_block_quote_paragraph_continuation(
     }
   })
   match nested_marker_count {
-    Some(count) => Continue(ContinueNestedMarkers(count))
+    Some(count) => Continue(ContinueNestedMarkers(ownership, count))
     None =>
       match decide_block_quote_paragraph_continuation(ctx) {
         Continue(action) => Continue(ContinueExistingQuote(action))
@@ -135,13 +135,12 @@ fn repeated_nested_block_quote_paragraph_continuation(
 }
 
 ///|
-fn consume_repeated_nested_block_quote_continuation(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  ownership : BlockQuotePrefixOwnership,
-  continuation : RepeatedNestedBlockQuoteContinuation,
-) -> Unit {
-  match continuation {
-    ContinueNestedMarkers(depth) => {
+impl InlineContinuationAction for RepeatedNestedBlockQuoteContinuation with fn apply(
+  self,
+  ctx,
+) {
+  match self {
+    ContinueNestedMarkers(ownership, depth) => {
       guard consume_repeated_nested_block_quote_line_prefix(
           ctx, ownership, depth,
         )
@@ -151,25 +150,19 @@ fn consume_repeated_nested_block_quote_continuation(
         )
       }
     }
-    ContinueExistingQuote(action) => consume_block_continuation(ctx, action)
+    ContinueExistingQuote(action) =>
+      InlineContinuationAction::apply(action, ctx)
   }
 }
 
 ///|
-fn repeated_nested_block_quote_handler(
+fn repeated_nested_block_quote_decider(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
   depth : Int,
-) -> ContinuationHandler[RepeatedNestedBlockQuoteContinuation] {
-  {
-    decide: () => {
-      repeated_nested_block_quote_paragraph_continuation(ctx, ownership, depth)
-    },
-    consume: continuation => {
-      consume_repeated_nested_block_quote_continuation(
-        ctx, ownership, continuation,
-      )
-    },
+) -> () -> ContinuationDecision[RepeatedNestedBlockQuoteContinuation] {
+  () => {
+    repeated_nested_block_quote_paragraph_continuation(ctx, ownership, depth)
   }
 }
 
@@ -179,9 +172,9 @@ fn parse_repeated_nested_block_quote_paragraph(
   ownership : BlockQuotePrefixOwnership,
   depth : Int,
 ) -> Unit {
-  parse_block_quote_paragraph_with_handler(
+  parse_block_quote_paragraph_with_continuation(
     ctx,
-    repeated_nested_block_quote_handler(ctx, ownership, depth),
+    repeated_nested_block_quote_decider(ctx, ownership, depth),
   )
 }
 
@@ -240,9 +233,9 @@ fn try_parse_repeated_nested_block_quote_setext_heading(
   ownership : BlockQuotePrefixOwnership,
   depth : Int,
 ) -> Bool {
-  try_parse_block_quote_setext_heading_with_handler(
+  try_parse_block_quote_setext_heading_with_continuation(
     ctx,
-    repeated_nested_block_quote_handler(ctx, ownership, depth),
+    repeated_nested_block_quote_decider(ctx, ownership, depth),
     () => {
       repeated_nested_block_quote_setext_underline_depth(ctx, ownership, depth)
     },
