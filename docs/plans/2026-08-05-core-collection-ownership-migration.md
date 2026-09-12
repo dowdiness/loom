@@ -635,6 +635,18 @@ Phase 3 implementation and local correctness verification completed on
 consumer fixtures remain pending, so this phase and the overall plan remain
 active.
 
+The 2026-09-12 refresh rebased Phase 3 onto `bbf9d557` and migrated the
+detached block-reparse fixtures and Markdown benchmark added since the original
+implementation. All-target strict checking and the core suite pass. The exact
+baseline profile completed but reported gated regressions in the cumulative
+baseline-to-current comparison. A current-main control failed closed because
+two baseline rows exceeded the 5% sample-stability limit, so it did not
+attribute those regressions to this phase. Canopy's workspace/probe fixture
+passes (44 tests). The moondsp fixtures already fail against current main on 18
+unrelated diagnostics, source-identity, parser-context, and incremental API
+changes; this phase adds one further required `LexResultError` adaptation.
+Performance attribution and moondsp migration therefore remain open gates.
+
 ## Phase 4: close the mutable-shell representation
 
 **Public seam:** callers can query and update damage through `DamageTracker`
