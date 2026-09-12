@@ -116,6 +116,13 @@ pub using @incremental {type ImperativeParser, type ParseSnapshot}
 pub using @pipeline {
   type Parser,
   type ParserUpdateError,
+  type SemanticAccepted,
+  type SemanticChange,
+  type SemanticAnalysis,
+  type SemanticDecision,
+  type SemanticObservation,
+  type SemanticSnapshot,
+  type SemanticStatus,
   type SyntaxParser,
   type SyntaxSnapshot,
 }

@@ -1,6 +1,6 @@
-// settings_attachment_test.mbt — blackbox behavior matrix for the last-good
+// settings_attachment_test.mbt — blackbox behavior matrix for the semantic
 // settings attachment. Blackbox (separate package): exercises only the public
-// surface, never private tracker/projection state.
+// surface, never private model or identity-baseline state.
 
 ///|
 /// Look up the stable id of a key in a settings document, if present.
@@ -175,4 +175,80 @@ test "dispose is idempotent and leaves cached state readable" {
   a.dispose() // second dispose must not crash
   // Cached state stays readable after dispose (it is not a graph read).
   inspect(a.state(), content="Current")
+}
+
+///|
+test "successive renames eagerly settle a through b through c" {
+  let source_id = @core.SourceId("json-settings-eager-sequence")
+  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"a\":1}")
+  let first = ok_doc(a.current_result())
+  a.apply_edit(@core.Edit::new(2, 1, 1), "{\"b\":1}")
+  let second = ok_doc(a.current_result())
+  @debug.assert_eq(doc_id_of(second, "b"), Some("setting#1"))
+  a.apply_edit(@core.Edit::new(2, 1, 1), "{\"c\":1}")
+  inspect(a.state(), content="Current")
+  @debug.assert_eq(
+    doc_id_of(ok_doc(a.current_result()), "c"),
+    Some("setting#0"),
+  )
+  @debug.assert_eq(doc_id_of(first, "a"), Some("setting#0"))
+  @debug.assert_eq(doc_id_of(second, "b"), Some("setting#1"))
+}
+
+///|
+test "same-text explicit key replacement still settles semantic intent" {
+  let source_id = @core.SourceId("json-settings-same-text-key-edit")
+  let source = "{\"gain\":1,\"cutoff\":2}"
+  let a = SettingsAttachment::SettingsAttachment(source_id, source)
+  let before = ok_doc(a.current_result())
+  let id_before = doc_id_of(before, "gain")
+  // Replace the key token with the identical text. The source is unchanged,
+  // but the explicit edit must still be delivered to semantic coordination.
+  a.apply_edit(@core.Edit::new(2, 4, 4), source)
+  inspect(a.state(), content="Current")
+  let after = ok_doc(a.current_result())
+  assert_true(doc_id_of(after, "gain").unwrap() != id_before.unwrap())
+  @debug.assert_eq(doc_id_of(after, "cutoff"), doc_id_of(before, "cutoff"))
+  @debug.assert_eq(doc_id_of(before, "gain"), id_before)
+}
+
+///|
+test "returned documents and settings arrays cannot mutate accepted state" {
+  let source_id = @core.SourceId("json-settings-defensive-copies")
+  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"gain\":1}")
+  let doc = ok_doc(a.current_result())
+  let leaked = doc.settings()
+  leaked[0] = Setting::Setting(id="spoof", key="spoof", value=99.0)
+  leaked.push(Setting::Setting(id="extra", key="extra", value=100.0))
+  let observed = ok_doc(a.current_result())
+  inspect(observed.settings().length(), content="1")
+  inspect(observed.settings()[0].key, content="gain")
+  inspect(observed.settings()[0].value, content="1")
+  let retained = match a.last_good() {
+    Some(last) => last
+    None => abort("expected an accepted last-good document")
+  }
+  let retained_leaked = retained.settings()
+  retained_leaked[0] = Setting::Setting(
+    id="retained-spoof",
+    key="bad",
+    value=101.0,
+  )
+  retained_leaked.push(
+    Setting::Setting(id="retained-extra", key="extra", value=102.0),
+  )
+  let retained_again = match a.last_good() {
+    Some(last) => last
+    None => abort("accepted document must remain retained")
+  }
+  inspect(retained_again.settings().length(), content="1")
+  inspect(retained_again.settings()[0].key, content="gain")
+  inspect(retained_again.settings()[0].id, content="setting#0")
+  a.apply_edit(@core.Edit::new(8, 1, 1), "{\"gain\":2}")
+  a.set_source("{\"gain\":}")
+  a.dispose()
+  inspect(doc.settings()[0].value, content="1")
+  inspect(retained.settings()[0].value, content="1")
+  inspect(a.last_good().unwrap().settings()[0].value, content="2")
+  assert_true(a.current_result() is Err(_))
 }

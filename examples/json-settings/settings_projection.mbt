@@ -19,7 +19,7 @@ priv struct RawSetting {
   value : Double
   key_start : Int
   key_end : Int
-} derive(Eq)
+}
 
 ///|
 /// Project a settings document from a recovered syntax tree.

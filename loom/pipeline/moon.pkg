@@ -4,5 +4,6 @@ import {
   "dowdiness/loom/core",
   "dowdiness/diagnostic",
   "dowdiness/loom/incremental",
+  "dowdiness/loom/internal/semantic_change",
   "dowdiness/text_change",
 }

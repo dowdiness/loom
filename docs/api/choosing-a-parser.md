@@ -55,7 +55,12 @@ Runtime ownership:
 - Prefer a parser-specific high-level constructor, such as
   `CallersPipeline::from_parser(parser)`, when one exists.
 
-Attachment lifecycle:
+For last-good semantic models, use `Parser::attach_semantic`. It owns and primes
+the scope/watch described below, and records parser transitions automatically.
+The caller chooses when to call `analysis.read()` and `analysis.dispose()`.
+See [semantic publication and retry](last-good-semantic-attachment.md).
+
+Lower-level reactive attachment lifecycle:
 
 1. create `Scope::new(parser.runtime())`;
 2. create `Derived` cells in that scope;

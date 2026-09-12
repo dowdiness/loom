@@ -64,6 +64,9 @@ Runtime rules:
 - Parser-attached pipelines should build their own `Scope` on
   `parser.runtime()`.
 - Those pipelines own their `Watch` / priming / `dispose()` lifecycle.
+- For last-good semantic models, `Parser::attach_semantic` owns that scope and
+  primed watch. Call `read()` after updates to choose eager settlement, and
+  `dispose()` to release the analysis without disposing the parser.
 
 See
 [`docs/api/choosing-a-parser.md`](../../docs/api/choosing-a-parser.md#runtime-ownership-and-attachments)
@@ -100,9 +103,10 @@ diagnostic presentation.
 `SyntaxParser` follows the same syntax/diagnostic rules and simply has no
 `ast()` view.
 
-These are current parse views. The parser does not retain semantic documents or
-reuse baselines across malformed input. That policy belongs in a downstream
-attachment rooted on `parser.runtime()`.
+These remain current parse views. `Parser::attach_semantic` adds independent
+last-good publications without changing those views. Each accepted value bundles
+the language's model and identity baseline; rejection or candidate fault retains
+that value while parser edits continue.
 
 For the authoring pattern where diagnostics update immediately while the last
 successful semantic document is retained until projection succeeds again, see the

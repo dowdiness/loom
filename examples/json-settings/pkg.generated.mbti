@@ -27,6 +27,7 @@ pub fn SettingsAttachment::apply_edit(Self, @core.Edit, String) -> Unit raise Fa
 pub fn SettingsAttachment::current_result(Self) -> Result[SettingsDoc, String]
 pub fn SettingsAttachment::dispose(Self) -> Unit
 pub fn SettingsAttachment::last_good(Self) -> SettingsDoc?
+pub fn SettingsAttachment::retry(Self) -> Unit raise Failure
 pub fn SettingsAttachment::set_source(Self, String) -> Unit raise Failure
 pub fn SettingsAttachment::state(Self) -> SettingsState
 
@@ -40,6 +41,7 @@ pub enum SettingsState {
   Current
   ParserBlocked
   ProjectionBlocked
+  CandidateBlocked
   GraphBlocked
 } derive(Eq)
 pub impl Show for SettingsState

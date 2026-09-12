@@ -1,0 +1,21 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loom/internal/semantic_change"
+
+import {
+  "dowdiness/loom/core",
+}
+
+// Values
+pub fn compose_projection_identity_edits(String, @core.Edit, String, @core.Edit, String) -> @core.Edit?
+
+pub fn edit_has_valid_old_range(String, @core.Edit) -> Bool
+
+pub fn edit_matches_sources(String, String, @core.Edit) -> Bool
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
