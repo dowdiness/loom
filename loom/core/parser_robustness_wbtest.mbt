@@ -183,7 +183,11 @@ test "reparse_block offsets new structured diagnostics and drops stale block dia
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
     let (tokens, starts) = test_tokenize_with_starts(source)
-    LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+    lex_result_from_owned_or_abort(
+      tokens,
+      starts,
+      diagnostics=DiagnosticSet::empty(),
+    )
   }
   let result = reparse_block(
     SourceId("parser-context-source"),
@@ -743,7 +747,11 @@ test "reparse_block selector decline widens to parent" {
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
     let (tokens, starts) = test_tokenize_with_starts(source)
-    LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+    lex_result_from_owned_or_abort(
+      tokens,
+      starts,
+      diagnostics=DiagnosticSet::empty(),
+    )
   }
   let result = reparse_block(
     SourceId("parser-context-source"),
@@ -783,7 +791,7 @@ test "reparse_block rejects unconsumed zero-width non-EOF token" {
     is_balanced: _ => true,
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_, _) => {
-    LexResult::with_starts(
+    lex_result_from_owned_or_abort(
       [
         TokenInfo::new(TestTok::Num(1), 3),
         TokenInfo::new(TestTok::Plus, 0),
@@ -910,7 +918,7 @@ test "reparse_block rejects sparse source coverage at an admitted boundary" {
     "x+a",
     Edit::replace(0, 1, 1),
     (_, _) => {
-      LexResult::with_starts(
+      lex_result_from_owned_or_abort(
         [TokenInfo::new(TestTok::Plus, 1), TokenInfo::new(TestTok::TokEof, 0)],
         [1, 3],
         diagnostics=DiagnosticSet::empty(),
@@ -954,24 +962,6 @@ test "reparse_block rejects malformed detached lex spans at boundary" {
   )
   let cases : Array[(String, Array[TokenInfo[TestTok]], Array[Int])] = [
     (
-      "equal-length overlap and gap",
-      [
-        TokenInfo::new(TestTok::Num(1), 2),
-        TokenInfo::new(TestTok::Num(2), 2),
-        TokenInfo::new(TestTok::TokEof, 0),
-      ],
-      [0, 1, 4],
-    ),
-    (
-      "decreasing start",
-      [
-        TokenInfo::new(TestTok::Num(1), 1),
-        TokenInfo::new(TestTok::Num(2), 1),
-        TokenInfo::new(TestTok::TokEof, 0),
-      ],
-      [1, 0, 4],
-    ),
-    (
       "EOF before source end",
       [
         TokenInfo::new(TestTok::Num(1), 2),
@@ -981,22 +971,9 @@ test "reparse_block rejects malformed detached lex spans at boundary" {
       [0, 2, 3],
     ),
     (
-      "token end after source end",
-      [
-        TokenInfo::new(TestTok::Num(1), 5),
-        TokenInfo::new(TestTok::Num(2), 0),
-        TokenInfo::new(TestTok::TokEof, 0),
-      ],
-      [0, 4, 4],
-    ),
-    (
-      "non-parallel token and start arrays",
-      [
-        TokenInfo::new(TestTok::Num(1), 2),
-        TokenInfo::new(TestTok::Num(2), 2),
-        TokenInfo::new(TestTok::TokEof, 0),
-      ],
-      [0, 2],
+      "EOF after source end",
+      [TokenInfo::new(TestTok::Num(1), 4), TokenInfo::new(TestTok::TokEof, 0)],
+      [0, 5],
     ),
   ]
   for case in cases {
@@ -1007,7 +984,7 @@ test "reparse_block rejects malformed detached lex spans at boundary" {
       "xbcd",
       Edit::replace(0, 1, 1),
       (_, _) => {
-        LexResult::with_starts(
+        lex_result_from_owned_or_abort(
           tokens,
           starts,
           diagnostics=DiagnosticSet::empty(),
@@ -1058,7 +1035,7 @@ test "reparse_block rejects a raw-kind EOF alias at boundary" {
     "x",
     Edit::replace(0, 1, 1),
     (_, _) => {
-      LexResult::with_starts(
+      lex_result_from_owned_or_abort(
         [
           TokenInfo::new(TestTok::Num(1), 1),
           TokenInfo::new(TestTok::TokEofAlias, 0),
@@ -1120,7 +1097,11 @@ test "reparse_block resumes outer strict candidate after boundary failure" {
       let (tokens, starts) = test_tokenize_with_starts(source)
       tokens.push(TokenInfo::new(TestTok::TokEof, 0))
       starts.push(source.length())
-      LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+      lex_result_from_owned_or_abort(
+        tokens,
+        starts,
+        diagnostics=DiagnosticSet::empty(),
+      )
     },
     test_spec,
     block_spec,
@@ -1169,7 +1150,11 @@ test "reparse_block selected failure does not widen" {
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
     let (tokens, starts) = test_tokenize_with_starts(source)
-    LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+    lex_result_from_owned_or_abort(
+      tokens,
+      starts,
+      diagnostics=DiagnosticSet::empty(),
+    )
   }
   let result = reparse_block(
     SourceId("parser-context-source"),
@@ -1226,7 +1211,11 @@ test "reparse_block balance failure does not widen" {
   }
   let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
     let (tokens, starts) = test_tokenize_with_starts(source)
-    LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+    lex_result_from_owned_or_abort(
+      tokens,
+      starts,
+      diagnostics=DiagnosticSet::empty(),
+    )
   }
   let result = reparse_block(
     SourceId("parser-context-source"),

@@ -44,3 +44,20 @@ test "LanguageSpec owns trivia declaration order independently of caller mutatio
   trivia[0] = Error
   assert_eq(spec.trivia_kinds_raw(), [@seam.RawKind(0), @seam.RawKind(2)])
 }
+
+///|
+test "LanguageSpec exposes detached trivia and named scalar capabilities" {
+  let spec : LanguageSpec[Bool, SourceKind] = LanguageSpec::new(
+    Whitespace,
+    Error,
+    Root,
+    false,
+    reuse_size_threshold=17,
+    trivia_kinds_spec=[Whitespace, Root],
+  )
+  let trivia = spec.trivia_kinds_raw()
+  trivia[0] = @seam.RawKind(99)
+  assert_eq(spec.trivia_kinds_raw(), [@seam.RawKind(0), @seam.RawKind(2)])
+  inspect(spec.eof_token(), content="false")
+  inspect(spec.reuse_size_threshold(), content="17")
+}

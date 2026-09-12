@@ -276,7 +276,11 @@ pub fn[T] tokenize_via_steps_result(
       }
     }
   }
-  LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+  lex_result_from_owned_or_abort(
+    tokens,
+    starts,
+    diagnostics=DiagnosticSet::empty(),
+  )
 }
 
 ///|
@@ -286,11 +290,15 @@ pub fn[T] TokenBuffer::new(
   tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError,
   eof_token~ : T,
 ) -> TokenBuffer[T] raise LexError {
-  let tokens = tokenize_fn(source)
-  let starts = build_starts(tokens)
+  let initial = lex_result_from_callback_or_abort(
+    tokenize_fn(source),
+    diagnostics=DiagnosticSet::empty(),
+  )
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
-    let tokens = tokenize_fn(s)
-    LexResult(tokens)
+    lex_result_from_callback_or_abort(
+      tokenize_fn(s),
+      diagnostics=DiagnosticSet::empty(),
+    )
   }
   token_buffer_from_initial(
     source_id,
@@ -298,9 +306,9 @@ pub fn[T] TokenBuffer::new(
     retokenize_full,
     true,
     eof_token,
-    tokens,
-    starts,
-    DiagnosticSet::empty(),
+    initial.tokens,
+    initial.starts,
+    initial.diagnostics,
     None,
   )
 }
@@ -1256,10 +1264,14 @@ fn[T] tokenize_resilient_result(
         }
       }
       result.push(TokenInfo::new(eof_token, 0))
-      LexResult(result, diagnostics~)
+      lex_result_from_owned_tokens_or_abort(result, diagnostics~)
     }
   } noraise {
-    tokens => LexResult(tokens)
+    tokens =>
+      lex_result_from_callback_or_abort(
+        tokens,
+        diagnostics=DiagnosticSet::empty(),
+      )
   }
 }
 
@@ -1349,7 +1361,7 @@ fn[T] tokenize_from_steps_result(
   }
   starts.push(len)
   result.push(TokenInfo::new(eof_token, 0))
-  LexResult::with_starts(result, starts, diagnostics~)
+  lex_result_from_owned_or_abort(result, starts, diagnostics~)
 }
 
 ///|
@@ -1387,7 +1399,11 @@ fn[T] tokenize_from_steps_strict_result(
   }
   starts.push(len)
   result.push(TokenInfo::new(eof_token, 0))
-  LexResult::with_starts(result, starts, diagnostics=DiagnosticSet::empty())
+  lex_result_from_owned_or_abort(
+    result,
+    starts,
+    diagnostics=DiagnosticSet::empty(),
+  )
 }
 
 ///|
