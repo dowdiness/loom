@@ -12,6 +12,13 @@ Notable user-facing changes to Loom and its sibling modules.
   baseline together; callers choose settlement and explicit fault retry.
 - `SettingsAttachment::retry()` retries the latest source after a semantic fault.
 
+### Fixed
+
+- Failed incremental edits no longer change the parser's internal source before
+  parsing succeeds. Reapplying the already-published source after a failure stays
+  a no-op instead of fabricating a semantic revision; edits before the first parse
+  preserve the original source on failure as well.
+
 ### Removed
 
 - **Breaking diagnostic API cleanup:** removed `DiagnosticSource`,

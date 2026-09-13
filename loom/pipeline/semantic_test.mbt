@@ -300,6 +300,14 @@ test "failed parser updates do not advance semantic evidence or accepted state" 
   }
   assert_eq(parser.source().read_or_abort(), "ok")
   assert_eq(analysis.read().revision(), original.revision())
+  try parser.apply_edit(@core.Edit::new(0, 2, 5), "fault") catch {
+    Failure::Failure(_) => ()
+  } noraise {
+    _ => fail("expected the incremental parser callback to fail")
+  }
+  assert_eq(parser.source().read_or_abort(), "ok")
+  parser.set_source("ok")
+  assert_eq(analysis.read().revision(), original.revision())
   try parser.apply_changes(@text_change.ChangeSet::empty(2), "wrong") catch {
     ParserUpdateError::ChangeSetMismatch => ()
     _ => fail("expected change-set mismatch")
@@ -338,4 +346,55 @@ test "actual graph read failure remains distinct from candidate failure" {
   assert_true(latest.status() is GraphFailed(@incr.ReadError::Disposed(_)))
   assert_eq(latest.source(), "c")
   assert_eq(latest.accepted().unwrap().value().history, "a")
+}
+
+///|
+test "failed edit before first parse preserves the original source" {
+  let parser = @incremental.ImperativeParser::new(
+    @core.SourceId("unparsed-failure"),
+    "ok",
+    test_imperative_language(fail_on="fault"),
+  )
+  try parser.edit(@core.Edit::new(0, 2, 5), "fault") catch {
+    Failure::Failure(_) => ()
+  } noraise {
+    _ => fail("expected the initial full parse to fail")
+  }
+  assert_eq(parser.get_source(), "ok")
+  assert_true(parser.current() is None)
+  assert_eq(parser.parse().source, "ok")
+}
+
+///|
+test "semantic edit evidence matches UTF-16 code units at every boundary" {
+  let sources = ["", "a", "ab", "a\u{1F600}b", "a\u{1F601}b", "a\u{1FA00}b"]
+  for old_source in sources {
+    for new_source in sources {
+      for start in 0..<=old_source.length() {
+        for deleted in 0..<=(old_source.length() - start) {
+          let inserted = new_source.length() - old_source.length() + deleted
+          if inserted < 0 {
+            continue
+          }
+          let mut expected = true
+          for i in 0..<start {
+            if old_source[i] != new_source[i] {
+              expected = false
+            }
+          }
+          for i in 0..<(old_source.length() - start - deleted) {
+            if old_source[start + deleted + i] !=
+              new_source[start + inserted + i] {
+              expected = false
+            }
+          }
+          let change = SemanticChange::SemanticChange(old_source).advance(
+            new_source,
+            edit=@core.Edit::new(start, deleted, inserted),
+          )
+          assert_eq(change.edit() is Some(_), expected)
+        }
+      }
+    }
+  }
 }

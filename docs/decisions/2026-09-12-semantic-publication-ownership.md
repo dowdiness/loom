@@ -128,6 +128,33 @@ and `last_good()` retains the old document.
 Only JSON settings is migrated. This decision does not change Markdown's eager
 one-shot lowering, migrate other attachments, or update dependency versions.
 
+The hardening review leaves the additive API unchanged. In particular, the public
+`SemanticChange` constructor and `advance` remain available; `edit()` validates
+their evidence against the endpoints. A second attachment is not migrated merely
+to justify or reshape that API. Another real consumer is still needed before
+claiming that the interface is broadly sufficient.
+
+### Failed edits and measured pending-edit cost
+
+`ImperativeParser::edit` commits its source only after parsing succeeds, including
+the full-parse path before its first snapshot. A failed edit must not make a later
+`set_source` of the already-published source fabricate a semantic transition.
+
+A release microbenchmark on the pinned MoonBit 0.10.8 toolchain measured eight
+exact pending replacements followed by final evidence validation, with strings
+prepared outside the timed body. For one analysis and 65,537 UTF-16 code units,
+the mean was 5.00 ms on JS and 0.603 ms on native. At 1,048,577 units it was
+78.98 ms and 9.80 ms respectively. These are local WSL measurements of
+`SemanticChange` composition, not parser latency or ordinary eager settings
+updates. Multiple pending analyses repeat the source comparisons; this cost
+remains linear in source length per validation.
+
+A small `StringView` comparison prototype improved ASCII timings but aborted
+when an edit boundary split a surrogate pair. It was rejected: edit evidence is
+defined in UTF-16 code units, not character boundaries. The code-unit comparison
+remains, with a differential boundary regression. Performance work must preserve
+that contract and demonstrate an end-to-end need before adding more machinery.
+
 ## Rationale
 
 The existing parser is already the authority for successful source transitions.

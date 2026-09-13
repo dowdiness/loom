@@ -61,10 +61,6 @@ pub fn[Ast] ImperativeParser::edit(
   edit : @core.Edit,
   new_source : String,
 ) -> ParseSnapshot[Ast] raise Failure {
-  self.source = new_source
-  if self.snapshot is None {
-    return self.parse()
-  }
   match self.snapshot {
     Some(old_snapshot) => {
       let (syntax, diagnostics, reuse_count) = (self.lang.incremental_parse)(
@@ -73,9 +69,10 @@ pub fn[Ast] ImperativeParser::edit(
         old_snapshot.syntax,
         edit,
       )
+      self.source = new_source
       self.accept_tree(new_source, syntax, diagnostics, reuse_count)
     }
-    None => self.parse()
+    None => self.reset(new_source)
   }
 }
 
