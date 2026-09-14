@@ -163,8 +163,18 @@ pub fn[Ast : Eq] Parser::apply_changes(
 }
 
 ///|
-/// Apply a text `Edit` using CST-node-level reuse. The snapshot input is
-/// updated atomically inside `Runtime::batch` after the engine has advanced.
+/// Apply a text `Edit` using CST-node-level reuse.
+///
+/// `new_source` is the complete text after the edit, not just the inserted text.
+/// The edit's start and lengths are measured in UTF-16 code units, with the
+/// deleted range referring to the current source. The caller must ensure that
+/// the unchanged prefix and suffix match between the current and new sources.
+/// This method trusts that evidence; it does not validate the full transition.
+/// Use `apply_changes` when you need a `ChangeSet` checked against both sources.
+///
+/// After parsing succeeds, the snapshot and pending semantic edit evidence are
+/// updated together inside `Runtime::batch`. A parse failure leaves the previous
+/// source, snapshot and semantic evidence unchanged.
 pub fn[Ast : Eq] Parser::apply_edit(
   self : Parser[Ast],
   edit : @core.Edit,
