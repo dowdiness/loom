@@ -1,59 +1,117 @@
-// settings_attachment.mbt — pure derived cell + imperative last-good policy.
+// settings_attachment.mbt — parser-owned semantic coordination for settings.
 //
-// This is the checked counterpart of the `nocheck` template in
-// `docs/api/last-good-semantic-attachment.md`. The reactive layer is a PURE
-// `@incr.Derived` of the parser's published views; the last-good retention and
-// stable-identity commit policy live in the imperative `settle` step, never
-// inside the derived closure. See the loom + incr skills for why mutating the
-// tracker / last_good inside a `Derived` body is the antipattern this example
-// exists to demonstrate the fix for.
+// The semantic callback below is deliberately a complete candidate builder:
+// parser diagnostics, projection validation, identity realignment, and model
+// construction all happen before one atomic `Accept`. The parser and semantic
+// analysis own transition metadata, pending input, and the accepted baseline;
+// this attachment only translates completed observations to the example's
+// public API.
 
 ///|
-/// Outcome of the pure projection attempt for one parser snapshot.
-priv enum ProjectionOutcome {
-  ParseFailed(Array[String])
-  ProjectionFailed(Array[String])
-  Projected(Array[RawSetting])
-} derive(Eq)
+/// The immutable semantic model published by a successful candidate.
+///
+/// Keeping the document and its accepted identity baseline together means a
+/// later candidate always realigns against the exact last accepted semantic
+/// state. `SettingsDoc` and `ProjectionIdentityBaseline` both defend their
+/// backing arrays with copies.
+priv struct SettingsModel {
+  doc : SettingsDoc
+  baseline : @loom.ProjectionIdentityBaseline[String]
+}
 
 ///|
-/// The pure derived value: the projected source plus its projection outcome.
-/// Mutates nothing — no tracker, no last_good, no cached state.
-/// `Eq` is required because `@incr.Scope::derived` change-detects its value.
-priv struct ProjectionAttempt {
-  source : String
-  outcome : ProjectionOutcome
-} derive(Eq)
+/// Language-owned rejection data. Candidate exceptions are not represented
+/// here; the semantic core reports those separately as `CandidateFailed`.
+priv enum SettingsRejection {
+  Parser(Array[String])
+  Projection(Array[String])
+}
 
 ///|
-/// Pure projection of one parser snapshot. Reads only the parser's published
-/// views (inside-graph `get_or_abort` reads) and returns a value. This is the
-/// body of the reactive `Derived` — it never constructs an `ImperativeParser`,
-/// never mutates the tracker, last_good, or any cached field.
-fn compute_attempt(parser : @loom.Parser[@json.JsonValue]) -> ProjectionAttempt {
-  let source = parser.source().get_or_abort()
-  let diagnostics = parser.diagnostics().get_or_abort()
-  // Parser diagnostics dominate: a syntactically broken document never reaches
-  // the semantic projection.
-  if !diagnostics.is_empty() {
-    return { source, outcome: ParseFailed(diagnostics.format()) }
+/// Build a stable semantic model from a successful raw projection.
+///
+/// The allocator is intentionally baseline-local: it reserves IDs from the
+/// previous accepted baseline for this candidate and is discarded afterwards.
+/// No lifetime-monotonic counter is introduced by the attachment.
+fn build_settings_model(
+  previous : SettingsModel?,
+  source : String,
+  raws : Array[RawSetting],
+  edit : @core.Edit?,
+) -> SettingsModel {
+  let leaves = raws.map(raw_setting_to_leaf)
+  let allocator = match previous {
+    Some(model) =>
+      @loom.ProjectionStringIdAllocator::from_baseline(
+        model.baseline,
+        make_setting_id,
+      )
+    None => @loom.ProjectionStringIdAllocator::new(make_setting_id)
   }
-  let syntax = parser.syntax_tree().get_or_abort()
-  match project_settings(syntax) {
-    Ok(raws) => { source, outcome: Projected(raws) }
-    Err(messages) => { source, outcome: ProjectionFailed(messages) }
+  let stable = match previous {
+    Some(model) =>
+      @loom.realign_projection_identities_with_optional_edit(
+        model.baseline,
+        source,
+        leaves,
+        leaf => allocator.allocate(leaf),
+        edit,
+      )
+    None =>
+      leaves.map(leaf => {
+        let id = allocator.allocate(leaf)
+        @loom.StableProjectionLeaf::new(leaf.start, leaf.end, leaf.key, id)
+      })
+  }
+  let settings = Array::makei(raws.length(), i => {
+    Setting(id=stable[i].id, key=raws[i].key, value=raws[i].value)
+  })
+  {
+    doc: SettingsDoc(settings),
+    baseline: @loom.ProjectionIdentityBaseline::new(source, stable),
   }
 }
 
 ///|
-/// Health of the latest settings projection, kept honest per
-/// `incr/docs/design/specs/2026-05-28-honest-read-error-ownership.md`:
-/// `GraphBlocked` is a boundary `ReadError`, distinct from a parser or
-/// projection diagnostic — folding it into either would lose that split.
+/// Construct one complete settings candidate from a parser semantic snapshot.
+///
+/// The registered callback uses this builder. It reads the captured snapshot,
+/// never reparses the source, and returns a language rejection rather than
+/// mutating retained state.
+fn project_settings_candidate(
+  previous : @loom.SemanticAccepted[SettingsModel]?,
+  snapshot : @loom.SemanticSnapshot,
+  change : @loom.SemanticChange,
+) -> @loom.SemanticDecision[SettingsModel, SettingsRejection] {
+  let diagnostics = snapshot.diagnostics()
+  if !diagnostics.is_empty() {
+    return @loom.SemanticDecision::Reject(Parser(diagnostics.format()))
+  }
+  match project_settings(snapshot.syntax()) {
+    Err(messages) => @loom.SemanticDecision::Reject(Projection(messages))
+    Ok(raws) => {
+      let previous_model = match previous {
+        Some(accepted) => Some(accepted.value())
+        None => None
+      }
+      let model = build_settings_model(
+        previous_model,
+        snapshot.source(),
+        raws,
+        change.edit(),
+      )
+      @loom.SemanticDecision::Accept(model)
+    }
+  }
+}
+
+///|
+/// Health of the latest semantic observation.
 pub enum SettingsState {
   Current
   ParserBlocked
   ProjectionBlocked
+  CandidateBlocked
   GraphBlocked
 } derive(Eq)
 
@@ -64,201 +122,139 @@ pub impl Show for SettingsState with fn output(self, logger) {
       Current => "Current"
       ParserBlocked => "ParserBlocked"
       ProjectionBlocked => "ProjectionBlocked"
+      CandidateBlocked => "CandidateBlocked"
       GraphBlocked => "GraphBlocked"
     },
   )
 }
 
 ///|
-/// A last-good semantic projection attached to a unified JSON `Parser`.
+/// A parser-attached last-good settings projection.
 ///
-/// Owns the parser, the reactive `Scope`/`Watch` GC anchor, the loom-owned
-/// `ProjectionIdentityTracker`, and the cached public state (current source,
-/// current result, last-good document).
+/// The parser owns the current source/syntax and the semantic analysis owns
+/// accepted values, identity baselines, pending metadata, and graph lifetime.
+/// This facade stores neither a tracker nor a second cache.
 pub struct SettingsAttachment {
   priv parser : @loom.Parser[@json.JsonValue]
-  priv scope : @incr.Scope
-  priv watch : @incr.Watch[ProjectionAttempt]
-  priv tracker : @loom.ProjectionIdentityTracker[String]
-  priv mut current_source : String
-  priv mut state : SettingsState
-  priv mut current : Result[SettingsDoc, String]
-  priv mut last_good : SettingsDoc?
+  priv analysis : @loom.SemanticAnalysis[SettingsModel, SettingsRejection]
 }
 
 ///|
-/// Attach a last-good settings projection over `initial_source`, settling once.
+/// Attach a semantic settings projection over `initial_source`.
 ///
-/// The parser is built *outside* the reactive closure; the closure only reads
-/// its published views. A persistent `Watch` anchors the chain as a GC root.
+/// Construction registers and primes the semantic watch but does not execute
+/// the callback until this constructor performs its explicit initial read.
 pub fn SettingsAttachment::SettingsAttachment(
   source_id : @core.SourceId,
   initial_source : String,
 ) -> SettingsAttachment raise Failure {
   let parser = @loom.new_parser(source_id, initial_source, @json.json_grammar)
-  let scope = @incr.Scope::new(parser.runtime())
-  let derived = scope.derived(
-    () => compute_attempt(parser),
-    label="settings_projection",
-  )
-  let watch = scope.add_watch(derived.watch())
-  let self = {
-    parser,
-    scope,
-    watch,
-    tracker: @loom.ProjectionIdentityTracker(),
-    current_source: initial_source,
-    state: ParserBlocked,
-    current: Err("not yet settled"),
-    last_good: None,
-  }
-  // Settling reads the watch once, which also primes the GC anchor.
-  self.settle(None, None)
+  let analysis = parser.attach_semantic((previous, snapshot, change) => {
+    project_settings_candidate(previous, snapshot, change)
+  })
+  let self = { parser, analysis }
+  ignore(self.analysis.read())
   self
 }
 
 ///|
-/// The imperative last-good policy. Reads the pure attempt at the graph boundary
-/// (`watch.read()`), then advances cached state. This is the *only* place the
-/// tracker and last_good change — never inside the derived closure.
-fn SettingsAttachment::settle(
+/// Return the completed semantic observation without evaluating the graph.
+///
+/// The constructor completes its initial read before exposing the facade.
+fn SettingsAttachment::observation(
   self : SettingsAttachment,
-  source_before_edit : String?,
-  edit : @core.Edit?,
-) -> Unit {
-  let attempt = match self.watch.read() {
-    Ok(a) => a
-    // Boundary graph-health failure (cycle/disposal): neither a parser nor a
-    // projection diagnostic. Retain last_good; do not touch the tracker.
-    Err(read_error) => {
-      self.state = GraphBlocked
-      self.current = Err(
-        "settings graph unavailable: " + read_error.format_path(),
-      )
-      return
-    }
-  }
-  match attempt.outcome {
-    ParseFailed(messages) => {
-      self.tracker.record_failed_input_with_optional_edit(
-        attempt.source,
-        source_before_edit,
-        edit,
-      )
-      self.state = ParserBlocked
-      self.current = Err(messages.join("; "))
-    }
-    ProjectionFailed(messages) => {
-      self.tracker.record_failed_input_with_optional_edit(
-        attempt.source,
-        source_before_edit,
-        edit,
-      )
-      self.state = ProjectionBlocked
-      self.current = Err(messages.join("; "))
-    }
-    Projected(raws) => {
-      let allocator = match self.tracker.baseline() {
-        Some(baseline) =>
-          @loom.ProjectionStringIdAllocator::from_baseline(
-            baseline, make_setting_id,
-          )
-        None => @loom.ProjectionStringIdAllocator::new(make_setting_id)
-      }
-      let leaves = raws.map(raw_setting_to_leaf)
-      // Preview alignment against the last-good baseline (no commit yet).
-      let stable = self.tracker.realign_success_with_optional_edit(
-        attempt.source,
-        leaves,
-        leaf => allocator.allocate(leaf),
-        edit,
-      )
-      let settings : Array[Setting] = []
-      for i, raw in raws {
-        settings.push(Setting(id=stable[i].id, key=raw.key, value=raw.value))
-      }
-      let doc = SettingsDoc(settings)
-      // Commit only after the semantic document is built — the sole
-      // baseline-advancing call, reachable only on projection success.
-      self.tracker.commit_success(attempt.source, stable)
-      self.state = Current
-      self.current = Ok(doc)
-      self.last_good = Some(doc)
-    }
-  }
+) -> @loom.SemanticObservation[SettingsModel, SettingsRejection] {
+  self.analysis.observation().unwrap()
 }
 
 ///|
-/// Allocate the public stable id for a freshly-projected setting.
-///
-/// Ids are **opaque and allocation-order based** (`setting#0`, `setting#1`, …),
-/// deliberately *not* derived from the key. That is what makes
-/// `ProjectionIdentityTracker` reuse observable: an unchanged setting keeps the
-/// low number it was first allocated, while a setting newly appearing inside an
-/// edit window gets the next free number — so a downstream UI can keep widget
-/// state attached to a setting even when keys are inserted/removed around it. A
-/// key-derived id would make preservation indistinguishable from recomputation.
-///
-/// `make_id` is key-independent here, so the allocator's collision-bumping over
-/// its `used` set turns the per-key `occurrence` into a global sequence: the nth
-/// distinct id allocated against a fresh/seeded allocator is the nth free
-/// `setting#k`.
-fn make_setting_id(_key : String, occurrence : Int) -> String {
-  "setting#" + occurrence.to_string()
-}
-
-///|
-/// Health of the latest projection.
+/// Health of the latest semantic projection.
 pub fn SettingsAttachment::state(self : SettingsAttachment) -> SettingsState {
-  self.state
+  let observation = self.observation()
+  match observation.status() {
+    @loom.SemanticStatus::Current => Current
+    @loom.SemanticStatus::Rejected(reason) =>
+      match reason {
+        Parser(_) => ParserBlocked
+        Projection(_) => ProjectionBlocked
+      }
+    @loom.SemanticStatus::CandidateFailed(_) => CandidateBlocked
+    @loom.SemanticStatus::GraphFailed(_) => GraphBlocked
+  }
 }
 
 ///|
-/// The current settings document. `Ok` only when `state()` is `Current`;
-/// stale data after a failure is available via `last_good()`.
+/// The current settings document. `Ok` only when the latest observation is
+/// `Current`; retained stale data remains available through `last_good()`.
 pub fn SettingsAttachment::current_result(
   self : SettingsAttachment,
 ) -> Result[SettingsDoc, String] {
-  self.current
+  let observation = self.observation()
+  match observation.status() {
+    @loom.SemanticStatus::Current =>
+      Ok(observation.accepted().unwrap().value().doc)
+    @loom.SemanticStatus::Rejected(Parser(messages)) => Err(messages.join("; "))
+    @loom.SemanticStatus::Rejected(Projection(messages)) =>
+      Err(messages.join("; "))
+    @loom.SemanticStatus::CandidateFailed(error) =>
+      Err("settings candidate failed: " + @debug.to_string(error))
+    @loom.SemanticStatus::GraphFailed(error) =>
+      Err("settings graph unavailable: " + error.format_path())
+  }
 }
 
 ///|
-/// The last successfully projected settings document, retained across malformed
-/// or projection-invalid intermediate input. `None` until the first success.
+/// The last successfully accepted settings document, retained across parser,
+/// projection, candidate, and graph failures.
 pub fn SettingsAttachment::last_good(self : SettingsAttachment) -> SettingsDoc? {
-  self.last_good
+  self.observation().accepted().map(accepted => accepted.value().doc)
 }
 
 ///|
-/// Apply an incremental edit relative to the current source, then re-settle.
-/// The exact `edit` is forwarded to the tracker so unchanged keys keep their
-/// ids through the edit window.
+/// Apply an incremental edit and eagerly settle its semantic observation.
 pub fn SettingsAttachment::apply_edit(
   self : SettingsAttachment,
   edit : @core.Edit,
   new_source : String,
 ) -> Unit raise Failure {
-  let source_before_edit = self.current_source
   self.parser.apply_edit(edit, new_source)
-  self.current_source = new_source
-  self.settle(Some(source_before_edit), Some(edit))
+  ignore(self.analysis.read())
 }
 
 ///|
-/// Replace the source wholesale, then re-settle. No edit is supplied, so the
-/// tracker falls back to a source diff for identity realignment.
+/// Replace the source wholesale and eagerly settle its semantic observation.
 pub fn SettingsAttachment::set_source(
   self : SettingsAttachment,
   new_source : String,
 ) -> Unit raise Failure {
   self.parser.set_source(new_source)
-  self.current_source = new_source
-  self.settle(None, None)
+  ignore(self.analysis.read())
 }
 
 ///|
-/// Dispose the reactive scope (GC anchor + owned cells). Does not touch the
-/// parser. Idempotent.
+/// Retry a candidate or graph fault for the current parser revision.
+///
+/// Current/rejected observations are already settled and therefore remain
+/// cached; candidate and graph faults are the only statuses this read retries.
+pub fn SettingsAttachment::retry(
+  self : SettingsAttachment,
+) -> Unit raise Failure {
+  ignore(self.analysis.read())
+}
+
+///|
+/// Release the semantic analysis and its graph scope. Cached observations stay
+/// readable after disposal, and repeated disposal is harmless.
 pub fn SettingsAttachment::dispose(self : SettingsAttachment) -> Unit {
-  self.scope.dispose()
+  self.analysis.dispose()
+}
+
+///|
+/// Allocate the public stable id for a freshly projected setting.
+///
+/// IDs are opaque and baseline-local (`setting#0`, `setting#1`, …), not derived
+/// from the key. The allocator reserves IDs from the previous accepted
+/// baseline only; a failed candidate never consumes IDs in a later retry.
+fn make_setting_id(_key : String, occurrence : Int) -> String {
+  "setting#" + occurrence.to_string()
 }

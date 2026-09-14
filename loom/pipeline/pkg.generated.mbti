@@ -4,6 +4,7 @@ package "dowdiness/loom/pipeline"
 import {
   "dowdiness/diagnostic",
   "dowdiness/incr/cells",
+  "dowdiness/incr/types",
   "dowdiness/loom/core",
   "dowdiness/loom/incremental",
   "dowdiness/seam",
@@ -25,6 +26,7 @@ pub struct Parser[Ast] {
 pub fn[Ast : Eq] Parser::apply_changes(Self[Ast], @text_change.ChangeSet, String) -> Unit raise
 pub fn[Ast : Eq] Parser::apply_edit(Self[Ast], @core.Edit, String) -> Unit raise Failure
 pub fn[Ast] Parser::ast(Self[Ast]) -> @cells.Derived[Ast]
+pub fn[Ast, M, R] Parser::attach_semantic(Self[Ast], (SemanticAccepted[M]?, SemanticSnapshot, SemanticChange) -> SemanticDecision[M, R] raise) -> SemanticAnalysis[M, R] raise Failure
 pub fn[Ast] Parser::diagnostics(Self[Ast]) -> @cells.Derived[@core.DiagnosticSet]
 pub fn[Ast : Eq] Parser::new(@diagnostic.SourceId, String, @incremental.ImperativeLanguage[Ast], runtime? : @cells.Runtime) -> Self[Ast] raise Failure
 pub fn[Ast] Parser::runtime(Self[Ast]) -> @cells.Runtime
@@ -33,6 +35,57 @@ pub fn[Ast] Parser::snapshot(Self[Ast]) -> @cells.Derived[@incremental.ParseSnap
 pub fn[Ast] Parser::source(Self[Ast]) -> @cells.Derived[String]
 pub fn[Ast] Parser::source_id(Self[Ast]) -> @diagnostic.SourceId
 pub fn[Ast] Parser::syntax_tree(Self[Ast]) -> @cells.Derived[@seam.SyntaxNode]
+
+pub struct SemanticAccepted[M] {
+  // private fields
+}
+pub fn[M] SemanticAccepted::snapshot(Self[M]) -> SemanticSnapshot
+pub fn[M] SemanticAccepted::value(Self[M]) -> M
+
+pub struct SemanticAnalysis[M, R] {
+  // private fields
+}
+pub fn[M, R] SemanticAnalysis::dispose(Self[M, R]) -> Unit
+pub fn[M, R] SemanticAnalysis::observation(Self[M, R]) -> SemanticObservation[M, R]?
+pub fn[M, R] SemanticAnalysis::read(Self[M, R]) -> SemanticObservation[M, R] raise Failure
+
+pub struct SemanticChange {
+  // private fields
+}
+pub fn SemanticChange::SemanticChange(String) -> Self
+pub fn SemanticChange::advance(Self, String, edit? : @core.Edit) -> Self
+pub fn SemanticChange::baseline_source(Self) -> String
+pub fn SemanticChange::edit(Self) -> @core.Edit?
+pub fn SemanticChange::source(Self) -> String
+
+pub(all) enum SemanticDecision[M, R] {
+  Accept(M)
+  Reject(R)
+}
+
+pub struct SemanticObservation[M, R] {
+  // private fields
+}
+pub fn[M, R] SemanticObservation::accepted(Self[M, R]) -> SemanticAccepted[M]?
+pub fn[M, R] SemanticObservation::revision(Self[M, R]) -> Int
+pub fn[M, R] SemanticObservation::source(Self[M, R]) -> String
+pub fn[M, R] SemanticObservation::status(Self[M, R]) -> SemanticStatus[R]
+
+pub struct SemanticSnapshot {
+  // private fields
+}
+pub fn SemanticSnapshot::diagnostics(Self) -> @core.DiagnosticSet
+pub fn SemanticSnapshot::revision(Self) -> Int
+pub fn SemanticSnapshot::source(Self) -> String
+pub fn SemanticSnapshot::source_id(Self) -> @diagnostic.SourceId
+pub fn SemanticSnapshot::syntax(Self) -> @seam.SyntaxNode
+
+pub enum SemanticStatus[R] {
+  Current
+  Rejected(R)
+  GraphFailed(@types.ReadError)
+  CandidateFailed(Error)
+}
 
 pub struct SyntaxParser {
   // private fields

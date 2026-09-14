@@ -184,6 +184,20 @@ pub using @seam {type RawKind}
 
 pub using @core {type ReuseCursor}
 
+pub using @pipeline {type SemanticAccepted}
+
+pub using @pipeline {type SemanticAnalysis}
+
+pub using @pipeline {type SemanticChange}
+
+pub using @pipeline {type SemanticDecision}
+
+pub using @pipeline {type SemanticObservation}
+
+pub using @pipeline {type SemanticSnapshot}
+
+pub using @pipeline {type SemanticStatus}
+
 pub using @core {type SourceEdit}
 
 pub using @diagnostic {type SourceId}

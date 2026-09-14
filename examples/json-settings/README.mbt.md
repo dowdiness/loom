@@ -15,37 +15,55 @@ three rules the grammar cannot —
 
 ## What this example demonstrates
 
-- **Pure reactive layer.** The `@incr.Derived` cell is a *pure* function of the
-  parser's published views (`source`, `diagnostics`, `syntax_tree`). It reifies
-  domain failure into its value (`ParseFailed` / `ProjectionFailed` / `Projected`)
-  and mutates nothing — no tracker, no last-good document, no cached state. The
-  antipattern this example exists to refute is mutating retention state *inside*
-  a derived closure (see the `loom` / `incr` skills).
-- **Imperative last-good policy.** All retention and identity bookkeeping lives
-  in a `settle` step that reads the pure attempt at the graph boundary
-  (`Watch::read()`), then advances cached state.
-- **Honest read-error split** (per
-  [`incr/.../2026-05-28-honest-read-error-ownership.md`](../../incr/docs/design/specs/2026-05-28-honest-read-error-ownership.md)).
-  Parse/projection failures are *values*; a boundary `ReadError` is a distinct
-  `GraphBlocked` state, never folded into a parser or projection diagnostic.
-- **Stable identity across edits.** It reuses
-  [`@loom.ProjectionIdentityTracker`](../../loom/projection/projection_identity.mbt):
-  ids are opaque and allocation-order based, so an unchanged setting keeps its id
-  even when keys are inserted/removed around it, and the baseline only advances
-  on a *successful* projection.
+- **Parser-owned semantic layer.** `SettingsAttachment` attaches one
+  `@loom.SemanticAnalysis` to the existing JSON parser. The callback consumes
+  the captured `SemanticSnapshot`, performs parser-diagnostic gating and the
+  real settings projection, then returns one complete accepted model or a
+  language-owned rejection. It never reparses or mutates retained state.
+- **Last-good ownership.** The semantic analysis owns accepted observations,
+  pending edit metadata, identity baselines, and graph lifetime. The example
+  facade translates those observations to `SettingsState`, `current_result()`,
+  and `last_good()`; it does not maintain a parallel tracker or cache.
+- **Honest failure split.** Parser/projection failures are language rejections,
+  candidate exceptions become `CandidateBlocked`, and a boundary
+  `@incr.ReadError` remains a distinct `GraphBlocked` state. Every failed
+  candidate retains the last accepted document.
+- **Stable identity across edits.** Each accepted model owns an immutable
+  `@loom.ProjectionIdentityBaseline`. A baseline-local allocator reuses
+  unchanged setting IDs while allocating fresh IDs for changed-window leaves.
+  Failed candidates do not commit a baseline or consume IDs; `retry()` can
+  settle the same revision again.
+- **Explicit semantic intent.** Incremental edits, including nonempty
+  same-text replacements, are delivered through the parser's semantic
+  transition metadata. `set_source` remains a source replacement and a
+  same-text no-op.
 
 ## Public API
 
 ```mbt nocheck
-pub fn SettingsAttachment::SettingsAttachment(@core.SourceId, String) -> SettingsAttachment
+pub fn SettingsAttachment::SettingsAttachment(
+  @core.SourceId,
+  String,
+) -> SettingsAttachment raise Failure
 pub fn SettingsAttachment::state(Self) -> SettingsState
 pub fn SettingsAttachment::current_result(Self) -> Result[SettingsDoc, String]
 pub fn SettingsAttachment::last_good(Self) -> SettingsDoc?
-pub fn SettingsAttachment::apply_edit(Self, @core.Edit, String) -> Unit
-pub fn SettingsAttachment::set_source(Self, String) -> Unit
+pub fn SettingsAttachment::apply_edit(
+  Self,
+  @core.Edit,
+  String,
+) -> Unit raise Failure
+pub fn SettingsAttachment::set_source(Self, String) -> Unit raise Failure
+pub fn SettingsAttachment::retry(Self) -> Unit raise Failure
 pub fn SettingsAttachment::dispose(Self) -> Unit
 
-pub enum SettingsState { Current; ParserBlocked; ProjectionBlocked; GraphBlocked }
+pub enum SettingsState {
+  Current
+  ParserBlocked
+  ProjectionBlocked
+  CandidateBlocked
+  GraphBlocked
+}
 pub struct Setting { id : String; key : String; value : Double } // read-only fields
 pub struct SettingsDoc { /* settings() -> Array[Setting] */ }
 ```
@@ -123,7 +141,7 @@ test "recovery after a failure returns to Current" {
 
 ```bash
 cd examples/json-settings
-moon test    # behavior matrix + whitebox identity invariant + this README's doctests
+moon test    # behavior matrix + semantic-coordination regressions + doctests
 ```
 
 ## Learn More
@@ -131,6 +149,6 @@ moon test    # behavior matrix + whitebox identity invariant + this README's doc
 - [Last-good semantic attachment](../../docs/api/last-good-semantic-attachment.md)
   — the pattern this example checks.
 - [Projection guide](../../docs/api/projection-guide.md#stable-identity-across-edits)
-  — `ProjectionIdentityBaseline` / `ProjectionIdentityTracker` usage.
+  — `ProjectionIdentityBaseline` and the shared alignment policy.
 - [`examples/lambda`](../lambda/) — the canonical parser-attached pipeline
   (`TypecheckAttachment`), the shape reference for this example.

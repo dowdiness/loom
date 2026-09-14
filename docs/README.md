@@ -38,7 +38,7 @@ Framework-level:
 - [api/projection-guide.md](api/projection-guide.md) — CST → private IR → semantic model projection guide, including direct CST shape validation
 - [api/cst-traversal-idioms.md](api/cst-traversal-idioms.md) — the three CST traversal idioms (`SyntaxNode` direct queries / `CstFold` / position-independent `CstElement` combinators) and when to use which
 - [api/authoring-only-integration.md](api/authoring-only-integration.md) — keep Loom-backed editor diagnostics/projections behind an authoring facade without leaking into runtime packages
-- [api/last-good-semantic-attachment.md](api/last-good-semantic-attachment.md) — authoring attachment pattern for immediate parser diagnostics plus last-good semantic document retention
+- [api/last-good-semantic-attachment.md](api/last-good-semantic-attachment.md) — parser-attached semantic publication, independent last-good baselines, explicit settlement/retry and lifetime
 - [api/markdown-typed-angle-cst-compatibility.md](api/markdown-typed-angle-cst-compatibility.md) — package-wide #891 typed-angle CST compatibility inventory
 - [../loom/pkg.generated.mbti](../loom/pkg.generated.mbti) — generated `.mbti` signatures for the `@loom` facade
 
@@ -93,6 +93,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-09-12-semantic-publication-ownership.md](decisions/2026-09-12-semantic-publication-ownership.md) — **Accepted** core-owned model/baseline publication, caller-chosen eager settlement, partial success and fault continuation; JSON settings production migration
 - [decisions/2026-08-30-editor-neutral-atomic-parser-transitions.md](decisions/2026-08-30-editor-neutral-atomic-parser-transitions.md) — **Accepted** validated `ChangeSet` transitions, transactional full parsing, and one final reactive publication (#928)
 - [decisions/2026-08-30-markdown-document-update-evidence.md](decisions/2026-08-30-markdown-document-update-evidence.md) — **Accepted** canonical Markdown document updates, gated direct-previous block matches, lightweight semantic nodes, and renderer-owned reuse keys
 - [decisions/2026-08-30-parser-bound-markdown-semantic-publication.md](decisions/2026-08-30-parser-bound-markdown-semantic-publication.md) — **Superseded** parser-owned top-level revision keys; retained for the original performance and source-backing evidence

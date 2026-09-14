@@ -15,8 +15,13 @@
 
 ///|
 #warnings("-unused_error_type")
-fn test_imperative_language() -> @incremental.ImperativeLanguage[String] {
+fn test_imperative_language(
+  fail_on? : String,
+) -> @incremental.ImperativeLanguage[String] {
   let full_parse = fn(_source_id : @core.SourceId, s : String) raise Failure {
+    if fail_on == Some(s) {
+      fail("test language rejected the source")
+    }
     let cst = @seam.build_tree(
       [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
       @seam.RawKind(0),

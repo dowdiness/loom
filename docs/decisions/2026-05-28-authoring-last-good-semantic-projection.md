@@ -1,9 +1,13 @@
 # ADR: Authoring Diagnostics and Last-good Semantic Projection
 
 **Date:** 2026-05-28
-**Status:** Accepted
+**Status:** Accepted — implementation ownership amended by [semantic publication ownership](2026-09-12-semantic-publication-ownership.md)
 **Issue:** [#163](https://github.com/dowdiness/loom/issues/163)
 **Guide:** [Last-good Semantic Document Attachment](../api/last-good-semantic-attachment.md)
+**Amendment (2026-09-12):** The retention/state policy remains. The language-owned
+coordination implementation below is replaced, for the generic API and JSON
+settings, by parser-attached core publication with caller-chosen settlement.
+Other attachments are not migrated by that decision.
 
 ## Context
 

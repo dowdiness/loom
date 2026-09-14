@@ -55,11 +55,11 @@ half-open UTF-16 range, `Primary`/`Secondary` style, and optional message.
 the document identity.
 
 For stateful editor sessions, keep current diagnostics separate from semantic
-document lifetime. Parser diagnostics should update for every edit, while a
-malformed parse or projection should not overwrite the last successful semantic
-document used for reuse. See the
-[last-good semantic attachment guide](last-good-semantic-attachment.md) for that
-state policy and template.
+document lifetime. Register a candidate with `Parser::attach_semantic`; core owns
+last-good publication and pending edit evidence, while the language owns the
+model and chooses eager settlement. Rejection or candidate fault must not
+overwrite the last accepted document. See the
+[last-good semantic attachment guide](last-good-semantic-attachment.md).
 
 Runtime callers can keep using an independent parser or loader:
 

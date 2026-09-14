@@ -34,6 +34,7 @@ pub struct Parser[Ast] {
   priv syntax_view : @incr.Derived[@seam.SyntaxNode]
   priv ast_view : @incr.Derived[Ast]
   priv diagnostics_view : @incr.Derived[@core.DiagnosticSet]
+  priv mut semantic_hub : SemanticHub?
 }
 
 ///|
@@ -97,6 +98,7 @@ pub fn[Ast : Eq] Parser::new(
     syntax_view,
     ast_view,
     diagnostics_view,
+    semantic_hub: None,
   }
 }
 
@@ -114,11 +116,15 @@ pub fn[Ast : Eq] Parser::set_source(
   self : Parser[Ast],
   source : String,
 ) -> Unit raise Failure {
+  self.require_semantic_idle()
   if source == self.engine.get_source() {
     return
   }
   let snapshot = self.engine.reset(source)
-  self.rt.batch(() => self.snapshot_input.set(snapshot))
+  self.rt.batch(() => {
+    self.snapshot_input.set(snapshot)
+    self.advance_semantics(source, None)
+  })
 }
 
 ///|
@@ -128,31 +134,58 @@ pub fn[Ast : Eq] Parser::set_source(
 /// the currently accepted source in original-source UTF-16 coordinates. A
 /// mismatch is rejected before parsing. Only the final accepted snapshot is
 /// published; unsupported fast paths use transactional full parsing.
+/// Nonempty equal-text batches still record semantic edit intent without
+/// reparsing or changing the canonical snapshot.
 pub fn[Ast : Eq] Parser::apply_changes(
   self : Parser[Ast],
   changes : @text_change.ChangeSet,
   new_source : String,
 ) -> Unit raise {
+  self.require_semantic_idle()
   guard changes.apply(self.engine.get_source()) == Some(new_source) else {
     raise ParserUpdateError::ChangeSetMismatch
   }
+  let edit = match self.semantic_hub {
+    Some(_) => semantic_change_envelope(changes)
+    None => None
+  }
   if new_source == self.engine.get_source() {
+    if !changes.is_empty() {
+      self.advance_semantics(new_source, edit)
+    }
     return
   }
   let snapshot = self.engine.apply_changes(changes, new_source)
-  self.rt.batch(() => self.snapshot_input.set(snapshot))
+  self.rt.batch(() => {
+    self.snapshot_input.set(snapshot)
+    self.advance_semantics(new_source, edit)
+  })
 }
 
 ///|
-/// Apply a text `Edit` using CST-node-level reuse. The snapshot input is
-/// updated atomically inside `Runtime::batch` after the engine has advanced.
+/// Apply a text `Edit` using CST-node-level reuse.
+///
+/// `new_source` is the complete text after the edit, not just the inserted text.
+/// The edit's start and lengths are measured in UTF-16 code units, with the
+/// deleted range referring to the current source. The caller must ensure that
+/// the unchanged prefix and suffix match between the current and new sources.
+/// This method trusts that evidence; it does not validate the full transition.
+/// Use `apply_changes` when you need a `ChangeSet` checked against both sources.
+///
+/// After parsing succeeds, the snapshot and pending semantic edit evidence are
+/// updated together inside `Runtime::batch`. A parse failure leaves the previous
+/// source, snapshot and semantic evidence unchanged.
 pub fn[Ast : Eq] Parser::apply_edit(
   self : Parser[Ast],
   edit : @core.Edit,
   new_source : String,
 ) -> Unit raise Failure {
+  self.require_semantic_idle()
   let snapshot = self.engine.edit(edit, new_source)
-  self.rt.batch(() => self.snapshot_input.set(snapshot))
+  self.rt.batch(() => {
+    self.snapshot_input.set(snapshot)
+    self.advance_semantics(new_source, Some(edit))
+  })
 }
 
 ///|

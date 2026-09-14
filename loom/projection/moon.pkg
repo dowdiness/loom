@@ -1,5 +1,6 @@
 import {
   "dowdiness/loom/core",
+  "dowdiness/loom/internal/semantic_change",
   "dowdiness/text_change" @shared_text_change,
   "moonbitlang/core/cmp",
 }

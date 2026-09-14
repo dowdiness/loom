@@ -48,7 +48,7 @@ fn projection_failure_source(source : String) -> String {
 }
 
 ///|
-/// Assert the fixture is in its valid settled state outside a timed body.
+/// Assert the fixture is in its valid semantic state outside a timed body.
 fn assert_current(attachment : SettingsAttachment) -> Unit {
   if attachment.state().to_string() != "Current" {
     abort("benchmark setup: expected Current state")
@@ -156,7 +156,7 @@ test "authoring parser: malformed -> recovery + diagnostics reads" (
 }
 
 ///|
-test "authoring pipeline: apply_edit start + settle" (b : @bench.T) {
+test "authoring pipeline: apply_edit start + semantic read" (b : @bench.T) {
   let source = make_settings_source(0)
   let (edit, edited) = setting_edit(source, 0, "900")
   let source_id = @core.SourceId("json-settings-benchmark-pipeline-edit-start")
@@ -175,7 +175,7 @@ test "authoring pipeline: apply_edit start + settle" (b : @bench.T) {
 }
 
 ///|
-test "authoring pipeline: apply_edit middle + settle" (b : @bench.T) {
+test "authoring pipeline: apply_edit middle + semantic read" (b : @bench.T) {
   let source = make_settings_source(0)
   let (edit, edited) = setting_edit(source, 25, "925")
   let source_id = @core.SourceId("json-settings-benchmark-pipeline-edit-middle")
@@ -194,7 +194,7 @@ test "authoring pipeline: apply_edit middle + settle" (b : @bench.T) {
 }
 
 ///|
-test "authoring pipeline: apply_edit end + settle" (b : @bench.T) {
+test "authoring pipeline: apply_edit end + semantic read" (b : @bench.T) {
   let source = make_settings_source(0)
   let (edit, edited) = setting_edit(source, 49, "949")
   let source_id = @core.SourceId("json-settings-benchmark-pipeline-edit-end")
@@ -213,7 +213,9 @@ test "authoring pipeline: apply_edit end + settle" (b : @bench.T) {
 }
 
 ///|
-test "authoring pipeline: set_source full replace + settle" (b : @bench.T) {
+test "authoring pipeline: set_source full replace + semantic read" (
+  b : @bench.T,
+) {
   let source = make_settings_source(0)
   let replacement = make_settings_source(1)
   let source_id = @core.SourceId("json-settings-benchmark-pipeline-set-source")
@@ -274,7 +276,9 @@ test "authoring pipeline: projection failure -> recovery" (b : @bench.T) {
 }
 
 ///|
-test "authoring pipeline: cold construction + initial settle" (b : @bench.T) {
+test "authoring pipeline: cold construction + initial semantic read" (
+  b : @bench.T,
+) {
   let source = make_settings_source(0)
   let source_id = @core.SourceId("json-settings-benchmark-pipeline-cold")
   b.bench(() => {

@@ -4,6 +4,21 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ## Unreleased
 
+### Added
+
+- `Parser::attach_semantic` and the `SemanticAnalysis`, `SemanticDecision`,
+  `SemanticStatus`, `SemanticSnapshot`, `SemanticAccepted`, `SemanticObservation`
+  and `SemanticChange` APIs. Core publishes a semantic value and matching source
+  baseline together; callers choose settlement and explicit fault retry.
+- `SettingsAttachment::retry()` retries the latest source after a semantic fault.
+
+### Fixed
+
+- Failed incremental edits no longer change the parser's internal source before
+  parsing succeeds. Reapplying the already-published source after a failure stays
+  a no-op instead of fabricating a semantic revision; edits before the first parse
+  preserve the original source on failure as well.
+
 ### Removed
 
 - **Breaking diagnostic API cleanup:** removed `DiagnosticSource`,
@@ -23,6 +38,12 @@ Notable user-facing changes to Loom and its sibling modules.
   clean CST-to-MarkdownIR-to-HTML pipeline. Type 6 HTML blocks that begin after
   blockquote or list markers retain their container boundaries in direct and
   incremental parsing.
+
+- JSON settings uses core-owned semantic publication while retaining its
+  document/projection and ordinary eager ID policy. **Exhaustive-match change:**
+  `SettingsState::CandidateBlocked` distinguishes candidate exceptions from
+  `GraphBlocked`. Parser updates can succeed while semantic state reports a
+  fault; last-good remains available and the next edit can continue normally.
 
 - **Breaking block-reparse configuration and parser contract:**
   `BlockReparseSpec` is now opaque and constructed with
