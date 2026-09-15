@@ -49,7 +49,7 @@ pub fn LineIndex::new(source : String) -> LineIndex {
         }
     }
   }
-  { line_starts, source_len: len }
+  { line_starts, source_len: len, }
 }
 
 ///|
@@ -57,7 +57,7 @@ pub fn LineIndex::line_col(self : LineIndex, offset : Int) -> LineCol {
   let clamped = line_index_clamp_offset(offset, self.source_len)
   let line = line_index_for_offset(self.line_starts, clamped)
   let line_start = self.line_starts[line]
-  { line, column: clamped - line_start }
+  { line, column: clamped - line_start, }
 }
 
 ///|
@@ -66,7 +66,7 @@ pub fn LineIndex::line_range(
   start : Int,
   end : Int,
 ) -> LineRange {
-  { start: self.line_col(start), end: self.line_col(end) }
+  { start: self.line_col(start), end: self.line_col(end), }
 }
 
 ///|

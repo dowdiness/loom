@@ -115,14 +115,14 @@ pub fn[T, K] bind(
   let bound_natives : Array[NativeRule[T, K]] = []
   for i in 0..<compiled.native_names.length() {
     let name = compiled.native_names[i]
-    let brand = NativeCapabilityBrand::{ token: Ref::Ref(()) }
+    let brand = NativeCapabilityBrand::{ token: Ref::Ref(()), }
     brands.push(brand)
     let pairs : Array[(RuleName, RuleCapability[T, K])] = []
     for target in compiled.native_dispatch[i] {
       pairs.push(
         (
           compiled.names[target.index],
-          RuleCapability::{ brand, slot: target, marker: None },
+          RuleCapability::{ brand, slot: target, marker: None, },
         ),
       )
     }
@@ -136,7 +136,7 @@ pub fn[T, K] bind(
     guard! guards.get(name) is Some(guard_fn)
     bound_guards.push(guard_fn)
   }
-  { grammar: compiled, natives: bound_natives, guards: bound_guards, brands }
+  { grammar: compiled, natives: bound_natives, guards: bound_guards, brands, }
 }
 
 ///|
@@ -148,7 +148,7 @@ pub fn[
   self : Self[T, K],
 ) -> (@core.ParserContext[T, K]) -> Unit {
   ctx => {
-    let stack = RuleCallStack::{ frames: [] }
+    let stack = RuleCallStack::{ frames: [], }
     run_rule(
       ctx,
       self.grammar,
@@ -283,7 +283,7 @@ fn[
     ctx.error("grammar: recursive rule re-entered without progress")
     return CycleGuarded
   }
-  stack.frames.push(RuleFrame::{ slot, position })
+  stack.frames.push(RuleFrame::{ slot, position, })
   run_expr(ctx, grammar, natives, guards, brands, stack, body)
   ignore(stack.frames.pop())
   Executed

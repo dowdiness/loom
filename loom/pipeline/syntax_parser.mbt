@@ -85,7 +85,7 @@ pub fn SyntaxParser::new(
 ) -> SyntaxParser raise Failure {
   let parser = Parser::new(source_id, source, lang, runtime?)
   let snapshot_view = parser.derive_syntax_snapshot()
-  { parser, snapshot_view }
+  { parser, snapshot_view, }
 }
 
 ///|

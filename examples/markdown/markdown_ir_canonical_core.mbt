@@ -329,7 +329,7 @@ fn markdown_ir_canonical_choice(
   encoding_rank? : Int = 0,
   marker_rank? : Int = 0,
 ) -> MarkdownIRCanonicalChoiceAlternative {
-  { value, growth, encoding_rank, marker_rank }
+  { value, growth, encoding_rank, marker_rank, }
 }
 
 ///|
@@ -614,7 +614,7 @@ fn markdown_ir_canonical_choice_plan(
       site_container_indices.push(container_index)
     }
   }
-  { containers, container_nodes, radices, site_container_indices }
+  { containers, container_nodes, radices, site_container_indices, }
 }
 
 ///|
@@ -666,7 +666,7 @@ priv struct MarkdownIRCanonicalAssignmentReader {
 fn MarkdownIRCanonicalAssignmentReader::MarkdownIRCanonicalAssignmentReader(
   assignment : Array[Int],
 ) -> MarkdownIRCanonicalAssignmentReader {
-  { assignment, index: 0, growth: 0, encoding_rank: 0, marker_rank: 0 }
+  { assignment, index: 0, growth: 0, encoding_rank: 0, marker_rank: 0, }
 }
 
 ///|
@@ -1190,7 +1190,7 @@ fn markdown_ir_canonical_record_blocked(
   node : MarkdownIRCanonicalSearchNode,
   failure : MarkdownIRCanonicalFormatFailure,
 ) -> MarkdownIRCanonicalBlockedSearch? {
-  let next = { candidate: node.candidate, failure }
+  let next = { candidate: node.candidate, failure, }
   match blocked {
     None => Some(next)
     Some(current) =>

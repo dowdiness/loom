@@ -763,7 +763,11 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
             Ok(sets) => sets
             Err(msg) => return Err(msg)
           }
-          token_enum = Some({ name: td.tycon, variants: classified, token_sets })
+          token_enum = Some({
+            name: td.tycon,
+            variants: classified,
+            token_sets,
+          })
         }
         if is_term {
           if term_enum is Some(_) {
@@ -779,7 +783,7 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
       _ => ()
     }
   }
-  Ok({ token_enum, term_enum })
+  Ok({ token_enum, term_enum, })
 }
 
 ///|
@@ -930,7 +934,7 @@ fn extract_token_sets(
             )
           }
         }
-        sets.push({ name, variants: member_names })
+        sets.push({ name, variants: member_names, })
       }
       Some(@attribute.Ident(id)) if id.qual == Some("loom") &&
         id.name == "token_set" =>

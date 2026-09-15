@@ -37,14 +37,14 @@ struct MigrationCase {
 ///|
 fn migration_property_words() -> Array[MigrationWord] {
   [
-    { camel: "Bold", snake: "bold" },
-    { camel: "Calm", snake: "calm" },
-    { camel: "Deep", snake: "deep" },
-    { camel: "Fast", snake: "fast" },
-    { camel: "Kind", snake: "kind" },
-    { camel: "Line", snake: "line" },
-    { camel: "HTTP", snake: "h_t_t_p" },
-    { camel: "V2Id", snake: "v2_id" },
+    { camel: "Bold", snake: "bold", },
+    { camel: "Calm", snake: "calm", },
+    { camel: "Deep", snake: "deep", },
+    { camel: "Fast", snake: "fast", },
+    { camel: "Kind", snake: "kind", },
+    { camel: "Line", snake: "line", },
+    { camel: "HTTP", snake: "h_t_t_p", },
+    { camel: "V2Id", snake: "v2_id", },
   ]
 }
 

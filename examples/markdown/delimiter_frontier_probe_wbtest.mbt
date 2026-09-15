@@ -76,7 +76,7 @@ fn probe_container_from_source(
   let mut start = 0
   for info in infos {
     let end = start + info.len
-    tokens.push({ kind: probe_kind(info.token), start, end })
+    tokens.push({ kind: probe_kind(info.token), start, end, })
     start = end
   }
   let mut boundary_aligned = container_end == 0
@@ -88,7 +88,7 @@ fn probe_container_from_source(
   guard boundary_aligned else {
     raise @core.LexError("container end must align to a token boundary")
   }
-  { tokens, end: container_end }
+  { tokens, end: container_end, }
 }
 
 ///|
@@ -226,7 +226,7 @@ test "delimiter frontier: ignores a same-length run after the boundary" {
   let frontier = frontier_new()
   let closer = frontier_next_closer(
     frontier,
-    { token_index: 0, start: 0, length: 1 },
+    { token_index: 0, start: 0, length: 1, },
     container,
   )
   inspect(closer is None, content="true")
@@ -256,14 +256,14 @@ test "delimiter frontier: ignores an extended post-boundary tail" {
   let extended_frontier = frontier_new()
   let _ = frontier_next_closer(
     frontier,
-    { token_index: 0, start: 0, length: 1 },
+    { token_index: 0, start: 0, length: 1, },
     container,
   )
   let visits_before = frontier.visits
   frontier_observe_until(frontier, container, container.tokens.length() + 100)
   let _ = frontier_next_closer(
     extended_frontier,
-    { token_index: 0, start: 0, length: 1 },
+    { token_index: 0, start: 0, length: 1, },
     extended_container,
   )
   inspect(frontier.visits == visits_before, content="true")
@@ -288,7 +288,7 @@ test "delimiter frontier: visits full in-container stream once" {
   let frontier = frontier_new()
   let _ = frontier_next_closer(
     frontier,
-    { token_index: 1, start: 5, length: 1 },
+    { token_index: 1, start: 5, length: 1, },
     container,
   )
   inspect(
@@ -306,12 +306,12 @@ test "delimiter frontier: ownership remains left to right" {
   let frontier = frontier_new()
   let first = frontier_next_closer(
     frontier,
-    { token_index: 0, start: 0, length: 1 },
+    { token_index: 0, start: 0, length: 1, },
     container,
   ).unwrap()
   let second = frontier_next_closer(
     frontier,
-    { token_index: 4, start: 4, length: 1 },
+    { token_index: 4, start: 4, length: 1, },
     container,
   ).unwrap()
   inspect(first.token_index, content="2")
@@ -329,12 +329,12 @@ test "delimiter frontier: third run remains unmatched" {
   let frontier = frontier_new()
   let first = frontier_next_closer(
     frontier,
-    { token_index: 0, start: 0, length: 1 },
+    { token_index: 0, start: 0, length: 1, },
     container,
   ).unwrap()
   let third = frontier_next_closer(
     frontier,
-    { token_index: 4, start: 4, length: 1 },
+    { token_index: 4, start: 4, length: 1, },
     container,
   )
   inspect(first.token_index, content="2")

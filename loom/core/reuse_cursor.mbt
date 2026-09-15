@@ -69,7 +69,7 @@ pub struct OldTokenCache {
 ///|
 /// Create an empty old-token cache.
 pub fn OldTokenCache::empty() -> OldTokenCache {
-  { tokens: None, pending_delta: 0, damage_boundary: 2147483647 }
+  { tokens: None, pending_delta: 0, damage_boundary: 2147483647, }
 }
 
 ///|
@@ -177,7 +177,7 @@ fn collect_old_tokens(
           !trivia_kinds.contains(t.kind) &&
           t.kind != err_raw &&
           t.kind != incomplete_raw {
-          out.push({ kind: t.kind, text: t.text().to_owned(), start: offset })
+          out.push({ kind: t.kind, text: t.text().to_owned(), start: offset, })
         }
         offset = offset + t.text_len()
       }
@@ -221,7 +221,12 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   let err_raw = spec.error_kind.to_raw()
   let incomplete_raw = spec.incomplete_kind.to_raw()
   let stack = [
-    { node: old_tree, child_index: 0, start_offset: 0, current_child_offset: 0 },
+    {
+      node: old_tree,
+      child_index: 0,
+      start_offset: 0,
+      current_child_offset: 0,
+    },
   ]
   {
     stack,

@@ -13,7 +13,7 @@ fn recovery_parity_heavy_markdown_doc(repeats : Int) -> String {
   let flanking_recovery = slash + "* literal *unclosed"
   let link_literal = "[" + slash + "*literal*](/)"
   let consume_then_reset = slash + "*a " + slash + "*b***"
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for i = 0; i < repeats; i = i + 1 {
     buf.write_string(
       "case " +

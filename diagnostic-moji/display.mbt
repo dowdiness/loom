@@ -87,7 +87,7 @@ pub fn[R : @diagnostic.SourceResolver] render_plain(
   diagnostic : @diagnostic.Diagnostic,
   resolver : R,
 ) -> String raise @diagnostic.DiagnosticRenderError {
-  diagnostic.render_plain_with_display(resolver, MojiTextDisplay::{  })
+  diagnostic.render_plain_with_display(resolver, MojiTextDisplay::{ })
 }
 
 ///|
@@ -97,6 +97,5 @@ pub fn[R : @diagnostic.SourceResolver] render_diagnostics_plain(
   resolver : R,
 ) -> String raise @diagnostic.DiagnosticRenderError {
   @diagnostic.render_diagnostics_plain_with_display(diagnostics, resolver, MojiTextDisplay::{
-
   })
 }

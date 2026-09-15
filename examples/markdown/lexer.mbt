@@ -259,7 +259,7 @@ fn html_tag_name_follow_is_valid(line : StringView, tag_end : Int) -> Bool {
 fn line_is_complete_type7_html_tag(line : StringView) -> Bool {
   let owned = line.to_owned()
   match classify_inline_html_at(owned, 0, None) {
-    Some({ kind: InlineHtmlAngle, end }) => owned[end:].trim().is_empty()
+    Some({ kind: InlineHtmlAngle, end, }) => owned[end:].trim().is_empty()
     _ => false
   }
 }
@@ -1223,7 +1223,7 @@ fn new_markdown_mode_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] {
   let lex_step = fn(input : String, pos : Int, mode : MarkdownLexMode) {
     session.step(input, pos, mode)
   }
-  { lex_step, initial_mode: LineStart }
+  { lex_step, initial_mode: LineStart, }
 }
 
 ///|

@@ -291,9 +291,9 @@ test "reactive keyed MarkdownIR: gc and sweep retire dead keyed generations" {
   }
   assert_eq(shell.read(), direct_markdown_ir_from_syntax_parser(parser))
   assert_eq(shell.collect_stale(), {
-    resolved: { before: 6, removed: 5, after: 1 },
-    plan: { before: 6, removed: 5, after: 1 },
-    definition: { before: 6, removed: 5, after: 1 },
+    resolved: { before: 6, removed: 5, after: 1, },
+    plan: { before: 6, removed: 5, after: 1, },
+    definition: { before: 6, removed: 5, after: 1, },
   })
   assert_eq(shell.read(), direct_markdown_ir_from_syntax_parser(parser))
   shell.dispose()

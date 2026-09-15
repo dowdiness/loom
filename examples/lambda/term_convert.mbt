@@ -30,7 +30,7 @@ fn collect_defs_and_body(
     .filter_map(child => {
       match @syntax.SyntaxKind::from_raw(child.kind()) {
         @syntax.LetDef =>
-          Some(convert_let_def(LetDefView::{ node: child }, recurse))
+          Some(convert_let_def(LetDefView::{ node: child, }, recurse))
         _ => None
       }
     })

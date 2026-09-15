@@ -32,7 +32,7 @@ fn DirectElementGroup::DirectElementGroup(
   } else {
     (elements[0].start(), elements[elements.length() - 1].end())
   }
-  { parent, index, elements, start, end }
+  { parent, index, elements, start, end, }
 }
 
 ///|

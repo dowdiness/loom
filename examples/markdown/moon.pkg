@@ -8,7 +8,6 @@ import {
   "dowdiness/markdown/payload_lexer",
   "dowdiness/text_change",
   "moonbitlang/core/debug",
-  "moonbitlang/core/bench",
   "moonbitlang/core/string",
   "moonbitlang/core/immut/hashmap",
   "moonbit-community/casefold",
@@ -16,5 +15,6 @@ import {
 
 import {
   "moonbitlang/core/json",
+  "moonbitlang/core/bench",
   "moonbitlang/core/quickcheck",
 } for "test"

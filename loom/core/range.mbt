@@ -15,7 +15,7 @@ pub impl Show for Range with fn output(self, logger) {
 ///|
 /// Create a new range
 pub fn Range::new(start : Int, end : Int) -> Range {
-  { start, end }
+  { start, end, }
 }
 
 ///|

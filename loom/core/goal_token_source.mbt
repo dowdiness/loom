@@ -26,7 +26,7 @@ pub(all) struct GoalCache[T] {
 ///|
 /// Create an empty goal tokenization cache.
 fn[T] GoalCache::new() -> GoalCache[T] {
-  { entries: [] }
+  { entries: [], }
 }
 
 ///|
@@ -58,7 +58,7 @@ fn[T] GoalCache::insert(
   token : T,
   end_offset : Int,
 ) -> Unit {
-  self.entries.push({ offset, goal, token, end_offset })
+  self.entries.push({ offset, goal, token, end_offset, })
 }
 
 ///|

@@ -12,7 +12,7 @@ pub fn SourceSnapshot::SourceSnapshot(
   text : String,
   line_index : LineIndex,
 ) -> SourceSnapshot {
-  { name, text, line_index }
+  { name, text, line_index, }
 }
 
 ///|
@@ -105,7 +105,7 @@ priv struct DiagnosticRenderContext[R] {
 fn[R] DiagnosticRenderContext::DiagnosticRenderContext(
   resolver : R,
 ) -> DiagnosticRenderContext[R] {
-  { resolver, sources: [] }
+  { resolver, sources: [], }
 }
 
 ///|
@@ -146,7 +146,7 @@ pub fn SourceSnapshot::validate_for_source(
   self : SourceSnapshot,
   source_id : SourceId,
 ) -> Unit raise DiagnosticRenderError {
-  guard self.line_index.strict_offset(self.text, { line: 0, column: 0 }) ==
+  guard self.line_index.strict_offset(self.text, { line: 0, column: 0, }) ==
     Some(0) else {
     raise MismatchedLineIndex(source_id)
   }
@@ -165,7 +165,7 @@ fn[R : SourceResolver] DiagnosticRenderContext::resolve_source(
         None => raise MissingSource(source_id)
       }
       source.validate_for_source(source_id)
-      self.sources.push({ source_id, source })
+      self.sources.push({ source_id, source, })
       source
     }
   }
@@ -188,7 +188,7 @@ fn validate_diagnostic_label(
     Some(_) => ()
     None => raise InvalidUtf16Boundary(span)
   }
-  { label, source, line_range: source.line_index.line_range(start, end) }
+  { label, source, line_range: source.line_index.line_range(start, end), }
 }
 
 ///|
@@ -257,7 +257,7 @@ fn[D : TextDisplay] render_diagnostic_source_line(
   let gutter_width = 3 + display_line.length()
   let source_column_start = gutter_width + 2
   let line_start = match
-    source.line_index.checked_offset(source.text, { line, column: 0 }) {
+    source.line_index.checked_offset(source.text, { line, column: 0, }) {
     Some(offset) => offset
     None => raise MismatchedLineIndex(label.span().source_id())
   }
@@ -387,7 +387,6 @@ pub fn[R : SourceResolver] Diagnostic::render_plain(
   resolver : R,
 ) -> String raise DiagnosticRenderError {
   self.render_plain_with_context(DiagnosticRenderContext(resolver), CodeUnitTextDisplay::{
-
   })
 }
 
@@ -410,7 +409,7 @@ pub fn[R : SourceResolver] render_diagnostics_plain(
   let context = DiagnosticRenderContext(resolver)
   diagnostics
   .map(diagnostic => {
-    diagnostic.render_plain_with_context(context, CodeUnitTextDisplay::{  })
+    diagnostic.render_plain_with_context(context, CodeUnitTextDisplay::{ })
   })
   .join("\n\n")
 }

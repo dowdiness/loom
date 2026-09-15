@@ -151,17 +151,17 @@ test "audit output: example rows follow the declared TSV columns" {
 
 ///|
 test "audit completion: only the pinned all-pass corpus is complete" {
-  let complete = { ..AuditCounts::empty(), pass: 652, render_match: 652 }
+  let complete = { ..AuditCounts::empty(), pass: 652, render_match: 652, }
   assert_true(complete.is_complete(expected_total=652))
   assert_false(
-    { ..AuditCounts::empty(), pass: 652 }.is_complete(expected_total=652),
+    { ..AuditCounts::empty(), pass: 652, }.is_complete(expected_total=652),
   )
   assert_false(complete.is_complete(expected_total=651))
   assert_false(
     complete.record(AdapterPolicyRejection).is_complete(expected_total=653),
   )
-  assert_false({ ..complete, skip: 1 }.is_complete(expected_total=653))
-  assert_false({ ..complete, xfail: 1 }.is_complete(expected_total=653))
+  assert_false({ ..complete, skip: 1, }.is_complete(expected_total=653))
+  assert_false({ ..complete, xfail: 1, }.is_complete(expected_total=653))
 }
 
 ///|

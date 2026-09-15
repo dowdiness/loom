@@ -23,7 +23,7 @@ pub impl DotNode for DotTreeNode with fn label(self) {
 
 ///|
 pub impl DotNode for DotTreeNode with fn node_attrs(self) {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   let mut first = true
   self.attrs.each((k, v) => {
     if !first {
@@ -235,5 +235,5 @@ fn build_tree(
     None => ()
   }
   visiting[nid] = false
-  Some({ int_id, id: nid, label, attrs, children: kids, edge_labels })
+  Some({ int_id, id: nid, label, attrs, children: kids, edge_labels, })
 }

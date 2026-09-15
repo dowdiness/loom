@@ -913,7 +913,7 @@ priv struct MarkdownIRCanonicalCorpusRun {
 
 ///|
 fn markdown_ir_run_canonical_corpus() -> MarkdownIRCanonicalCorpusRun raise {
-  let rng = { state: 39777 }
+  let rng = { state: 39777, }
   let alphabet = markdown_ir_canonical_corpus_alphabet()
   let transcript = StringBuilder::StringBuilder()
   transcript.write_string(

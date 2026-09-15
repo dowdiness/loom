@@ -19,7 +19,7 @@ fn moonbit_fold_node(
         result
       }
       if node_has_parse_errors(node) {
-        { ..result, contains_errors: true }
+        { ..result, contains_errors: true, }
       } else {
         result
       }
@@ -47,7 +47,7 @@ fn moonbit_fold_node(
         contains_errors: node_has_parse_errors(node),
       }
     ErrorToken | IncompleteToken =>
-      { item_count: 0, token_count: 0, contains_errors: true }
+      { item_count: 0, token_count: 0, contains_errors: true, }
     _ => MoonbitParseShell::empty()
   }
 }

@@ -420,7 +420,7 @@ fn convert_inline_node(
     LinkNode => {
       // Extract display text (inside []) and URL (inside ())
       let display : Array[Inline] = []
-      let url_buf = StringBuilder::new()
+      let url_buf = StringBuilder()
       let mut url_depth = 0
       let mut past_bracket = false
       let mut preceding_text_ends_escaped = false

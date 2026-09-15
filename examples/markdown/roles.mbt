@@ -55,7 +55,7 @@ fn MarkdownRoleSpan::MarkdownRoleSpan(
   start~ : Int,
   end~ : Int,
 ) -> MarkdownRoleSpan {
-  { role, start, end }
+  { role, start, end, }
 }
 
 ///|

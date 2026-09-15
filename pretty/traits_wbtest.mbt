@@ -41,6 +41,6 @@ test "pretty_unparse keeps wide groups flat (width=1_000_000)" {
 
 ///|
 test "pretty_unparse on a single-token document" {
-  let probe = Words::{ parts: ["only"] }
+  let probe = Words::{ parts: ["only"], }
   inspect(pretty_unparse(probe), content="only")
 }

@@ -10,7 +10,7 @@ priv struct SemanticHub {
 
 ///|
 fn SemanticHub::SemanticHub() -> SemanticHub {
-  { revision: 0, next_registration: 0, busy: false, registrations: {} }
+  { revision: 0, next_registration: 0, busy: false, registrations: {}, }
 }
 
 ///|

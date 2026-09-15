@@ -1,6 +1,6 @@
 ///|
 pub fn[A] render_string(layout : Layout[A], width? : Int = 80) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for cmd in resolve(width, layout) {
     match cmd {
       CText(s) => buf.write_string(s)

@@ -4,7 +4,7 @@
 ///|
 test "parse_rule_string: @prefix Atom yields PrattAppSpec" {
   match parse_rule_string("@prefix Atom", "AppExpr") {
-    Ok(PrattApp({ prefix: "Atom", app_kind: None })) => ()
+    Ok(PrattApp({ prefix: "Atom", app_kind: None, })) => ()
     Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
     Err(m) => abort("parse failed: " + m)
   }
@@ -34,7 +34,7 @@ test "parse_rule_string: PrattBinary with prec and skip" {
 ///|
 test "parse_rule_string: @app override on PrattApp" {
   match parse_rule_string("@prefix Atom @app AppExpr", "Wrapper") {
-    Ok(PrattApp({ prefix: "Atom", app_kind: Some("AppExpr") })) => ()
+    Ok(PrattApp({ prefix: "Atom", app_kind: Some("AppExpr"), })) => ()
     Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
     Err(m) => abort("parse failed: " + m)
   }

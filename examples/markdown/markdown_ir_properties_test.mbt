@@ -24,7 +24,7 @@ fn markdown_property_unordered_list_source(
   seed : Int,
   trailing_newline? : Bool = true,
 ) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for i = 0; i < item_count; i = i + 1 {
     buf.write_string(markdown_property_list_item_source(seed, i))
     if trailing_newline || i + 1 < item_count {
@@ -41,7 +41,7 @@ fn markdown_property_unordered_list_source_with_replacement(
   target_index : Int,
   replacement : String,
 ) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for i = 0; i < item_count; i = i + 1 {
     if i == target_index {
       buf.write_string("- " + replacement)

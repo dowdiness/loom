@@ -132,7 +132,7 @@ fn zero_width_source(values : Array[Int], gaps : Array[Int]) -> String {
   if gaps.length() != values.length() - 1 {
     abort("gap count must be item_count - 1")
   }
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for i in 0..<values.length() {
     let value = values[i]
     if value < 0 || value > 9 {

@@ -36,7 +36,7 @@ priv struct State {
 fn State::start() -> State {
   // `prev_gcb` is meaningful only after the first codepoint is consumed;
   // the walker never queries break_before before that.
-  { prev_gcb: Other, ep: EpA, ri_odd: false, incb: IcsNone }
+  { prev_gcb: Other, ep: EpA, ri_odd: false, incb: IcsNone, }
 }
 
 ///|
@@ -72,7 +72,7 @@ fn State::advance(self : State, gcb : GCB, is_ep : Bool, icb : InCB) -> State {
       }
     IcbNone => IcsNone
   }
-  { prev_gcb: gcb, ep: ep_next, ri_odd: ri_next, incb: incb_next }
+  { prev_gcb: gcb, ep: ep_next, ri_odd: ri_next, incb: incb_next, }
 }
 
 ///|

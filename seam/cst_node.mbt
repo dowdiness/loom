@@ -62,7 +62,7 @@ fn CstToken::synthetic_zero_width(kind : RawKind) -> CstToken {
   let text = ""
   let RawKind(k) = kind
   let h = combine_hash(combine_hash(k, string_hash(text)), 0)
-  { kind, source: text, start: 0, end: 0, hash: h, source_backed: false }
+  { kind, source: text, start: 0, end: 0, hash: h, source_backed: false, }
 }
 
 ///|

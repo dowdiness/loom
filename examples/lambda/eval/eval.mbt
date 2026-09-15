@@ -76,7 +76,7 @@ pub struct Env {
 
 ///|
 pub fn Env::empty() -> Env {
-  { bindings: Map([]) }
+  { bindings: Map([]), }
 }
 
 ///|
@@ -94,7 +94,7 @@ pub fn Env::lookup(self : Env, name : String) -> Value? {
 pub fn Env::bind(self : Env, name : String, value : Value) -> Env {
   let new_bindings = self.bindings.copy()
   new_bindings[name] = value
-  { bindings: new_bindings }
+  { bindings: new_bindings, }
 }
 
 ///|

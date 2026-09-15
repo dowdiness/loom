@@ -25,7 +25,7 @@ pub fn[T] LocatedToken::LocatedToken(
   start~ : Int,
   end~ : Int,
 ) -> LocatedToken[T] {
-  { token, start, end }
+  { token, start, end, }
 }
 
 ///|
@@ -67,7 +67,7 @@ pub fn[T] LexResult::with_starts(
 ) -> LexResult[T] {
   let diagnostics = diagnostics.copy()
   validate_lex_result_starts(tokens, starts, diagnostics)
-  { tokens, starts, diagnostics }
+  { tokens, starts, diagnostics, }
 }
 
 ///|
@@ -287,7 +287,7 @@ pub struct SourceEdit {
 
 ///|
 pub fn SourceEdit::SourceEdit(source_id : SourceId, edit : Edit) -> SourceEdit {
-  { source_id, edit }
+  { source_id, edit, }
 }
 
 ///|
@@ -374,12 +374,12 @@ pub struct DiagnosticSet {
 
 ///|
 pub fn DiagnosticSet::empty() -> DiagnosticSet {
-  { items: [] }
+  { items: [], }
 }
 
 ///|
 pub fn DiagnosticSet::single(diagnostic : Diagnostic) -> DiagnosticSet {
-  { items: [diagnostic] }
+  { items: [diagnostic], }
 }
 
 ///|
@@ -389,7 +389,7 @@ pub fn DiagnosticSet::items(self : DiagnosticSet) -> Array[Diagnostic] {
 
 ///|
 pub fn DiagnosticSet::copy(self : DiagnosticSet) -> DiagnosticSet {
-  { items: self.items.copy() }
+  { items: self.items.copy(), }
 }
 
 ///|
@@ -640,7 +640,7 @@ pub impl @diagnostic.ToDiagnostic for LexError with fn to_diagnostic(self) {
 ///|
 /// Construct a TokenInfo. Use this from outside the core package.
 pub fn[T] TokenInfo::new(token : T, len : Int) -> TokenInfo[T] {
-  { token, len }
+  { token, len, }
 }
 
 ///|

@@ -119,7 +119,7 @@ fn decode_commonmark_named_reference(
     return None
   }
   match commonmark_named_entity(text[name_start:cursor].to_owned()) {
-    Some(replacement) => Some({ replacement, end: cursor + 1 })
+    Some(replacement) => Some({ replacement, end: cursor + 1, })
     None => None
   }
 }

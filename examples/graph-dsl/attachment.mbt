@@ -18,12 +18,12 @@ fn compute_graph_attempt(
   let source = parser.source().get_or_abort()
   let diagnostics = parser.diagnostics().get_or_abort()
   if !diagnostics.is_empty() {
-    return { source, outcome: ParseFailed(diagnostics.format()) }
+    return { source, outcome: ParseFailed(diagnostics.format()), }
   }
   let syntax = parser.syntax_tree().get_or_abort()
   match project_graph_raw(source, syntax) {
-    Ok(raw) => { source, outcome: Projected(raw) }
-    Err(messages) => { source, outcome: ProjectionFailed(messages) }
+    Ok(raw) => { source, outcome: Projected(raw), }
+    Err(messages) => { source, outcome: ProjectionFailed(messages), }
   }
 }
 
@@ -222,8 +222,8 @@ pub fn GraphAttachment::subscribe(
 ) -> GraphAttachmentSubscription {
   let id = self.next_listener_id
   self.next_listener_id = id + 1
-  self.listeners.push({ id, callback: listener })
-  { attachment: self, id }
+  self.listeners.push({ id, callback: listener, })
+  { attachment: self, id, }
 }
 
 ///|

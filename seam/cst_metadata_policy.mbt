@@ -37,7 +37,7 @@ fn compute_policy_hash(
 fn canonical_trivia_kinds(trivia_kinds : Array[RawKind]) -> Array[RawKind] {
   let sorted = trivia_kinds.copy()
   sorted.sort()
-  let canonical : Array[RawKind] = Array::new(capacity=sorted.length())
+  let canonical : Array[RawKind] = Array(capacity=sorted.length())
   for kind in sorted {
     if canonical.is_empty() || canonical[canonical.length() - 1] != kind {
       canonical.push(kind)

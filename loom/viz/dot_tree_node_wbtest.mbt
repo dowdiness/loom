@@ -5,14 +5,14 @@ test "from_graph: chained edge targets are linked sequentially" {
     directed: true,
     id: None,
     statements: [
-      @parser.NodeStmt({ id: "a", port: None }, None),
-      @parser.NodeStmt({ id: "b", port: None }, None),
-      @parser.NodeStmt({ id: "c", port: None }, None),
+      @parser.NodeStmt({ id: "a", port: None, }, None),
+      @parser.NodeStmt({ id: "b", port: None, }, None),
+      @parser.NodeStmt({ id: "c", port: None, }, None),
       @parser.EdgeStmt(
-        { id: "a", port: None },
+        { id: "a", port: None, },
         [
-          (@parser.Directed, { id: "b", port: None }),
-          (@parser.Directed, { id: "c", port: None }),
+          (@parser.Directed, { id: "b", port: None, }),
+          (@parser.Directed, { id: "c", port: None, }),
         ],
         None,
       ),
@@ -38,22 +38,22 @@ test "from_graph: returns None when graph contains a reachable cycle" {
     directed: true,
     id: None,
     statements: [
-      @parser.NodeStmt({ id: "a", port: None }, None),
-      @parser.NodeStmt({ id: "b", port: None }, None),
-      @parser.NodeStmt({ id: "c", port: None }, None),
+      @parser.NodeStmt({ id: "a", port: None, }, None),
+      @parser.NodeStmt({ id: "b", port: None, }, None),
+      @parser.NodeStmt({ id: "c", port: None, }, None),
       @parser.EdgeStmt(
-        { id: "a", port: None },
-        [(@parser.Directed, { id: "b", port: None })],
+        { id: "a", port: None, },
+        [(@parser.Directed, { id: "b", port: None, })],
         None,
       ),
       @parser.EdgeStmt(
-        { id: "b", port: None },
-        [(@parser.Directed, { id: "c", port: None })],
+        { id: "b", port: None, },
+        [(@parser.Directed, { id: "c", port: None, })],
         None,
       ),
       @parser.EdgeStmt(
-        { id: "c", port: None },
-        [(@parser.Directed, { id: "b", port: None })],
+        { id: "c", port: None, },
+        [(@parser.Directed, { id: "b", port: None, })],
         None,
       ),
     ],
@@ -73,10 +73,10 @@ test "from_graph: accepts trees where nodes come from edge statements only" {
     id: None,
     statements: [
       @parser.EdgeStmt(
-        { id: "a", port: None },
+        { id: "a", port: None, },
         [
-          (@parser.Directed, { id: "b", port: None }),
-          (@parser.Directed, { id: "c", port: None }),
+          (@parser.Directed, { id: "b", port: None, }),
+          (@parser.Directed, { id: "c", port: None, }),
         ],
         None,
       ),
@@ -103,13 +103,13 @@ test "from_graph: returns None when a node has multiple parents" {
     id: None,
     statements: [
       @parser.EdgeStmt(
-        { id: "a", port: None },
-        [(@parser.Directed, { id: "c", port: None })],
+        { id: "a", port: None, },
+        [(@parser.Directed, { id: "c", port: None, })],
         None,
       ),
       @parser.EdgeStmt(
-        { id: "b", port: None },
-        [(@parser.Directed, { id: "c", port: None })],
+        { id: "b", port: None, },
+        [(@parser.Directed, { id: "c", port: None, })],
         None,
       ),
     ],
@@ -129,8 +129,8 @@ test "from_graph: rejects undirected graph" {
     id: None,
     statements: [
       @parser.EdgeStmt(
-        { id: "a", port: None },
-        [(@parser.Undirected, { id: "b", port: None })],
+        { id: "a", port: None, },
+        [(@parser.Undirected, { id: "b", port: None, })],
         None,
       ),
     ],
@@ -150,8 +150,8 @@ test "from_graph: rejects undirected edge operator in directed graph" {
     id: None,
     statements: [
       @parser.EdgeStmt(
-        { id: "a", port: None },
-        [(@parser.Undirected, { id: "b", port: None })],
+        { id: "a", port: None, },
+        [(@parser.Undirected, { id: "b", port: None, })],
         None,
       ),
     ],

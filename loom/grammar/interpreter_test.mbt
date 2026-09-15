@@ -496,7 +496,7 @@ test "runtime cycle guard permits recursive re-entry after token progress" {
             Expr::Ref("source"),
           ]),
         },
-        Alt::{ starts: Pred::IsToken(TestToken::EOF), body: Expr::Empty },
+        Alt::{ starts: Pred::IsToken(TestToken::EOF), body: Expr::Empty, },
       ]),
     },
     root="source",
@@ -627,7 +627,7 @@ test "runtime cycle guard stops recursive native dispatch" {
     {
       "source": Expr::Native("delegate"),
       "choice": Expr::Choice([
-        Alt::{ starts: Pred::Any, body: Expr::Ref("source") },
+        Alt::{ starts: Pred::Any, body: Expr::Ref("source"), },
       ]),
     },
     root="source",
@@ -869,7 +869,7 @@ test "native dispatch reports the cycle guard as an unmatched rule" {
     {
       "source": Expr::Native("delegate"),
       "choice": Expr::Choice([
-        Alt::{ starts: Pred::Any, body: Expr::Native("delegate") },
+        Alt::{ starts: Pred::Any, body: Expr::Native("delegate"), },
       ]),
     },
     root="source",

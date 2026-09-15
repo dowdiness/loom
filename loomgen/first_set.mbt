@@ -244,7 +244,7 @@ fn FirstDispatchRegion::FirstDispatchRegion(
   units : FirstCodeUnits,
   variants : Array[VariantDecl],
 ) -> FirstDispatchRegion {
-  { units, variants }
+  { units, variants, }
 }
 
 ///|
@@ -258,7 +258,7 @@ fn FirstDispatchPlan::FirstDispatchPlan(
   regions : Array[FirstDispatchRegion],
   fallback : Array[VariantDecl],
 ) -> FirstDispatchPlan {
-  { regions, fallback }
+  { regions, fallback, }
 }
 
 ///|

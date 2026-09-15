@@ -114,39 +114,39 @@ test "LineIndex strict inverse round-trips only valid UTF-16 boundaries" {
   let source = "a😈\r\nb"
   let index = LineIndex::new(source)
   debug_inspect(
-    index.strict_offset(source, { line: 0, column: 0 }),
+    index.strict_offset(source, { line: 0, column: 0, }),
     content="Some(0)",
   )
   debug_inspect(
-    index.strict_offset(source, { line: 0, column: 1 }),
+    index.strict_offset(source, { line: 0, column: 1, }),
     content="Some(1)",
   )
   debug_inspect(
-    index.strict_offset(source, { line: 0, column: 2 }),
+    index.strict_offset(source, { line: 0, column: 2, }),
     content="None",
   )
   debug_inspect(
-    index.strict_offset(source, { line: 0, column: 3 }),
+    index.strict_offset(source, { line: 0, column: 3, }),
     content="Some(3)",
   )
   debug_inspect(
-    index.strict_offset(source, { line: 0, column: 4 }),
+    index.strict_offset(source, { line: 0, column: 4, }),
     content="Some(4)",
   )
   debug_inspect(
-    index.strict_offset(source, { line: 1, column: 0 }),
+    index.strict_offset(source, { line: 1, column: 0, }),
     content="Some(5)",
   )
   debug_inspect(
-    index.strict_offset(source, { line: 1, column: 1 }),
+    index.strict_offset(source, { line: 1, column: 1, }),
     content="Some(6)",
   )
   debug_inspect(
-    index.strict_offset(source, { line: 0, column: 5 }),
+    index.strict_offset(source, { line: 0, column: 5, }),
     content="None",
   )
   debug_inspect(
-    index.strict_offset(source, { line: 2, column: 0 }),
+    index.strict_offset(source, { line: 2, column: 0, }),
     content="None",
   )
 }

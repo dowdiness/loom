@@ -26,7 +26,7 @@ fn lex_payload_segments(
   let n = source.length()
   let flush = (kind : PayloadSegmentKind, end : Int) => {
     if end > segment_start {
-      segments.push({ kind, start: segment_start, end })
+      segments.push({ kind, start: segment_start, end, })
     }
     segment_start = end
   }

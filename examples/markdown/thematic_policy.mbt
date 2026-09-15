@@ -3,7 +3,7 @@ fn line_at_offset_is_thematic_break(
   ctx : @core.ParserContext[Token, SyntaxKind],
   offset : Int,
 ) -> Bool {
-  let line = StringBuilder::new()
+  let line = StringBuilder()
   for i = offset {
     match ctx.peek_nth(i) {
       ThematicBreak => break true

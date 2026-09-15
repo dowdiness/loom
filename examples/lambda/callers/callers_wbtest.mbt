@@ -161,7 +161,14 @@ test "panic pipeline: wrong-runtime syntax pairing aborts through incr guard" {
 ///|
 test "build_visibility: TopScope-only defs are visible from TopScope" {
   let defs : Array[Def] = [
-    { name: "f", scope: TopScope, start: 0, end: 9, name_start: 4, name_end: 5 },
+    {
+      name: "f",
+      scope: TopScope,
+      start: 0,
+      end: 9,
+      name_start: 4,
+      name_end: 5,
+    },
     {
       name: "g",
       scope: TopScope,
@@ -182,7 +189,14 @@ test "build_visibility: TopScope-only defs are visible from TopScope" {
 test "build_visibility: child scope inherits parent's bindings" {
   let inner = LambdaScope(10, 20)
   let defs : Array[Def] = [
-    { name: "f", scope: TopScope, start: 0, end: 9, name_start: 4, name_end: 5 },
+    {
+      name: "f",
+      scope: TopScope,
+      start: 0,
+      end: 9,
+      name_start: 4,
+      name_end: 5,
+    },
     {
       name: "x",
       scope: inner,
@@ -207,8 +221,15 @@ test "build_visibility: deeply nested chain transitively inherits" {
   let outer = LambdaScope(5, 30)
   let inner = LambdaScope(15, 25)
   let defs : Array[Def] = [
-    { name: "f", scope: TopScope, start: 0, end: 4, name_start: 0, name_end: 1 },
-    { name: "x", scope: outer, start: 5, end: 30, name_start: 6, name_end: 7 },
+    {
+      name: "f",
+      scope: TopScope,
+      start: 0,
+      end: 4,
+      name_start: 0,
+      name_end: 1,
+    },
+    { name: "x", scope: outer, start: 5, end: 30, name_start: 6, name_end: 7, },
     {
       name: "y",
       scope: inner,
@@ -239,7 +260,14 @@ test "build_visibility: scope with no own bindings still inherits ancestors" {
   // without a Def. The child scope must still appear and inherit.
   let empty_inner = LambdaScope(10, 12)
   let defs : Array[Def] = [
-    { name: "f", scope: TopScope, start: 0, end: 9, name_start: 4, name_end: 5 },
+    {
+      name: "f",
+      scope: TopScope,
+      start: 0,
+      end: 9,
+      name_start: 4,
+      name_end: 5,
+    },
   ]
   let enclosing : Array[(ScopeId, ScopeId)] = [(empty_inner, TopScope)]
   let v = build_visibility(defs, enclosing)

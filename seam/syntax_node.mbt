@@ -8,7 +8,7 @@ pub struct SyntaxToken {
 
 ///|
 pub fn SyntaxToken::new(cst : CstToken, offset : Int) -> SyntaxToken {
-  { cst, offset }
+  { cst, offset, }
 }
 
 ///|
@@ -107,7 +107,7 @@ fn SyntaxNode::new(
   parent : SyntaxNode?,
   offset : Int,
 ) -> SyntaxNode {
-  { cst, parent, offset }
+  { cst, parent, offset, }
 }
 
 ///|
@@ -537,7 +537,7 @@ pub impl ToJson for SyntaxNode with fn to_json(self) -> Json {
     .direct_elements_iter()
     .map(elem => {
       match elem {
-        Node(n) => n.to_json()
+        Node(n) => ToJson::to_json(n)
         Token(t) => {
           let RawKind(tk) = t.kind()
           (

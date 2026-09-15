@@ -15,7 +15,7 @@ struct PatternSpan {
 
 ///|
 fn PatternSpan::PatternSpan(start : Int, end : Int) -> PatternSpan {
-  { start, end }
+  { start, end, }
 }
 
 ///|
@@ -32,7 +32,7 @@ struct FirstInfo {
 
 ///|
 fn FirstInfo::FirstInfo(units : FirstCodeUnits, nullable : Bool) -> FirstInfo {
-  { units, nullable }
+  { units, nullable, }
 }
 
 ///|

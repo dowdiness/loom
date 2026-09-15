@@ -13,7 +13,7 @@ let event_bench_policy : CstMetadataPolicy = CstMetadataPolicy::new(
 ///|
 /// Build a reusable subtree: a node with N tokens.
 fn make_reuse_subtree(size : Int) -> CstNode raise Failure {
-  let children : Array[CstElement] = Array::new(capacity=size)
+  let children : Array[CstElement] = Array(capacity=size)
   for i = 0; i < size; i = i + 1 {
     children.push(
       CstElement::Token(CstToken::CstToken(RawKind(9), "tok" + i.to_string())),

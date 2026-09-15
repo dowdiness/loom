@@ -427,7 +427,7 @@ fn build_kinds(
       }
     None => ()
   }
-  Ok({ kinds, term_kinds, trivia_set, error_set, error_node_name })
+  Ok({ kinds, term_kinds, trivia_set, error_set, error_node_name, })
 }
 
 ///|

@@ -14,7 +14,10 @@ test "GrammarIr stores open string rule namespace" {
 
 ///|
 test "IR has no closure predicate escape hatch" {
-  let alt : Alt[Int, Int] = Alt::{ starts: Pred::IsToken(1), body: Expr::Empty }
+  let alt : Alt[Int, Int] = Alt::{
+    starts: Pred::IsToken(1),
+    body: Expr::Empty,
+  }
   match alt.starts {
     Pred::IsToken(1) => ()
     _ => fail("expected reified start predicate")

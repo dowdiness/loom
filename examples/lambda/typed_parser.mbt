@@ -70,5 +70,5 @@ pub fn attach_typecheck(
     rt, scope, typed_derived,
   )
   let watch = scope.add_watch(results.watch())
-  { scope, result: results, watch, index }
+  { scope, result: results, watch, index, }
 }

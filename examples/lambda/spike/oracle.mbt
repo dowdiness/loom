@@ -386,7 +386,7 @@ pub fn run_newline_application_reification_probe(
   let (initial, steps) = newline_app_fixture()
   let b = build_b_syntax_grammar()
   let results = run_oracle_fixture(source_id, initial, steps, b)
-  { divergence: classify_run(results) }
+  { divergence: classify_run(results), }
 }
 
 ///|

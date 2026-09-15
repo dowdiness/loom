@@ -896,7 +896,7 @@ fn mdast_children_json(
     Some(_) => children.map(child => markdown_ir_to_mdast_json(child, context))
     None => {
       let json_children : Array[Json] = []
-      let pending_text = StringBuilder::new()
+      let pending_text = StringBuilder()
       fn flush_text() -> Unit {
         let text = pending_text.to_string()
         if text.length() > 0 {
@@ -1090,6 +1090,6 @@ pub fn experimental_markdown_ir_to_mdast_json_with_positions(
   }
   markdown_ir_to_mdast_json(
     ir,
-    Some({ line_index: @core.LineIndex::new(source), source }),
+    Some({ line_index: @core.LineIndex::new(source), source, }),
   )
 }

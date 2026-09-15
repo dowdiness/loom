@@ -95,7 +95,7 @@ pub struct EventBuffer {
 ///|
 /// Create an empty `EventBuffer`.
 pub fn EventBuffer::new() -> EventBuffer {
-  { events: [] }
+  { events: [], }
 }
 
 ///|
@@ -822,9 +822,7 @@ fn flatten_repeat_group_children(
     match child {
       CstElement::Node(node) =>
         if node.kind == repeat_group_kind {
-          let flattened : Array[CstElement] = Array::new(
-            capacity=children.length(),
-          )
+          let flattened : Array[CstElement] = Array(capacity=children.length())
           for j in 0..<i {
             flattened.push(children[j])
           }
@@ -932,7 +930,7 @@ fn build_balanced_group(
   let len = end - start
   if len <= balance_threshold {
     // Base case: copy this range into a single RepeatGroup
-    let children : Array[CstElement] = Array::new(capacity=len)
+    let children : Array[CstElement] = Array(capacity=len)
     for j = start; j < end; j = j + 1 {
       children.push(elements[j])
     }

@@ -96,7 +96,7 @@ fn build_inline_angle_delimiter_index(
       }
     }
   }
-  { angle_delimiters, single_quote_closers, double_quote_closers }
+  { angle_delimiters, single_quote_closers, double_quote_closers, }
 }
 
 ///|
@@ -218,7 +218,7 @@ fn classify_email_autolink_at(
   if labels > 0 &&
     cursor < input.length() &&
     input.code_unit_at(cursor).to_int() == 0x3E {
-    Some({ kind: InlineAngleKind::EmailAutolink, end: cursor + 1 })
+    Some({ kind: InlineAngleKind::EmailAutolink, end: cursor + 1, })
   } else {
     None
   }
@@ -516,7 +516,7 @@ fn classify_inline_html_at(
   } else {
     classify_inline_open_tag_at(input, start, delimiter_index)
   }
-  end.map(end => ({ kind: InlineHtmlAngle, end } : InlineAngleMatch))
+  end.map(end => ({ kind: InlineHtmlAngle, end, } : InlineAngleMatch))
 }
 
 ///|
@@ -548,7 +548,7 @@ fn classify_uri_autolink_at(
     cursor = cursor + 1
   }
   if cursor < input.length() && input.code_unit_at(cursor).to_int() == 0x3E {
-    Some({ kind: InlineAngleKind::UriAutolink, end: cursor + 1 })
+    Some({ kind: InlineAngleKind::UriAutolink, end: cursor + 1, })
   } else {
     None
   }

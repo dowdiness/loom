@@ -20,7 +20,7 @@ fn make_faulting_attachment(
     }
     candidate
   })
-  { parser, analysis }
+  { parser, analysis, }
 }
 
 ///|

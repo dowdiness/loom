@@ -2,7 +2,7 @@
 
 ///|
 fn fixture_lexer() -> @core.ModeLexer[Token, LexMode] {
-  { lex_step: lex, initial_mode: LineStart }
+  { lex_step: lex, initial_mode: LineStart, }
 }
 
 ///|

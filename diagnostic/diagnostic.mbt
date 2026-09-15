@@ -59,7 +59,7 @@ pub fn TextRange::TextRange(
   guard end.value >= start.value else {
     raise InvalidTextRange(start.value, end.value)
   }
-  { start, end }
+  { start, end, }
 }
 
 ///|
@@ -177,7 +177,7 @@ pub fn SourceSpan::SourceSpan(
   source_id : SourceId,
   range : TextRange,
 ) -> SourceSpan {
-  { source_id, range }
+  { source_id, range, }
 }
 
 ///|
@@ -223,7 +223,7 @@ pub fn DiagnosticLabel::DiagnosticLabel(
   span : SourceSpan,
   message : String?,
 ) -> DiagnosticLabel {
-  { style, span, message }
+  { style, span, message, }
 }
 
 ///|

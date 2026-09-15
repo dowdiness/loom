@@ -21,7 +21,7 @@ fn JsonRoleSpansAttachment::JsonRoleSpansAttachment(
   scope~ : @incr.Scope,
   watch~ : @incr.Watch[Array[JsonRoleSpan]],
 ) -> JsonRoleSpansAttachment {
-  { scope, watch }
+  { scope, watch, }
 }
 
 ///|

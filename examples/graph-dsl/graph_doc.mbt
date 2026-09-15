@@ -6,7 +6,7 @@ pub struct SourceSpan {
 
 ///|
 fn SourceSpan::SourceSpan(start~ : Int, end~ : Int) -> SourceSpan {
-  { start, end }
+  { start, end, }
 }
 
 ///|
@@ -91,7 +91,7 @@ fn GraphToken::GraphToken(
   start~ : Int,
   end~ : Int,
 ) -> GraphToken {
-  { role, text, start, end }
+  { role, text, start, end, }
 }
 
 ///|
@@ -134,7 +134,7 @@ fn GraphParam::GraphParam(
   value_kind~ : GraphValueKind,
   value_tokens~ : Array[GraphToken],
 ) -> GraphParam {
-  { name, name_token, value_kind, value_tokens: value_tokens.copy() }
+  { name, name_token, value_kind, value_tokens: value_tokens.copy(), }
 }
 
 ///|
@@ -259,7 +259,7 @@ fn GraphDoc::GraphDoc(
   nodes~ : Array[GraphNode],
   tokens~ : Array[GraphToken],
 ) -> GraphDoc {
-  { source, nodes: nodes.copy(), tokens: tokens.copy() }
+  { source, nodes: nodes.copy(), tokens: tokens.copy(), }
 }
 
 ///|

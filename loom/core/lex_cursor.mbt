@@ -14,7 +14,7 @@ pub struct LexCursor {
 ///|
 pub fn LexCursor::new(source : String, start : Int) -> LexCursor {
   let pos = lex_cursor_clamp_offset(start, source.length())
-  { source, start: pos, position: pos }
+  { source, start: pos, position: pos, }
 }
 
 ///|

@@ -7,6 +7,9 @@ A generic incremental parser framework for MoonBit — edit-aware lexing, a loss
 
 ## Quick Start
 
+CI uses MoonBit `0.10.12+1634b282e`. Use the same version locally so
+`moon fmt --check` agrees with CI.
+
 Monorepo — no root `moon.mod.json`; run `moon` from each module's directory. `incr`, `egraph`, `egglog`, and `event-graph-walker` are git submodules, so clone with `--recursive`:
 
 ```bash

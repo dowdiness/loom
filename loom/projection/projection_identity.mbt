@@ -30,7 +30,7 @@ pub fn ProjectionLeaf::new(
   end : Int,
   key : String,
 ) -> ProjectionLeaf {
-  { start, end, key }
+  { start, end, key, }
 }
 
 ///|
@@ -52,7 +52,7 @@ pub fn[Id] StableProjectionLeaf::new(
   key : String,
   id : Id,
 ) -> StableProjectionLeaf[Id] {
-  { start, end, key, id }
+  { start, end, key, id, }
 }
 
 ///|
@@ -76,7 +76,7 @@ fn ProjectionIdentityWindow::new(
   new_start : Int,
   new_end : Int,
 ) -> ProjectionIdentityWindow {
-  { old_start, old_end, new_start, new_end }
+  { old_start, old_end, new_start, new_end, }
 }
 
 ///|
@@ -129,7 +129,7 @@ pub fn[Id] ProjectionIdentityBaseline::new(
   source : String,
   leaves : Array[StableProjectionLeaf[Id]],
 ) -> ProjectionIdentityBaseline[Id] {
-  { source, leaves: leaves.copy() }
+  { source, leaves: leaves.copy(), }
 }
 
 ///|
@@ -172,7 +172,7 @@ pub struct ProjectionIdentityTracker[Id] {
 pub fn[Id] ProjectionIdentityTracker::ProjectionIdentityTracker() -> ProjectionIdentityTracker[
   Id,
 ] {
-  { baseline: None, pending: NoProjectionIdentityChange }
+  { baseline: None, pending: NoProjectionIdentityChange, }
 }
 
 ///|
@@ -181,7 +181,7 @@ pub fn[Id] ProjectionIdentityTracker::ProjectionIdentityTracker() -> ProjectionI
 pub fn[Id] ProjectionIdentityTracker::from_baseline(
   baseline : ProjectionIdentityBaseline[Id],
 ) -> ProjectionIdentityTracker[Id] {
-  { baseline: Some(baseline), pending: NoProjectionIdentityChange }
+  { baseline: Some(baseline), pending: NoProjectionIdentityChange, }
 }
 
 ///|
@@ -431,7 +431,7 @@ pub struct ProjectionStringIdAllocator {
 pub fn ProjectionStringIdAllocator::new(
   make_id : (String, Int) -> String,
 ) -> ProjectionStringIdAllocator {
-  { used: Map([]), counters: Map([]), make_id }
+  { used: Map([]), counters: Map([]), make_id, }
 }
 
 ///|

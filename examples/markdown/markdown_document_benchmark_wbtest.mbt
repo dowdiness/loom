@@ -1,6 +1,6 @@
 ///|
 fn markdown_document_benchmark_source(count : Int) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("# Benchmark\n\n")
   for i = 0; i < count; i = i + 1 {
     out.write_string(

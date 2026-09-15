@@ -104,7 +104,7 @@ fn AuditCounts::record_assessment(
 ) -> AuditCounts {
   let counts = self.record(assessment.outcome)
   if assessment.html_matches {
-    { ..counts, render_match: counts.render_match + 1 }
+    { ..counts, render_match: counts.render_match + 1, }
   } else {
     counts
   }
@@ -116,16 +116,16 @@ fn AuditCounts::record(
   outcome : AuditOutcome,
 ) -> AuditCounts {
   match outcome {
-    Pass => { ..self, pass: self.pass + 1 }
-    LexError => { ..self, lex_error: self.lex_error + 1 }
+    Pass => { ..self, pass: self.pass + 1, }
+    LexError => { ..self, lex_error: self.lex_error + 1, }
     ParserDiagnostics =>
-      { ..self, parser_diagnostics: self.parser_diagnostics + 1 }
-    Unsupported => { ..self, unsupported: self.unsupported + 1 }
-    MalformedRaw => { ..self, malformed_raw: self.malformed_raw + 1 }
-    Recovered => { ..self, recovered: self.recovered + 1 }
+      { ..self, parser_diagnostics: self.parser_diagnostics + 1, }
+    Unsupported => { ..self, unsupported: self.unsupported + 1, }
+    MalformedRaw => { ..self, malformed_raw: self.malformed_raw + 1, }
+    Recovered => { ..self, recovered: self.recovered + 1, }
     AdapterPolicyRejection =>
-      { ..self, adapter_policy_rejection: self.adapter_policy_rejection + 1 }
-    HtmlMismatch => { ..self, html_mismatch: self.html_mismatch + 1 }
+      { ..self, adapter_policy_rejection: self.adapter_policy_rejection + 1, }
+    HtmlMismatch => { ..self, html_mismatch: self.html_mismatch + 1, }
   }
 }
 
@@ -266,7 +266,7 @@ fn load_spec_examples(path : String) -> LoadedCorpus raise {
   let source = @fs.read_file_to_string(path)
   let json = @json.parse(source)
   let examples : Array[CommonMarkSpecExample] = @json.from_json(json)
-  { examples, sha256: sha256_hex(source) }
+  { examples, sha256: sha256_hex(source), }
 }
 
 ///|
@@ -296,7 +296,7 @@ fn CommonMarkSpecExample::assessment(
   )
   let (cst, diagnostics) = @markdown.parse_cst(source_id, self.markdown) catch {
     @core.LexError(_) =>
-      return AuditAssessment::{ outcome: LexError, html_matches: false }
+      return AuditAssessment::{ outcome: LexError, html_matches: false, }
     error => raise error
   }
   let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
@@ -321,7 +321,7 @@ fn CommonMarkSpecExample::assessment(
     adapter_policy_rejected,
     html_matches: actual == self.html,
   }
-  { outcome: classify_audit(signals), html_matches: signals.html_matches }
+  { outcome: classify_audit(signals), html_matches: signals.html_matches, }
 }
 
 ///|
@@ -399,9 +399,9 @@ fn audit_examples(examples : Array[CommonMarkSpecExample]) -> AuditCounts raise 
       Some(current) if current.name == example.section => current
       Some(current) => {
         print_counts("section", current.name, current.counts)
-        { name: example.section, counts: AuditCounts::empty() }
+        { name: example.section, counts: AuditCounts::empty(), }
       }
-      None => { name: example.section, counts: AuditCounts::empty() }
+      None => { name: example.section, counts: AuditCounts::empty(), }
     }
     let assessment = example.assessment()
     print_example(example, assessment)

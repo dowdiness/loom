@@ -17,23 +17,23 @@ priv struct FreeVars {
 
 ///|
 fn FreeVars::empty() -> FreeVars {
-  { set: @immut_hashset.HashSet::new() }
+  { set: @immut_hashset.HashSet::new(), }
 }
 
 ///|
 fn FreeVars::single(name : VarName) -> FreeVars {
-  { set: @immut_hashset.HashSet::new().add(name) }
+  { set: @immut_hashset.HashSet::new().add(name), }
 }
 
 ///|
 fn FreeVars::union(self : FreeVars, other : FreeVars) -> FreeVars {
-  { set: self.set.union(other.set) }
+  { set: self.set.union(other.set), }
 }
 
 ///|
 /// Discharge a bound name: it is not free in the term that binds it.
 fn FreeVars::without(self : FreeVars, name : VarName) -> FreeVars {
-  { set: self.set.remove(name) }
+  { set: self.set.remove(name), }
 }
 
 // ── TermSym interpretation ─────────────────────────────────────────────

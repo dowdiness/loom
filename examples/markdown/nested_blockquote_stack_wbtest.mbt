@@ -8,7 +8,7 @@ fn nested_blockquote_stack_doc(
   terminator : String,
   terminate_last_line : Bool,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for line = 0; line < line_count; line = line + 1 {
     for marker = 0; marker < depth; marker = marker + 1 {
       out.write_string("> ")

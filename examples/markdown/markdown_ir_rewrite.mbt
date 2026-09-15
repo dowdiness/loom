@@ -37,7 +37,7 @@ fn local_transform_inline_text(
   match children {
     [] => ""
     [first, ..] => {
-      let buf = StringBuilder::new()
+      let buf = StringBuilder()
       for child in children; cursor = first.origin().start() {
         let child_origin = child.origin()
         buf.write_string(
@@ -217,7 +217,7 @@ fn local_transform_render(
   }
   match ir.node {
     Document(children) => {
-      let buf = StringBuilder::new()
+      let buf = StringBuilder()
       let final_cursor = for child in children; cursor = ir.origin().start() {
         let child_origin = child.origin()
         buf.write_string(
@@ -267,7 +267,7 @@ fn local_transform_render(
     BlockQuote(children)
     | UnorderedList(children, _, _)
     | OrderedList(children, _, _) => {
-      let buf = StringBuilder::new()
+      let buf = StringBuilder()
       let final_cursor = for child in children; cursor = ir.origin().start() {
         let child_origin = child.origin()
         buf.write_string(
@@ -292,7 +292,7 @@ fn local_transform_render(
       buf.to_string()
     }
     ListItem(children, _, _, _, _) | OrderedListItem(children, _, _, _, _) => {
-      let buf = StringBuilder::new()
+      let buf = StringBuilder()
       let final_cursor = for child in children; cursor = ir.origin().start() {
         let child_origin = child.origin()
         buf.write_string(

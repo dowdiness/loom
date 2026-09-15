@@ -242,7 +242,7 @@ impl @seam.SyntaxMutVisitor for FactCollector with fn enter_node(self, node) {
       if self.stack.length() > 0 {
         self.enclosing.push((frame_id, self.stack[self.stack.length() - 1].id))
       }
-      self.stack.push({ id: frame_id, names })
+      self.stack.push({ id: frame_id, names, })
       true
     }
     @syntax.LetDef => {
@@ -290,7 +290,7 @@ impl @seam.SyntaxMutVisitor for FactCollector with fn enter_node(self, node) {
               (frame_id, self.stack[self.stack.length() - 1].id),
             )
           }
-          self.stack.push({ id: frame_id, names })
+          self.stack.push({ id: frame_id, names, })
           false
         }
         _ => true
@@ -352,7 +352,7 @@ fn extract_facts_full(
     defs: [],
     calls: [],
     enclosing: [],
-    stack: [{ id: TopScope, names: [] }],
+    stack: [{ id: TopScope, names: [], }],
   }
   root.accept_visitor(collector)
   (collector.defs, collector.calls, collector.enclosing)
@@ -563,7 +563,7 @@ pub fn CallersPipeline::CallersPipeline(
   // `rt.gc()` issued before any read would sweep the upstream
   // `syntax_tree` Derived. Costs one tree walk; one-time per pipeline.
   let _ = facts_watch.read_or_abort()
-  { scope, facts_watch, callers_watch, visibility_watch }
+  { scope, facts_watch, callers_watch, visibility_watch, }
 }
 
 ///|

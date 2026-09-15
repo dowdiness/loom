@@ -67,7 +67,7 @@ fn CountRange::CountRange(
   min : Count,
   max : Count,
 ) -> CountRange raise CountError {
-  let range = { min, max }
+  let range = { min, max, }
   guard range.min.to_int() <= range.max.to_int() else { raise Reversed }
   range
 }

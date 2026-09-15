@@ -15,7 +15,7 @@ fn MarkdownRoleSpansAttachment::MarkdownRoleSpansAttachment(
   scope~ : @incr.Scope,
   watch~ : @incr.Watch[Array[MarkdownRoleSpan]],
 ) -> MarkdownRoleSpansAttachment {
-  { scope, watch }
+  { scope, watch, }
 }
 
 ///|

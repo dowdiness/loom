@@ -41,7 +41,7 @@ pub fn JsonRoleSpan::JsonRoleSpan(
   start~ : Int,
   end~ : Int,
 ) -> JsonRoleSpan {
-  { role, start, end }
+  { role, start, end, }
 }
 
 ///|
@@ -86,7 +86,7 @@ fn JsonRoleSpanExport::JsonRoleSpanExport(
   end~ : Int,
   role~ : String,
 ) -> JsonRoleSpanExport {
-  { start, end, role }
+  { start, end, role, }
 }
 
 ///|

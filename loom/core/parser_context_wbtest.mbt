@@ -4,7 +4,7 @@
 
 ///|
 test "TokenInfo stores token with length" {
-  let info : TokenInfo[String] = { token: "hello", len: 5 }
+  let info : TokenInfo[String] = { token: "hello", len: 5, }
   inspect(info.len, content="5")
   inspect(info.token, content="hello")
 }
@@ -114,8 +114,8 @@ fn make_test_fixtures() -> (
     trivia_kinds_spec=[KWs],
   )
   let tokens = [
-    { token: TestTok::Plus, len: 1 },
-    { token: TestTok::Num(42), len: 2 },
+    { token: TestTok::Plus, len: 1, },
+    { token: TestTok::Num(42), len: 2, },
   ]
   (spec, tokens)
 }
@@ -183,9 +183,9 @@ test "token_text_at handles lone surrogate without crash" {
   let source = "a" + surrogate + "b"
   let (spec, _) = make_test_fixtures()
   let tokens : Array[TokenInfo[TestTok]] = [
-    { token: TestTok::Plus, len: 1 }, // "a"
-    { token: TestTok::Plus, len: 1 }, // surrogate
-    { token: TestTok::Plus, len: 1 }, // "b"
+    { token: TestTok::Plus, len: 1, }, // "a"
+    { token: TestTok::Plus, len: 1, }, // surrogate
+    { token: TestTok::Plus, len: 1, }, // "b"
   ]
   let ctx = ParserContext::new(
     SourceId("parser-context-source"),
@@ -207,8 +207,8 @@ test "token_text_at handles token spans that split surrogate pairs" {
   let source = "😀"
   let (spec, _) = make_test_fixtures()
   let tokens : Array[TokenInfo[TestTok]] = [
-    { token: TestTok::Plus, len: 1 },
-    { token: TestTok::Plus, len: 1 },
+    { token: TestTok::Plus, len: 1, },
+    { token: TestTok::Plus, len: 1, },
   ]
   let ctx = ParserContext::new(
     SourceId("parser-context-source"),
@@ -371,9 +371,9 @@ test "ParserContext::report_expected uses the current token range" {
 test "peek skips trivia tokens" {
   let (spec, _) = make_test_fixtures()
   let tokens : Array[TokenInfo[TestTok]] = [
-    { token: TestTok::Ws, len: 1 },
-    { token: TestTok::Ws, len: 1 },
-    { token: TestTok::Plus, len: 1 },
+    { token: TestTok::Ws, len: 1, },
+    { token: TestTok::Ws, len: 1, },
+    { token: TestTok::Plus, len: 1, },
   ]
   let ctx = ParserContext::new(
     SourceId("parser-context-source"),
@@ -533,8 +533,8 @@ test "current_node_kind: preserves full stack after checkpoint/restore" {
 test "peek_index(0): returns current raw token including trivia" {
   let (spec, _) = make_test_fixtures()
   let tokens : Array[TokenInfo[TestTok]] = [
-    { token: TestTok::Ws, len: 1 },
-    { token: TestTok::Plus, len: 1 },
+    { token: TestTok::Ws, len: 1, },
+    { token: TestTok::Plus, len: 1, },
   ]
   // peek() skips trivia, peek_index(0) doesn't
   let ctx = ParserContext::new(
@@ -551,9 +551,9 @@ test "peek_index(0): returns current raw token including trivia" {
 test "peek_index(1): returns next raw token" {
   let (spec, _) = make_test_fixtures()
   let tokens : Array[TokenInfo[TestTok]] = [
-    { token: TestTok::Ws, len: 1 },
-    { token: TestTok::Plus, len: 1 },
-    { token: TestTok::Num(42), len: 2 },
+    { token: TestTok::Ws, len: 1, },
+    { token: TestTok::Plus, len: 1, },
+    { token: TestTok::Num(42), len: 2, },
   ]
   let ctx = ParserContext::new(
     SourceId("parser-context-source"),
@@ -581,8 +581,8 @@ test "peek_index(3) past end returns eof_token" {
 test "peek_index(-1): negative n returns token at current position" {
   let (spec, _) = make_test_fixtures()
   let tokens : Array[TokenInfo[TestTok]] = [
-    { token: TestTok::Ws, len: 1 },
-    { token: TestTok::Plus, len: 1 },
+    { token: TestTok::Ws, len: 1, },
+    { token: TestTok::Plus, len: 1, },
   ]
   let ctx = ParserContext::new(
     SourceId("parser-context-source"),
@@ -613,11 +613,11 @@ test "peek_index(0) same as peek for non-trivia current token" {
 test "peek_index returns trivia tokens that peek skips" {
   let (spec, _) = make_test_fixtures()
   let tokens : Array[TokenInfo[TestTok]] = [
-    { token: TestTok::Ws, len: 2 },
-    { token: TestTok::Ws, len: 1 },
-    { token: TestTok::Plus, len: 1 },
-    { token: TestTok::Ws, len: 1 },
-    { token: TestTok::Num(42), len: 2 },
+    { token: TestTok::Ws, len: 2, },
+    { token: TestTok::Ws, len: 1, },
+    { token: TestTok::Plus, len: 1, },
+    { token: TestTok::Ws, len: 1, },
+    { token: TestTok::Num(42), len: 2, },
   ]
   let ctx = ParserContext::new(
     SourceId("parser-context-source"),
@@ -889,6 +889,6 @@ impl AstView for FooView with fn syntax_node(self) {
 test "AstView: a concrete impl exposes its SyntaxNode" {
   let cst = @seam.CstNode::new_unclassified(@seam.RawKind(0), [])
   let syn = @seam.SyntaxNode::from_cst(cst)
-  let v : FooView = { node: syn }
+  let v : FooView = { node: syn, }
   inspect(@seam.AstView::syntax_node(v) == syn, content="true")
 }

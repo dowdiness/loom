@@ -109,11 +109,11 @@ fn tokenize_grammar_file(
         i = i + 1
       }
     } else if c == '=' {
-      toks.push({ tok: GAssign, line })
+      toks.push({ tok: GAssign, line, })
       i = i + 1
     } else if is_rule_ident_start(c) {
       let (name, next) = scan_ident(src, i)
-      toks.push({ tok: GRule(TIdent(name)), line })
+      toks.push({ tok: GRule(TIdent(name)), line, })
       i = next
     } else if c == '@' {
       if i + 1 >= len || !is_rule_ident_start(src[i + 1]) {
@@ -123,8 +123,8 @@ fn tokenize_grammar_file(
       }
       let (name, next) = scan_ident(src, i + 1)
       match rule_at_keyword(name) {
-        Some(kw) => toks.push({ tok: GRule(kw), line })
-        None => toks.push({ tok: GRule(TFrag(name)), line })
+        Some(kw) => toks.push({ tok: GRule(kw), line, })
+        None => toks.push({ tok: GRule(TFrag(name)), line, })
       }
       i = next
     } else {
@@ -156,7 +156,7 @@ fn tokenize_grammar_file(
             "' in grammar file",
           )
       }
-      toks.push({ tok: GRule(rt), line })
+      toks.push({ tok: GRule(rt), line, })
       i = i + 1
     }
   }
@@ -212,8 +212,8 @@ fn parse_grammar_file(
   while i < n {
     // Header: IDENT '='.
     let (name, name_line) = match lexed[i] {
-      { tok: GRule(TIdent(nm)), line } => (nm, line)
-      { tok, line } =>
+      { tok: GRule(TIdent(nm)), line, } => (nm, line)
+      { tok, line, } =>
         return Err(
           grammar_file_loc(line) +
           "expected a production name, found " +

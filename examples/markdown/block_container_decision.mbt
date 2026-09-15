@@ -25,14 +25,14 @@ fn root_block_container_state(
   mode : BlockContinuationMode,
   paragraph_open : Bool,
 ) -> BlockContainerState {
-  { frame: RootFrame, mode, paragraph_open }
+  { frame: RootFrame, mode, paragraph_open, }
 }
 
 ///|
 fn block_quote_container_state(
   mode : BlockContinuationMode,
 ) -> BlockContainerState {
-  { frame: BlockQuoteFrame, mode, paragraph_open: true }
+  { frame: BlockQuoteFrame, mode, paragraph_open: true, }
 }
 
 ///|
@@ -181,7 +181,7 @@ fn block_state_with_paragraph(
   state : BlockContainerState,
   paragraph_open : Bool,
 ) -> BlockContainerState {
-  { frame: state.frame, mode: state.mode, paragraph_open }
+  { frame: state.frame, mode: state.mode, paragraph_open, }
 }
 
 ///|
@@ -223,7 +223,7 @@ fn stop_paragraph_transition(
 
 ///|
 fn decline_transition(state : BlockContainerState) -> BlockTransition {
-  { next_state: state, decision: Decline }
+  { next_state: state, decision: Decline, }
 }
 
 ///|

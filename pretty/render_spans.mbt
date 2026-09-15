@@ -16,7 +16,7 @@ pub fn[A] render_spans(
       }
       CAnnEnd(_) => {
         if ann_stack.pop() is Some((ann, start)) {
-          spans.push(({ start, end: offset }, ann))
+          spans.push(({ start, end: offset, }, ann))
         }
         continue offset
       }

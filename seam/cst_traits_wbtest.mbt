@@ -87,7 +87,7 @@ fn generate_large_cst(depth : Int, branching : Int) -> CstElement raise Failure 
   if depth <= 0 {
     CstElement::Token(CstToken::CstToken(RawKind(9), "leaf"))
   } else {
-    let children = Array::new(capacity=branching)
+    let children = Array(capacity=branching)
     for i = 0; i < branching; i = i + 1 {
       children.push(generate_large_cst(depth - 1, branching))
       let _ = i

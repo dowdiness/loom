@@ -43,7 +43,7 @@ impl DotNode for TestNode with fn edge_label(self, i) {
 
 ///|
 fn leaf(id : Int, lbl : String, attrs : String) -> TestNode {
-  { id, lbl, attrs, kids: [], elabels: [] }
+  { id, lbl, attrs, kids: [], elabels: [], }
 }
 
 ///|
@@ -54,7 +54,7 @@ fn node(
   kids : Array[TestNode],
   elabels : Array[String],
 ) -> TestNode {
-  { id, lbl, attrs, kids, elabels }
+  { id, lbl, attrs, kids, elabels, }
 }
 
 // ── Header / footer ───────────────────────────────────────────────────────────

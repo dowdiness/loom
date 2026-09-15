@@ -12,7 +12,7 @@ pub(all) struct MoonbitParseShell {
 
 ///|
 fn MoonbitParseShell::empty() -> MoonbitParseShell {
-  { item_count: 0, token_count: 0, contains_errors: false }
+  { item_count: 0, token_count: 0, contains_errors: false, }
 }
 
 ///|

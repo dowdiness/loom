@@ -202,7 +202,7 @@ struct RuleParser {
 ///|
 /// A fresh parser positioned at the first token.
 fn RuleParser::RuleParser(toks : Array[RuleTok]) -> RuleParser {
-  { toks, pos: 0 }
+  { toks, pos: 0, }
 }
 
 ///|
@@ -336,14 +336,14 @@ fn RuleParser::parse_pratt_body(
     }
   }
   match ops {
-    Some(op_list) => PrattBinary({ prefix, ops: op_list, skip, app_kind })
+    Some(op_list) => PrattBinary({ prefix, ops: op_list, skip, app_kind, })
     None => {
       if skip is Some(_) {
         raise RuleParseError(
           "@skip is only valid on PrattBinary productions with @prec[...]",
         )
       }
-      PrattApp({ prefix, app_kind })
+      PrattApp({ prefix, app_kind, })
     }
   }
 }

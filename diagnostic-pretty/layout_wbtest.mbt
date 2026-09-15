@@ -96,7 +96,7 @@ test "locationless layout resolves no source and honors ambiguous-width fit" {
 
 ///|
 test "report fields expand tabs and lower every line terminator to hardline" {
-  let resolver = PrettyTestResolver::{ resolve: _ => None }
+  let resolver = PrettyTestResolver::{ resolve: _ => None, }
   let diagnostic = @diagnostic.Diagnostic(
     origin=@diagnostic.DiagnosticOrigin("test"),
     severity=@diagnostic.DiagnosticSeverity::Error,
@@ -396,7 +396,7 @@ test "layout wraps every source validation failure without clamping" {
   let missing : Result[@pretty.Layout[DiagnosticStyle], DiagnosticPrettyError] = Ok(
     layout(
       diagnostic_for(0, 1),
-      PrettyTestResolver::{ resolve: _ => None },
+      PrettyTestResolver::{ resolve: _ => None, },
       pretty_test_options(),
     ),
   ) catch {
