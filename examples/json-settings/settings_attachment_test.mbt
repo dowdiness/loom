@@ -196,6 +196,30 @@ test "successive renames eagerly settle a through b through c" {
 }
 
 ///|
+test "fresh IDs fill baseline holes without colliding with preserved suffix IDs" {
+  let a = SettingsAttachment::SettingsAttachment(
+    @core.SourceId("json-settings-id-holes"),
+    "{\"a\":1,\"b\":2,\"c\":3}",
+  )
+  defer a.dispose()
+  let initial = ok_doc(a.current_result())
+  let retired_id = doc_id_of(initial, "b").unwrap()
+  a.apply_edit(@core.Edit::new(7, 6, 0), "{\"a\":1,\"c\":3}")
+  let retained = ok_doc(a.current_result())
+  @debug.assert_eq(doc_id_of(retained, "a"), doc_id_of(initial, "a"))
+  @debug.assert_eq(doc_id_of(retained, "c"), doc_id_of(initial, "c"))
+  a.apply_edit(@core.Edit::new(7, 0, 12), "{\"a\":1,\"d\":4,\"e\":5,\"c\":3}")
+  let current = ok_doc(a.current_result())
+  @debug.assert_eq(doc_id_of(current, "a"), doc_id_of(retained, "a"))
+  @debug.assert_eq(doc_id_of(current, "c"), doc_id_of(retained, "c"))
+  @debug.assert_eq(doc_id_of(current, "d"), Some(retired_id))
+  let next_id = doc_id_of(current, "e").unwrap()
+  for setting in initial.settings() {
+    assert_true(next_id != setting.id)
+  }
+}
+
+///|
 test "same-text explicit key replacement still settles semantic intent" {
   let source_id = @core.SourceId("json-settings-same-text-key-edit")
   let source = "{\"gain\":1,\"cutoff\":2}"
