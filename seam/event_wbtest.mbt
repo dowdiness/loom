@@ -64,40 +64,55 @@ test "EventBuffer: synthetic zero-width token records non-source provenance" {
 }
 
 ///|
-test "build_tree: repeated single-token nodes preserve kinds text and positions" {
-  let source = "xxxxy"
+test "build_tree: distinct node kinds token kinds and text stay distinct" {
+  let expected = [
+    (RawKind(1), RawKind(9), "x"),
+    (RawKind(2), RawKind(9), "x"),
+    (RawKind(2), RawKind(10), "x"),
+    (RawKind(2), RawKind(10), "y"),
+  ]
   let events : Array[ParseEvent] = []
-  for i, kinds in [(1, 9), (1, 9), (2, 9), (2, 10), (2, 10)] {
-    events.push(StartNode(RawKind(kinds.0)))
+  for (node_kind, token_kind, text) in expected {
+    events.push(StartNode(node_kind))
+    events.push(Token(token_kind, text[:]))
+    events.push(FinishNode)
+  }
+  let syntax = SyntaxNode::from_cst(build_test_tree(events, RawKind(0)))
+  let actual = syntax
+    .children()
+    .map(node => {
+      let token = node.tokens()[0]
+      (node.kind(), token.kind(), token.text())
+    })
+  assert_eq(actual, expected)
+}
+
+///|
+test "build_tree: identical leaves have distinct structural positions" {
+  let source = "xx"
+  let events : Array[ParseEvent] = []
+  for i in 0..<2 {
+    events.push(StartNode(RawKind(1)))
     events.push(
-      Token(RawKind(kinds.1), source.view(start_offset=i, end_offset=i + 1)),
+      Token(RawKind(9), source.view(start_offset=i, end_offset=i + 1)),
     )
     events.push(FinishNode)
   }
   let syntax = SyntaxNode::from_cst(build_test_tree(events, RawKind(0)))
-  assert_eq(
-    syntax
-    .children()
-    .map(node => {
-      let token = node.tokens()[0]
-      (node.kind(), token.kind(), token.text(), token.start(), token.end())
-    }),
-    [
-      (RawKind(1), RawKind(9), "x", 0, 1),
-      (RawKind(1), RawKind(9), "x", 1, 2),
-      (RawKind(2), RawKind(9), "x", 2, 3),
-      (RawKind(2), RawKind(10), "x", 3, 4),
-      (RawKind(2), RawKind(10), "y", 4, 5),
-    ],
-  )
+  let spans = syntax
+    .deep_tokens_iter()
+    .map(token => (token.start(), token.end()))
+    .to_array()
+  assert_eq(spans, [(0, 1), (1, 2)])
 }
 
 ///|
-test "EventBuffer: repeated empty leaves preserve source and synthetic provenance" {
+test "EventBuffer: equal empty text does not erase token provenance" {
+  let source_backed = [true, true, false, false, true]
   let buf = EventBuffer::new()
-  for source_backed in [true, true, false, false, true] {
+  for is_source_backed in source_backed {
     buf.push(StartNode(RawKind(1)))
-    if source_backed {
+    if is_source_backed {
       buf.push(Token(RawKind(9), ""))
     } else {
       buf.push_parser_synthetic_zero_width_token(RawKind(9))
@@ -105,15 +120,16 @@ test "EventBuffer: repeated empty leaves preserve source and synthetic provenanc
     buf.push(FinishNode)
   }
   let root = buf.build_tree(RawKind(0), policy=event_test_policy)
-  assert_eq(
-    root.children.map(child => {
-      match child {
-        Node(node) => node.first_token(_ => false).unwrap().is_source_backed()
-        Token(_) => abort("expected single-token node")
+  let actual = CstElement::Node(root)
+    .iter()
+    .filter_map(element => {
+      match element {
+        Token(token) => Some(token.is_source_backed())
+        Node(_) => None
       }
-    }),
-    [true, true, false, false, true],
-  )
+    })
+    .to_array()
+  assert_eq(actual, source_backed)
 }
 
 ///|
