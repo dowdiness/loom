@@ -141,7 +141,7 @@ fn delimiter_run_fact(
         )
     }
   }
-  { marker, start, length, can_open, can_close }
+  { marker, start, length, can_open, can_close, }
 }
 
 ///|
@@ -358,7 +358,7 @@ fn DelimiterResolverState::process_above(
 fn resolve_delimiter_events(
   events : Array[DelimiterResolverEvent],
 ) -> DelimiterResolutionPlan {
-  let state : DelimiterResolverState = { runs: [], top: -1, opener_checks: 0 }
+  let state : DelimiterResolverState = { runs: [], top: -1, opener_checks: 0, }
   let scope_bottoms : Array[Int] = []
   let mut previous_event_end = 0
   for event in events {

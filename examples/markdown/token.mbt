@@ -70,7 +70,7 @@ pub fn OrderedListMarker::OrderedListMarker(
   guard start >= 0 && start < 1000000000 else {
     abort("ordered list marker start must have 1-9 decimal digits")
   }
-  { start, delimiter }
+  { start, delimiter, }
 }
 
 ///|
@@ -186,7 +186,7 @@ fn parse_setext_underline_depth(text : StringView) -> Int? {
 
 ///|
 fn strip_backslash_escapes(text : String) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   let mut pending_backslash = false
   for ch in text {
     if pending_backslash {

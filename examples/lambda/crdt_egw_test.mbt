@@ -45,7 +45,7 @@ fn EgwPeer::new(
   let doc = @egw.TextState::new(agent_id)
   let parser = new_imperative_parser(source_id, "")
   let _ = try! parser.parse().ast
-  { doc, parser }
+  { doc, parser, }
 }
 
 ///|

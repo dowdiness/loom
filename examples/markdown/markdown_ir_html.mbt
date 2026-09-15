@@ -151,7 +151,7 @@ fn markdown_ir_nodes_to_commonmark_html(
   parent_list_spread~ : Bool,
   raw_html_policy~ : RawHtmlPolicy,
 ) -> Result[String, MarkdownIRHtmlRenderError] {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for child in children {
     match
       markdown_ir_to_commonmark_html_with_list_context(
@@ -230,7 +230,7 @@ fn markdown_ir_list_item_children_to_commonmark_html(
   render_paragraphs~ : Bool,
   raw_html_policy~ : RawHtmlPolicy,
 ) -> Result[String, MarkdownIRHtmlRenderError] {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   let mut previous_unwrapped_paragraph = false
   for child in children {
     let current_is_paragraph = markdown_ir_child_is_paragraph(child)

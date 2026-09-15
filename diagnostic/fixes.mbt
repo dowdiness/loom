@@ -17,7 +17,7 @@ pub fn TextReplacement::TextReplacement(
   span : SourceSpan,
   replacement : String,
 ) -> TextReplacement {
-  { span, replacement }
+  { span, replacement, }
 }
 
 ///|
@@ -88,7 +88,7 @@ pub fn DiagnosticFix::DiagnosticFix(
       raise OverlappingDiagnosticFixEdits(previous.span, current.span)
     }
   })
-  { title, applicability, edits: normalized }
+  { title, applicability, edits: normalized, }
 }
 
 ///|

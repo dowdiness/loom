@@ -264,7 +264,7 @@ fn[T, K : @seam.ToRawKind] collect_reused_error_spans(
       @seam.CstElement::Token(t) => {
         let end = offset + t.text_len()
         if t.kind == error_raw || t.kind == incomplete_raw {
-          out.push({ start: offset, end })
+          out.push({ start: offset, end, })
           added = added + 1
         }
         offset = end
@@ -273,7 +273,7 @@ fn[T, K : @seam.ToRawKind] collect_reused_error_spans(
         let child_added = collect_reused_error_spans(n, offset, spec, out)
         if child_added == 0 &&
           (n.kind() == error_raw || n.kind() == incomplete_raw) {
-          out.push({ start: offset, end: offset + n.text_len() })
+          out.push({ start: offset, end: offset + n.text_len(), })
           added = added + 1
         } else {
           added = added + child_added

@@ -13,7 +13,7 @@ pub struct FoldStats {
 
 ///|
 pub fn FoldStats::zero() -> FoldStats {
-  { reused: 0, recomputed: 0, unvisited: 0 }
+  { reused: 0, recomputed: 0, unvisited: 0, }
 }
 
 ///|

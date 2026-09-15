@@ -36,7 +36,7 @@ pub fn[T, K] BlockReparseSpec::new(
     _,
   ) => false,
 ) -> BlockReparseSpec[T, K] {
-  { is_reparseable, get_reparser, may_reparse_boundary, is_balanced }
+  { is_reparseable, get_reparser, may_reparse_boundary, is_balanced, }
 }
 
 // ─── Block reparse orchestration ──────────────────────────────────────────────
@@ -156,9 +156,9 @@ fn find_reparseable_ancestors(
         })
         if !duplicate {
           if strict {
-            candidates.push({ node, admission: StrictInterior })
+            candidates.push({ node, admission: StrictInterior, })
           } else if boundary_owned {
-            candidates.push({ node, admission: OwnedBoundary })
+            candidates.push({ node, admission: OwnedBoundary, })
           }
         }
       }

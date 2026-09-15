@@ -2,7 +2,7 @@
 
 ///|
 fn perf_work_paragraph_doc(count : Int) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("# Document Title\n\n")
   for i = 0; i < count; i = i + 1 {
     out.write_string(

@@ -11,7 +11,7 @@ fn SourceReplacement::SourceReplacement(
   old_len~ : Int,
   new_text~ : String,
 ) -> SourceReplacement {
-  { start, old_len, new_text }
+  { start, old_len, new_text, }
 }
 
 ///|
@@ -52,7 +52,7 @@ fn LoweredGraphEdit::LoweredGraphEdit(
   new_source~ : String,
   incremental_edit~ : @loom.Edit?,
 ) -> LoweredGraphEdit {
-  { replacements: replacements.copy(), new_source, incremental_edit }
+  { replacements: replacements.copy(), new_source, incremental_edit, }
 }
 
 ///|

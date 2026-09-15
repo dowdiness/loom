@@ -136,7 +136,7 @@ fn strip_visual_columns(
   start_col : Int,
   columns : Int,
 ) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   let target = start_col + columns
   let mut col = start_col
   // Mutable stripping state is intentional: tabs can overshoot the target

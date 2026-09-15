@@ -129,7 +129,7 @@ pub fn[T, K] SyntaxGrammar::new(
   block_reparse_spec? : @core.BlockReparseSpec[T, K]? = None,
   mode_relex? : @core.ModeRelexFactory[T]? = None,
 ) -> SyntaxGrammar[T, K] {
-  { spec, lex, incremental_relex_enabled, block_reparse_spec, mode_relex }
+  { spec, lex, incremental_relex_enabled, block_reparse_spec, mode_relex, }
 }
 
 ///|

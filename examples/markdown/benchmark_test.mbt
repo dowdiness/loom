@@ -52,7 +52,7 @@ fn find_substring(source : String, target : String) -> Int {
 /// Each repetition adds ~20 lines: heading, paragraph with inline markup,
 /// list, and code block. Total lines ≈ repeats * 20.
 fn scaled_markdown_doc(repeats : Int) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string("# Main Title\n\n")
   for i = 0; i < repeats; i = i + 1 {
     let n = i.to_string()

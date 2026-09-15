@@ -28,7 +28,7 @@ pub fn Setting::Setting(
   key~ : String,
   value~ : Double,
 ) -> Setting {
-  { id, key, value }
+  { id, key, value, }
 }
 
 ///|
@@ -43,7 +43,7 @@ pub struct SettingsDoc {
 
 ///|
 pub fn SettingsDoc::SettingsDoc(settings : Array[Setting]) -> SettingsDoc {
-  { settings: settings.copy() }
+  { settings: settings.copy(), }
 }
 
 ///|

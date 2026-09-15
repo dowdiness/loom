@@ -93,7 +93,7 @@ pub fn plan_rename(
           Some(d) => diagnostics.push(d)
           None => ()
         }
-        RenamePlan::{ target: Some(target), edits, diagnostics }
+        RenamePlan::{ target: Some(target), edits, diagnostics, }
       }
   }
 }
@@ -109,7 +109,7 @@ fn compute_edits(
 ) -> Array[TextEdit] {
   let edits : Array[TextEdit] = []
   let (name_start, name_end) = name_range_of(target, syntax)
-  edits.push(TextEdit::{ start: name_start, end: name_end, new_text: new_name })
+  edits.push(TextEdit::{ start: name_start, end: name_end, new_text: new_name, })
   for c in calls {
     if c.callee == target.name {
       let (call_start, call_end) = call_name_range_of(c, syntax)

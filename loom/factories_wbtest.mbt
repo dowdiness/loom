@@ -295,7 +295,7 @@ fn fnon_eq_ast_grammar(fold_count : Ref[Int]) -> Grammar[FTok, FKind, NonEqAst] 
   )
   Grammar::new(spec~, lex=flex, fold_node=(_s, _recurse) => {
     fold_count.val = fold_count.val + 1
-    { payload: x => x }
+    { payload: x => x, }
   })
 }
 
@@ -590,7 +590,7 @@ test "new_syntax_parser: lexer diagnostic surfaces and clears on recovery" {
 
 ///|
 test "new_syntax_parser: accepts syntax facade from non-Eq AST grammar without folding" {
-  inspect(({ payload: x => x + 1 } : NonEqAst).apply(1), content="2")
+  inspect(({ payload: x => x + 1, } : NonEqAst).apply(1), content="2")
   let fold_count : Ref[Int] = Ref(0)
   let grammar = fnon_eq_ast_grammar(fold_count).to_syntax_grammar()
   let source_id = @core.SourceId("factory-non-eq-syntax-source")
@@ -609,7 +609,7 @@ test "new_syntax_parser: session-owned mode factory tokenizes initial source onc
   let mode_factory = @core.erase_mode_lexer_factory(
     () => {
       lexer_shells.val = lexer_shells.val + 1
-      @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal }
+      @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal, }
     },
     Eof,
     error_token=Err,
@@ -644,7 +644,7 @@ test "new_syntax_parser: block reparse preserves the token-buffer mode session" 
   let mode_factory = @core.erase_mode_lexer_factory(
     () => {
       lexer_shells.val = lexer_shells.val + 1
-      @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal }
+      @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal, }
     },
     Eof,
     error_token=Err,
@@ -705,7 +705,7 @@ test "create_buffer: strict-wrapper total lex keeps diagnostic" {
 ///|
 test "create_buffer: mode factory is the sole diagnostics authority" {
   let state = @core.erase_mode_lexer(
-    @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
+    @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal, },
     Eof,
     error_token=Err,
   )
@@ -725,7 +725,7 @@ test "create_buffer: mode factory is the sole diagnostics authority" {
 ///|
 test "create_buffer: mode path never invokes plain lexer" {
   let state = @core.erase_mode_lexer(
-    @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
+    @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal, },
     Eof,
     error_token=Err,
   )
@@ -759,7 +759,7 @@ test "create_buffer: mode path never invokes plain lexer" {
 ///|
 test "create_buffer: mode lex respects incremental opt out" {
   let state = @core.erase_mode_lexer(
-    @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
+    @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal, },
     Eof,
     error_token=Err,
   )
@@ -791,7 +791,7 @@ test "create_buffer: mode lex respects incremental opt out" {
 ///|
 test "create_buffer: recovered mode lex updates incrementally" {
   let state = @core.erase_mode_lexer(
-    @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
+    @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal, },
     Eof,
     error_token=Err,
   )

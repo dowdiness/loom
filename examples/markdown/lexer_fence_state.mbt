@@ -71,7 +71,7 @@ fn source_line_list_marker_facts(
   } else {
     content_column
   }
-  Some(SourceListMarkerFacts::{ marker_indent, content_indent })
+  Some(SourceListMarkerFacts::{ marker_indent, content_indent, })
 }
 
 ///|
@@ -179,7 +179,7 @@ fn source_fence_candidate(
   if fence_character == '`' && input[info_start:line_end].contains("`") {
     return None
   }
-  Some(SourceFenceCandidate::{ marker_start, run_len })
+  Some(SourceFenceCandidate::{ marker_start, run_len, })
 }
 
 ///|

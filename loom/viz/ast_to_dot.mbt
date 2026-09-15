@@ -27,26 +27,26 @@ pub fn[T : DotNode] to_graph(root : T) -> @parser.Graph {
   stmts.push(
     @parser.AttrStmt(@parser.NodeAttr, {
       attributes: [
-        { key: "shape", value: "box" },
-        { key: "style", value: "rounded,filled" },
-        { key: "fillcolor", value: "#252526" },
-        { key: "fontname", value: "Arial" },
-        { key: "fontcolor", value: "#d4d4d4" },
-        { key: "color", value: "#3c3c3c" },
+        { key: "shape", value: "box", },
+        { key: "style", value: "rounded,filled", },
+        { key: "fillcolor", value: "#252526", },
+        { key: "fontname", value: "Arial", },
+        { key: "fontcolor", value: "#d4d4d4", },
+        { key: "color", value: "#3c3c3c", },
       ],
     }),
   )
   stmts.push(
     @parser.AttrStmt(@parser.EdgeAttr, {
       attributes: [
-        { key: "fontname", value: "Arial" },
-        { key: "fontcolor", value: "#858585" },
-        { key: "color", value: "#3c3c3c" },
+        { key: "fontname", value: "Arial", },
+        { key: "fontcolor", value: "#858585", },
+        { key: "color", value: "#3c3c3c", },
       ],
     }),
   )
   collect_statements(stmts, root)
-  { strict: false, directed: true, id: None, statements: stmts }
+  { strict: false, directed: true, id: None, statements: stmts, }
 }
 
 ///|
@@ -56,14 +56,17 @@ fn[T : DotNode] collect_statements(
 ) -> Unit {
   let node_name = "node" + DotNode::node_id(node).to_string()
   let attrs : Array[@parser.Attribute] = [
-    { key: "label", value: DotNode::label(node) },
+    { key: "label", value: DotNode::label(node), },
   ]
   let extra = DotNode::node_attrs(node)
   if extra != "" {
     attrs.append(@parser.parse_attributes(extra))
   }
   stmts.push(
-    @parser.NodeStmt({ id: node_name, port: None }, Some({ attributes: attrs })),
+    @parser.NodeStmt(
+      { id: node_name, port: None, },
+      Some({ attributes: attrs, }),
+    ),
   )
   let cs = DotNode::children(node)
   for i = 0; i < cs.length(); i = i + 1 {
@@ -71,14 +74,14 @@ fn[T : DotNode] collect_statements(
     let child_name = "node" + DotNode::node_id(child).to_string()
     let el = DotNode::edge_label(node, i)
     let edge_attrs : @parser.AttributeList? = if el != "" {
-      Some({ attributes: [{ key: "label", value: el }] })
+      Some({ attributes: [{ key: "label", value: el, }], })
     } else {
       None
     }
     stmts.push(
       @parser.EdgeStmt(
-        { id: node_name, port: None },
-        [(@parser.Directed, { id: child_name, port: None })],
+        { id: node_name, port: None, },
+        [(@parser.Directed, { id: child_name, port: None, })],
         edge_attrs,
       ),
     )

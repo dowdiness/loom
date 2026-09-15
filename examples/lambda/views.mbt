@@ -23,7 +23,7 @@ pub struct LambdaExprView {
 ///|
 pub fn LambdaExprView::cast(n : @seam.SyntaxNode) -> LambdaExprView? {
   if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.LambdaExpr {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -124,7 +124,7 @@ pub struct AppExprView {
 ///|
 pub fn AppExprView::cast(n : @seam.SyntaxNode) -> AppExprView? {
   if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.AppExpr {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -181,7 +181,7 @@ pub struct BinaryExprView {
 ///|
 pub fn BinaryExprView::cast(n : @seam.SyntaxNode) -> BinaryExprView? {
   if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.BinaryExpr {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -279,7 +279,7 @@ pub struct IfExprView {
 ///|
 pub fn IfExprView::cast(n : @seam.SyntaxNode) -> IfExprView? {
   if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.IfExpr {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -339,7 +339,7 @@ pub struct ParenExprView {
 ///|
 pub fn ParenExprView::cast(n : @seam.SyntaxNode) -> ParenExprView? {
   if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.ParenExpr {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -379,7 +379,7 @@ pub struct IntLiteralView {
 ///|
 pub fn IntLiteralView::cast(n : @seam.SyntaxNode) -> IntLiteralView? {
   if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.IntLiteral {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -424,7 +424,7 @@ pub struct VarRefView {
 ///|
 pub fn VarRefView::cast(n : @seam.SyntaxNode) -> VarRefView? {
   if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.VarRef {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -460,7 +460,7 @@ pub struct LetDefView {
 ///|
 pub fn LetDefView::cast(n : @seam.SyntaxNode) -> LetDefView? {
   if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.LetDef {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -524,7 +524,7 @@ pub struct BlockExprView {
 ///|
 pub fn BlockExprView::cast(n : @seam.SyntaxNode) -> BlockExprView? {
   if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.BlockExpr {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -575,7 +575,7 @@ pub struct HoleLiteralView {
 ///|
 pub fn HoleLiteralView::cast(n : @seam.SyntaxNode) -> HoleLiteralView? {
   if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.HoleLiteral {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -605,7 +605,7 @@ pub struct TypeAnnotView {
 ///|
 pub fn TypeAnnotView::cast(n : @seam.SyntaxNode) -> TypeAnnotView? {
   if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.TypeAnnot {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }

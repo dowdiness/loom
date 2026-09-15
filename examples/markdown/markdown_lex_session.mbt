@@ -20,16 +20,16 @@ pub struct MarkdownLexSession {
 /// Construct an empty session with an explicit ownership boundary.
 pub fn MarkdownLexSession::MarkdownLexSession() -> MarkdownLexSession {
   {
-    detached_cache: { val: None },
-    same_line_cache: { val: None },
-    source_ref: { val: None },
-    line_end_cache_start: { val: -1 },
-    line_end_cache_end: { val: -1 },
-    opening_indent: { val: None },
-    continuation_start: { val: None },
-    continuation_pos: { val: None },
-    continuation_fence_length: { val: None },
-    continuation_fence_character: { val: None },
+    detached_cache: { val: None, },
+    same_line_cache: { val: None, },
+    source_ref: { val: None, },
+    line_end_cache_start: { val: -1, },
+    line_end_cache_end: { val: -1, },
+    opening_indent: { val: None, },
+    continuation_start: { val: None, },
+    continuation_pos: { val: None, },
+    continuation_fence_length: { val: None, },
+    continuation_fence_character: { val: None, },
   }
 }
 

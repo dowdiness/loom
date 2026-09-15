@@ -83,7 +83,7 @@ fn test_tokenize(src : String) -> Array[TokenInfo[TestTok]] {
       while i < src.length() && src.code_unit_at(i).to_int() == 32 {
         i = i + 1
       }
-      result.push({ token: TestTok::Ws, len: i - start })
+      result.push({ token: TestTok::Ws, len: i - start, })
     } else if code >= 48 && code <= 57 {
       // digit
       let start = i
@@ -98,10 +98,10 @@ fn test_tokenize(src : String) -> Array[TokenInfo[TestTok]] {
           break
         }
       }
-      result.push({ token: TestTok::Num(n), len: i - start })
+      result.push({ token: TestTok::Num(n), len: i - start, })
     } else if code == 43 {
       // '+'
-      result.push({ token: TestTok::Plus, len: 1 })
+      result.push({ token: TestTok::Plus, len: 1, })
       i = i + 1
     } else {
       i = i + 1

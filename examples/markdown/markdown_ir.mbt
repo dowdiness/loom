@@ -15,7 +15,7 @@ fn MarkdownIROrigin::MarkdownIROrigin(
   end~ : Int,
 ) -> MarkdownIROrigin {
   guard start >= 0 && start <= end else { abort("invalid MarkdownIR origin") }
-  { start, end }
+  { start, end, }
 }
 
 ///|
@@ -69,7 +69,7 @@ fn MarkdownIRTask::MarkdownIRTask(
   checked~ : Bool,
   marker_origin~ : MarkdownIROrigin,
 ) -> MarkdownIRTask {
-  { checked, marker_origin }
+  { checked, marker_origin, }
 }
 
 ///|
@@ -250,7 +250,7 @@ fn MarkdownIR::document(
   children : Array[MarkdownIR],
   origin : MarkdownIROrigin,
 ) -> MarkdownIR {
-  { node: Document(children), origin }
+  { node: Document(children), origin, }
 }
 
 ///|
@@ -263,7 +263,7 @@ fn MarkdownIR::heading(
   guard depth >= 1 && depth <= 6 else {
     abort("MarkdownIR heading depth must be in 1..6")
   }
-  { node: Heading(depth, children, content_origin), origin }
+  { node: Heading(depth, children, content_origin), origin, }
 }
 
 ///|
@@ -272,7 +272,7 @@ fn MarkdownIR::paragraph(
   origin : MarkdownIROrigin,
   content_origin : MarkdownIROrigin?,
 ) -> MarkdownIR {
-  { node: Paragraph(children, content_origin), origin }
+  { node: Paragraph(children, content_origin), origin, }
 }
 
 ///|
@@ -280,7 +280,7 @@ fn MarkdownIR::block_quote(
   children : Array[MarkdownIR],
   origin : MarkdownIROrigin,
 ) -> MarkdownIR {
-  { node: BlockQuote(children), origin }
+  { node: BlockQuote(children), origin, }
 }
 
 ///|
@@ -290,7 +290,7 @@ fn MarkdownIR::unordered_list(
   spread~ : Bool,
   marker~ : UnorderedListMarker?,
 ) -> MarkdownIR {
-  { node: UnorderedList(children, spread, marker), origin }
+  { node: UnorderedList(children, spread, marker), origin, }
 }
 
 ///|
@@ -300,7 +300,7 @@ fn MarkdownIR::ordered_list(
   spread~ : Bool,
   marker~ : OrderedListMarker?,
 ) -> MarkdownIR {
-  { node: OrderedList(children, spread, marker), origin }
+  { node: OrderedList(children, spread, marker), origin, }
 }
 
 ///|
@@ -312,7 +312,7 @@ fn MarkdownIR::list_item(
   marker~ : UnorderedListMarker?,
   task? : MarkdownIRTask,
 ) -> MarkdownIR {
-  { node: ListItem(children, spread, content_origin, marker, task), origin }
+  { node: ListItem(children, spread, content_origin, marker, task), origin, }
 }
 
 ///|
@@ -337,12 +337,12 @@ fn MarkdownIR::code_block(
   origin : MarkdownIROrigin,
   content_origin : MarkdownIROrigin?,
 ) -> MarkdownIR {
-  { node: CodeBlock(info, value, content_origin), origin }
+  { node: CodeBlock(info, value, content_origin), origin, }
 }
 
 ///|
 fn MarkdownIR::thematic_break(origin : MarkdownIROrigin) -> MarkdownIR {
-  { node: ThematicBreak, origin }
+  { node: ThematicBreak, origin, }
 }
 
 ///|
@@ -351,17 +351,17 @@ fn MarkdownIR::html_block(
   origin : MarkdownIROrigin,
   content_origin : MarkdownIROrigin?,
 ) -> MarkdownIR {
-  { node: HtmlBlock(value, content_origin), origin }
+  { node: HtmlBlock(value, content_origin), origin, }
 }
 
 ///|
 fn MarkdownIR::text(value : String, origin : MarkdownIROrigin) -> MarkdownIR {
-  { node: Text(value), origin }
+  { node: Text(value), origin, }
 }
 
 ///|
 fn MarkdownIR::reference_link_opener(origin : MarkdownIROrigin) -> MarkdownIR {
-  { node: ReferenceLinkOpener, origin }
+  { node: ReferenceLinkOpener, origin, }
 }
 
 ///|
@@ -370,7 +370,7 @@ fn MarkdownIR::bold(
   origin : MarkdownIROrigin,
   content_origin : MarkdownIROrigin?,
 ) -> MarkdownIR {
-  { node: Bold(children, content_origin), origin }
+  { node: Bold(children, content_origin), origin, }
 }
 
 ///|
@@ -379,7 +379,7 @@ fn MarkdownIR::italic(
   origin : MarkdownIROrigin,
   content_origin : MarkdownIROrigin?,
 ) -> MarkdownIR {
-  { node: Italic(children, content_origin), origin }
+  { node: Italic(children, content_origin), origin, }
 }
 
 ///|
@@ -388,7 +388,7 @@ fn MarkdownIR::inline_code(
   origin : MarkdownIROrigin,
   content_origin : MarkdownIROrigin?,
 ) -> MarkdownIR {
-  { node: InlineCode(value, content_origin), origin }
+  { node: InlineCode(value, content_origin), origin, }
 }
 
 ///|
@@ -472,7 +472,7 @@ fn MarkdownIR::image_from_link(
 ) -> MarkdownIR {
   match link.node {
     Link(children, destination, title, surface) =>
-      { node: Image(children, destination, title, surface), origin }
+      { node: Image(children, destination, title, surface), origin, }
     _ => abort("MarkdownIR::image_from_link requires a Link node")
   }
 }
@@ -500,12 +500,12 @@ fn MarkdownIR::inline_html(
   origin : MarkdownIROrigin,
   content_origin : MarkdownIROrigin?,
 ) -> MarkdownIR {
-  { node: InlineHtml(value, content_origin), origin }
+  { node: InlineHtml(value, content_origin), origin, }
 }
 
 ///|
 fn MarkdownIR::soft_break(origin : MarkdownIROrigin) -> MarkdownIR {
-  { node: SoftBreak(Some(origin)), origin }
+  { node: SoftBreak(Some(origin)), origin, }
 }
 
 ///|
@@ -518,7 +518,7 @@ fn MarkdownIR::hard_break(
       abort("trailing-space hard break requires at least two spaces")
     _ => ()
   }
-  { node: HardBreak(surface, Some(origin)), origin }
+  { node: HardBreak(surface, Some(origin)), origin, }
 }
 
 ///|
@@ -526,7 +526,7 @@ fn MarkdownIR::unsupported(
   message : String,
   origin : MarkdownIROrigin,
 ) -> MarkdownIR {
-  { node: Unsupported(message), origin }
+  { node: Unsupported(message), origin, }
 }
 
 ///|

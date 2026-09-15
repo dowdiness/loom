@@ -31,7 +31,7 @@ pub fn resolve(term : @ast.Term) -> (@ast.Term, Resolution) {
   let env : Map[String, Int] = Map([])
   let counter = Ref(0)
   let new_term = resolve_walk(term, env, 0, counter, res)
-  (new_term, { vars: res })
+  (new_term, { vars: res, })
 }
 
 ///|

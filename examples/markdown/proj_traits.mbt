@@ -35,7 +35,7 @@ fn inline_text_to(inlines : Array[Inline], buf : StringBuilder) -> Unit {
 
 ///|
 fn inline_text(inlines : Array[Inline]) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   inline_text_to(inlines, buf)
   buf.to_string()
 }

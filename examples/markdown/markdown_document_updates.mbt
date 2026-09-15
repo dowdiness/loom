@@ -52,7 +52,7 @@ fn MarkdownDocumentUpdates::direct_document(
   (
     document,
     Array::make(document.children().length(), None),
-    { root, document, diagnostics_clean: snapshot.diagnostics.is_empty() },
+    { root, document, diagnostics_clean: snapshot.diagnostics.is_empty(), },
   )
 }
 
@@ -246,7 +246,11 @@ fn MarkdownDocumentUpdates::next_document(
     }
   }
   let document = MarkdownIR::document(children, current_layout.origin)
-  (document, matches, { root: current_root, document, diagnostics_clean: true })
+  (
+    document,
+    matches,
+    { root: current_root, document, diagnostics_clean: true, },
+  )
 }
 
 ///|

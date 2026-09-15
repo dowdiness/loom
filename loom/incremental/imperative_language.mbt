@@ -88,5 +88,5 @@ pub fn[Ast] ImperativeLanguage::new(
   to_ast~ : (@seam.SyntaxNode) -> Ast,
   get_fold_stats? : (() -> @core.FoldStats)? = None,
 ) -> ImperativeLanguage[Ast] {
-  { full_parse, incremental_parse, atomic_parse, to_ast, get_fold_stats }
+  { full_parse, incremental_parse, atomic_parse, to_ast, get_fold_stats, }
 }

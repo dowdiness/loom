@@ -135,7 +135,9 @@ fn delimiter_performance_push_run(
   can_open : Bool,
   can_close : Bool,
 ) -> Int {
-  events.push(DelimiterRunEvent({ marker, start, length, can_open, can_close }))
+  events.push(
+    DelimiterRunEvent({ marker, start, length, can_open, can_close, }),
+  )
   start + length + 1
 }
 

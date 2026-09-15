@@ -484,7 +484,7 @@ impl @coreqc.Arbitrary for GrammarWithTokens with fn arbitrary(size, rs) {
   }
   let tokens = gen_tokens(num_content, rs, consumer_tok)
 
-  GrammarWithTokens::{ ir: GrammarIr::GrammarIr(rules, root="source"), tokens }
+  GrammarWithTokens::{ ir: GrammarIr::GrammarIr(rules, root="source"), tokens, }
 }
 
 ///|
@@ -507,7 +507,7 @@ impl @qc.Shrink for GrammarWithTokens with fn shrink(self) -> Iter[
       shorter.push(self.tokens[i])
     }
     shorter.push(self.tokens[tlen - 1]) // preserve EOF
-    [GrammarWithTokens::{ ir: self.ir, tokens: shorter }].iter()
+    [GrammarWithTokens::{ ir: self.ir, tokens: shorter, }].iter()
   }
 }
 

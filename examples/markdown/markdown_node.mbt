@@ -83,7 +83,7 @@ pub(all) struct MarkdownNode {
 ///|
 /// Return this detached document's retained semantic root.
 pub fn MarkdownDocument::root(self : MarkdownDocument) -> MarkdownNode {
-  { document_marker: self.node_marker, node: self.ir }
+  { document_marker: self.node_marker, node: self.ir, }
 }
 
 ///|
@@ -97,7 +97,7 @@ pub fn MarkdownNode::view(self : MarkdownNode) -> MarkdownNodeView {
 pub fn MarkdownNode::children(self : MarkdownNode) -> Array[MarkdownNode] {
   self.node
   .children()
-  .map(node => { document_marker: self.document_marker, node })
+  .map(node => { document_marker: self.document_marker, node, })
 }
 
 ///|

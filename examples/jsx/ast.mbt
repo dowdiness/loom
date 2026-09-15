@@ -33,7 +33,7 @@ pub struct JsxAttr {
 
 ///|
 pub fn JsxAttr::JsxAttr(name~ : String, value~ : JsxAttrValue) -> JsxAttr {
-  { name, value }
+  { name, value, }
 }
 
 ///|

@@ -187,7 +187,7 @@ pub fn[M, R] SemanticAnalysis::read(
         Err(error) => CandidateFailed(error)
         Ok(Reject(reason)) => Rejected(reason)
         Ok(Accept(value)) => {
-          accepted = Some({ snapshot, value })
+          accepted = Some({ snapshot, value, })
           change = SemanticChange(snapshot.source)
           Current
         }

@@ -30,7 +30,7 @@ pub struct SemanticChange {
 
 ///|
 pub fn SemanticChange::SemanticChange(source : String) -> SemanticChange {
-  { baseline_source: source, source, pending: Unchanged }
+  { baseline_source: source, source, pending: Unchanged, }
 }
 
 ///|
@@ -86,5 +86,5 @@ pub fn SemanticChange::advance(
       }
     SourceDiff => SourceDiff
   }
-  { baseline_source: self.baseline_source, source: new_source, pending }
+  { baseline_source: self.baseline_source, source: new_source, pending, }
 }

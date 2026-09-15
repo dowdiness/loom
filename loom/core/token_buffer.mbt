@@ -481,7 +481,7 @@ pub fn[T : Eq] TokenBuffer::new_from_mode_relex(
     initial.tokens(),
     initial.starts(),
     initial.diagnostics(),
-    Some({ factory, session: Ready(session), invalid_attempts: 0 }),
+    Some({ factory, session: Ready(session), invalid_attempts: 0, }),
   )
 }
 

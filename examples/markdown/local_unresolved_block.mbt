@@ -382,7 +382,7 @@ fn resolve_local_markdown_ir(
     Raw(value, diagnostics) => Raw(value, diagnostics)
     Recovered(message, diagnostics) => Recovered(message, diagnostics)
   }
-  { node, origin: ir.origin }
+  { node, origin: ir.origin, }
 }
 
 ///|
@@ -405,7 +405,7 @@ fn lower_local_unresolved_block(
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
     experimental_markdown_ir_fold_node_with_diags(node, lower, context)
   }
-  { source_id, source, unresolved: lower(root), reference_candidates }
+  { source_id, source, unresolved: lower(root), reference_candidates, }
 }
 
 ///|
@@ -643,7 +643,7 @@ fn place_local_markdown_ir(ir : MarkdownIR, base : Int) -> MarkdownIR {
     Raw(value, diagnostics) => Raw(value, diagnostics)
     Recovered(message, diagnostics) => Recovered(message, diagnostics)
   }
-  { node, origin: shift_local_origin(ir.origin, base) }
+  { node, origin: shift_local_origin(ir.origin, base), }
 }
 
 ///|

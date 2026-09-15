@@ -97,7 +97,7 @@ pub fn attach_lambda_analysis(
     label="lambda_analysis_diagnostics",
   )
   let watch = scope.add_watch(combined.watch())
-  { parser, typecheck, scope, watch }
+  { parser, typecheck, scope, watch, }
 }
 
 ///|

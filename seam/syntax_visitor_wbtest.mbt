@@ -75,7 +75,7 @@ test "SyntaxNode::accept_visitor walks source order and flattens repeat groups" 
     Node(repeated),
     syntax_visitor_token(7, "e"),
   ])
-  let visitor = RecordingSyntaxVisitor::{ log: [], skip_kind: None }
+  let visitor = RecordingSyntaxVisitor::{ log: [], skip_kind: None, }
 
   SyntaxNode::from_cst(root).accept_visitor(visitor)
 
@@ -91,7 +91,10 @@ test "SyntaxNode::accept_visitor skips subtree when enter_node returns false" {
     syntax_visitor_node(9, [syntax_visitor_token(1, "x")]),
     syntax_visitor_token(2, "y"),
   ])
-  let visitor = RecordingSyntaxVisitor::{ log: [], skip_kind: Some(RawKind(9)) }
+  let visitor = RecordingSyntaxVisitor::{
+    log: [],
+    skip_kind: Some(RawKind(9)),
+  }
 
   SyntaxNode::from_cst(root).accept_visitor(visitor)
 

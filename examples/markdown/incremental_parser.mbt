@@ -21,7 +21,7 @@ pub fn IncrementalParser::IncrementalParser(
   extensions? : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> IncrementalParser raise Failure {
   let document = parse(source, source_id~, extensions~)
-  { source_id, extensions, source, document }
+  { source_id, extensions, source, document, }
 }
 
 ///|

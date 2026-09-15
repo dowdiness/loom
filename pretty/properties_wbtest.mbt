@@ -29,14 +29,14 @@ fn gen_layout(seed : Int, max_depth : Int) -> Layout[Unit] {
   fn go(s : Int, depth : Int) -> (Layout[Unit], Int) {
     let s = s * 1103515245 + 12345
     if depth <= 0 {
-      let choice = s.abs() % 3
+      let choice = (s % 3).abs()
       match choice {
         0 => (empty(), s)
         1 => (text("x"), s)
         _ => (text("ab"), s)
       }
     } else {
-      let choice = s.abs() % 8
+      let choice = (s % 8).abs()
       match choice {
         0 => (empty(), s)
         1 => (text("x"), s)
@@ -62,7 +62,7 @@ fn gen_layout(seed : Int, max_depth : Int) -> Layout[Unit] {
       }
     }
   }
-  let (doc, _) = go(seed, max_depth.abs() % 6)
+  let (doc, _) = go(seed, (max_depth % 6).abs())
   doc
 }
 
@@ -119,7 +119,7 @@ fn max_token_width(layout : Layout[Unit]) -> Int {
 test "property: no line exceeds width (unless forced by token)" {
   quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (seed, width_raw) = input
-    let width = width_raw.abs() % 40 + 5
+    let width = (width_raw % 40).abs() + 5
     let doc = gen_layout(seed, 5)
     let output = render_string(doc, width~)
     let max_w = max_line_width(output)
@@ -177,7 +177,7 @@ test "property: flat_width matches grouped flat rendering width" {
 test "property: render_string and render_spans have consistent length" {
   quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (seed, width_raw) = input
-    let width = width_raw.abs() % 40 + 5
+    let width = (width_raw % 40).abs() + 5
     let doc : Layout[Unit] = gen_layout(seed, 4)
     let str_output = render_string(doc, width~)
     let spans = render_spans(doc, width~)
@@ -198,7 +198,7 @@ test "property: render_string and render_spans have consistent length" {
 test "property: group is idempotent" {
   quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (seed, width_raw) = input
-    let width = width_raw.abs() % 40 + 5
+    let width = (width_raw % 40).abs() + 5
     let doc = gen_layout(seed, 4)
     let single = render_string(group(doc), width~)
     let double = render_string(group(group(doc)), width~)
@@ -213,7 +213,7 @@ test "property: group is idempotent" {
 test "property: Empty is identity for concat" {
   quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (seed, width_raw) = input
-    let width = width_raw.abs() % 40 + 5
+    let width = (width_raw % 40).abs() + 5
     let doc = gen_layout(seed, 4)
     let base = render_string(doc, width~)
     let left_id = render_string(empty() + doc, width~)
@@ -230,8 +230,8 @@ test "property: Empty is identity for concat" {
 test "property: wider width produces output no wider than narrow" {
   quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (seed, widths_raw) = input
-    let narrow = widths_raw.abs() % 20 + 5
-    let wide = narrow + widths_raw.abs() % 40 + 1
+    let narrow = (widths_raw % 20).abs() + 5
+    let wide = narrow + (widths_raw % 40).abs() + 1
     let doc = gen_layout(seed, 4)
     let narrow_lines = max_line_width(render_string(doc, width=narrow))
     let wide_lines = max_line_width(render_string(doc, width=wide))

@@ -41,7 +41,7 @@ pub fn MarkdownDocumentUpdate::document(
 pub fn MarkdownDocumentUpdate::as_previous(
   self : MarkdownDocumentUpdate,
 ) -> MarkdownPreviousUpdate {
-  { domain: self.domain, sequence: self.sequence }
+  { domain: self.domain, sequence: self.sequence, }
 }
 
 ///|

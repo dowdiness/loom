@@ -39,7 +39,7 @@ fn baseline_tokenize_for_test(
 
 ///|
 fn session_test_source(line_count : Int, indent : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("- item\n")
   out.write_string(indent + "```\n")
   for i = 0; i < line_count; i = i + 1 {

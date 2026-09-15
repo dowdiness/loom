@@ -16,7 +16,7 @@ pub fn[Ast] ImperativeParser::new(
   source : String,
   lang : ImperativeLanguage[Ast],
 ) -> ImperativeParser[Ast] {
-  { source_id, lang, source, snapshot: None, prev_cst: None }
+  { source_id, lang, source, snapshot: None, prev_cst: None, }
 }
 
 ///|

@@ -7,7 +7,7 @@ fn line_end_cache_uncached_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] {
   let lex_step = fn(input : String, pos : Int, mode : MarkdownLexMode) {
     markdown_lex_step(input, pos, mode)
   }
-  { lex_step, initial_mode: LineStart }
+  { lex_step, initial_mode: LineStart, }
 }
 
 ///|

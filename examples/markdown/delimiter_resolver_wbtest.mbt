@@ -20,7 +20,7 @@ fn delimiter_test_fact(
   can_open : Bool,
   can_close : Bool,
 ) -> DelimiterResolverEvent {
-  DelimiterRunEvent({ marker, start, length, can_open, can_close })
+  DelimiterRunEvent({ marker, start, length, can_open, can_close, })
 }
 
 ///|

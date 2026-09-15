@@ -34,7 +34,7 @@ fn delimiter_plan_representative_excerpt() -> String {
 
 ///|
 fn delimiter_plan_plain_control(source : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for character in source {
     match character {
       '*' | '_' | '`' | '[' | ']' | '(' | ')' | '/' => out.write_char('x')
@@ -46,7 +46,7 @@ fn delimiter_plan_plain_control(source : String) -> String {
 
 ///|
 fn delimiter_plan_mixed_control(section_count : Int) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i in 0..<section_count {
     out.write_string("## Section \{i}\n\n")
     out.write_string(
@@ -60,7 +60,7 @@ fn delimiter_plan_mixed_control(section_count : Int) -> String {
 
 ///|
 fn delimiter_plan_fenced_control(block_count : Int) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for i in 0..<block_count {
     out.write_string("```moonbit\n")
     out.write_string("fn item_\{i}() -> Int { \{i} }\n")

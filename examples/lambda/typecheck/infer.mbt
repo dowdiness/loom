@@ -26,14 +26,14 @@ priv struct DiagCtx {
 
 ///|
 fn DiagCtx::empty() -> DiagCtx {
-  { def_name: None, diags: None }
+  { def_name: None, diags: None, }
 }
 
 ///|
 /// Emit a diagnostic message via `ctx.diags` when present. No-op otherwise.
 fn emit(ctx : DiagCtx, message : String) -> Unit raise Failure {
   match ctx.diags {
-    Some(acc) => acc.push({ message, def_name: ctx.def_name, range: None })
+    Some(acc) => acc.push({ message, def_name: ctx.def_name, range: None, })
     None => ()
   }
 }
@@ -50,13 +50,13 @@ fn result_type(r : TypeResult) -> Type {
 
 ///|
 fn ok(typ : Type) -> TypeResult {
-  { typ, had_error: false }
+  { typ, had_error: false, }
 }
 
 ///|
 fn err(ctx : DiagCtx, msg : String) -> TypeResult raise Failure {
   emit(ctx, msg)
-  { typ: TError, had_error: true }
+  { typ: TError, had_error: true, }
 }
 
 ///|
@@ -111,21 +111,21 @@ fn infer_impl(
       if f_result.had_error {
         // Propagate the function error without secondary diagnostics.
         let _ = infer_impl(env, arg, ctx)
-        { typ: TError, had_error: true }
+        { typ: TError, had_error: true, }
       } else {
         match f_result.typ {
           TArrow(param_t, ret_t) => {
             let arg_result = check_impl(env, arg, param_t, ctx)
             if arg_result.had_error {
-              { typ: TError, had_error: true }
+              { typ: TError, had_error: true, }
             } else {
-              { typ: ret_t, had_error: false }
+              { typ: ret_t, had_error: false, }
             }
           }
           _ => {
             let _ = infer_impl(env, arg, ctx)
             emit(ctx, "not a function: got \{f_result.typ}")
-            { typ: TError, had_error: true }
+            { typ: TError, had_error: true, }
           }
         }
       }
@@ -134,7 +134,7 @@ fn infer_impl(
       let l_result = check_impl(env, l, TInt, ctx)
       let r_result = check_impl(env, r, TInt, ctx)
       let had_error = l_result.had_error || r_result.had_error
-      { typ: TInt, had_error }
+      { typ: TInt, had_error, }
     }
     If(cond, then_branch, else_branch) => {
       let cond_result = check_impl(env, cond, TInt, ctx)
@@ -195,14 +195,14 @@ fn check_impl(
       } else {
         TArrow(param_t, ret_t)
       }
-      { typ, had_error: body_result.had_error }
+      { typ, had_error: body_result.had_error, }
     }
     (Lam(x, Some(annot), body), TArrow(param_t, ret_t)) =>
       if annot != param_t {
         emit(ctx, "annotation mismatch: expected \{param_t}, got \{annot}")
         let ext_env = env.bind(x, param_t)
         let _ = check_impl(ext_env, body, ret_t, ctx)
-        { typ: TError, had_error: true }
+        { typ: TError, had_error: true, }
       } else {
         let ext_env = env.bind(x, annot)
         let body_result = check_impl(ext_env, body, ret_t, ctx)
@@ -211,7 +211,7 @@ fn check_impl(
         } else {
           TArrow(param_t, ret_t)
         }
-        { typ, had_error: body_result.had_error }
+        { typ, had_error: body_result.had_error, }
       }
     (Lam(_, _, _), _) => err(ctx, "expected \{expected}, got function")
     // Hole / Error in check mode intentionally stay silent: infer_impl
@@ -220,15 +220,15 @@ fn check_impl(
     // diagnostic. Bop/If paths that call check_impl directly rely on
     // had_error alone here — matching pre-accumulator behavior to keep
     // this migration semantics-preserving.
-    (Hole(_), _) => { typ: TError, had_error: true }
-    (Error(_), _) => { typ: TError, had_error: true }
+    (Hole(_), _) => { typ: TError, had_error: true, }
+    (Error(_), _) => { typ: TError, had_error: true, }
     _ => {
       let result = infer_impl(env, term, ctx)
       if result.had_error {
         result
       } else if result.typ != expected {
         emit(ctx, "expected \{expected}, got \{result.typ}")
-        { typ: TError, had_error: true }
+        { typ: TError, had_error: true, }
       } else {
         result
       }

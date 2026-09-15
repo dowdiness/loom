@@ -147,9 +147,9 @@ pub fn build_typecheck_pipeline_with_index(
           if !state.type_memos[idx].is_disposed() {
             state.type_memos[idx].get_or_abort()
           } else {
-            { typ: TError, had_error: true }
+            { typ: TError, had_error: true, }
           }
-        None => { typ: TError, had_error: true }
+        None => { typ: TError, had_error: true, }
       }
     },
     label="typecheck_index",
@@ -175,7 +175,10 @@ pub fn build_typecheck_pipeline_with_index(
     },
     label="typecheck_pipeline",
   )
-  let index : TypecheckIndex = { intern_table: state.intern_table, derived_map }
+  let index : TypecheckIndex = {
+    intern_table: state.intern_table,
+    derived_map,
+  }
   (result_derived, index)
 }
 
@@ -265,7 +268,7 @@ fn rebuild_chain(
         })
       None => name_to_idx.set(def.0, i)
     }
-    let _id = state.intern_table.intern({ name: def.0 })
+    let _id = state.intern_table.intern({ name: def.0, })
   }
   state.name_to_idx = name_to_idx
   state.duplicate_diags = duplicate_diags
@@ -336,7 +339,7 @@ fn rebuild_chain(
     // type_memo[i]: infer resolved body in env_memo[i]. Diagnostics
     // pushed from within `infer_impl` land in the chain-scope
     // accumulator, tagged with this def's name.
-    let ctx : DiagCtx = { def_name: Some(def_name), diags: Some(diags) }
+    let ctx : DiagCtx = { def_name: Some(def_name), diags: Some(diags), }
     let type_memo = chain_scope.derived(
       () => {
         let env = env_memo.get_or_abort()
@@ -358,7 +361,7 @@ fn rebuild_chain(
   )
   state.body_resolve_memo = Some(body_resolve_memo)
   // Body diagnostics are untagged (no def_name).
-  let body_ctx : DiagCtx = { def_name: None, diags: Some(diags) }
+  let body_ctx : DiagCtx = { def_name: None, diags: Some(diags), }
   // Build the final type env for the body (extends last env with
   // last def's type).
   let body_memo = if defs.length() == 0 {
@@ -460,7 +463,7 @@ fn collect_results(state : PipelineState) -> ModuleTypeResult raise Failure {
       }
       r
     }
-    None => { typ: TUnit, had_error: false }
+    None => { typ: TUnit, had_error: false, }
   }
-  { body_type, def_types, all_diagnostics }
+  { body_type, def_types, all_diagnostics, }
 }

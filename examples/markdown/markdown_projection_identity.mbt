@@ -378,7 +378,7 @@ fn MarkdownIdentityLeaf::new(
   anchor : MarkdownIROrigin,
   key : MarkdownSemanticKey,
 ) -> MarkdownIdentityLeaf {
-  { anchor, key }
+  { anchor, key, }
 }
 
 ///|
@@ -406,7 +406,7 @@ fn MarkdownIdentityCandidate::new(
   payload : String,
   parent : Int?,
 ) -> MarkdownIdentityCandidate {
-  { leaf: MarkdownIdentityLeaf::new(anchor, key), payload, parent }
+  { leaf: MarkdownIdentityLeaf::new(anchor, key), payload, parent, }
 }
 
 ///|
@@ -418,7 +418,7 @@ fn append_key_component(buf : StringBuilder, component : String) -> Unit {
 
 ///|
 fn MarkdownSemanticKey::projection_key(self : MarkdownSemanticKey) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   match self {
     Heading(depth) => {
       append_key_component(buf, "Heading")
@@ -463,7 +463,7 @@ fn MarkdownSemanticKey::projection_key(self : MarkdownSemanticKey) -> String {
 
 ///|
 fn normalized_link_label_fingerprint(children : Array[MarkdownIR]) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for child in children {
     append_normalized_link_label_node(buf, child)
   }
@@ -486,7 +486,7 @@ fn append_normalized_link_label_node(
 
 ///|
 fn normalized_link_label_node_fingerprint(ir : MarkdownIR) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   match ir.node {
     Text(value) => {
       append_key_component(buf, "Text")

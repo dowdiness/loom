@@ -18,7 +18,7 @@ pub fn[R] CstElement::transform(
   match self {
     Token(token) => on_token(token)
     Node(node) => {
-      let results = Array::new(capacity=node.children.length())
+      let results = Array(capacity=node.children.length())
       for child in node.children {
         results.push(child.transform(on_token, on_node))
       }
@@ -195,7 +195,7 @@ pub fn CstElement::map(
   match self {
     Token(_) => f(self)
     Node(node) => {
-      let new_children = Array::new(capacity=node.children.length())
+      let new_children = Array(capacity=node.children.length())
       for child in node.children {
         new_children.push(child.map(f))
       }

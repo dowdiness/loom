@@ -117,7 +117,7 @@ fn expect_counted_bounds(
   expected_max : Int?,
 ) -> Unit {
   match parse_pattern(pattern) {
-    Ok(Quantified(_, { kind: Counted(bounds) })) => {
+    Ok(Quantified(_, { kind: Counted(bounds), })) => {
       let shape_ok = match expected_shape {
         ExactShape => bounds is Exact(_)
         AtLeastShape => bounds is AtLeast(_)
@@ -148,7 +148,7 @@ test "quantifier AST preserves bound values and shapes" {
 test "quantifier parser consumes lazy syntax before policy rejection" {
   let parser = PatternParser::PatternParser("a*?")
   let parsed = parser.parse_top()
-  assert_true(parsed is Quantified(_, { kind: ZeroOrMore }))
+  assert_true(parsed is Quantified(_, { kind: ZeroOrMore, }))
   match parser.first_unsupported {
     Some(pos) => assert_true(pos == 2)
     None => fail("expected lazy quantifier rejection")

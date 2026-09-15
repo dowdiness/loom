@@ -136,5 +136,5 @@ pub fn[T, K] GrammarIr::GrammarIr(
   rules : Map[RuleName, Expr[T, K]],
   root~ : RuleName,
 ) -> Self[T, K] {
-  { rules, root }
+  { rules, root, }
 }

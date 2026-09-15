@@ -60,7 +60,10 @@ test "raw HTML policy adapter: nested rejection preserves the HTML origin" {
   let child_origin = MarkdownIROrigin(start=7, end=7 + value.length())
   let container_origin = MarkdownIROrigin(start=0, end=child_origin.end())
   let html = MarkdownIR::html_block(value, child_origin, Some(child_origin))
-  let quote = MarkdownIR::{ node: BlockQuote([html]), origin: container_origin }
+  let quote = MarkdownIR::{
+    node: BlockQuote([html]),
+    origin: container_origin,
+  }
   let ir = MarkdownIR::document([quote], container_origin)
   assert_eq(
     experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(ir, Reject),
@@ -76,7 +79,7 @@ test "raw HTML policy adapter: nested rejection preserves the HTML origin" {
 test "raw HTML policy adapter: malformed recovery Raw stays escaped" {
   let value = "<broken>"
   let origin = raw_html_policy_origin(value)
-  let ir = MarkdownIR::{ node: Raw(value, []), origin }
+  let ir = MarkdownIR::{ node: Raw(value, []), origin, }
   for policy in [Escape, Omit, Reject, Passthrough] {
     assert_eq(
       experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(

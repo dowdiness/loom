@@ -152,7 +152,7 @@ pub fn SettingsAttachment::SettingsAttachment(
   let analysis = parser.attach_semantic((previous, snapshot, change) => {
     project_settings_candidate(previous, snapshot, change)
   })
-  let self = { parser, analysis }
+  let self = { parser, analysis, }
   ignore(self.analysis.read())
   self
 }

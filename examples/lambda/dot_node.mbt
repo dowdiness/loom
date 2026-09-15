@@ -97,7 +97,7 @@ fn build_term_tree(
     }
     _ => []
   }
-  { id, term, child_nodes, resolution }
+  { id, term, child_nodes, resolution, }
 }
 
 ///|

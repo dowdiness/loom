@@ -116,7 +116,7 @@ fn reactive_markdown_document_root(
   syntax : @seam.SyntaxNode,
 ) -> ReactiveMarkdownDocumentRoot {
   let root = syntax_root(syntax)
-  { cst: root.cst_node(), start: root.start() }
+  { cst: root.cst_node(), start: root.start(), }
 }
 
 ///|
@@ -141,7 +141,7 @@ fn reactive_markdown_document_layout(
       })
     }
   }
-  { root_cst: root.cst, origin: origin_from_node(syntax), blocks }
+  { root_cst: root.cst, origin: origin_from_node(syntax), blocks, }
 }
 
 ///|

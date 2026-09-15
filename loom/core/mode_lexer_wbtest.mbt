@@ -145,7 +145,7 @@ test "erase_mode_lexer_factory owns one lexer shell per operation" {
   let new_lexer = fn() {
     construction_count.val = construction_count.val + 1
     (
-      { lex_step: mock_lex_step, initial_mode: Normal } :
+      { lex_step: mock_lex_step, initial_mode: Normal, } :
       ModeLexer[MockToken, MockMode])
   }
   let factory = erase_mode_lexer_factory(

@@ -14,7 +14,7 @@ priv struct BoundaryBenchFixture {
 #cfg(target="js")
 fn boundary_bench_fixture(block_count : Int) -> BoundaryBenchFixture {
   let units = block_count / 2
-  let builder = StringBuilder::new()
+  let builder = StringBuilder()
   let starts : Array[Int] = []
   let mut offset = 0
   for i in 0..<units {
@@ -28,7 +28,7 @@ fn boundary_bench_fixture(block_count : Int) -> BoundaryBenchFixture {
     builder.write_string(paragraph)
     offset = offset + paragraph.length()
   }
-  { source: builder.to_string(), starts }
+  { source: builder.to_string(), starts, }
 }
 
 ///|

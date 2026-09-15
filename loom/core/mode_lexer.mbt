@@ -105,7 +105,7 @@ pub fn[T] ModeRelexState::new(
     T,
   ] raise LexResultError,
 ) -> ModeRelexState[T] {
-  { tokenize_fn: tokenize, relex_from_fn: relex_from }
+  { tokenize_fn: tokenize, relex_from_fn: relex_from, }
 }
 
 ///|
@@ -138,7 +138,7 @@ pub fn[T] ModeRelexState::relex_from(
 pub fn[T] ModeRelexFactory::new(
   new_session~ : (SourceId) -> ModeRelexState[T],
 ) -> ModeRelexFactory[T] {
-  { new_session_fn: new_session, initialize_session: None }
+  { new_session_fn: new_session, initialize_session: None, }
 }
 
 ///|
@@ -226,7 +226,7 @@ pub fn[T] ModeRelexResult::new(
   let starts = starts.copy()
   let diagnostics = diagnostics.copy()
   validate_mode_relex_result(tokens, starts, converged_at_old_token)
-  { tokens, starts, diagnostics, converged_at_old_token }
+  { tokens, starts, diagnostics, converged_at_old_token, }
 }
 
 ///|
@@ -237,7 +237,7 @@ fn[T] mode_relex_result_owned(
   diagnostics : DiagnosticSet,
   converged_at_old_token : Int,
 ) -> ModeRelexResult[T] {
-  { tokens, starts, diagnostics, converged_at_old_token }
+  { tokens, starts, diagnostics, converged_at_old_token, }
 }
 
 ///|
@@ -316,7 +316,7 @@ fn[T, M] push_recovered_mode_step(
         next_offset
       }
       tokens.push(TokenInfo::new(tok.token, end - pos))
-      { pos: end, mode: next_mode, consumed_token: true, stop: false }
+      { pos: end, mode: next_mode, consumed_token: true, stop: false, }
     }
     Invalid(at~, width~, message~) => {
       let error_start = clamp_offset(if at > pos { at } else { pos }, len)
@@ -334,7 +334,7 @@ fn[T, M] push_recovered_mode_step(
           end - error_start,
         ),
       )
-      { pos: end, mode: next_mode, consumed_token: true, stop: false }
+      { pos: end, mode: next_mode, consumed_token: true, stop: false, }
     }
     Incomplete(at~, expected~) => {
       let error_start = clamp_offset(if at > pos { at } else { pos }, len)
@@ -358,9 +358,9 @@ fn[T, M] push_recovered_mode_step(
           width,
         ),
       )
-      { pos: len, mode: next_mode, consumed_token: true, stop: true }
+      { pos: len, mode: next_mode, consumed_token: true, stop: true, }
     }
-    Done => { pos, mode, consumed_token: false, stop: true }
+    Done => { pos, mode, consumed_token: false, stop: true, }
   }
 }
 
@@ -547,7 +547,7 @@ fn[T, M : Eq] new_mode_relex_session(
         old_modes[start_tok_idx + i] = internal.modes[i]
       }
     } else {
-      let result : Array[M] = Array::new(
+      let result : Array[M] = Array(
         capacity=old_modes.length() - delete_count + internal.modes.length(),
       )
       for i = 0; i < start_tok_idx; i = i + 1 {
@@ -594,7 +594,7 @@ pub fn[T, M : Eq] erase_mode_lexer_factory(
     let initial = state.tokenize(source)
     (state, initial)
   }
-  { new_session_fn: new_session, initialize_session: Some(initialize_session) }
+  { new_session_fn: new_session, initialize_session: Some(initialize_session), }
 }
 
 ///|

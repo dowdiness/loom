@@ -64,6 +64,75 @@ test "EventBuffer: synthetic zero-width token records non-source provenance" {
 }
 
 ///|
+test "build_tree: distinct node kinds token kinds and text stay distinct" {
+  let expected = [
+    (RawKind(1), RawKind(9), "x"),
+    (RawKind(2), RawKind(9), "x"),
+    (RawKind(2), RawKind(10), "x"),
+    (RawKind(2), RawKind(10), "y"),
+  ]
+  let events : Array[ParseEvent] = []
+  for (node_kind, token_kind, text) in expected {
+    events.push(StartNode(node_kind))
+    events.push(Token(token_kind, text[:]))
+    events.push(FinishNode)
+  }
+  let syntax = SyntaxNode::from_cst(build_test_tree(events, RawKind(0)))
+  let actual = syntax
+    .children()
+    .map(node => {
+      let token = node.tokens()[0]
+      (node.kind(), token.kind(), token.text())
+    })
+  assert_eq(actual, expected)
+}
+
+///|
+test "build_tree: identical leaves have distinct structural positions" {
+  let source = "xx"
+  let events : Array[ParseEvent] = []
+  for i in 0..<2 {
+    events.push(StartNode(RawKind(1)))
+    events.push(
+      Token(RawKind(9), source.view(start_offset=i, end_offset=i + 1)),
+    )
+    events.push(FinishNode)
+  }
+  let syntax = SyntaxNode::from_cst(build_test_tree(events, RawKind(0)))
+  let spans = syntax
+    .deep_tokens_iter()
+    .map(token => (token.start(), token.end()))
+    .to_array()
+  assert_eq(spans, [(0, 1), (1, 2)])
+}
+
+///|
+test "EventBuffer: equal empty text does not erase token provenance" {
+  let source_backed = [true, true, false, false, true]
+  let buf = EventBuffer::new()
+  for is_source_backed in source_backed {
+    buf.push(StartNode(RawKind(1)))
+    if is_source_backed {
+      buf.push(Token(RawKind(9), ""))
+    } else {
+      buf.push_parser_synthetic_zero_width_token(RawKind(9))
+    }
+    buf.push(FinishNode)
+  }
+  let root = buf.build_tree(RawKind(0), policy=event_test_policy)
+  let actual = CstElement::Node(root)
+    .iter()
+    .filter_map(element => {
+      match element {
+        Token(token) => Some(token.is_source_backed())
+        Node(_) => None
+      }
+    })
+    .to_array()
+  assert_eq(actual, source_backed)
+}
+
+///|
 test "build_tree_fully_interned: token provenance prevents node collapse" {
   let interner = Interner::new()
   let node_interner = NodeInterner::new()

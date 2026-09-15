@@ -61,17 +61,17 @@ fn bop_sym(op : Bop) -> String {
 
 ///|
 pub impl TermSym for SourceText with fn int_lit(n) {
-  { repr: n.to_string(), prec: prec_atom }
+  { repr: n.to_string(), prec: prec_atom, }
 }
 
 ///|
 pub impl TermSym for SourceText with fn variable(x) {
-  { repr: x, prec: prec_atom }
+  { repr: x, prec: prec_atom, }
 }
 
 ///|
 pub impl TermSym for SourceText with fn lam(x, body) {
-  { repr: "(" + x + ") => " + body.repr, prec: prec_lam }
+  { repr: "(" + x + ") => " + body.repr, prec: prec_lam, }
 }
 
 ///|
@@ -105,33 +105,33 @@ pub impl TermSym for SourceText with fn if_then_else(c, t, e) {
 
 ///|
 pub impl TermSym for SourceText with fn let_def(name, init) {
-  { repr: "let " + name + " = " + init.repr, prec: prec_top }
+  { repr: "let " + name + " = " + init.repr, prec: prec_top, }
 }
 
 ///|
 pub impl TermSym for SourceText with fn mod(defs, body) {
   let parts = [..defs.map(d => "let " + d.0 + " = " + d.1.repr), body.repr]
-  { repr: "{ " + parts.join("\n") + " }", prec: prec_atom }
+  { repr: "{ " + parts.join("\n") + " }", prec: prec_atom, }
 }
 
 ///|
 pub impl TermSym for SourceText with fn unit() {
-  { repr: "()", prec: prec_atom }
+  { repr: "()", prec: prec_atom, }
 }
 
 ///|
 pub impl TermSym for SourceText with fn unbound(x) {
-  { repr: "<unbound: " + x + ">", prec: prec_atom }
+  { repr: "<unbound: " + x + ">", prec: prec_atom, }
 }
 
 ///|
 pub impl TermSym for SourceText with fn error_term(msg) {
-  { repr: "<error: " + msg + ">", prec: prec_atom }
+  { repr: "<error: " + msg + ">", prec: prec_atom, }
 }
 
 ///|
 pub impl TermSym for SourceText with fn hole(_n) {
-  { repr: "_", prec: prec_atom }
+  { repr: "_", prec: prec_atom, }
 }
 
 ///|
@@ -203,17 +203,17 @@ fn term_to_source(term : Term) -> String {
 
 ///|
 pub impl TermSym for PrettyLayout with fn int_lit(n) {
-  { layout: num(n.to_string()), prec: prec_atom }
+  { layout: num(n.to_string()), prec: prec_atom, }
 }
 
 ///|
 pub impl TermSym for PrettyLayout with fn variable(name) {
-  { layout: ident(name), prec: prec_atom }
+  { layout: ident(name), prec: prec_atom, }
 }
 
 ///|
 pub impl TermSym for PrettyLayout with fn unit() {
-  { layout: punc("()"), prec: prec_atom }
+  { layout: punc("()"), prec: prec_atom, }
 }
 
 ///|
@@ -329,17 +329,17 @@ pub impl TermSym for PrettyLayout with fn mod(defs, body) {
 
 ///|
 pub impl TermSym for PrettyLayout with fn unbound(name) {
-  { layout: err_text("<unbound: " + name + ">"), prec: prec_atom }
+  { layout: err_text("<unbound: " + name + ">"), prec: prec_atom, }
 }
 
 ///|
 pub impl TermSym for PrettyLayout with fn error_term(msg) {
-  { layout: err_text("<error: " + msg + ">"), prec: prec_atom }
+  { layout: err_text("<error: " + msg + ">"), prec: prec_atom, }
 }
 
 ///|
 pub impl TermSym for PrettyLayout with fn hole(_n) {
-  { layout: err_text("_"), prec: prec_atom }
+  { layout: err_text("_"), prec: prec_atom, }
 }
 
 ///|

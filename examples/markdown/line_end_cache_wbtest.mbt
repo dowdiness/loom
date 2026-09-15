@@ -2,7 +2,7 @@
 
 ///|
 fn line_end_cache_nested_quote_doc(depth : Int, line_count : Int) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for line = 0; line < line_count; line = line + 1 {
     for prefix = 0; prefix < depth; prefix = prefix + 1 {
       out.write_string("> ")

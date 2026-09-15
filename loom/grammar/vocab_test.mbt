@@ -198,7 +198,7 @@ test "RequireSep consumes a multi-token delimiter run with per-token kinds" {
         ),
         Expr::Emit(TestToken::Int, TestKind::IntToken),
         Expr::Choice([
-          Alt::{ starts: Pred::IsToken(TestToken::EOF), body: Expr::Empty },
+          Alt::{ starts: Pred::IsToken(TestToken::EOF), body: Expr::Empty, },
           Alt::{
             starts: Pred::Any,
             body: Expr::ErrorNodeUntil(
@@ -245,7 +245,7 @@ test "RequireSep consumes a multi-token delimiter run with per-token kinds" {
 test "ErrorNodeUntil opens an error node over trailing garbage, EOF-guarded" {
   let guarded : Map[RuleName, Expr[TestToken, TestKind]] = {
     "source": Expr::Choice([
-      Alt::{ starts: Pred::IsToken(TestToken::EOF), body: Expr::Empty },
+      Alt::{ starts: Pred::IsToken(TestToken::EOF), body: Expr::Empty, },
       Alt::{
         starts: Pred::Any,
         body: Expr::ErrorNodeUntil(
@@ -346,7 +346,7 @@ test "PrattBinary skip spans a gated separator before the operator (real interpr
       "source": Expr::Seq([
         Expr::Ref("binary"),
         Expr::Choice([
-          Alt::{ starts: Pred::IsToken(TestToken::EOF), body: Expr::Empty },
+          Alt::{ starts: Pred::IsToken(TestToken::EOF), body: Expr::Empty, },
           Alt::{
             starts: Pred::Any,
             body: Expr::ErrorNodeUntil(

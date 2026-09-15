@@ -33,7 +33,7 @@ pub fn parse(
     Some(diagnostics),
     extensions,
   )
-  { source_id, source, diagnostics, ir, node_marker: Ref::Ref(()) }
+  { source_id, source, diagnostics, ir, node_marker: Ref::Ref(()), }
 }
 
 ///|
@@ -90,7 +90,7 @@ pub fn MarkdownDocument::diagnostics(
 pub fn MarkdownDocument::semantic_read(
   self : MarkdownDocument,
 ) -> MarkdownSemanticRead {
-  { document: self, ir: self.ir }
+  { document: self, ir: self.ir, }
 }
 
 ///|
@@ -108,7 +108,7 @@ pub fn MarkdownSemanticRead::ir(self : MarkdownSemanticRead) -> MarkdownIR {
 ///|
 /// Return the stable opaque root node for this advanced semantic read.
 pub fn MarkdownSemanticRead::root(self : MarkdownSemanticRead) -> MarkdownNode {
-  { document_marker: self.document.node_marker, node: self.ir }
+  { document_marker: self.document.node_marker, node: self.ir, }
 }
 
 ///|
@@ -186,7 +186,7 @@ pub fn MarkdownDocument::selection(
     return None
   }
   match markdown_semantic_selection_origin(node.node, kind) {
-    Some(origin) => Some({ read: self.semantic_read(), origin })
+    Some(origin) => Some({ read: self.semantic_read(), origin, })
     None => None
   }
 }

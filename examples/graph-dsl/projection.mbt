@@ -52,7 +52,7 @@ fn RawGraphProjection::RawGraphProjection(
   nodes~ : Array[RawGraphNode],
   tokens~ : Array[GraphToken],
 ) -> RawGraphProjection {
-  { source, nodes: nodes.copy(), tokens: tokens.copy() }
+  { source, nodes: nodes.copy(), tokens: tokens.copy(), }
 }
 
 ///|

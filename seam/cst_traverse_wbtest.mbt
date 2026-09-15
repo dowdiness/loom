@@ -408,7 +408,7 @@ test "transform: empty node" {
 ///|
 test "find: empty node no match" {
   let node = CstNode::new_unclassified(RawKind(20), [])
-  let found = CstElement::Node(node).find(NumberFinder::{ kind: RawKind(10) })
+  let found = CstElement::Node(node).find(NumberFinder::{ kind: RawKind(10), })
   inspect(found is None, content="true")
 }
 
@@ -428,7 +428,7 @@ pub impl Finder for NumberFinder with fn check(self, elem) {
 ///|
 test "find: locates first number token" {
   let tree = make_test_tree()
-  let found = tree.find(NumberFinder::{ kind: RawKind(10) })
+  let found = tree.find(NumberFinder::{ kind: RawKind(10), })
   match found {
     Some(CstElement::Token(t)) => inspect(t.text().to_owned(), content="1")
     _ => inspect("not found", content="")
@@ -438,7 +438,7 @@ test "find: locates first number token" {
 ///|
 test "find: returns None when no match" {
   let tree = make_test_tree()
-  let found = tree.find(NumberFinder::{ kind: RawKind(99) })
+  let found = tree.find(NumberFinder::{ kind: RawKind(99), })
   inspect(found is None, content="true")
 }
 
@@ -458,7 +458,7 @@ pub impl Finder for NodeKindFinder with fn check(self, elem) {
 ///|
 test "find: matches node element" {
   let tree = make_test_tree()
-  let found = tree.find(NodeKindFinder::{ kind: RawKind(21) })
+  let found = tree.find(NodeKindFinder::{ kind: RawKind(21), })
   match found {
     Some(CstElement::Node(n)) => inspect(n.kind == RawKind(21), content="true")
     _ => inspect("not found", content="")
@@ -469,7 +469,7 @@ test "find: matches node element" {
 test "find: single token match" {
   let tok = CstToken::CstToken(RawKind(9), "x")
   let elem = CstElement::Token(tok)
-  let found = elem.find(NumberFinder::{ kind: RawKind(9) })
+  let found = elem.find(NumberFinder::{ kind: RawKind(9), })
   match found {
     Some(CstElement::Token(t)) => inspect(t.text().to_owned(), content="x")
     _ => inspect("not found", content="")
@@ -480,6 +480,6 @@ test "find: single token match" {
 test "find: single token no match" {
   let tok = CstToken::CstToken(RawKind(9), "x")
   let elem = CstElement::Token(tok)
-  let found = elem.find(NumberFinder::{ kind: RawKind(10) })
+  let found = elem.find(NumberFinder::{ kind: RawKind(10), })
   inspect(found is None, content="true")
 }

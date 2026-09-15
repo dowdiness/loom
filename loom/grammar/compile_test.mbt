@@ -215,7 +215,7 @@ test "compile succeeds when dispatch target is a top-level Choice" {
   let rules : Map[RuleName, Expr[Int, Int]] = {
     "source": Expr::Native("native"),
     "choice": Expr::Choice([
-      Alt::{ starts: Pred::IsToken(1), body: Expr::Emit(1, 10) },
+      Alt::{ starts: Pred::IsToken(1), body: Expr::Emit(1, 10), },
     ]),
   }
   let compiled = compile(
@@ -276,10 +276,10 @@ test "compile assigns deterministic rule native guard and dispatch slots" {
   let rules : Map[RuleName, Expr[Int, Int]] = {
     "source": Expr::Native("z_native"),
     "z_rule": Expr::Choice([
-      Alt::{ starts: Pred::HostGuard("z_guard"), body: Expr::Empty },
+      Alt::{ starts: Pred::HostGuard("z_guard"), body: Expr::Empty, },
     ]),
     "a_rule": Expr::Choice([
-      Alt::{ starts: Pred::HostGuard("a_guard"), body: Expr::Empty },
+      Alt::{ starts: Pred::HostGuard("a_guard"), body: Expr::Empty, },
     ]),
   }
   let compiled = compile(
@@ -368,7 +368,7 @@ test "compile rejects direct leading recursion" {
 test "compile rejects leading recursion through Choice" {
   let rules : Map[RuleName, Expr[Int, Int]] = {
     "source": Expr::Choice([
-      Alt::{ starts: Pred::Any, body: Expr::Ref("source") },
+      Alt::{ starts: Pred::Any, body: Expr::Ref("source"), },
     ]),
   }
   let caught = try {

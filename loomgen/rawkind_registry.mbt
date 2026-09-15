@@ -9,7 +9,7 @@ struct RawKindRegistry {
 
 ///|
 fn RawKindRegistry::new() -> Self {
-  { known: Map([]), next_raw: 0, tombstones: @hashset.HashSet([]) }
+  { known: Map([]), next_raw: 0, tombstones: @hashset.HashSet([]), }
 }
 
 ///|

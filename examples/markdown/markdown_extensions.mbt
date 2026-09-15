@@ -10,13 +10,13 @@ pub struct MarkdownExtensions {
 ///|
 /// CommonMark semantics without extensions.
 pub fn MarkdownExtensions::none() -> MarkdownExtensions {
-  { task_list: false }
+  { task_list: false, }
 }
 
 ///|
 /// CommonMark semantics with the GFM task-list-item extension.
 pub fn MarkdownExtensions::task_list() -> MarkdownExtensions {
-  { task_list: true }
+  { task_list: true, }
 }
 
 ///|

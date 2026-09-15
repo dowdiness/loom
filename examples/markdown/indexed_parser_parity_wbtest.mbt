@@ -21,13 +21,13 @@ fn indexed_parser_corpora(scale : Int) -> Array[IndexedParserCorpus] {
   let html_block = "<div data-row=\"x\">\nraw <span>payload</span>\n</div>\n\n"
   let fenced_block = "```moonbit\nfn item() -> Int {\n  1\n}\n```\n"
   [
-    { name: "paragraph", source: perf_work_paragraph_doc(scale) },
-    { name: "mixed", source: mixed_section.repeat(scale) },
-    { name: "delimiter-heavy", source: delimiter.delimiter_heavy.source },
-    { name: "recovery-heavy", source: recovery_case.repeat(scale) },
-    { name: "inline-html", source: inline_html.repeat(scale) },
-    { name: "html", source: html_block.repeat(scale) },
-    { name: "fenced-code", source: fenced_block.repeat(scale) },
+    { name: "paragraph", source: perf_work_paragraph_doc(scale), },
+    { name: "mixed", source: mixed_section.repeat(scale), },
+    { name: "delimiter-heavy", source: delimiter.delimiter_heavy.source, },
+    { name: "recovery-heavy", source: recovery_case.repeat(scale), },
+    { name: "inline-html", source: inline_html.repeat(scale), },
+    { name: "html", source: html_block.repeat(scale), },
+    { name: "fenced-code", source: fenced_block.repeat(scale), },
     {
       name: "nested-container",
       source: line_end_cache_nested_quote_doc(8, scale),

@@ -231,7 +231,7 @@ test "CstNode collections resolve forced cached-hash collisions with Eq" {
   let actual_second = CstNode::new_unclassified(RawKind(10), [
     CstElement::Token(CstToken::CstToken(RawKind(1), "second")),
   ])
-  let forced_collision = CstNode::{ ..actual_second, hash: first.hash }
+  let forced_collision = CstNode::{ ..actual_second, hash: first.hash, }
   assert_false(first == forced_collision)
   let values : @hashmap.HashMap[CstNode, String] = @hashmap.HashMap([])
   values.set(first, "first")

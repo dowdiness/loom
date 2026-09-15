@@ -38,9 +38,9 @@ pub fn resolve_typed(term : TypedTerm) -> ResolvedModule {
         env = env.bind(def.0)
         resolved_defs.push((def.0, resolved))
       }
-      { defs: resolved_defs, body: resolve_walk(body, env) }
+      { defs: resolved_defs, body: resolve_walk(body, env), }
     }
-    _ => { defs: [], body: resolve_walk(term, Empty) }
+    _ => { defs: [], body: resolve_walk(term, Empty), }
   }
 }
 

@@ -32,7 +32,7 @@ test "line breaks: MarkdownIR owns typed soft and hard surfaces with origins" {
           _,
           {
             node: HardBreak(HardBreakSurface::TrailingSpaces(2), Some(origin)),
-            ..,
+            ..
           },
           _,
         ] =>

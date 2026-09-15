@@ -12,7 +12,7 @@ struct Peer {
 fn Peer::new(source_id : @core.SourceId, source : String) -> Peer {
   let parser = new_imperative_parser(source_id, source)
   let _ = try! parser.parse().ast
-  { text: source, parser }
+  { text: source, parser, }
 }
 
 ///|

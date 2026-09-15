@@ -137,7 +137,7 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(
 ) -> TokenInfo[T] {
   self
   .current_token_position()
-  .map_or({ token: self.spec.eof_token, len: 0 }, pos => {
+  .map_or({ token: self.spec.eof_token, len: 0, }, pos => {
     token: (self.get_token)(pos),
     len: (self.get_end)(pos) - (self.get_start)(pos),
   })

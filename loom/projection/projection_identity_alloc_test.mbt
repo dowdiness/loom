@@ -30,7 +30,7 @@ fn test_item(
   family : String,
   text : String,
 ) -> TestProjectionItem {
-  { start, end, family, text }
+  { start, end, family, text, }
 }
 
 ///|
@@ -48,7 +48,13 @@ fn test_item_with_id(
   item : TestProjectionItem,
   id : String,
 ) -> TestStableProjectionItem {
-  { start: item.start, end: item.end, family: item.family, text: item.text, id }
+  {
+    start: item.start,
+    end: item.end,
+    family: item.family,
+    text: item.text,
+    id,
+  }
 }
 
 ///|

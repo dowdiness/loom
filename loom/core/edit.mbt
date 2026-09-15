@@ -12,7 +12,7 @@ pub(all) struct Edit {
 ///|
 /// Create a new edit
 pub fn Edit::new(start : Int, old_len : Int, new_len : Int) -> Edit {
-  { start, old_len, new_len }
+  { start, old_len, new_len, }
 }
 
 ///|
@@ -77,19 +77,19 @@ pub fn Edit::overlaps_range(self : Edit, start : Int, end : Int) -> Bool {
 ///|
 /// Create an edit for inserting text
 pub fn Edit::insert(position : Int, length : Int) -> Edit {
-  { start: position, old_len: 0, new_len: length }
+  { start: position, old_len: 0, new_len: length, }
 }
 
 ///|
 /// Create an edit for deleting text
 pub fn Edit::delete(start : Int, end : Int) -> Edit {
-  { start, old_len: end - start, new_len: 0 }
+  { start, old_len: end - start, new_len: 0, }
 }
 
 ///|
 /// Create an edit for replacing text
 pub fn Edit::replace(start : Int, old_end : Int, new_end : Int) -> Edit {
-  { start, old_len: old_end - start, new_len: new_end - start }
+  { start, old_len: old_end - start, new_len: new_end - start, }
 }
 
 ///|

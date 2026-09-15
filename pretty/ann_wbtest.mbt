@@ -8,7 +8,7 @@ test "SyntaxCategory values" {
 
 ///|
 test "Span construction" {
-  let span : Span = { start: 0, end: 5 }
+  let span : Span = { start: 0, end: 5, }
   inspect(span.start, content="0")
   inspect(span.end, content="5")
 }

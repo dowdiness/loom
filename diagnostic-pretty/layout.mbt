@@ -20,7 +20,7 @@ pub fn DiagnosticPrettyOptions::DiagnosticPrettyOptions(
   guard tab_width > 0 else {
     raise DisplayWidth(@moji.InvalidTabWidth(tab_width))
   }
-  { tab_width_: tab_width, ambiguous_width_: ambiguous_width }
+  { tab_width_: tab_width, ambiguous_width_: ambiguous_width, }
 }
 
 ///|
@@ -112,12 +112,12 @@ fn source_lines(text : String) -> Array[SourceLine] {
   while pos < len {
     match text.view(start_offset=pos) {
       ['\r', '\n', .. rest] => {
-        lines.push({ start: line_start, end: pos })
+        lines.push({ start: line_start, end: pos, })
         pos = rest.start_offset()
         line_start = pos
       }
       ['\n', .. rest] | ['\r', .. rest] => {
-        lines.push({ start: line_start, end: pos })
+        lines.push({ start: line_start, end: pos, })
         pos = rest.start_offset()
         line_start = pos
       }
@@ -135,7 +135,7 @@ fn source_lines(text : String) -> Array[SourceLine] {
         }
     }
   }
-  lines.push({ start: line_start, end: len })
+  lines.push({ start: line_start, end: len, })
   lines
 }
 
@@ -278,7 +278,7 @@ fn validate_label(
   let range = span.range()
   let start = range.start().value()
   let end = range.end().value()
-  { label, snapshot, line_range: snapshot.line_index().line_range(start, end) }
+  { label, snapshot, line_range: snapshot.line_index().line_range(start, end), }
 }
 
 ///|
@@ -296,7 +296,7 @@ impl[R : @diagnostic.SourceResolver] @diagnostic.SourceResolver for CachingResol
     None =>
       match self.resolver.resolve_source(source_id) {
         Some(snapshot) => {
-          self.sources.push({ source_id, snapshot })
+          self.sources.push({ source_id, snapshot, })
           Some(snapshot)
         }
         None => None
@@ -543,7 +543,7 @@ pub fn[R : @diagnostic.SourceResolver] layout(
   resolver : R,
   options : DiagnosticPrettyOptions,
 ) -> @pretty.Layout[DiagnosticStyle] raise DiagnosticPrettyError {
-  let cached = CachingResolver::{ resolver, sources: [] }
+  let cached = CachingResolver::{ resolver, sources: [], }
   diagnostic_error(() => ignore(diagnostic.render_plain(cached)))
   let groups = validated_groups(diagnostic.labels(), cached.sources)
   let with_sources = groups

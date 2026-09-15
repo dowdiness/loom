@@ -1,7 +1,7 @@
 ///|
 fn trim_inline_text_end_before_newline(children : Array[MarkdownIR]) -> Int {
   match children.last() {
-    Some({ node: Text(value), origin }) => {
+    Some({ node: Text(value), origin, }) => {
       let hard_break_spaces = value.length() -
         value.trim_end(chars=" ".view()).length()
       let trimmed = value.trim_end(chars=" \t".view())
@@ -23,7 +23,7 @@ fn trim_inline_backslash_end_before_newline(
   children : Array[MarkdownIR],
 ) -> Unit {
   match children.pop() {
-    Some({ node: Text(value), origin }) => {
+    Some({ node: Text(value), origin, }) => {
       guard value.has_suffix("\\") else {
         abort("hard-break backslash must end inline text")
       }
@@ -1728,7 +1728,7 @@ fn trim_container_child_paragraph(ir : MarkdownIR) -> MarkdownIR {
   match ir.node {
     Paragraph(children, _) => {
       let trimmed = match children {
-        [{ node: Text(value), origin }, ..] => {
+        [{ node: Text(value), origin, }, ..] => {
           let trimmed_value = value.trim_start(chars=" \t".view())
           let removed = value.length() - trimmed_value.length()
           if removed == 0 {
@@ -1825,7 +1825,7 @@ fn remove_selected_task_marker(
     })
   let retained_children = children.map(child => {
     match child.node {
-      Paragraph([{ node: Text(_), origin }, .. rest], _) if origin ==
+      Paragraph([{ node: Text(_), origin, }, .. rest], _) if origin ==
         task.marker_origin() => {
         let retained = rest.to_owned()
         trim_container_child_paragraph(
@@ -2072,7 +2072,7 @@ fn normalize_heading_leading_whitespace(
     return normalize_paragraph_boundary_spaces(children)
   }
   match children {
-    [{ node: Text(value), origin }, ..] => {
+    [{ node: Text(value), origin, }, ..] => {
       let trimmed_view = value.trim_start(chars=" \t".view())
       let cut = value.length() - trimmed_view.length()
       if cut == 0 {
@@ -2107,7 +2107,7 @@ fn normalize_heading_whitespace(
     trim_all=trim_all_leading,
   )
   match leading_normalized {
-    [.., { node: Text(value), origin }] => {
+    [.., { node: Text(value), origin, }] => {
       let (space_trimmed, space_cut) = trim_commonmark_trailing_spaces(value)
       let trimmed_end = origin.end() - space_cut
       let (trimmed, hash_cut) = if skip_closing_hashes {
@@ -2177,7 +2177,7 @@ fn html_block_value(node : @seam.SyntaxNode) -> String {
 fn html_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
   // Unlike code_block_content_origin, include HtmlBlockOpenToken: HTML blocks
   // have no close fence, and the opening line is content.
-  let content_tokens : Array[@seam.SyntaxToken] = Array::new()
+  let content_tokens : Array[@seam.SyntaxToken] = []
   for element in node.all_children() {
     match element {
       @seam.SyntaxElement::Token(token) => {
@@ -2207,7 +2207,7 @@ fn code_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
     return None
   }
   let mut in_code = false
-  let content_tokens : Array[@seam.SyntaxToken] = Array::new()
+  let content_tokens : Array[@seam.SyntaxToken] = []
   for element in node.all_children() {
     match element {
       @seam.SyntaxElement::Token(token) => {

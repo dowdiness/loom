@@ -274,7 +274,7 @@ fn finalize_inline_link_candidates(
       let closed = label_stack.pop().unwrap()
       close_inline_link_label_frame(links, label_stack, closed)
     }
-    label_stack.push({ candidate_index, contains_qualifying_descendant: false })
+    label_stack.push({ candidate_index, contains_qualifying_descendant: false, })
   }
   while label_stack.pop() is Some(frame) {
     close_inline_link_label_frame(links, label_stack, frame)
@@ -563,7 +563,7 @@ fn index_inline_autolinks(
           classify_inline_angle_at_with_index(
             source, logical_start, delimiter_index,
           ) {
-          Some({ kind, end }) => {
+          Some({ kind, end, }) => {
             let absolute_end = match contiguous_source {
               Some((_, source_start)) => Some(source_start + end)
               None =>
@@ -574,7 +574,7 @@ fn index_inline_autolinks(
             }
             absolute_end.map(absolute_end => {
               (
-                { kind, start: token.start, end: absolute_end, active: true } :
+                { kind, start: token.start, end: absolute_end, active: true, } :
                 InlineAutolinkCandidate)
             })
           }
@@ -935,7 +935,7 @@ fn index_inline_links(
         match tokens[index].kind {
           AnalysisLineBoundary => ()
           AnalysisLeftBracket =>
-            bracket_stack.push({ index, code_conflict_generation })
+            bracket_stack.push({ index, code_conflict_generation, })
           AnalysisRightBracket =>
             match bracket_stack.pop() {
               Some(opener) => {

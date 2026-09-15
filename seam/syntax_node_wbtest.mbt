@@ -644,7 +644,7 @@ test "SyntaxNode Eq: different CstNode kind = not equal" {
 test "SyntaxNode ToJson: produces kind, start, end, children keys" {
   let cst = CstNode::new_unclassified(RawKind(5), [])
   let syn = SyntaxNode::new(cst, None, 10)
-  let j = syn.to_json()
+  let j = ToJson::to_json(syn)
   let s = j.stringify()
   inspect(s.contains("\"kind\""), content="true")
   inspect(s.contains("\"start\""), content="true")

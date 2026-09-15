@@ -21,7 +21,7 @@ fn MarkdownProjectionAttachment::MarkdownProjectionAttachment(
   block_by_cst : @incr.DerivedMap[@seam.CstNode, Block],
   watch : @incr.Watch[Block],
 ) -> MarkdownProjectionAttachment {
-  { shell, block_by_cst, watch }
+  { shell, block_by_cst, watch, }
 }
 
 ///|

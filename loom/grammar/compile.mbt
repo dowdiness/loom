@@ -241,24 +241,24 @@ pub fn[T, K] compile(
     .collect()
   others.sort()
   let names : Array[RuleName] = [ir.root, ..others]
-  let slot_brand = SlotBrand::{ token: Ref::Ref(()) }
+  let slot_brand = SlotBrand::{ token: Ref::Ref(()), }
   let rule_slots : Map[RuleName, RuleSlot] = Map([])
   for i, name in names {
-    rule_slots[name] = RuleSlot::{ brand: slot_brand, index: i }
+    rule_slots[name] = RuleSlot::{ brand: slot_brand, index: i, }
   }
 
   let ordered_natives : Array[RuleName] = native_names.iter().collect()
   ordered_natives.sort()
   let native_slots : Map[RuleName, NativeSlot] = Map([])
   for i, name in ordered_natives {
-    native_slots[name] = NativeSlot::{ brand: slot_brand, index: i }
+    native_slots[name] = NativeSlot::{ brand: slot_brand, index: i, }
   }
 
   let ordered_guards : Array[RuleName] = guard_names.iter().collect()
   ordered_guards.sort()
   let guard_slots : Map[RuleName, GuardSlot] = Map([])
   for i, name in ordered_guards {
-    guard_slots[name] = GuardSlot::{ index: i }
+    guard_slots[name] = GuardSlot::{ index: i, }
   }
 
   for native_name, targets in native_rule_refs {
@@ -308,7 +308,7 @@ pub fn[T, K] compile(
   {
     names,
     rules,
-    root: RuleSlot::{ brand: slot_brand, index: 0 },
+    root: RuleSlot::{ brand: slot_brand, index: 0, },
     native_names: ordered_natives,
     guard_names: ordered_guards,
     native_dispatch,
@@ -540,7 +540,7 @@ type ProgressMemo = Map[String, ProgressFact]
 /// Identify one `progress_of` call on a rule body. The separator keeps adjacent
 /// indices unambiguous, so distinct paths never share a key.
 fn progress_key(slot : RuleSlot, visiting : Array[RuleSlot]) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string(slot.index.to_string())
   for current in visiting {
     buf.write_string("|")

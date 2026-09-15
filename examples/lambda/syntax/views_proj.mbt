@@ -9,7 +9,7 @@ pub struct IfExprProj {
 ///|
 pub fn IfExprProj::cast(n : @seam.SyntaxNode) -> IfExprProj? {
   if SyntaxKind::from_raw(n.kind()) == IfExpr {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -52,7 +52,7 @@ pub struct LambdaExprProj {
 ///|
 pub fn LambdaExprProj::cast(n : @seam.SyntaxNode) -> LambdaExprProj? {
   if SyntaxKind::from_raw(n.kind()) == LambdaExpr {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -79,7 +79,7 @@ pub struct IfConditionProj {
 ///|
 pub fn IfConditionProj::cast(n : @seam.SyntaxNode) -> IfConditionProj? {
   if SyntaxKind::from_raw(n.kind()) == IfCondition {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -98,7 +98,7 @@ pub struct LambdaBodyProj {
 ///|
 pub fn LambdaBodyProj::cast(n : @seam.SyntaxNode) -> LambdaBodyProj? {
   if SyntaxKind::from_raw(n.kind()) == LambdaBody {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }
@@ -141,7 +141,7 @@ pub struct BlockExprProj {
 ///|
 pub fn BlockExprProj::cast(n : @seam.SyntaxNode) -> BlockExprProj? {
   if SyntaxKind::from_raw(n.kind()) == BlockExpr {
-    Some({ node: n })
+    Some({ node: n, })
   } else {
     None
   }

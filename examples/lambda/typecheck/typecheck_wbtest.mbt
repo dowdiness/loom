@@ -11,7 +11,7 @@ fn infer_with_diags(
 ) -> (TypeResult, Array[TypeDiagnostic]) {
   let rt = @incr.Runtime()
   let acc : @incr.Accumulator[TypeDiagnostic] = @incr.Accumulator(rt)
-  let ctx : DiagCtx = { def_name: None, diags: Some(acc) }
+  let ctx : DiagCtx = { def_name: None, diags: Some(acc), }
   let memo = @incr.Derived(rt, () => infer_impl(env, term, ctx))
   let result = memo.read_or_abort()
   let diags = memo.accumulated_peek(acc)
@@ -26,7 +26,7 @@ fn check_with_diags(
 ) -> (TypeResult, Array[TypeDiagnostic]) {
   let rt = @incr.Runtime()
   let acc : @incr.Accumulator[TypeDiagnostic] = @incr.Accumulator(rt)
-  let ctx : DiagCtx = { def_name: None, diags: Some(acc) }
+  let ctx : DiagCtx = { def_name: None, diags: Some(acc), }
   let memo = @incr.Derived(rt, () => check_impl(env, term, expected, ctx))
   let result = memo.read_or_abort()
   let diags = memo.accumulated_peek(acc)
@@ -720,11 +720,11 @@ test "DerivedMap: query by DefId" {
   // Force computation
   let _result = result_memo.read().unwrap()
   // Query f by DefId
-  let f_id = index.intern_table.intern({ name: "f" })
+  let f_id = index.intern_table.intern({ name: "f", })
   let f_type = index.derived_map.read_or_abort(f_id)
   inspect(f_type.typ, content="Int -> Int")
   // Query g by DefId
-  let g_id = index.intern_table.intern({ name: "g" })
+  let g_id = index.intern_table.intern({ name: "g", })
   let g_type = index.derived_map.read_or_abort(g_id)
   inspect(g_type.typ, content="Int -> Int")
   scope.dispose()
@@ -745,7 +745,7 @@ test "DerivedMap: cache hit for stable DefId after edit" {
     rt, scope, term_memo,
   )
   let _r1 = result_memo.read().unwrap()
-  let f_id = index.intern_table.intern({ name: "f" })
+  let f_id = index.intern_table.intern({ name: "f", })
   let f_type1 = index.derived_map.read_or_abort(f_id)
   inspect(f_type1.typ, content="Int -> Int")
   // Edit body but keep same type result (x+1 still Int -> Int)
@@ -797,9 +797,9 @@ test "DerivedMap: duplicate def names diagnose and keep first-wins lookup" {
   )
   let result = result_memo.read().unwrap()
   // `a` routes to the first occurrence (Int), not the shadowing lambda.
-  let a_id = index.intern_table.intern({ name: "a" })
+  let a_id = index.intern_table.intern({ name: "a", })
   inspect(index.derived_map.read_or_abort(a_id).typ, content="Int")
-  let b_id = index.intern_table.intern({ name: "b" })
+  let b_id = index.intern_table.intern({ name: "b", })
   inspect(index.derived_map.read_or_abort(b_id).typ, content="Int")
   // Exactly one duplicate diagnostic for the second `a`; tagged with
   // its def name so hover/outline consumers can surface it.
@@ -835,14 +835,14 @@ test "DerivedMap: lookup of unknown def name returns error sentinel" {
   )
   let _r1 = result_memo.read().unwrap()
   // Known names resolve.
-  let a_id = index.intern_table.intern({ name: "a" })
+  let a_id = index.intern_table.intern({ name: "a", })
   inspect(index.derived_map.read_or_abort(a_id).typ, content="Int")
-  let b_id = index.intern_table.intern({ name: "b" })
+  let b_id = index.intern_table.intern({ name: "b", })
   inspect(index.derived_map.read_or_abort(b_id).typ, content="Int -> Int")
   // Name not in the module (never defined) → error sentinel. The
   // InternId is fresh, so DerivedMap creates a new internal derived cell
   // whose compute function falls through the `None` branch.
-  let bogus_id = index.intern_table.intern({ name: "c" })
+  let bogus_id = index.intern_table.intern({ name: "c", })
   let bogus_result = index.derived_map.read_or_abort(bogus_id)
   inspect(bogus_result.typ, content="<error>")
   inspect(bogus_result.had_error, content="true")
@@ -880,8 +880,8 @@ test "DerivedMap: DefId stays stable after prepending a def at position 0" {
   )
   let _r1 = result_memo.read().unwrap()
   // Cache IDs for b and c under v1's positions.
-  let b_id = index.intern_table.intern({ name: "b" })
-  let c_id = index.intern_table.intern({ name: "c" })
+  let b_id = index.intern_table.intern({ name: "b", })
+  let c_id = index.intern_table.intern({ name: "c", })
   inspect(index.derived_map.read_or_abort(b_id).typ, content="Int -> Int")
   inspect(index.derived_map.read_or_abort(c_id).typ, content="Int")
   // v2: prepend z at position 0 → [z, a, b, c]. Same b and c bodies; b and
@@ -924,8 +924,8 @@ test "DerivedMap: structural rebuild sweeps stale entries" {
   )
   let _r1 = result_memo.read().unwrap()
   // Populate derived_map with two entries.
-  let a_id = index.intern_table.intern({ name: "a" })
-  let b_id = index.intern_table.intern({ name: "b" })
+  let a_id = index.intern_table.intern({ name: "a", })
+  let b_id = index.intern_table.intern({ name: "b", })
   inspect(index.derived_map.read_or_abort(a_id).typ, content="Int")
   inspect(index.derived_map.read_or_abort(b_id).typ, content="Int")
   inspect(index.derived_map.cache_len(), content="2")
@@ -944,8 +944,8 @@ test "DerivedMap: structural rebuild sweeps stale entries" {
   inspect(index.derived_map.cache_len(), content="0")
   // `b`'s InternId is stable across the rebuild. `a` is gone (→ error
   // sentinel), `c` is new.
-  let b_id2 = index.intern_table.intern({ name: "b" })
-  let c_id2 = index.intern_table.intern({ name: "c" })
+  let b_id2 = index.intern_table.intern({ name: "b", })
+  let c_id2 = index.intern_table.intern({ name: "c", })
   inspect(b_id == b_id2, content="true")
   inspect(index.derived_map.read_or_abort(b_id2).typ, content="Int")
   inspect(index.derived_map.read_or_abort(c_id2).typ, content="Int")
