@@ -64,6 +64,59 @@ test "EventBuffer: synthetic zero-width token records non-source provenance" {
 }
 
 ///|
+test "build_tree: repeated single-token nodes preserve kinds text and positions" {
+  let source = "xxxxy"
+  let events : Array[ParseEvent] = []
+  for i, kinds in [(1, 9), (1, 9), (2, 9), (2, 10), (2, 10)] {
+    events.push(StartNode(RawKind(kinds.0)))
+    events.push(
+      Token(RawKind(kinds.1), source.view(start_offset=i, end_offset=i + 1)),
+    )
+    events.push(FinishNode)
+  }
+  let syntax = SyntaxNode::from_cst(build_test_tree(events, RawKind(0)))
+  assert_eq(
+    syntax
+    .children()
+    .map(node => {
+      let token = node.tokens()[0]
+      (node.kind(), token.kind(), token.text(), token.start(), token.end())
+    }),
+    [
+      (RawKind(1), RawKind(9), "x", 0, 1),
+      (RawKind(1), RawKind(9), "x", 1, 2),
+      (RawKind(2), RawKind(9), "x", 2, 3),
+      (RawKind(2), RawKind(10), "x", 3, 4),
+      (RawKind(2), RawKind(10), "y", 4, 5),
+    ],
+  )
+}
+
+///|
+test "EventBuffer: repeated empty leaves preserve source and synthetic provenance" {
+  let buf = EventBuffer::new()
+  for source_backed in [true, true, false, false, true] {
+    buf.push(StartNode(RawKind(1)))
+    if source_backed {
+      buf.push(Token(RawKind(9), ""))
+    } else {
+      buf.push_parser_synthetic_zero_width_token(RawKind(9))
+    }
+    buf.push(FinishNode)
+  }
+  let root = buf.build_tree(RawKind(0), policy=event_test_policy)
+  assert_eq(
+    root.children.map(child => {
+      match child {
+        Node(node) => node.first_token(_ => false).unwrap().is_source_backed()
+        Token(_) => abort("expected single-token node")
+      }
+    }),
+    [true, true, false, false, true],
+  )
+}
+
+///|
 test "build_tree_fully_interned: token provenance prevents node collapse" {
   let interner = Interner::new()
   let node_interner = NodeInterner::new()

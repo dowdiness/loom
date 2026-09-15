@@ -14,6 +14,9 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Fixed
 
+- Repeated identical single-token CST nodes now share a bounded, build-local
+  reference, reducing GC pressure on adversarial Markdown opener runs without
+  changing syntax, token provenance, or performance-gate thresholds.
 - Failed incremental edits no longer change the parser's internal source before
   parsing succeeds. Reapplying the already-published source after a failure stays
   a no-op instead of fabricating a semantic revision; edits before the first parse

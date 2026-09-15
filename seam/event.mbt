@@ -713,6 +713,9 @@ fn build_tree_buffered(
   // stack[0] / kinds[0] represent the implicit root passed in root_kind.
   let stack : Array[Array[CstElement]] = [[]]
   let kinds : Array[RawKind] = [root_kind]
+  // Share repeated single-token nodes without retaining an unbounded intern table.
+  // Restrict comparisons to these leaves so Eq cannot traverse a large subtree.
+  let mut previous_single_token_node : CstElement? = None
   for event in events {
     match event {
       BufferedStartNode(kind) => {
@@ -730,8 +733,21 @@ fn build_tree_buffered(
         }
         let children = balance_children(raw_children, policy)
         let node = CstNode::new_owned(kind, children, policy~)
+        let element = CstElement::Node(node)
+        let element = if children.length() == 1 &&
+          children[0] is CstElement::Token(_) {
+          match previous_single_token_node {
+            Some(previous) if previous == element => previous
+            _ => {
+              previous_single_token_node = Some(element)
+              element
+            }
+          }
+        } else {
+          element
+        }
         match stack.last() {
-          Some(parent) => parent.push(Node(node))
+          Some(parent) => parent.push(element)
           None => raise EventStreamError::UnbalancedFinish
         }
       }

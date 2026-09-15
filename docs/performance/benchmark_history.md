@@ -2,6 +2,42 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-09-15 (Bounded sharing for repeated single-token CST nodes)
+
+- Pull request: [#958](https://github.com/dowdiness/loom/pull/958)
+- Base revision: `f5e7b724`; head: the bounded-sharing change in #958.
+- Environment: WSL2, Linux 6.18.33.2, x86_64; Node `v24.14.1`.
+- Both revisions used Moon `0.1.20260904`, moonc `0.10.12+1634b282e`.
+- Command: `moon bench examples/markdown/delimiter_performance_wbtest.mbt
+  --release --target <target> --index 11-15`.
+- Workload: full parse of 8,192 and 32,768 unmatched opening brackets, with
+  same-size plain-text controls. Each row is an alternating base/head pair;
+  times are benchmark means in milliseconds.
+
+| Target / trial | Base small / large | Base growth | Head small / large | Head growth |
+|---|---:|---:|---:|---:|
+| wasm-gc / 1 | 8.51 / 57.14 | 6.71x | 7.81 / 44.37 | 5.68x |
+| wasm-gc / 2 | 9.33 / 59.04 | 6.33x | 8.57 / 46.44 | 5.42x |
+| wasm-gc / 3 | 8.47 / 58.41 | 6.90x | 7.73 / 49.28 | 6.38x |
+| JavaScript / 1 | 10.23 / 65.80 | 6.43x | 7.91 / 56.21 | 7.11x |
+
+The isolated buffered-tree probe improved from 1.93 / 17.86 ms (9.25x)
+to 1.23 / 7.34 ms (5.97x) on wasm-gc. Profiling identified GC and CST
+construction rather than link indexing as the dominant costs.
+
+The builder retains only the previous single-token node and shares its
+`CstElement` when existing structural equality succeeds. Limiting comparisons
+to single-token nodes avoids recursive subtree equality; the cache is bounded
+to one entry and lives only for the build. Node kinds, token text and provenance,
+metadata policies, and positioned traversal retain their existing semantics.
+
+These are local measurements, not a scheduled-benchmark baseline refresh.
+The existing 8x source-growth ceiling and all other detector thresholds remain
+unchanged.
+
+No ADR needed: this is a local allocation fix using the existing immutable-CST
+and structural-equality contracts, without a public API or detector-policy change.
+
 ## 2026-09-11 (Markdown Setext candidate prefilter)
 
 - Pull request: [#947](https://github.com/dowdiness/loom/pull/947)
