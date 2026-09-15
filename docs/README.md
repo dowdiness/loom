@@ -175,6 +175,7 @@ Short records of the *why* behind significant design choices. Most recent first.
 
 Point-in-time diagnoses. Dated snapshots — verify against current code before acting.
 > Archive: Do not read files in this section unless user explicitly asks for historical context.
+- [analysis/2026-09-12-keyed-query-retention.md](analysis/2026-09-12-keyed-query-retention.md) — open boundary between evictable keyed query memos and explicitly owned last-good semantic history; no Loom API or retention policy accepted
 - [archive/completed-phases/2026-07-14-parser-context-lookahead-rename.md](archive/completed-phases/2026-07-14-parser-context-lookahead-rename.md) — **Complete** #716 clean rename from `ParserContext::speculative` to `ParserContext::lookahead` (PR #717)
 
 - [archive/completed-phases/2026-07-10-remove-emit-grammar-realign-loomgen.md](archive/completed-phases/2026-07-10-remove-emit-grammar-realign-loomgen.md) — **Complete** implementation plan for removing the `emit_grammar.mbt` parser code generator (`@grammar.interpret` reached full parity) and trimming `mbt_ast.mbt` to the subset used by `emit_grammar_ir.mbt`; 6 tasks, supersedes 2026-06-28 plan
