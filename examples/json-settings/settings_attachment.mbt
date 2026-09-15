@@ -40,13 +40,23 @@ fn build_settings_model(
   edit : @core.Edit?,
 ) -> SettingsModel {
   let leaves = raws.map(raw_setting_to_leaf)
-  let allocator = match previous {
-    Some(model) =>
-      @loom.ProjectionStringIdAllocator::from_baseline(
-        model.baseline,
-        make_setting_id,
-      )
-    None => @loom.ProjectionStringIdAllocator::new(make_setting_id)
+  let reserved : Map[String, Bool] = Map([])
+  if previous is Some(model) {
+    for leaf in model.baseline.leaves() {
+      reserved[leaf.id] = true
+    }
+  }
+  // All keys share one ID namespace. Scan it once per candidate, not per key.
+  // Generated numbers are never revisited, so only baseline IDs need reserving.
+  let mut next = 0
+  let allocate = (_leaf : @loom.ProjectionLeaf) => {
+    let mut id = make_setting_id(next)
+    while reserved.contains(id) {
+      next += 1
+      id = make_setting_id(next)
+    }
+    next += 1
+    id
   }
   let stable = match previous {
     Some(model) =>
@@ -54,12 +64,12 @@ fn build_settings_model(
         model.baseline,
         source,
         leaves,
-        leaf => allocator.allocate(leaf),
+        allocate,
         edit,
       )
     None =>
       leaves.map(leaf => {
-        let id = allocator.allocate(leaf)
+        let id = allocate(leaf)
         @loom.StableProjectionLeaf::new(leaf.start, leaf.end, leaf.key, id)
       })
   }
@@ -152,7 +162,7 @@ pub fn SettingsAttachment::SettingsAttachment(
   let analysis = parser.attach_semantic((previous, snapshot, change) => {
     project_settings_candidate(previous, snapshot, change)
   })
-  let self = { parser, analysis }
+  let self = { parser, analysis, }
   ignore(self.analysis.read())
   self
 }
@@ -250,11 +260,11 @@ pub fn SettingsAttachment::dispose(self : SettingsAttachment) -> Unit {
 }
 
 ///|
-/// Allocate the public stable id for a freshly projected setting.
+/// Format the public stable id for a freshly projected setting.
 ///
 /// IDs are opaque and baseline-local (`setting#0`, `setting#1`, …), not derived
 /// from the key. The allocator reserves IDs from the previous accepted
 /// baseline only; a failed candidate never consumes IDs in a later retry.
-fn make_setting_id(_key : String, occurrence : Int) -> String {
+fn make_setting_id(occurrence : Int) -> String {
   "setting#" + occurrence.to_string()
 }

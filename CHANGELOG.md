@@ -14,6 +14,10 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Fixed
 
+- JSON settings no longer restarts the same opaque-ID collision search for each
+  key. A candidate-local cursor removes quadratic candidate generation during
+  initialization and broad recovery while preserving the existing ID sequence,
+  baseline reservations, and failed-candidate retry behavior.
 - Failed incremental edits no longer change the parser's internal source before
   parsing succeeds. Reapplying the already-published source after a failure stays
   a no-op instead of fabricating a semantic revision; edits before the first parse

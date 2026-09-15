@@ -33,6 +33,10 @@ three rules the grammar cannot —
   unchanged setting IDs while allocating fresh IDs for changed-window leaves.
   Failed candidates do not commit a baseline or consume IDs; `retry()` can
   settle the same revision again.
+  Opaque IDs share one `setting#number` namespace. Each candidate scans it once
+  with a shared cursor, skipping all IDs reserved by the last accepted baseline;
+  gaps can be reused, but preserved prefix/suffix IDs cannot collide with fresh
+  IDs. The cursor is discarded with the candidate, including on failure.
 - **Explicit semantic intent.** Incremental edits, including nonempty
   same-text replacements, are delivered through the parser's semantic
   transition metadata. `set_source` remains a source replacement and a
