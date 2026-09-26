@@ -11,22 +11,22 @@ fn assert_html_block_incremental_projection_parity(
   let reuse_count = markdown_incremental_edit_reuse_count(
     source_id, label, source, edit, updated,
   )
-  let incremental = @loom.new_parser(source_id, source, markdown_grammar)
+  let incremental = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
   incremental.apply_edit(edit, updated)
-  let fresh = @loom.new_parser(source_id, updated, markdown_grammar)
+  let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
   let incremental_diagnostics = incremental.diagnostics().read_or_abort()
   let fresh_diagnostics = fresh.diagnostics().read_or_abort()
-  let incremental_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let incremental_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, incremental_syntax, incremental_diagnostics,
   )
-  let fresh_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let fresh_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, fresh_syntax, fresh_diagnostics,
   )
   assert_eq(incremental_ir, fresh_ir)
   let incremental_html = match
-    experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+    @markdown.experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
       incremental_ir,
       Passthrough,
     ) {
@@ -34,7 +34,7 @@ fn assert_html_block_incremental_projection_parity(
     Err(_) => abort("Passthrough raw HTML policy cannot reject valid HTML")
   }
   let fresh_html = match
-    experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+    @markdown.experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
       fresh_ir,
       Passthrough,
     ) {

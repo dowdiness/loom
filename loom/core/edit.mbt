@@ -127,3 +127,12 @@ pub impl Editable for Edit with fn old_len(self) {
 pub impl Editable for Edit with fn new_len(self) {
   self.new_len
 }
+
+///|
+pub extend Edit with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Edit with Eq::{not_equal, equal}
+
+///|
+pub extend Edit with Editable::{start, new_len, old_len}

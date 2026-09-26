@@ -776,3 +776,27 @@ pub fn SyntaxNode::token_at_offset(
       }
   }
 }
+
+///|
+pub extend SyntaxToken with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SyntaxToken with Show::{to_string, output}
+
+///|
+pub extend SyntaxElement with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TokenAtOffset with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SyntaxNode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SyntaxNode with Show::{to_string, output}
+
+///|
+pub extend SyntaxNode with Eq::{not_equal, equal}
+
+///|
+pub extend SyntaxNode with ToJson::{to_json}

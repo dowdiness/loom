@@ -3,14 +3,11 @@ import {
   "dowdiness/seam",
   "dowdiness/loom",
   "moonbitlang/core/debug",
-  "moonbitlang/core/string",
   "moonbitlang/lexer",
   "moonbitlang/lexer/tokens",
 }
 
 import {
-  "dowdiness/diagnostic",
-  "moonbitlang/core/list",
   "moonbitlang/parser",
   "moonbitlang/parser/syntax",
 } for "test"

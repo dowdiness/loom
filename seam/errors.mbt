@@ -12,3 +12,6 @@ pub(all) suberror EventStreamError {
   /// Token or node with no parent frame on the stack
   OrphanedEvent
 } derive(Debug)
+
+///|
+pub extend EventStreamError with @moonbitlang/core/debug.Debug::{to_repr}

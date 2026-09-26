@@ -930,3 +930,21 @@ test "property: repeated zero-width boundary-token reuse matches full reparse" {
   inspect(repeat_grouped_count_classes[2], content="true")
   inspect(repeat_grouped_count_classes[3], content="true")
 }
+
+///|
+pub extend ZeroWidthEditKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ZeroWidthEditKind with Eq::{equal, not_equal}
+
+///|
+pub extend ZeroWidthOldTreeMode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ZeroWidthOldTreeMode with Eq::{equal, not_equal}
+
+///|
+pub extend ZeroWidthReuseShape with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ZeroWidthReuseShape with Eq::{equal, not_equal}

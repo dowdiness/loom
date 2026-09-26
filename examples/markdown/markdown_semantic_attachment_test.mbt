@@ -2,16 +2,16 @@
 fn markdown_semantic_attachment_test_parser(
   source_id : @core.SourceId,
   source : String,
-) -> @loom.Parser[Block] {
-  try! @loom.new_parser(source_id, source, markdown_grammar)
+) -> @loom.Parser[@markdown.Block] {
+  try! @loom.new_parser(source_id, source, @markdown.markdown_grammar)
 }
 
 ///|
 fn markdown_semantic_attachment_test_fresh_document(
-  parser : @loom.Parser[Block],
-) -> MarkdownIR {
+  parser : @loom.Parser[@markdown.Block],
+) -> @markdown.MarkdownIR {
   let snapshot = parser.snapshot().read_or_abort()
-  experimental_markdown_ir_from_syntax_with_diagnostics(
+  @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     parser.source_id(),
     snapshot.syntax,
     snapshot.diagnostics,
@@ -22,7 +22,7 @@ fn markdown_semantic_attachment_test_fresh_document(
 fn markdown_semantic_attachment_test_fresh_source(
   source_id : @core.SourceId,
   source : String,
-) -> MarkdownIR {
+) -> @markdown.MarkdownIR {
   markdown_semantic_attachment_test_fresh_document(
     markdown_semantic_attachment_test_parser(source_id, source),
   )
@@ -30,7 +30,7 @@ fn markdown_semantic_attachment_test_fresh_source(
 
 ///|
 fn markdown_semantic_attachment_test_replace_all(
-  parser : @loom.Parser[Block],
+  parser : @loom.Parser[@markdown.Block],
   current : String,
   updated : String,
 ) -> Unit {
@@ -42,8 +42,8 @@ fn markdown_semantic_attachment_test_replace_all(
 
 ///|
 fn markdown_semantic_attachment_test_first_diagnostic_node(
-  node : MarkdownIR,
-) -> MarkdownIR? {
+  node : @markdown.MarkdownIR,
+) -> @markdown.MarkdownIR? {
   if node.diagnostics().length() > 0 {
     return Some(node)
   }
@@ -62,7 +62,7 @@ test "Markdown semantic attachment initially matches fresh lowering" {
     @core.SourceId("markdown-semantic-attachment-initial"),
     "# heading [ref]\n\nparagraph\n\n[ref]: /url \"title\"\n",
   )
-  let attachment = MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+  let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
     parser,
   )
   assert_eq(
@@ -85,7 +85,7 @@ test "Markdown semantic attachment follows edits and fresh semantic lowering" {
   let reference_removed = "[target]\n"
   let malformed = "# prefix\n\n[unclosed\n"
   let parser = markdown_semantic_attachment_test_parser(source_id, initial)
-  let attachment = MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+  let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
     parser,
   )
   parser.apply_edit(@core.Edit::replace(11, 15, 15), local_edit_source)
@@ -126,7 +126,7 @@ test "Markdown semantic attachment keeps opaque diagnostic arrays defensive" {
   let source_id = @core.SourceId("markdown-semantic-attachment-diagnostics")
   let source = "[text](\n"
   let parser = markdown_semantic_attachment_test_parser(source_id, source)
-  let attachment = MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+  let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
     parser,
   )
   let document = attachment.document()
@@ -151,7 +151,7 @@ test "Markdown semantic attachment returns retained owning documents" {
   let source = "# old\n\nparagraph [x]\n\n[x]: /one\n"
   let updated = "> new\n\n![image](/image \"title\")\n"
   let parser = markdown_semantic_attachment_test_parser(source_id, source)
-  let attachment = MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+  let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
     parser,
   )
   let retained = attachment.document()
@@ -186,7 +186,7 @@ test "Markdown semantic attachment source_document reads are independent" {
   let source = "# old\n\nparagraph\n"
   let updated = "> new\n\nparagraph\n"
   let parser = markdown_semantic_attachment_test_parser(source_id, source)
-  let attachment = MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+  let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
     parser,
   )
   let initial_ir = attachment.document()
@@ -219,7 +219,7 @@ test "Markdown semantic attachment disposal before first read is safe" {
   let source_id = @core.SourceId("markdown-semantic-attachment-early-dispose")
   let source = "# heading\n"
   let parser = markdown_semantic_attachment_test_parser(source_id, source)
-  let attachment = MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+  let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
     parser,
   )
   attachment.dispose()
@@ -237,7 +237,7 @@ test "panic Markdown semantic attachment rejects reads after disposal" {
     @core.SourceId("markdown-semantic-attachment-disposed-read"),
     "paragraph\n",
   )
-  let attachment = MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+  let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
     parser,
   )
   attachment.dispose()
@@ -250,7 +250,7 @@ test "panic Markdown semantic attachment rejects source_document after disposal"
     @core.SourceId("markdown-semantic-attachment-disposed-source-document"),
     "paragraph\n",
   )
-  let attachment = MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+  let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
     parser,
   )
   attachment.dispose()

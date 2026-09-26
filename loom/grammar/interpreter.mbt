@@ -571,3 +571,15 @@ fn[
     }
   }
 }
+
+///|
+pub extend GrammarBindError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GrammarBindError with Eq::{equal, not_equal}
+
+///|
+pub extend GrammarBuildError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GrammarBuildError with Eq::{equal, not_equal}

@@ -38,7 +38,7 @@ unified reactive `Parser[@ast.Term]`:
 ///|
 test "grammar example: imperative parser" {
   let source_id = @core.SourceId::SourceId("lambda-readme-imperative")
-  let imp = @loom.new_imperative_parser(source_id, "42", lambda_grammar)
+  let imp = @loom.new_imperative_parser(source_id, "42", @lambda.lambda_grammar)
   let term = imp.parse().ast
   inspect(@ast.print_term(term), content="42")
 }
@@ -46,7 +46,7 @@ test "grammar example: imperative parser" {
 ///|
 test "grammar example: reactive parser + set_source" {
   let source_id = @core.SourceId::SourceId("lambda-readme-reactive")
-  let parser = @loom.new_parser(source_id, "1 + 2", lambda_grammar)
+  let parser = @loom.new_parser(source_id, "1 + 2", @lambda.lambda_grammar)
   parser.set_source("42")
   inspect(@ast.print_term(parser.ast().read_or_abort()), content="42")
 }

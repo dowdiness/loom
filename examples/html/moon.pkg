@@ -8,6 +8,3 @@ import {
   "moonbitlang/core/debug",
 }
 
-import {
-  "dowdiness/diagnostic",
-} for "test"

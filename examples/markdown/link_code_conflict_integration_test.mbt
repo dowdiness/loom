@@ -1,11 +1,11 @@
 ///|
-fn issue_892_ir(source : String) -> MarkdownIR raise {
+fn issue_892_ir(source : String) -> @markdown.MarkdownIR raise {
   let source_id = @core.SourceId("markdown-issue-892")
-  let (cst, diagnostics) = parse_cst(source_id, source) catch {
+  let (cst, diagnostics) = @markdown.parse_cst(source_id, source) catch {
     _ => abort("Issue #892 parse failed: " + source)
   }
   assert_eq(diagnostics.length(), 0)
-  experimental_markdown_ir_from_syntax_with_diagnostics(
+  @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
@@ -14,11 +14,11 @@ fn issue_892_ir(source : String) -> MarkdownIR raise {
 
 ///|
 fn issue_892_html(source : String) -> String raise {
-  experimental_markdown_ir_to_commonmark_html(issue_892_ir(source))
+  @markdown.experimental_markdown_ir_to_commonmark_html(issue_892_ir(source))
 }
 
 ///|
-fn issue_892_assert_no_recovery(node : MarkdownIR) -> Unit raise {
+fn issue_892_assert_no_recovery(node : @markdown.MarkdownIR) -> Unit raise {
   guard !node.is_raw() else {
     fail("raw node: " + node.kind_tag() + " " + @debug.to_string(node))
   }
@@ -72,11 +72,11 @@ test "issue 892: link and image labels retain distinct nesting" {
   issue_892_assert_no_recovery(link)
   issue_892_assert_no_recovery(image)
   assert_eq(
-    experimental_markdown_ir_to_commonmark_html(link),
+    @markdown.experimental_markdown_ir_to_commonmark_html(link),
     "<p><a href=\"url\">x <code>code</code></a></p>\n",
   )
   assert_eq(
-    experimental_markdown_ir_to_commonmark_html(image),
+    @markdown.experimental_markdown_ir_to_commonmark_html(image),
     "<p><img src=\"url\" alt=\"x code\" /></p>\n",
   )
 }
@@ -98,7 +98,7 @@ test "issue 892: conflicting bracket endpoints are literal without recovery" {
     let (source, expected_html) = case
     let ir = issue_892_ir(source)
     issue_892_assert_no_recovery(ir)
-    assert_eq(experimental_markdown_ir_to_commonmark_html(ir), expected_html)
+    assert_eq(@markdown.experimental_markdown_ir_to_commonmark_html(ir), expected_html)
     assert_source_fidelity(
       @core.SourceId("markdown-issue-892-fresh-fidelity-" + index.to_string()),
       source,
@@ -145,9 +145,9 @@ fn issue_892_incremental_conflict_case(
   expected_html : String,
 ) -> Unit raise {
   let source_id = @core.SourceId("markdown-issue-892-incremental-" + label)
-  let incremental = @loom.new_parser(source_id, source, markdown_grammar)
+  let incremental = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
   incremental.apply_edit(edit, updated)
-  let fresh = @loom.new_parser(source_id, updated, markdown_grammar)
+  let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
   let incremental_diagnostics = incremental.diagnostics().read_or_abort()
@@ -155,10 +155,10 @@ fn issue_892_incremental_conflict_case(
   assert_eq(incremental_syntax, fresh_syntax)
   assert_eq(incremental_diagnostics, fresh_diagnostics)
   assert_eq(incremental_diagnostics.length(), 0)
-  let incremental_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let incremental_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, incremental_syntax, incremental_diagnostics,
   )
-  let fresh_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let fresh_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, fresh_syntax, fresh_diagnostics,
   )
   assert_eq(incremental_ir, fresh_ir)
@@ -169,11 +169,11 @@ fn issue_892_incremental_conflict_case(
     updated,
   )
   assert_eq(
-    experimental_markdown_ir_to_commonmark_html(fresh_ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(fresh_ir),
     expected_html,
   )
   assert_eq(
-    experimental_markdown_ir_to_commonmark_html(incremental_ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(incremental_ir),
     expected_html,
   )
 }
@@ -187,9 +187,9 @@ fn issue_892_incremental_case(
   expected_html : String,
 ) -> Unit raise {
   let source_id = @core.SourceId("markdown-issue-892-" + label)
-  let incremental = @loom.new_parser(source_id, source, markdown_grammar)
+  let incremental = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
   incremental.apply_edit(edit, updated)
-  let fresh = @loom.new_parser(source_id, updated, markdown_grammar)
+  let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
   let incremental_diagnostics = incremental.diagnostics().read_or_abort()
@@ -197,10 +197,10 @@ fn issue_892_incremental_case(
   assert_eq(incremental_syntax, fresh_syntax)
   assert_eq(incremental_diagnostics, fresh_diagnostics)
   assert_eq(incremental_diagnostics.length(), 0)
-  let incremental_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let incremental_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, incremental_syntax, incremental_diagnostics,
   )
-  let fresh_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let fresh_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, fresh_syntax, fresh_diagnostics,
   )
   assert_eq(incremental_ir, fresh_ir)
@@ -211,7 +211,7 @@ fn issue_892_incremental_case(
     updated,
   )
   assert_eq(
-    experimental_markdown_ir_to_commonmark_html(incremental_ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(incremental_ir),
     expected_html,
   )
 }

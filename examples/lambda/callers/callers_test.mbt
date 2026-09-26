@@ -38,7 +38,7 @@ fn parse_to_syntax(source : String) -> @seam.SyntaxNode {
 test "extract_facts: defs and calls from three-deep call chain" {
   // f calls nothing; g calls f; h calls f. (Calls are AppExpr.func position.)
   let src = "let f = 1\nlet g = f x\nlet h = f x\n"
-  let (defs, calls) = extract_facts(parse_to_syntax(src))
+  let (defs, calls) = @callers.extract_facts(parse_to_syntax(src))
   let def_names = defs.map(d => d.name)
   let call_names = calls.map(c => c.callee)
   debug_inspect(def_names, content="[\"f\", \"g\", \"h\"]")
@@ -50,7 +50,7 @@ test "extract_facts: defs and calls from three-deep call chain" {
 ///|
 test "extract_facts: top-level Defs are tagged TopScope" {
   let src = "let f = 1\nlet g = 2\n"
-  let (defs, _) = extract_facts(parse_to_syntax(src))
+  let (defs, _) = @callers.extract_facts(parse_to_syntax(src))
   inspect(defs.length(), content="2")
   for d in defs {
     inspect(d.scope is TopScope, content="true")
@@ -62,7 +62,7 @@ test "extract_facts: lambda parameter Defs are tagged LambdaScope" {
   // `let shadow = (f) => f` — top-level `shadow` (TopScope) +
   // a lambda param `f` (LambdaScope).
   let src = "let shadow = (f) => f\n"
-  let (defs, _) = extract_facts(parse_to_syntax(src))
+  let (defs, _) = @callers.extract_facts(parse_to_syntax(src))
   inspect(defs.length(), content="2")
   inspect(defs[0].name, content="shadow")
   inspect(defs[0].scope is TopScope, content="true")
@@ -74,7 +74,7 @@ test "extract_facts: lambda parameter Defs are tagged LambdaScope" {
 test "extract_facts: VarRef in AppExpr.func position has is_call_position=true" {
   // `let g = f x` — `f` is function-position (call), `x` is arg-position (data).
   let src = "let g = f x\n"
-  let (_, calls) = extract_facts(parse_to_syntax(src))
+  let (_, calls) = @callers.extract_facts(parse_to_syntax(src))
   inspect(calls.length(), content="2")
   inspect(calls[0].callee, content="f")
   inspect(calls[0].is_call_position, content="true")
@@ -88,8 +88,8 @@ test "build_callers_index: groups calls by callee" {
   // are passed in. The filtering for `callers_of` happens in the Derived
   // body before this is called.
   let src = "let f = 1\nlet g = f x\nlet h = f x\nlet i = g x\n"
-  let (_, calls) = extract_facts(parse_to_syntax(src))
-  let idx = build_callers_index(calls)
+  let (_, calls) = @callers.extract_facts(parse_to_syntax(src))
+  let idx = @callers.build_callers_index(calls)
   // f appears twice (in g, in h); g once (in i); each call body also has
   // an `x` VarRef in arg position.
   debug_inspect(idx.get("f").map(arr => arr.length()), content="Some(2)")
@@ -117,7 +117,7 @@ test "pipeline: apply_edit re-derives index incrementally" {
     "let f = 1\nlet g = f x\n",
     @lambda.lambda_grammar,
   )
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = @callers.CallersPipeline::from_parser(parser)
 
   // Initial: g calls f.
   inspect(pipe.callers_of("f").length(), content="1")
@@ -155,7 +155,7 @@ test "pipeline: set_source forces full reparse" {
     "let f = 1\n",
     @lambda.lambda_grammar,
   )
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = @callers.CallersPipeline::from_parser(parser)
   inspect(pipe.callers_of("f").length(), content="0")
   parser.set_source("let f = 1\nlet g = f x\nlet h = f x\n")
   inspect(pipe.callers_of("f").length(), content="2")
@@ -181,7 +181,7 @@ test "pipeline: survives rt.gc() between queries" {
     "let f = 1\nlet g = f x\nlet h = f x\n",
     @lambda.lambda_grammar,
   )
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = @callers.CallersPipeline::from_parser(parser)
   let rt = parser.runtime()
   inspect(pipe.callers_of("f").length(), content="2")
   rt.gc()
@@ -334,7 +334,7 @@ test "pipeline: empty source returns no defs or callers" {
 /// malformed-input regression tests below to assert that error recovery
 /// does NOT leak body identifiers into the scope frame.
 fn lambda_scope_def_names_of(src : String) -> Array[String] {
-  let (defs, _) = extract_facts(parse_to_syntax(src))
+  let (defs, _) = @callers.extract_facts(parse_to_syntax(src))
   [
     for d in defs if !(d.scope is TopScope) => d.name
   ]
@@ -376,7 +376,7 @@ test "extract_facts: well-formed lambda still binds correctly under new extracti
 
 ///|
 test "ScopeId derives Hash (compile-time check)" {
-  let m : @hashmap.HashMap[ScopeId, Int] = @hashmap.HashMap([])
+  let m : @hashmap.HashMap[@callers.ScopeId, Int] = @hashmap.HashMap([])
   m.set(TopScope, 1)
   m.set(LambdaScope(0, 5), 2)
   // is-pattern checks avoid the deprecated Show-on-Option warning while
@@ -389,7 +389,7 @@ test "ScopeId derives Hash (compile-time check)" {
 ///|
 test "extract_facts wrapper: backward-compat 2-tuple shape preserved" {
   let src = "let g = (x) => x\n"
-  let (defs, calls) = extract_facts(parse_to_syntax(src))
+  let (defs, calls) = @callers.extract_facts(parse_to_syntax(src))
   // Same 2-tuple shape as before; per-element checks avoid Show-on-Array warning.
   inspect(defs.length(), content="2")
   inspect(defs[0].name, content="g")
@@ -402,13 +402,13 @@ test "extract_facts wrapper: backward-compat 2-tuple shape preserved" {
 /// query the pipeline (callers_of, defs_of, facts, visible_from, dispose);
 /// for tests that need to mutate via parser (apply_edit, set_source, gc),
 /// construct parser and pipeline separately.
-fn build_test_pipeline(source : String) -> CallersPipeline {
+fn build_test_pipeline(source : String) -> @callers.CallersPipeline {
   let parser = try! @loom.new_parser(
     callers_test_source_id(),
     source,
     @lambda.lambda_grammar,
   )
-  CallersPipeline::from_parser(parser)
+  @callers.CallersPipeline::from_parser(parser)
 }
 
 ///|

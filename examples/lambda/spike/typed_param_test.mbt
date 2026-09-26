@@ -9,7 +9,7 @@ test "lambda chain: B handles typed arrow param" {
   let source = "(x : Int) => x"
   let (a_cst, a_diag) = @lambda.parse_cst(typed_param_source_id(), source)
   inspect(a_diag.is_empty(), content="true")
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(typed_param_source_id(), source)
   inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)
@@ -22,7 +22,7 @@ test "lambda chain: B handles typed arrow param" {
 test "lambda chain: unknown typed param preserves A/B recovery parity" {
   let source = "(x : Int, y : Bool) => x"
   let (a_cst, a_diag) = @lambda.parse_cst(typed_param_source_id(), source)
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(typed_param_source_id(), source)
   inspect(a_diag.is_empty(), content="false")
   inspect(b_diag.is_empty(), content="false")
@@ -37,7 +37,7 @@ test "lambda chain: B handles Unit typed param" {
   let source = "(x : Unit) => x"
   let (a_cst, a_diag) = @lambda.parse_cst(typed_param_source_id(), source)
   inspect(a_diag.is_empty(), content="true")
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(typed_param_source_id(), source)
   inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)
@@ -50,7 +50,7 @@ test "lambda chain: B handles TypeArrow param" {
   let source = "(f : Int -> Unit) => f"
   let (a_cst, a_diag) = @lambda.parse_cst(typed_param_source_id(), source)
   inspect(a_diag.is_empty(), content="true")
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(typed_param_source_id(), source)
   inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)
@@ -63,7 +63,7 @@ test "lambda chain: B handles nested TypeArrow param" {
   let source = "(f : Int -> Unit -> Int) => f"
   let (a_cst, a_diag) = @lambda.parse_cst(typed_param_source_id(), source)
   inspect(a_diag.is_empty(), content="true")
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(typed_param_source_id(), source)
   inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)
@@ -76,7 +76,7 @@ test "lambda chain: B handles parenthesized TypeArrow param" {
   let source = "(f : (Int -> Unit)) => f"
   let (a_cst, a_diag) = @lambda.parse_cst(typed_param_source_id(), source)
   inspect(a_diag.is_empty(), content="true")
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(typed_param_source_id(), source)
   inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)

@@ -94,15 +94,15 @@ width (including what comes after), it stays flat. Otherwise it breaks:
 ```mbt check
 ///|
 test "group + line flat" {
-  let doc : Layout[Unit] = group(text("a") + line() + text("b"))
-  inspect(render_string(doc, width=80), content="a b")
+  let doc : @pretty.Layout[Unit] = @pretty.group(@pretty.text("a") + @pretty.line() + @pretty.text("b"))
+  inspect(@pretty.render_string(doc, width=80), content="a b")
 }
 
 ///|
 test "group + line break" {
-  let doc : Layout[Unit] = group(text("a") + line() + text("b"))
+  let doc : @pretty.Layout[Unit] = @pretty.group(@pretty.text("a") + @pretty.line() + @pretty.text("b"))
   inspect(
-    render_string(doc, width=2),
+    @pretty.render_string(doc, width=2),
     content=(
       #|a
       #|b
@@ -122,19 +122,19 @@ mode — in flat mode, there are no line breaks to indent:
 ```mbt check
 ///|
 test "nest in group flat" {
-  let doc : Layout[Unit] = group(
-    text("f(") + nest(line() + text("x")) + line() + text(")"),
+  let doc : @pretty.Layout[Unit] = @pretty.group(
+    @pretty.text("f(") + @pretty.nest(@pretty.line() + @pretty.text("x")) + @pretty.line() + @pretty.text(")"),
   )
-  inspect(render_string(doc, width=80), content="f( x )")
+  inspect(@pretty.render_string(doc, width=80), content="f( x )")
 }
 
 ///|
 test "nest in group break" {
-  let doc : Layout[Unit] = group(
-    text("f(") + nest(line() + text("x")) + line() + text(")"),
+  let doc : @pretty.Layout[Unit] = @pretty.group(
+    @pretty.text("f(") + @pretty.nest(@pretty.line() + @pretty.text("x")) + @pretty.line() + @pretty.text(")"),
   )
   inspect(
-    render_string(doc, width=2),
+    @pretty.render_string(doc, width=2),
     content=(
       #|f(
       #|  x
@@ -159,9 +159,9 @@ always produces a newline regardless of width:
 ```mbt check
 ///|
 test "line outside group is always newline" {
-  let doc : Layout[Unit] = text("a") + line() + text("b")
+  let doc : @pretty.Layout[Unit] = @pretty.text("a") + @pretty.line() + @pretty.text("b")
   inspect(
-    render_string(doc, width=80),
+    @pretty.render_string(doc, width=80),
     content=(
       #|a
       #|b
@@ -188,25 +188,25 @@ Narrow output — breaks with indentation:
 ```mbt check
 ///|
 test "bracket flat" {
-  let items : Layout[Unit] = separate(text(",") + line(), [
-    text("1"),
-    text("2"),
-    text("3"),
+  let items : @pretty.Layout[Unit] = @pretty.separate(@pretty.text(",") + @pretty.line(), [
+    @pretty.text("1"),
+    @pretty.text("2"),
+    @pretty.text("3"),
   ])
-  let doc = bracket("[", "]", items)
-  inspect(render_string(doc, width=80), content="[ 1, 2, 3 ]")
+  let doc = @pretty.bracket("[", "]", items)
+  inspect(@pretty.render_string(doc, width=80), content="[ 1, 2, 3 ]")
 }
 
 ///|
 test "bracket break" {
-  let items : Layout[Unit] = separate(text(",") + line(), [
-    text("1"),
-    text("2"),
-    text("3"),
+  let items : @pretty.Layout[Unit] = @pretty.separate(@pretty.text(",") + @pretty.line(), [
+    @pretty.text("1"),
+    @pretty.text("2"),
+    @pretty.text("3"),
   ])
-  let doc = bracket("[", "]", items)
+  let doc = @pretty.bracket("[", "]", items)
   inspect(
-    render_string(doc, width=5),
+    @pretty.render_string(doc, width=5),
     content=(
       #|[
       #|  1,
@@ -223,33 +223,33 @@ Nesting composes naturally:
 ```mbt check
 ///|
 test "nested brackets flat" {
-  let inner : Layout[Unit] = bracket(
+  let inner : @pretty.Layout[Unit] = @pretty.bracket(
     "[",
     "]",
-    separate(text(",") + line(), [text("a"), text("b")]),
+    @pretty.separate(@pretty.text(",") + @pretty.line(), [@pretty.text("a"), @pretty.text("b")]),
   )
-  let outer = bracket(
+  let outer = @pretty.bracket(
     "[",
     "]",
-    separate(text(",") + line(), [text("x"), inner, text("y")]),
+    @pretty.separate(@pretty.text(",") + @pretty.line(), [@pretty.text("x"), inner, @pretty.text("y")]),
   )
-  inspect(render_string(outer, width=80), content="[ x, [ a, b ], y ]")
+  inspect(@pretty.render_string(outer, width=80), content="[ x, [ a, b ], y ]")
 }
 
 ///|
 test "nested brackets break" {
-  let inner : Layout[Unit] = bracket(
+  let inner : @pretty.Layout[Unit] = @pretty.bracket(
     "[",
     "]",
-    separate(text(",") + line(), [text("a"), text("b")]),
+    @pretty.separate(@pretty.text(",") + @pretty.line(), [@pretty.text("a"), @pretty.text("b")]),
   )
-  let outer = bracket(
+  let outer = @pretty.bracket(
     "[",
     "]",
-    separate(text(",") + line(), [text("x"), inner, text("y")]),
+    @pretty.separate(@pretty.text(",") + @pretty.line(), [@pretty.text("x"), inner, @pretty.text("y")]),
   )
   inspect(
-    render_string(outer, width=10),
+    @pretty.render_string(outer, width=10),
     content=(
       #|[
       #|  x,
@@ -274,8 +274,8 @@ metadata to document regions without affecting layout decisions.
 ```mbt check
 ///|
 test "Layout[Unit] hello world" {
-  let doc : Layout[Unit] = group(text("hello") + line() + text("world"))
-  inspect(render_string(doc), content="hello world")
+  let doc : @pretty.Layout[Unit] = @pretty.group(@pretty.text("hello") + @pretty.line() + @pretty.text("world"))
+  inspect(@pretty.render_string(doc), content="hello world")
 }
 ```
 
@@ -284,19 +284,19 @@ test "Layout[Unit] hello world" {
 ```mbt check
 ///|
 test "annotated render_string ignores annotations" {
-  let doc = annotate(@pretty.Keyword, text("let")) +
-    text(" ") +
-    annotate(@pretty.Identifier, text("x"))
-  inspect(render_string(doc), content="let x")
+  let doc = @pretty.annotate(@pretty.Keyword, @pretty.text("let")) +
+    @pretty.text(" ") +
+    @pretty.annotate(@pretty.Identifier, @pretty.text("x"))
+  inspect(@pretty.render_string(doc), content="let x")
 }
 
 ///|
 test "annotated render_spans" {
-  let doc = annotate(@pretty.Keyword, text("let")) +
-    text(" ") +
-    annotate(@pretty.Identifier, text("x"))
+  let doc = @pretty.annotate(@pretty.Keyword, @pretty.text("let")) +
+    @pretty.text(" ") +
+    @pretty.annotate(@pretty.Identifier, @pretty.text("x"))
   debug_inspect(
-    render_spans(doc),
+    @pretty.render_spans(doc),
     content=(
       #|[({ start: 0, end: 3 }, Keyword), ({ start: 4, end: 5 }, Identifier)]
     ),
@@ -323,8 +323,8 @@ annotations to collect. Use `render_string` if you don't need span information.
 ```mbt check
 ///|
 test "render_spans on Layout[Unit] returns empty" {
-  let doc : Layout[Unit] = group(text("hello") + line() + text("world"))
-  debug_inspect(render_spans(doc), content="[]")
+  let doc : @pretty.Layout[Unit] = @pretty.group(@pretty.text("hello") + @pretty.line() + @pretty.text("world"))
+  debug_inspect(@pretty.render_spans(doc), content="[]")
 }
 ```
 
@@ -360,37 +360,37 @@ Define layout builders for expressions, then render at different widths:
 ```mbt check
 ///|
 test "end-to-end Expr pretty-print flat" {
-  fn expr_lit(n : Int) -> Layout[@pretty.SyntaxCategory] {
-    annotate(@pretty.Number, text(n.to_string()))
+  fn expr_lit(n : Int) -> @pretty.Layout[@pretty.SyntaxCategory] {
+    @pretty.annotate(@pretty.Number, @pretty.text(n.to_string()))
   }
   fn expr_add(
-    l : Layout[@pretty.SyntaxCategory],
-    r : Layout[@pretty.SyntaxCategory],
-  ) -> Layout[@pretty.SyntaxCategory] {
-    group(
-      l + text(" ") + annotate(@pretty.Operator, text("+")) + nest(line() + r),
+    l : @pretty.Layout[@pretty.SyntaxCategory],
+    r : @pretty.Layout[@pretty.SyntaxCategory],
+  ) -> @pretty.Layout[@pretty.SyntaxCategory] {
+    @pretty.group(
+      l + @pretty.text(" ") + @pretty.annotate(@pretty.Operator, @pretty.text("+")) + @pretty.nest(@pretty.line() + r),
     )
   }
   let expr = expr_add(expr_lit(1), expr_add(expr_lit(2), expr_lit(3)))
-  inspect(render_string(expr, width=80), content="1 + 2 + 3")
+  inspect(@pretty.render_string(expr, width=80), content="1 + 2 + 3")
 }
 
 ///|
 test "end-to-end Expr pretty-print break" {
-  fn expr_lit(n : Int) -> Layout[@pretty.SyntaxCategory] {
-    annotate(@pretty.Number, text(n.to_string()))
+  fn expr_lit(n : Int) -> @pretty.Layout[@pretty.SyntaxCategory] {
+    @pretty.annotate(@pretty.Number, @pretty.text(n.to_string()))
   }
   fn expr_add(
-    l : Layout[@pretty.SyntaxCategory],
-    r : Layout[@pretty.SyntaxCategory],
-  ) -> Layout[@pretty.SyntaxCategory] {
-    group(
-      l + text(" ") + annotate(@pretty.Operator, text("+")) + nest(line() + r),
+    l : @pretty.Layout[@pretty.SyntaxCategory],
+    r : @pretty.Layout[@pretty.SyntaxCategory],
+  ) -> @pretty.Layout[@pretty.SyntaxCategory] {
+    @pretty.group(
+      l + @pretty.text(" ") + @pretty.annotate(@pretty.Operator, @pretty.text("+")) + @pretty.nest(@pretty.line() + r),
     )
   }
   let expr = expr_add(expr_lit(1), expr_add(expr_lit(2), expr_lit(3)))
   inspect(
-    render_string(expr, width=5),
+    @pretty.render_string(expr, width=5),
     content=(
       #|1 +
       #|  2 +

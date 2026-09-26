@@ -22,9 +22,9 @@ test "positive control: crippled B passes ALL oracles including reuse-parity" {
   // Crippled B disables try_reuse_repeat_group but the engine still reuses
   // unchanged subtrees via ctx.node(). Both A and B end up with reuse_count = 1
   // for an edit to the second of two definitions.
-  let (initial, steps) = top_level_reuse_fixture()
-  let b_crippled = build_b_syntax_grammar(cripple_reuse=true)
-  let results = run_oracle_fixture(
+  let (initial, steps) = @spike.top_level_reuse_fixture()
+  let b_crippled = @spike.build_b_syntax_grammar(cripple_reuse=true)
+  let results = @spike.run_oracle_fixture(
     reuse_positive_control_source_id(),
     initial,
     steps,
@@ -44,16 +44,16 @@ test "positive control: crippled B passes ALL oracles including reuse-parity" {
 ///|
 test "positive control: counts in detail for first edit step" {
   // Document actual reuse counts so the finding is machine-verifiable.
-  let (initial, steps) = top_level_reuse_fixture()
-  let b = build_b_syntax_grammar()
-  let b_crippled = build_b_syntax_grammar(cripple_reuse=true)
-  let normal_results = run_oracle_fixture(
+  let (initial, steps) = @spike.top_level_reuse_fixture()
+  let b = @spike.build_b_syntax_grammar()
+  let b_crippled = @spike.build_b_syntax_grammar(cripple_reuse=true)
+  let normal_results = @spike.run_oracle_fixture(
     reuse_positive_control_source_id(),
     initial,
     steps,
     b,
   )
-  let crippled_results = run_oracle_fixture(
+  let crippled_results = @spike.run_oracle_fixture(
     reuse_positive_control_source_id(),
     initial,
     steps,
@@ -75,9 +75,9 @@ test "positive control: counts in detail for first edit step" {
 ///|
 test "positive control: normal B passes all checks" {
   // Verify un-crippled B also satisfies all oracles (baseline sanity).
-  let (initial, steps) = top_level_reuse_fixture()
-  let b = build_b_syntax_grammar()
-  let results = run_oracle_fixture(
+  let (initial, steps) = @spike.top_level_reuse_fixture()
+  let b = @spike.build_b_syntax_grammar()
+  let results = @spike.run_oracle_fixture(
     reuse_positive_control_source_id(),
     initial,
     steps,

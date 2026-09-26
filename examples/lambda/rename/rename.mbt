@@ -367,3 +367,12 @@ fn make_no_op_diagnostic() -> @core.Diagnostic {
 fn severity_info() -> @core.DiagnosticSeverity {
   @core.DiagnosticSeverity::all()[2]
 }
+
+///|
+pub extend TextEdit with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TextEdit with Eq::{equal, not_equal}
+
+///|
+pub extend TextEdit with Show::{output, to_string}

@@ -62,9 +62,9 @@ fn assert_markdown_property_heading_case(depth : Int, seed : Int) -> Unit raise 
     @core.SourceId("markdown-ir-property-document"),
     source,
   )
-  inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
+  inspect(@markdown.experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
   inspect(
-    experimental_markdown_ir_canonical_format(
+    @markdown.experimental_markdown_ir_canonical_format(
       @core.SourceId("markdown-ir-property-document"),
       ir,
     ),
@@ -75,7 +75,7 @@ fn assert_markdown_property_heading_case(depth : Int, seed : Int) -> Unit raise 
       match heading.content_origin() {
         Some(origin) => {
           let replacement = markdown_property_safe_text("Renamed", seed)
-          let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+          let local_rewrite = @markdown.experimental_markdown_ir_local_transform_rewrite(
             ir,
             source,
             target_origin=origin,
@@ -85,7 +85,7 @@ fn assert_markdown_property_heading_case(depth : Int, seed : Int) -> Unit raise 
           inspect(local_rewrite != source, content="true")
           inspect(
             local_rewrite !=
-            experimental_markdown_ir_canonical_format(
+            @markdown.experimental_markdown_ir_canonical_format(
               @core.SourceId("markdown-ir-property-document"),
               ir,
             ),
@@ -113,14 +113,14 @@ fn assert_markdown_property_list_case(
     @core.SourceId("markdown-ir-property-document"),
     source,
   )
-  inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
-  let canonical = experimental_markdown_ir_canonical_format(
+  inspect(@markdown.experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
+  let canonical = @markdown.experimental_markdown_ir_canonical_format(
     @core.SourceId("markdown-ir-property-document"),
     ir,
   )
   inspect(canonical, content=canonical_source)
   inspect(
-    experimental_markdown_ir_canonical_format(
+    @markdown.experimental_markdown_ir_canonical_format(
       @core.SourceId("markdown-ir-property-document"),
       markdown_ir_from_source(
         @core.SourceId("markdown-ir-property-document"),
@@ -137,7 +137,7 @@ fn assert_markdown_property_list_case(
           for i = 0; i < items.length(); i = i + 1 {
             let item = items[i]
             inspect(
-              experimental_markdown_ir_preserve_rewrite(item, source),
+              @markdown.experimental_markdown_ir_preserve_rewrite(item, source),
               content=markdown_property_list_item_source(seed, i),
             )
           }
@@ -156,7 +156,7 @@ fn assert_markdown_property_list_case(
                   "changed",
                   seed + target_index,
                 )
-                let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+                let local_rewrite = @markdown.experimental_markdown_ir_local_transform_rewrite(
                   ir,
                   source,
                   target_origin=origin,

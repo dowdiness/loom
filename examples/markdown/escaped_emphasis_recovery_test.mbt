@@ -2,15 +2,15 @@
 fn escaped_emphasis_ir_from_source(
   source_id : @core.SourceId,
   source : String,
-) -> MarkdownIR {
-  let (cst, diagnostics) = parse_cst(source_id, source) catch {
+) -> @markdown.MarkdownIR {
+  let (cst, diagnostics) = @markdown.parse_cst(source_id, source) catch {
     _ =>
       abort(
         "Markdown parse failed for escaped-emphasis source: " +
         @debug.to_string(source),
       )
   }
-  experimental_markdown_ir_from_syntax_with_diagnostics(
+  @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
@@ -21,8 +21,8 @@ fn escaped_emphasis_ir_from_source(
 fn escaped_emphasis_ir_block(
   source_id : @core.SourceId,
   source : String,
-) -> Block {
-  experimental_markdown_ir_to_block(
+) -> @markdown.Block {
+  @markdown.experimental_markdown_ir_to_block(
     escaped_emphasis_ir_from_source(source_id, source),
   )
 }
@@ -30,7 +30,7 @@ fn escaped_emphasis_ir_block(
 ///|
 fn escaped_emphasis_origin_source(
   source : String,
-  origin : MarkdownIROrigin,
+  origin : @markdown.MarkdownIROrigin,
 ) -> String {
   source[origin.start():origin.end()].to_owned()
 }
@@ -54,7 +54,7 @@ test "escaped emphasis recovery: direct and MarkdownIR lowering parity matrix" {
   for source in sources {
     inspect(
       escaped_emphasis_ir_block(source_id, source),
-      content=@debug.to_string(parse_block_ast(source_id, source)),
+      content=@debug.to_string(@markdown.parse_block_ast(source_id, source)),
     )
   }
 }
@@ -64,7 +64,7 @@ test "delimiter lowering: unmatched closer capacity is literal text" {
   let source_id = @core.SourceId("markdown-unmatched-closer-literal")
   let source = "\\*a b**\n"
   inspect(
-    parse_block_ast(source_id, source),
+    @markdown.parse_block_ast(source_id, source),
     content="Document([Paragraph([Text(\"*a b**\")])])",
   )
   inspect(
@@ -78,7 +78,7 @@ test "delimiter lowering: list-item literal markers stay coalesced" {
   let source_id = @core.SourceId("markdown-list-item-literal-markers")
   let source = "- \\*a \\*b**\n"
   inspect(
-    parse_block_ast(source_id, source),
+    @markdown.parse_block_ast(source_id, source),
     content="Document([UnorderedList([UnorderedListItem([Text(\"*a *b**\")])])])",
   )
   inspect(

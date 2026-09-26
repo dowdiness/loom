@@ -43,7 +43,7 @@ fn EgwPeer::new(
   agent_id : String,
 ) -> EgwPeer raise @egw.TextError {
   let doc = @egw.TextState::new(agent_id)
-  let parser = new_imperative_parser(source_id, "")
+  let parser = @lambda.new_imperative_parser(source_id, "")
   let _ = try! parser.parse().ast
   { doc, parser, }
 }

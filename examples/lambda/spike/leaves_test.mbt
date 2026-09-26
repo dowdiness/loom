@@ -18,7 +18,7 @@ test "project_lambda_leaves emits var and int leaves" {
   let source = "let x = 1\nlet y = x"
   let (cst, _) = @lambda.parse_cst(leaves_test_source_id(), source)
   let syntax = @seam.SyntaxNode::from_cst(cst)
-  let leaves = project_lambda_leaves(syntax)
+  let leaves = @spike.project_lambda_leaves(syntax)
   inspect(has_key(leaves, "var:x"), content="true")
   inspect(has_key(leaves, "int:1"), content="true")
 }

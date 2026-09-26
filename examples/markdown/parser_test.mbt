@@ -1,15 +1,15 @@
 ///|
 fn heading_form_token_kinds(source : String) -> String {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     source,
   )
   let kinds : Array[String] = []
   fn walk(node : @seam.SyntaxNode) -> Unit {
-    let node_kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+    let node_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
     if node_kind is HeadingNode {
-      let atx_kind : SyntaxKind = AtxHeadingMarkerToken
-      let setext_kind : SyntaxKind = SetextHeadingUnderlineToken
+      let atx_kind : @markdown.SyntaxKind = AtxHeadingMarkerToken
+      let setext_kind : @markdown.SyntaxKind = SetextHeadingUnderlineToken
       match node.direct_token_of_kind(atx_kind.to_raw()) {
         Some(_) => kinds.push(@debug.to_string(atx_kind))
         None => ()
@@ -30,15 +30,15 @@ fn heading_form_token_kinds(source : String) -> String {
 ///|
 fn inline_node_texts_of_kind(
   source : String,
-  expected_kind : SyntaxKind,
+  expected_kind : @markdown.SyntaxKind,
 ) -> Array[String] {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     source,
   )
   let texts : Array[String] = []
   fn walk(node : @seam.SyntaxNode) -> Unit {
-    let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+    let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
     if kind == expected_kind {
       texts.push(node.text())
     }
@@ -52,7 +52,7 @@ fn inline_node_texts_of_kind(
 
 ///|
 fn markdown_leaf_kind_signature(source : String) -> Array[String] {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     source,
   )
@@ -62,7 +62,7 @@ fn markdown_leaf_kind_signature(source : String) -> Array[String] {
       match element {
         @seam.SyntaxElement::Node(child) => walk(child)
         @seam.SyntaxElement::Token(token) => {
-          let kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+          let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
           signature.push(
             @debug.to_string(kind) + ":" + @debug.to_string(token.text()),
           )
@@ -118,7 +118,7 @@ test "parse cst: delimiter link scopes stay balanced across soft lines" {
     "*a " +
     slash +
     "*b***\n\n"
-  let (cst, diagnostics) = try! parse_cst(
+  let (cst, diagnostics) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     source,
   )
@@ -128,7 +128,7 @@ test "parse cst: delimiter link scopes stay balanced across soft lines" {
 
 ///|
 test "parse cst: unconfirmed links cannot corrupt delimiter cursor stack" {
-  let cases : Array[(String, SyntaxKind, String)] = [
+  let cases : Array[(String, @markdown.SyntaxKind, String)] = [
     ("*[x*\n", ItalicNode, "*[x*"),
     ("**[x**\n", BoldNode, "**[x**"),
     ("_[x_\n", ItalicNode, "_[x_"),
@@ -170,7 +170,7 @@ test "parse cst: indexed link labels preserve soft line continuations" {
 ///|
 test "parse cst: backticks do not hide unbalanced destination parentheses" {
   let source = "[x](`(`)\n"
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     source,
   )
@@ -178,7 +178,7 @@ test "parse cst: backticks do not hide unbalanced destination parentheses" {
   debug_inspect(inline_node_texts_of_kind(source, LinkNode), content="[]")
 
   let followed_by_emphasis = "[x](`(`)*a*)*b*\n"
-  let (followed_cst, _) = try! parse_cst(
+  let (followed_cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     followed_by_emphasis,
   )
@@ -212,29 +212,29 @@ test "parse cst: heading forms have distinct marker token kinds" {
 
 ///|
 test "syntax kind: heading marker raw kinds remain stable and distinct" {
-  let atx_kind : SyntaxKind = AtxHeadingMarkerToken
-  let setext_kind : SyntaxKind = SetextHeadingUnderlineToken
+  let atx_kind : @markdown.SyntaxKind = AtxHeadingMarkerToken
+  let setext_kind : @markdown.SyntaxKind = SetextHeadingUnderlineToken
   inspect(atx_kind.to_raw().0, content="0")
   inspect(setext_kind.to_raw().0, content="38")
-  let atx : SyntaxKind = @seam.FromRawKind::from_raw(@seam.RawKind(0))
-  let setext : SyntaxKind = @seam.FromRawKind::from_raw(@seam.RawKind(38))
+  let atx : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(@seam.RawKind(0))
+  let setext : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(@seam.RawKind(38))
   inspect(atx, content="AtxHeadingMarkerToken")
   inspect(setext, content="SetextHeadingUnderlineToken")
 }
 
 ///|
 test "syntax kind: emphasis CST shape uses append-only raw kinds" {
-  let star : SyntaxKind = StarToken
-  let star_star : SyntaxKind = StarStarToken
-  let underscore : SyntaxKind = UnderscoreToken
-  let delimiter : SyntaxKind = EmphasisDelimiterToken
+  let star : @markdown.SyntaxKind = StarToken
+  let star_star : @markdown.SyntaxKind = StarStarToken
+  let underscore : @markdown.SyntaxKind = UnderscoreToken
+  let delimiter : @markdown.SyntaxKind = EmphasisDelimiterToken
   inspect(star.to_raw().0, content="5")
   inspect(star_star.to_raw().0, content="6")
   inspect(underscore.to_raw().0, content="39")
   inspect(delimiter.to_raw().0, content="40")
-  inspect(SyntaxKind::from_raw(@seam.RawKind(39)), content="UnderscoreToken")
+  inspect(@markdown.SyntaxKind::from_raw(@seam.RawKind(39)), content="UnderscoreToken")
   inspect(
-    SyntaxKind::from_raw(@seam.RawKind(40)),
+    @markdown.SyntaxKind::from_raw(@seam.RawKind(40)),
     content="EmphasisDelimiterToken",
   )
   inspect(
@@ -249,7 +249,7 @@ test "syntax kind: emphasis CST shape uses append-only raw kinds" {
 
 ///|
 test "parse: heading" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "# Hello\n",
   )
@@ -259,7 +259,7 @@ test "parse: heading" {
 ///|
 test "parse: ATX heading keeps unmatched emphasis literal at line ending" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "# *foo\nbar*\n",
     ),
@@ -270,35 +270,35 @@ test "parse: ATX heading keeps unmatched emphasis literal at line ending" {
 ///|
 test "parse: setext heading preserves legacy heading depth" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "Foo\n---\n",
     ),
     content="Document([Heading(2, [Text(\"Foo\")])])",
   )
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "Foo\n- \n",
     ),
     content="Document([Heading(2, [Text(\"Foo\")])])",
   )
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "Foo\n-  \n",
     ),
     content="Document([Heading(2, [Text(\"Foo\")])])",
   )
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "First\nsecond\n---\n",
     ),
     content="Document([Heading(2, [Text(\"First\"), Text(\"second\")])])",
   )
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "First\nsecond\n===\n",
     ),
@@ -309,7 +309,7 @@ test "parse: setext heading preserves legacy heading depth" {
 ///|
 test "parse: setext underline bounds literal unmatched emphasis" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "Foo *bar\n====\nbaz*\n",
     ),
@@ -320,7 +320,7 @@ test "parse: setext underline bounds literal unmatched emphasis" {
 ///|
 test "parse: setext continuation bounds literal unmatched emphasis" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "Foo\nbar *baz\n====\nqux*\n",
     ),
@@ -338,7 +338,7 @@ test "parse: setext continuation bounds literal unmatched emphasis" {
 ///|
 test "parse: ordered list item setext probe stops at ordered item boundary" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "1. Foo\n2. bar\n---\n",
     ),
@@ -361,7 +361,7 @@ test "parse: ordered list item setext probe stops at ordered item boundary" {
 
 ///|
 test "parse: paragraph" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "Hello world\n",
   )
@@ -371,7 +371,7 @@ test "parse: paragraph" {
 ///|
 test "parse: three-space-prefixed fence is code block" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "   ```\ncode\n   ```\n",
     ),
@@ -382,7 +382,7 @@ test "parse: three-space-prefixed fence is code block" {
 ///|
 test "parse: tilde fence is code block" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "~~~moonbit\nlet x = 1\n~~~\n",
     ),
@@ -393,7 +393,7 @@ test "parse: tilde fence is code block" {
 ///|
 test "parse: tilde fence retains backticks in info string" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "~~~`moonbit\nlet x = 1\n~~~\n",
     ),
@@ -404,7 +404,7 @@ test "parse: tilde fence retains backticks in info string" {
 ///|
 test "parse: indented fence interrupts root paragraph" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "foo\n  ```\ncode\n```\n",
     ),
@@ -414,14 +414,14 @@ test "parse: indented fence interrupts root paragraph" {
 
 ///|
 test "parse: prefixed non-one ordered marker remains paragraph" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "foo\n  2. bar\n",
   )
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [paragraph] => {
-      let kind : SyntaxKind = @seam.FromRawKind::from_raw(paragraph.kind())
+      let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(paragraph.kind())
       inspect(kind, content="ParagraphNode")
     }
     _ => inspect(syntax.children().length(), content="one paragraph")
@@ -430,14 +430,14 @@ test "parse: prefixed non-one ordered marker remains paragraph" {
 
 ///|
 test "parse: prefixed lone list marker preserves setext heading" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "foo\n  -\n",
   )
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [heading] => {
-      let kind : SyntaxKind = @seam.FromRawKind::from_raw(heading.kind())
+      let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(heading.kind())
       inspect(kind, content="HeadingNode")
     }
     _ => inspect(syntax.children().length(), content="one heading")
@@ -446,14 +446,14 @@ test "parse: prefixed lone list marker preserves setext heading" {
 
 ///|
 test "parse: three-space-prefixed quote is block quote" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "   > quote\n",
   )
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [quote] => {
-      let kind : SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+      let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
       inspect(kind, content="BlockQuoteNode")
     }
     _ => inspect(syntax.children().length(), content="one blockquote")
@@ -462,7 +462,7 @@ test "parse: three-space-prefixed quote is block quote" {
 
 ///|
 test "parse: indented blockquote heading remains quoted CST child" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     ">   # heading\n",
   )
@@ -471,7 +471,7 @@ test "parse: indented blockquote heading remains quoted CST child" {
     [quote] =>
       match quote.children() {
         [heading] => {
-          let heading_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+          let heading_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
             heading.kind(),
           )
           inspect(heading_kind, content="HeadingNode")
@@ -484,7 +484,7 @@ test "parse: indented blockquote heading remains quoted CST child" {
 
 ///|
 test "parse: indented blockquote fence remains quoted CST child" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     ">   ```\n",
   )
@@ -493,7 +493,7 @@ test "parse: indented blockquote fence remains quoted CST child" {
     [quote] =>
       match quote.children() {
         [code] => {
-          let code_kind : SyntaxKind = @seam.FromRawKind::from_raw(code.kind())
+          let code_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(code.kind())
           inspect(code_kind, content="CodeBlockNode")
         }
         _ => inspect(quote.children().length(), content="one code block")
@@ -504,7 +504,7 @@ test "parse: indented blockquote fence remains quoted CST child" {
 
 ///|
 test "parse: indented blockquote HTML remains quoted CST child" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     ">   <div>\n",
   )
@@ -513,7 +513,7 @@ test "parse: indented blockquote HTML remains quoted CST child" {
     [quote] =>
       match quote.children() {
         [html] => {
-          let html_kind : SyntaxKind = @seam.FromRawKind::from_raw(html.kind())
+          let html_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(html.kind())
           inspect(html_kind, content="HtmlBlockNode")
         }
         _ => inspect(quote.children().length(), content="one HTML block")
@@ -524,7 +524,7 @@ test "parse: indented blockquote HTML remains quoted CST child" {
 
 ///|
 test "parse: blockquote indented continuation remains one paragraph" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "> item\n>     code\n",
   )
@@ -533,7 +533,7 @@ test "parse: blockquote indented continuation remains one paragraph" {
     [quote] =>
       match quote.children() {
         [paragraph] => {
-          let kind : SyntaxKind = @seam.FromRawKind::from_raw(paragraph.kind())
+          let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(paragraph.kind())
           inspect(kind, content="ParagraphNode")
         }
         _ => inspect(quote.children().length(), content="one paragraph")
@@ -544,7 +544,7 @@ test "parse: blockquote indented continuation remains one paragraph" {
 
 ///|
 test "parse: blank-line blockquote indented code remains quoted child" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "> item\n>\n>     code\n",
   )
@@ -553,7 +553,7 @@ test "parse: blank-line blockquote indented code remains quoted child" {
     [quote] => {
       let mut has_code = false
       for child in quote.children() {
-        let kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
+        let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
         if kind is CodeBlockNode {
           has_code = true
         }
@@ -566,7 +566,7 @@ test "parse: blank-line blockquote indented code remains quoted child" {
 
 ///|
 test "parse: blockquote preserves legacy text projection" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "> quote\n",
   )
@@ -575,18 +575,18 @@ test "parse: blockquote preserves legacy text projection" {
 
 ///|
 test "parse: blockquote lazy continuation stays in quoted paragraph CST" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "> bar\nbaz\n> foo\n",
   )
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [quote] => {
-      let quote_kind : SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+      let quote_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
       inspect(quote_kind, content="BlockQuoteNode")
       match quote.children() {
         [paragraph] => {
-          let paragraph_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+          let paragraph_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
             paragraph.kind(),
           )
           inspect(paragraph_kind, content="ParagraphNode")
@@ -600,7 +600,7 @@ test "parse: blockquote lazy continuation stays in quoted paragraph CST" {
 
 ///|
 test "parse: blockquote lazy continuation preserves legacy text projection" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "> bar\nbaz\n",
   )
@@ -609,15 +609,15 @@ test "parse: blockquote lazy continuation preserves legacy text projection" {
 
 ///|
 test "parse: blockquote lazy continuation rejects thematic break line" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "> foo\n---\n",
   )
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [quote, separator] => {
-      let quote_kind : SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
-      let separator_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+      let quote_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+      let separator_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
         separator.kind(),
       )
       inspect(quote_kind, content="BlockQuoteNode")
@@ -630,7 +630,7 @@ test "parse: blockquote lazy continuation rejects thematic break line" {
 
 ///|
 test "parse: thematic break preserves legacy text projection" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "---\n",
   )
@@ -639,7 +639,7 @@ test "parse: thematic break preserves legacy text projection" {
 
 ///|
 test "parse: list-item thematic break after marker is CST block child" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "- Foo\n- * * *\n",
   )
@@ -650,7 +650,7 @@ test "parse: list-item thematic break after marker is CST block child" {
         [_, item] =>
           match item.children() {
             [separator] => {
-              let separator_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+              let separator_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
                 separator.kind(),
               )
               inspect(separator_kind, content="ThematicBreakNode")
@@ -666,9 +666,9 @@ test "parse: list-item thematic break after marker is CST block child" {
 ///|
 fn assert_list_item_prefixed_block_child(
   source : String,
-  expected_kind : SyntaxKind,
+  expected_kind : @markdown.SyntaxKind,
 ) -> Unit raise {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     source,
   )
@@ -679,7 +679,7 @@ fn assert_list_item_prefixed_block_child(
         [item] => {
           let mut found = false
           for child in item.children() {
-            let kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
+            let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
             if kind == expected_kind {
               found = true
             }
@@ -707,7 +707,7 @@ test "parse: list-item indented fence remains list child" {
 
 ///|
 test "parse: list-item indented continuation remains paragraph" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "- item\n      code\n",
   )
@@ -735,7 +735,7 @@ test "parse: blank-line list-item indented quote remains list child" {
 
 ///|
 test "parse: blank-line empty quote does not create phantom list paragraph" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "- item\n\n  >\n\n  body\n",
   )
@@ -770,7 +770,7 @@ test "parse: list-item indented HTML remains list child" {
 
 ///|
 test "parse: list-item thematic break preserves legacy text projection" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- * * *\n",
   )
@@ -782,7 +782,7 @@ test "parse: list-item thematic break preserves legacy text projection" {
 
 ///|
 test "parse: empty list item does not promote indented underline to setext heading" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "- \n  ---\n",
   )
@@ -792,7 +792,7 @@ test "parse: empty list item does not promote indented underline to setext headi
       match list.children() {
         [item] => {
           for child in item.children() {
-            let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+            let child_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
               child.kind(),
             )
             if child_kind is HeadingNode {
@@ -810,7 +810,7 @@ test "parse: empty list item does not promote indented underline to setext headi
 
 ///|
 test "parse: list setext code span owns continuation indentation structurally" {
-  let (cst, _) = parse_cst(
+  let (cst, _) = @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "- x `a\n  b`\n  ---\n",
   )
@@ -821,7 +821,7 @@ test "parse: list setext code span owns continuation indentation structurally" {
         [item] =>
           match item.children() {
             [heading] => {
-              let kind : SyntaxKind = @seam.FromRawKind::from_raw(
+              let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
                 heading.kind(),
               )
               inspect(kind, content="HeadingNode")
@@ -829,14 +829,14 @@ test "parse: list setext code span owns continuation indentation structurally" {
               for element in heading.all_children() {
                 match element {
                   @seam.SyntaxElement::Node(inline) => {
-                    let inline_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+                    let inline_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
                       inline.kind(),
                     )
                     if inline_kind is InlineCodeNode {
                       for element in inline.all_children() {
                         match element {
                           @seam.SyntaxElement::Token(token) => {
-                            let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+                            let token_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
                               token.kind(),
                             )
                             if token_kind is IndentationToken {
@@ -864,18 +864,18 @@ test "parse: list setext code span owns continuation indentation structurally" {
 ///|
 test "parse: blockquote lazy continuation accepts indented thematic text" {
   for source in ["> foo\n    ---\n", "> foo\n\t---\n"] {
-    let (cst, _) = try! parse_cst(
+    let (cst, _) = try! @markdown.parse_cst(
       @core.SourceId("markdown-parser-test-document"),
       source,
     )
     let syntax = @seam.SyntaxNode::from_cst(cst)
     match syntax.children() {
       [quote] => {
-        let quote_kind : SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+        let quote_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
         inspect(quote_kind, content="BlockQuoteNode")
         match quote.children() {
           [paragraph] => {
-            let paragraph_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+            let paragraph_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
               paragraph.kind(),
             )
             inspect(paragraph_kind, content="ParagraphNode")
@@ -890,18 +890,18 @@ test "parse: blockquote lazy continuation accepts indented thematic text" {
 
 ///|
 test "parse: blockquote setext heading has heading CST child" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "> foo\n> ---\n",
   )
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [quote] => {
-      let quote_kind : SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+      let quote_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
       inspect(quote_kind, content="BlockQuoteNode")
       match quote.children() {
         [heading] => {
-          let heading_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+          let heading_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
             heading.kind(),
           )
           inspect(heading_kind, content="HeadingNode")
@@ -915,7 +915,7 @@ test "parse: blockquote setext heading has heading CST child" {
 
 ///|
 test "parse: quoted setext heading code span crosses soft-line continuation" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "> ``a\n> b``\n> ---\n",
   )
@@ -926,7 +926,7 @@ test "parse: quoted setext heading code span crosses soft-line continuation" {
         [heading] =>
           match heading.children() {
             [inline_code] => {
-              let kind : SyntaxKind = @seam.FromRawKind::from_raw(
+              let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
                 inline_code.kind(),
               )
               inspect(kind, content="InlineCodeNode")
@@ -942,7 +942,7 @@ test "parse: quoted setext heading code span crosses soft-line continuation" {
 
 ///|
 test "parse: multi-line paragraph" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "line one\nline two\n\n",
   )
@@ -954,7 +954,7 @@ test "parse: multi-line paragraph" {
 
 ///|
 test "parse: multi-line paragraph unparse keeps soft break" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "line one\nline two\n\n",
   )
@@ -963,7 +963,7 @@ test "parse: multi-line paragraph unparse keeps soft break" {
 
 ///|
 test "parse: code block" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "```python\nx = 1\n```\n",
   )
@@ -972,7 +972,7 @@ test "parse: code block" {
 
 ///|
 test "parse: list" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- one\n- two\n",
   )
@@ -984,7 +984,7 @@ test "parse: list" {
 
 ///|
 test "parse: nested list stays editor-compatible" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- parent\n  - child\n",
   )
@@ -1000,14 +1000,14 @@ fn assert_nested_list_cst_shape(
   top_level_item_count : Int,
   nested_item_count : Int,
 ) -> Unit raise {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     source,
   )
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [list] => {
-      let list_kind : SyntaxKind = @seam.FromRawKind::from_raw(list.kind())
+      let list_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(list.kind())
       inspect(list_kind, content="UnorderedListNode")
       inspect(
         list.children().length(),
@@ -1015,11 +1015,11 @@ fn assert_nested_list_cst_shape(
       )
       match list.children() {
         [item, ..] => {
-          let item_kind : SyntaxKind = @seam.FromRawKind::from_raw(item.kind())
+          let item_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(item.kind())
           inspect(item_kind, content="ListItemNode")
           match item.children() {
             [nested] => {
-              let nested_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+              let nested_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
                 nested.kind(),
               )
               inspect(nested_kind, content="UnorderedListNode")
@@ -1055,7 +1055,7 @@ test "parse: outdented marker resumes top-level list after nested CST container"
 
 ///|
 test "parse: indented non-one ordered marker starts nested ordered CST container" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "- a\n  2. b\n",
   )
@@ -1066,7 +1066,7 @@ test "parse: indented non-one ordered marker starts nested ordered CST container
         [item] =>
           match item.children() {
             [nested] => {
-              let nested_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+              let nested_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
                 nested.kind(),
               )
               inspect(nested_kind, content="OrderedListNode")
@@ -1081,7 +1081,7 @@ test "parse: indented non-one ordered marker starts nested ordered CST container
 
 ///|
 test "parse: loose list separated by blank line" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- one\n\n- two\n",
   )
@@ -1093,7 +1093,7 @@ test "parse: loose list separated by blank line" {
 
 ///|
 test "parse: list item lazy continuation stays in item" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- a\nb\n",
   )
@@ -1105,7 +1105,7 @@ test "parse: list item lazy continuation stays in item" {
 
 ///|
 test "parse: non-one ordered marker lazy continuation stays in item" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- a\n2. b\n",
   )
@@ -1118,21 +1118,21 @@ test "parse: non-one ordered marker lazy continuation stays in item" {
 ///|
 test "parse: empty list item does not start lazy continuation paragraph" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "- \nfoo\n",
     ),
     content="Document([UnorderedList([UnorderedListItem([])]), Paragraph([Text(\"foo\")])])",
   )
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "-   \nfoo\n",
     ),
     content="Document([UnorderedList([UnorderedListItem([])]), Paragraph([Text(\"foo\")])])",
   )
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "- \n2. foo\n",
     ),
@@ -1149,7 +1149,7 @@ test "parse: empty list item does not start lazy continuation paragraph" {
     ),
   )
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "-   \n2. foo\n",
     ),
@@ -1170,11 +1170,11 @@ test "parse: empty list item does not start lazy continuation paragraph" {
 ///|
 test "parse: list item preserves whitespace-only inline syntax" {
   inspect(
-    parse_block_ast(@core.SourceId("markdown-parser-test-document"), "- ` `\n"),
+    @markdown.parse_block_ast(@core.SourceId("markdown-parser-test-document"), "- ` `\n"),
     content="Document([UnorderedList([UnorderedListItem([InlineCode(\" \")])])])",
   )
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "- [](/)\n",
     ),
@@ -1184,7 +1184,7 @@ test "parse: list item preserves whitespace-only inline syntax" {
 
 ///|
 test "parse: blank-line-separated marker change starts a new list" {
-  let same = parse_block_ast(
+  let same = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- one\n\n- two\n",
   )
@@ -1192,7 +1192,7 @@ test "parse: blank-line-separated marker change starts a new list" {
     same,
     content="Document([UnorderedList([UnorderedListItem([Text(\"one\")]), UnorderedListItem([Text(\"two\")])])])",
   )
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "- one\n\n+ two\n",
   )
@@ -1209,7 +1209,7 @@ test "parse: blank-line-separated marker change starts a new list" {
 
 ///|
 test "parse: ordered list delimiter change starts a new editor-compatible list" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "1. one\n2. two\n3) three\n",
   )
@@ -1241,7 +1241,7 @@ test "parse: ordered list delimiter change starts a new editor-compatible list" 
 
 ///|
 test "parse: non-one ordered marker does not interrupt paragraph" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "The number of windows is\n14.  The doors are 6.\n",
   )
@@ -1264,7 +1264,7 @@ test "parse: non-one ordered marker does not interrupt paragraph" {
 
 ///|
 test "parse: one-start ordered marker interrupts paragraph" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "The number of windows is\n1.  The doors are 6.\n",
   )
@@ -1287,7 +1287,7 @@ test "parse: one-start ordered marker interrupts paragraph" {
 
 ///|
 test "parse: ordered list unparse preserves start and delimiter" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "3) three\n4) four\n",
   )
@@ -1296,7 +1296,7 @@ test "parse: ordered list unparse preserves start and delimiter" {
 
 ///|
 test "parse: mixed document" {
-  let block = parse_block_ast(
+  let block = @markdown.parse_block_ast(
     @core.SourceId("markdown-parser-test-document"),
     "# Title\n\nSome text\n\n- item\n",
   )
@@ -1308,7 +1308,7 @@ test "parse: mixed document" {
 
 ///|
 test "parse: code span owns equal-length delimiters and unequal raw interior" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "`a``b`\n",
   )
@@ -1317,7 +1317,7 @@ test "parse: code span owns equal-length delimiters and unequal raw interior" {
     [paragraph] =>
       match paragraph.children() {
         [inline_code] => {
-          let kind : SyntaxKind = @seam.FromRawKind::from_raw(
+          let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
             inline_code.kind(),
           )
           inspect(kind, content="InlineCodeNode")
@@ -1332,7 +1332,7 @@ test "parse: code span owns equal-length delimiters and unequal raw interior" {
 
 ///|
 test "parse: code span crosses a paragraph soft-line continuation" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "`code\nmore`\n",
   )
@@ -1341,7 +1341,7 @@ test "parse: code span crosses a paragraph soft-line continuation" {
     [paragraph] =>
       match paragraph.children() {
         [inline_code] => {
-          let kind : SyntaxKind = @seam.FromRawKind::from_raw(
+          let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
             inline_code.kind(),
           )
           inspect(kind, content="InlineCodeNode")
@@ -1357,7 +1357,7 @@ test "parse: code span crosses a paragraph soft-line continuation" {
 ///|
 test "parse: blank line does not supply a code-span closer" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "`open\n\nclose`\n",
     ),
@@ -1374,7 +1374,7 @@ test "parse: blank line does not supply a code-span closer" {
 
 ///|
 test "parse: code span crosses a block quote soft-line continuation" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "> `code\n> more`\n",
   )
@@ -1385,7 +1385,7 @@ test "parse: code span crosses a block quote soft-line continuation" {
         [paragraph] =>
           match paragraph.children() {
             [inline_code] => {
-              let kind : SyntaxKind = @seam.FromRawKind::from_raw(
+              let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
                 inline_code.kind(),
               )
               inspect(kind, content="InlineCodeNode")
@@ -1402,7 +1402,7 @@ test "parse: code span crosses a block quote soft-line continuation" {
 
 ///|
 test "parse: nested emphasis uses block quote code-span continuation" {
-  let (cst, _) = try! parse_cst(
+  let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
     "> *`code\n> more`*\n",
   )
@@ -1415,7 +1415,7 @@ test "parse: nested emphasis uses block quote code-span continuation" {
             [italic] =>
               match italic.children() {
                 [inline_code] => {
-                  let kind : SyntaxKind = @seam.FromRawKind::from_raw(
+                  let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
                     inline_code.kind(),
                   )
                   inspect(kind, content="InlineCodeNode")
@@ -1436,7 +1436,7 @@ test "parse: nested emphasis uses block quote code-span continuation" {
 ///|
 test "parse: ATX heading uses maximal code-span runs" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "# ``a`b``\n",
     ),
@@ -1447,7 +1447,7 @@ test "parse: ATX heading uses maximal code-span runs" {
 ///|
 test "parse: setext heading uses maximal code-span runs" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "``a`b``\n---\n",
     ),
@@ -1458,7 +1458,7 @@ test "parse: setext heading uses maximal code-span runs" {
 ///|
 test "parse: setext heading code span crosses soft-line continuation" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "``a\nb``\n---\n",
     ),
@@ -1469,7 +1469,7 @@ test "parse: setext heading code span crosses soft-line continuation" {
 ///|
 test "parse: code span crosses a list item lazy continuation" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "- `code\nmore`\n",
     ),
@@ -1480,7 +1480,7 @@ test "parse: code span crosses a list item lazy continuation" {
 ///|
 test "parse: code span does not cross a list-item paragraph boundary" {
   inspect(
-    parse_block_ast(
+    @markdown.parse_block_ast(
       @core.SourceId("markdown-parser-test-document"),
       "- `open\n\n`close\n",
     ),

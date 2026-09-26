@@ -38,7 +38,7 @@ fn perf_middle_edit(source : String) -> (String, @core.Edit) {
 
 ///|
 fn perf_syntax(source : String) -> @seam.SyntaxNode {
-  let (cst, _) = parse_cst(@core.SourceId("markdown-perf-envelope"), source) catch {
+  let (cst, _) = @markdown.parse_cst(@core.SourceId("markdown-perf-envelope"), source) catch {
     _ => abort("parse failed")
   }
   @seam.SyntaxNode::from_cst(cst)
@@ -48,7 +48,7 @@ fn perf_syntax(source : String) -> @seam.SyntaxNode {
 fn bench_perf_tokenize(b : @bench.T, count : Int) -> Unit {
   let source = perf_paragraph_doc(count)
   b.bench(fn() {
-    let tokens = tokenize(source) catch { _ => abort("lex failed") }
+    let tokens = @markdown.tokenize(source) catch { _ => abort("lex failed") }
     b.keep(tokens)
   })
 }
@@ -57,7 +57,7 @@ fn bench_perf_tokenize(b : @bench.T, count : Int) -> Unit {
 fn bench_perf_cst(b : @bench.T, count : Int) -> Unit {
   let source = perf_paragraph_doc(count)
   b.bench(fn() {
-    let (cst, diagnostics) = parse_cst(
+    let (cst, diagnostics) = @markdown.parse_cst(
       @core.SourceId("markdown-perf-envelope"),
       source,
     ) catch {
@@ -73,7 +73,7 @@ fn bench_perf_ast(b : @bench.T, count : Int) -> Unit {
   let source = perf_paragraph_doc(count)
   b.bench(fn() {
     b.keep(
-      try! parse_block_ast(@core.SourceId("markdown-perf-envelope"), source),
+      try! @markdown.parse_block_ast(@core.SourceId("markdown-perf-envelope"), source),
     )
   })
 }
@@ -82,7 +82,7 @@ fn bench_perf_ast(b : @bench.T, count : Int) -> Unit {
 fn bench_perf_fold(b : @bench.T, count : Int) -> Unit {
   let syntax = perf_syntax(perf_paragraph_doc(count))
   b.bench(fn() {
-    let fold = @core.CstFold::new(markdown_fold_node)
+    let fold = @core.CstFold::new(@markdown.markdown_fold_node)
     b.keep(fold.fold(syntax))
   })
 }
@@ -92,7 +92,7 @@ fn bench_perf_ir(b : @bench.T, count : Int) -> Unit {
   let syntax = perf_syntax(perf_paragraph_doc(count))
   b.bench(fn() {
     b.keep(
-      experimental_markdown_ir_from_syntax(
+      @markdown.experimental_markdown_ir_from_syntax(
         @core.SourceId("markdown-perf-envelope"),
         syntax,
       ),
@@ -107,7 +107,7 @@ fn bench_perf_imperative_ast_cycle(b : @bench.T, count : Int) -> Unit {
   let parser = @loom.new_imperative_parser(
     @core.SourceId("markdown-perf-envelope"),
     source,
-    markdown_grammar,
+    @markdown.markdown_grammar,
   )
   let _ = try! parser.parse()
   b.bench(fn() {
@@ -123,7 +123,7 @@ fn bench_perf_reactive_syntax_cycle(b : @bench.T, count : Int) -> Unit {
   let parser = try! @loom.new_syntax_parser(
     @core.SourceId("markdown-perf-envelope"),
     source,
-    markdown_grammar.to_syntax_grammar(),
+    @markdown.markdown_grammar.to_syntax_grammar(),
   )
   let syntax = parser.syntax_tree()
   ignore(syntax.read_or_abort())
@@ -142,7 +142,7 @@ fn bench_perf_reactive_ast_cycle(b : @bench.T, count : Int) -> Unit {
   let parser = try! @loom.new_parser(
     @core.SourceId("markdown-perf-envelope"),
     source,
-    markdown_grammar,
+    @markdown.markdown_grammar,
   )
   let ast = parser.ast()
   ignore(ast.read_or_abort())

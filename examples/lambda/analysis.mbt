@@ -141,3 +141,15 @@ pub fn LambdaAnalysis::dispose(self : LambdaAnalysis) -> Unit {
   self.scope.dispose()
   self.typecheck.dispose()
 }
+
+///|
+pub extend LambdaDiagnostic with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LambdaDiagnostic with Eq::{equal, not_equal}
+
+///|
+pub extend LambdaDiagnosticPhase with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LambdaDiagnosticPhase with Eq::{equal, not_equal}

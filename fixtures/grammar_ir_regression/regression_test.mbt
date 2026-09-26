@@ -6,12 +6,12 @@
 /// with an error message showing the mismatch — catching it here before it
 /// ships to a consumer.
 test "compile-regression: generated GrammarIr compiles without raising" {
-  let ir = fixture_grammar_ir
+  let ir = @grammar_ir_regression.fixture_grammar_ir
   let _ = @grammar.compile(ir)
 }
 
 ///|
 test "interpret-parity: generated GrammarIr compiles interpretably" {
-  let ir = fixture_grammar_ir
+  let ir = @grammar_ir_regression.fixture_grammar_ir
   let _parse = @grammar.interpret(ir)
 }

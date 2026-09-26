@@ -8,7 +8,7 @@ fn regression_test_source_id() -> @core.SourceId {
 ///|
 test "parse function application ((x) => x) 5" {
   let input = "((x) => x) 5"
-  let result = parse(regression_test_source_id(), input) catch {
+  let result = @lambda.parse(regression_test_source_id(), input) catch {
     e => abort("parse failed: \{e}")
   }
   // The AST should be an App node with Lam and Int children
@@ -26,7 +26,7 @@ test "parse function application ((x) => x) 5" {
 ///|
 test "parse simple application x 5" {
   let input = "x 5"
-  let result = parse(regression_test_source_id(), input) catch {
+  let result = @lambda.parse(regression_test_source_id(), input) catch {
     e => abort("parse failed: \{e}")
   }
   // The AST should be an App node
@@ -39,7 +39,7 @@ test "parse simple application x 5" {
 ///|
 test "parse parenthesized lambda ((x) => x)" {
   let input = "((x) => x)"
-  let result = parse(regression_test_source_id(), input) catch {
+  let result = @lambda.parse(regression_test_source_id(), input) catch {
     e => abort("parse failed: \{e}")
   }
   // Should be a Lam term

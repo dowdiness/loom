@@ -26,3 +26,9 @@ fn MoonbitParseShell::combine(
     contains_errors: self.contains_errors || other.contains_errors,
   }
 }
+
+///|
+pub extend MoonbitParseShell with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MoonbitParseShell with Eq::{equal, not_equal}

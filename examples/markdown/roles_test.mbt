@@ -2,25 +2,25 @@
 fn markdown_test_roles(
   source_id : @core.SourceId,
   source : String,
-) -> Array[MarkdownRoleSpan] {
+) -> Array[@markdown.MarkdownRoleSpan] {
   let parser = try! @loom.new_syntax_parser(
     source_id,
     source,
-    markdown_grammar.to_syntax_grammar(),
+    @markdown.markdown_grammar.to_syntax_grammar(),
   )
-  project_markdown_roles(parser.syntax_tree().read_or_abort())
+  @markdown.project_markdown_roles(parser.syntax_tree().read_or_abort())
 }
 
 ///|
 fn markdown_test_observations(
-  spans : Array[MarkdownRoleSpan],
-) -> Array[(MarkdownRole, Int, Int)] {
+  spans : Array[@markdown.MarkdownRoleSpan],
+) -> Array[(@markdown.MarkdownRole, Int, Int)] {
   spans.map(span => (span.role(), span.start(), span.end()))
 }
 
 ///|
 fn markdown_test_find_link_node(node : @seam.SyntaxNode) -> @seam.SyntaxNode? {
-  if SyntaxKind::from_raw(node.kind()) == LinkNode {
+  if @markdown.SyntaxKind::from_raw(node.kind()) == LinkNode {
     return Some(node)
   }
   for element in node.direct_elements_iter() {
@@ -42,7 +42,7 @@ test "markdown roles heading marker and UTF-16 text" {
     @core.SourceId("markdown-roles-heading-utf16"),
     "## café 😀\n",
   )
-  let expected : Array[(MarkdownRole, Int, Int)] = [
+  let expected : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (HeadingMarker, 0, 3),
     (HeadingText, 3, 10),
   ]
@@ -57,7 +57,7 @@ test "markdown roles preserve the shared role for setext underlines" {
     @core.SourceId("markdown-roles-setext-underline"),
     "Title\n---\n",
   )
-  let expected : Array[(MarkdownRole, Int, Int)] = [
+  let expected : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (HeadingText, 0, 5),
     (HeadingMarker, 6, 9),
   ]
@@ -87,7 +87,7 @@ test "markdown roles fenced code delimiters and content" {
     @core.SourceId("markdown-roles-fenced-code"),
     "```js\ncode\n```\n",
   )
-  let expected : Array[(MarkdownRole, Int, Int)] = [
+  let expected : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (CodeFenceDelimiter, 0, 5),
     (CodeFenceContent, 6, 10),
     (CodeFenceDelimiter, 11, 15),
@@ -103,7 +103,7 @@ test "markdown roles inline code delimiter and content" {
     @core.SourceId("markdown-roles-inline-code"),
     "`code`\n",
   )
-  let expected : Array[(MarkdownRole, Int, Int)] = [
+  let expected : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (InlineCodeDelimiter, 0, 1),
     (InlineCodeContent, 1, 5),
     (InlineCodeDelimiter, 5, 6),
@@ -119,7 +119,7 @@ test "markdown roles bold and italic delimiters and content" {
     @core.SourceId("markdown-roles-emphasis"),
     "**bold** and *italic*\n",
   )
-  let expected : Array[(MarkdownRole, Int, Int)] = [
+  let expected : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (EmphasisDelimiter, 0, 2),
     (EmphasisContent, 2, 6),
     (EmphasisDelimiter, 6, 8),
@@ -135,7 +135,7 @@ test "markdown roles bold and italic delimiters and content" {
 ///|
 test "markdown roles classify underscore delimiters with exact spans" {
   let source_id = @core.SourceId("markdown-roles-underscore-delimiters")
-  let cases : Array[(String, Array[(MarkdownRole, Int, Int)])] = [
+  let cases : Array[(String, Array[(@markdown.MarkdownRole, Int, Int)])] = [
     (
       "_foo_\n",
       [
@@ -165,7 +165,7 @@ test "markdown roles classify underscore delimiters with exact spans" {
 ///|
 test "markdown roles distinguish literal and consumed run portions" {
   let source_id = @core.SourceId("markdown-roles-run-portions")
-  let commonmark_412 : Array[(MarkdownRole, Int, Int)] = [
+  let commonmark_412 : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (EmphasisDelimiter, 0, 1),
     (EmphasisContent, 1, 4),
     (EmphasisContent, 4, 5),
@@ -180,7 +180,7 @@ test "markdown roles distinguish literal and consumed run portions" {
     fail("expected CommonMark 412 interior stars to have content roles")
   }
 
-  let partial_opener : Array[(MarkdownRole, Int, Int)] = [
+  let partial_opener : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (EmphasisDelimiter, 1, 3),
     (EmphasisContent, 3, 6),
     (EmphasisDelimiter, 6, 8),
@@ -190,7 +190,7 @@ test "markdown roles distinguish literal and consumed run portions" {
     fail("expected CommonMark 444 residual opener star to stay unclassified")
   }
 
-  let partial_closer : Array[(MarkdownRole, Int, Int)] = [
+  let partial_closer : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (EmphasisDelimiter, 0, 2),
     (EmphasisContent, 2, 5),
     (EmphasisDelimiter, 5, 7),
@@ -207,7 +207,7 @@ test "markdown roles link punctuation label and balanced destination" {
     @core.SourceId("markdown-roles-balanced-link"),
     "[text](page_(C).html)\n",
   )
-  let expected : Array[(MarkdownRole, Int, Int)] = [
+  let expected : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (Punctuation, 0, 1),
     (LinkText, 1, 5),
     (Punctuation, 5, 6),
@@ -230,15 +230,15 @@ test "markdown roles project a LinkNode directly like its document root" {
   let parser = @loom.new_syntax_parser(
     source_id,
     "[text](page_(C).html)\n",
-    markdown_grammar.to_syntax_grammar(),
+    @markdown.markdown_grammar.to_syntax_grammar(),
   )
   let root = parser.syntax_tree().read_or_abort()
-  let root_roles = project_markdown_roles(root)
+  let root_roles = @markdown.project_markdown_roles(root)
   guard markdown_test_find_link_node(root) is Some(link_node) else {
     fail("expected parsed link subtree")
   }
-  let direct_roles = project_markdown_roles(link_node)
-  let expected : Array[(MarkdownRole, Int, Int)] = [
+  let direct_roles = @markdown.project_markdown_roles(link_node)
+  let expected : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (Punctuation, 0, 1),
     (LinkText, 1, 5),
     (Punctuation, 5, 6),
@@ -262,10 +262,10 @@ test "markdown roles leave unmatched emphasis as ordinary text" {
   let parser = @loom.new_syntax_parser(
     source_id,
     "**unclosed\n",
-    markdown_grammar.to_syntax_grammar(),
+    @markdown.markdown_grammar.to_syntax_grammar(),
   )
-  let roles = project_markdown_roles(parser.syntax_tree().read_or_abort())
-  let expected : Array[(MarkdownRole, Int, Int)] = []
+  let roles = @markdown.project_markdown_roles(parser.syntax_tree().read_or_abort())
+  let expected : Array[(@markdown.MarkdownRole, Int, Int)] = []
   guard markdown_test_observations(roles) == expected else {
     fail("expected no recovery role for literal unmatched emphasis")
   }
@@ -277,7 +277,7 @@ test "markdown roles omit block quote wrapper but project supported descendants"
     @core.SourceId("markdown-roles-blockquote-descendants"),
     "> # heading\n",
   )
-  let expected : Array[(MarkdownRole, Int, Int)] = [
+  let expected : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (HeadingMarker, 2, 4),
     (HeadingText, 4, 11),
   ]
@@ -304,7 +304,7 @@ test "markdown role exports use stable lower-kebab names" {
     "**unclosed\n",
   ]
   let actual = sources.map(source => {
-    export_markdown_role_spans(markdown_test_roles(source_id, source)).stringify()
+    @markdown.export_markdown_role_spans(markdown_test_roles(source_id, source)).stringify()
   })
   let expected = [
     "[{\"start\":0,\"end\":3,\"role\":\"heading-marker\"},{\"start\":3,\"end\":7,\"role\":\"heading-text\"}]",
@@ -322,7 +322,7 @@ test "markdown role exports use stable lower-kebab names" {
 
 ///|
 test "markdown role exports preserve exact source order" {
-  let exported = export_markdown_role_spans(
+  let exported = @markdown.export_markdown_role_spans(
     markdown_test_roles(
       @core.SourceId("markdown-role-export-source-order"),
       "[text](page_(C).html)\n",
@@ -344,18 +344,18 @@ test "markdown role spans after edit match fresh parser" {
   let parser = @loom.new_syntax_parser(
     source_id,
     source,
-    markdown_grammar.to_syntax_grammar(),
+    @markdown.markdown_grammar.to_syntax_grammar(),
   )
   parser.apply_edit(@core.Edit::new(0, 8, 9), updated)
-  let incremental_roles = project_markdown_roles(
+  let incremental_roles = @markdown.project_markdown_roles(
     parser.syntax_tree().read_or_abort(),
   )
   let fresh_parser = @loom.new_syntax_parser(
     source_id,
     updated,
-    markdown_grammar.to_syntax_grammar(),
+    @markdown.markdown_grammar.to_syntax_grammar(),
   )
-  let fresh_roles = project_markdown_roles(
+  let fresh_roles = @markdown.project_markdown_roles(
     fresh_parser.syntax_tree().read_or_abort(),
   )
   guard incremental_roles == fresh_roles else {
@@ -369,7 +369,7 @@ test "markdown roles use node-local precedence in heading text" {
     @core.SourceId("markdown-roles-heading-precedence"),
     "## café **bold** 😀\n",
   )
-  let expected : Array[(MarkdownRole, Int, Int)] = [
+  let expected : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (HeadingMarker, 0, 3),
     (HeadingText, 3, 8),
     (EmphasisDelimiter, 8, 10),
@@ -388,7 +388,7 @@ test "markdown roles use node-local precedence in list content" {
     @core.SourceId("markdown-roles-list-precedence"),
     "- café **bold** 😀\n",
   )
-  let expected : Array[(MarkdownRole, Int, Int)] = [
+  let expected : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (ListMarker, 0, 2),
     (ListContent, 2, 7),
     (EmphasisDelimiter, 7, 9),
@@ -407,7 +407,7 @@ test "markdown roles use node-local precedence in link label text" {
     @core.SourceId("markdown-roles-link-precedence"),
     "[café **bold** 😀](dest)\n",
   )
-  let expected : Array[(MarkdownRole, Int, Int)] = [
+  let expected : Array[(@markdown.MarkdownRole, Int, Int)] = [
     (Punctuation, 0, 1),
     (LinkText, 1, 6),
     (EmphasisDelimiter, 6, 8),

@@ -59,7 +59,7 @@ fn prop_parse_pretty_roundtrip(term : @ast.Term) -> Bool {
     return true // discard terms that can't roundtrip
   }
   let formatted = @pretty.pretty_print(term)
-  let reparsed = parse(pretty_roundtrip_source_id(), formatted) catch {
+  let reparsed = @lambda.parse(pretty_roundtrip_source_id(), formatted) catch {
     _ => return false
   }
   reparsed == term
@@ -78,7 +78,7 @@ fn prop_parse_source_roundtrip(term : @ast.Term) -> Bool {
     return true // discard terms that can't roundtrip
   }
   let formatted = @ast.print_term(term)
-  let reparsed = parse(pretty_roundtrip_source_id(), formatted) catch {
+  let reparsed = @lambda.parse(pretty_roundtrip_source_id(), formatted) catch {
     _ => return false
   }
   reparsed == term
@@ -119,7 +119,7 @@ test "roundtrip: block-bodied lambda (nested module)" {
     @ast.Term::Var("f"),
   )
   let formatted = @pretty.pretty_print(term)
-  let reparsed = parse(pretty_roundtrip_source_id(), formatted) catch {
+  let reparsed = @lambda.parse(pretty_roundtrip_source_id(), formatted) catch {
     _ => @ast.Term::Error("parse failed")
   }
   inspect(reparsed == term, content="true")

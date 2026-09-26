@@ -1,24 +1,24 @@
 ///|
 test "children of containers" {
-  let el = JsxNode::Element(tag="div", attrs=[], children=[
-    JsxNode::Text("a"),
-    JsxNode::Text("b"),
+  let el = @jsx.JsxNode::Element(tag="div", attrs=[], children=[
+    @jsx.JsxNode::Text("a"),
+    @jsx.JsxNode::Text("b"),
   ])
   inspect(@core.TreeNode::children(el).length(), content="2")
-  let root = JsxNode::Root(children=[JsxNode::Text("a")])
+  let root = @jsx.JsxNode::Root(children=[@jsx.JsxNode::Text("a")])
   inspect(@core.TreeNode::children(root).length(), content="1")
-  inspect(@core.TreeNode::children(JsxNode::Text("x")).length(), content="0")
+  inspect(@core.TreeNode::children(@jsx.JsxNode::Text("x")).length(), content="0")
   inspect(
-    @core.TreeNode::children(JsxNode::ExprSpan(raw="x")).length(),
+    @core.TreeNode::children(@jsx.JsxNode::ExprSpan(raw="x")).length(),
     content="0",
   )
 }
 
 ///|
 test "same_kind requires equal element tag" {
-  let div1 = JsxNode::Element(tag="div", attrs=[], children=[])
-  let div2 = JsxNode::Element(tag="div", attrs=[], children=[JsxNode::Text("x")])
-  let span = JsxNode::Element(tag="span", attrs=[], children=[])
+  let div1 = @jsx.JsxNode::Element(tag="div", attrs=[], children=[])
+  let div2 = @jsx.JsxNode::Element(tag="div", attrs=[], children=[@jsx.JsxNode::Text("x")])
+  let span = @jsx.JsxNode::Element(tag="span", attrs=[], children=[])
   inspect(@core.TreeNode::same_kind(div1, div2), content="true")
   inspect(@core.TreeNode::same_kind(div1, span), content="false")
 }
@@ -27,8 +27,8 @@ test "same_kind requires equal element tag" {
 test "same_kind ignores content for text and expressions" {
   inspect(
     @core.TreeNode::same_kind(
-      JsxNode::Text("a"),
-      JsxNode::Text("completely different"),
+      @jsx.JsxNode::Text("a"),
+      @jsx.JsxNode::Text("completely different"),
     ),
     content="true",
   )
@@ -36,15 +36,15 @@ test "same_kind ignores content for text and expressions" {
   // @core.reconcile — see Design B notes.
   inspect(
     @core.TreeNode::same_kind(
-      JsxNode::ExprSpan(raw="fo"),
-      JsxNode::ExprSpan(raw="foo.bar("),
+      @jsx.JsxNode::ExprSpan(raw="fo"),
+      @jsx.JsxNode::ExprSpan(raw="foo.bar("),
     ),
     content="true",
   )
   inspect(
     @core.TreeNode::same_kind(
-      JsxNode::Fragment(children=[]),
-      JsxNode::Fragment(children=[JsxNode::Text("x")]),
+      @jsx.JsxNode::Fragment(children=[]),
+      @jsx.JsxNode::Fragment(children=[@jsx.JsxNode::Text("x")]),
     ),
     content="true",
   )
@@ -54,20 +54,20 @@ test "same_kind ignores content for text and expressions" {
 test "same_kind is false across variants" {
   inspect(
     @core.TreeNode::same_kind(
-      JsxNode::Element(tag="div", attrs=[], children=[]),
-      JsxNode::Text("div"),
+      @jsx.JsxNode::Element(tag="div", attrs=[], children=[]),
+      @jsx.JsxNode::Text("div"),
     ),
     content="false",
   )
   inspect(
     @core.TreeNode::same_kind(
-      JsxNode::Root(children=[]),
-      JsxNode::Fragment(children=[]),
+      @jsx.JsxNode::Root(children=[]),
+      @jsx.JsxNode::Fragment(children=[]),
     ),
     content="false",
   )
   inspect(
-    @core.TreeNode::same_kind(JsxNode::Error("x"), JsxNode::Text("x")),
+    @core.TreeNode::same_kind(@jsx.JsxNode::Error("x"), @jsx.JsxNode::Text("x")),
     content="false",
   )
 }
@@ -75,73 +75,73 @@ test "same_kind is false across variants" {
 ///|
 test "kind_tag is the plain variant name" {
   inspect(
-    @core.Renderable::kind_tag(JsxNode::Root(children=[])),
+    @core.Renderable::kind_tag(@jsx.JsxNode::Root(children=[])),
     content="Root",
   )
   inspect(
     @core.Renderable::kind_tag(
-      JsxNode::Element(tag="div", attrs=[], children=[]),
+      @jsx.JsxNode::Element(tag="div", attrs=[], children=[]),
     ),
     content="Element",
   )
   inspect(
-    @core.Renderable::kind_tag(JsxNode::Fragment(children=[])),
+    @core.Renderable::kind_tag(@jsx.JsxNode::Fragment(children=[])),
     content="Fragment",
   )
-  inspect(@core.Renderable::kind_tag(JsxNode::Text("x")), content="Text")
+  inspect(@core.Renderable::kind_tag(@jsx.JsxNode::Text("x")), content="Text")
   inspect(
-    @core.Renderable::kind_tag(JsxNode::ExprSpan(raw="x")),
+    @core.Renderable::kind_tag(@jsx.JsxNode::ExprSpan(raw="x")),
     content="ExprSpan",
   )
-  inspect(@core.Renderable::kind_tag(JsxNode::Error("x")), content="Error")
+  inspect(@core.Renderable::kind_tag(@jsx.JsxNode::Error("x")), content="Error")
 }
 
 ///|
 test "label shapes" {
   inspect(
-    @core.Renderable::label(JsxNode::Element(tag="div", attrs=[], children=[])),
+    @core.Renderable::label(@jsx.JsxNode::Element(tag="div", attrs=[], children=[])),
     content="<div>",
   )
-  inspect(@core.Renderable::label(JsxNode::Fragment(children=[])), content="<>")
+  inspect(@core.Renderable::label(@jsx.JsxNode::Fragment(children=[])), content="<>")
   inspect(
     @core.Renderable::label(
-      JsxNode::Root(children=[JsxNode::Text("a"), JsxNode::Text("b")]),
+      @jsx.JsxNode::Root(children=[@jsx.JsxNode::Text("a"), @jsx.JsxNode::Text("b")]),
     ),
     content="[2 children]",
   )
-  inspect(@core.Renderable::label(JsxNode::ExprSpan(raw="x")), content="{x}")
+  inspect(@core.Renderable::label(@jsx.JsxNode::ExprSpan(raw="x")), content="{x}")
 }
 
 ///|
 test "label truncates long text" {
   let long = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   inspect(
-    @core.Renderable::label(JsxNode::Text(long)),
+    @core.Renderable::label(@jsx.JsxNode::Text(long)),
     content="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...",
   )
-  inspect(@core.Renderable::label(JsxNode::Text("short")), content="short")
+  inspect(@core.Renderable::label(@jsx.JsxNode::Text("short")), content="short")
 }
 
 ///|
 test "placeholder is constant" {
   inspect(
     @core.Renderable::placeholder(
-      JsxNode::Element(tag="div", attrs=[], children=[]),
+      @jsx.JsxNode::Element(tag="div", attrs=[], children=[]),
     ),
     content="...",
   )
-  inspect(@core.Renderable::placeholder(JsxNode::Text("x")), content="...")
+  inspect(@core.Renderable::placeholder(@jsx.JsxNode::Text("x")), content="...")
 }
 
 ///|
 test "unparse closed element with attrs and children" {
-  let node = JsxNode::Element(
+  let node = @jsx.JsxNode::Element(
     tag="div",
-    attrs=[JsxAttr::JsxAttr(name="class", value=JsxAttrValue::StringLit("foo"))],
+    attrs=[@jsx.JsxAttr::JsxAttr(name="class", value=@jsx.JsxAttrValue::StringLit("foo"))],
     children=[
-      JsxNode::Element(tag="p", attrs=[], children=[
-        JsxNode::Text("hi"),
-        JsxNode::ExprSpan(raw="x"),
+      @jsx.JsxNode::Element(tag="p", attrs=[], children=[
+        @jsx.JsxNode::Text("hi"),
+        @jsx.JsxNode::ExprSpan(raw="x"),
       ]),
     ],
   )
@@ -153,11 +153,11 @@ test "unparse closed element with attrs and children" {
 
 ///|
 test "unparse attr value forms" {
-  let node = JsxNode::Element(
+  let node = @jsx.JsxNode::Element(
     tag="a",
     attrs=[
-      JsxAttr::JsxAttr(name="id", value=JsxAttrValue::ExprSpan(raw="f()")),
-      JsxAttr::JsxAttr(name="hidden", value=JsxAttrValue::Bare),
+      @jsx.JsxAttr::JsxAttr(name="id", value=@jsx.JsxAttrValue::ExprSpan(raw="f()")),
+      @jsx.JsxAttr::JsxAttr(name="hidden", value=@jsx.JsxAttrValue::Bare),
     ],
     children=[],
   )
@@ -166,9 +166,9 @@ test "unparse attr value forms" {
 
 ///|
 test "unparse fragment and root concatenation" {
-  let node = JsxNode::Root(children=[
-    JsxNode::Element(tag="br", attrs=[], children=[]),
-    JsxNode::Fragment(children=[JsxNode::Text("hi")]),
+  let node = @jsx.JsxNode::Root(children=[
+    @jsx.JsxNode::Element(tag="br", attrs=[], children=[]),
+    @jsx.JsxNode::Fragment(children=[@jsx.JsxNode::Text("hi")]),
   ])
   inspect(@core.Renderable::unparse(node), content="<br/><>hi</>")
 }
@@ -179,7 +179,7 @@ test "unparse picks a safe quote for attribute strings" {
   // breaks a parsed single-quoted value containing a double quote.
   let source = "<div a='x\"y'/>"
   let source_id = @core.SourceId("jsx-projection-safe-attribute-quote")
-  let result = parse_ast(source_id, source) catch {
+  let result = @jsx.parse_ast(source_id, source) catch {
     _ => return fail("lex error")
   }
   let (ast, _diagnostics) = result
@@ -187,9 +187,9 @@ test "unparse picks a safe quote for attribute strings" {
   // Both quote kinds present: double-quote and backslash-escape the
   // doubles (re-parseable; the lexer's escape rule consumes the next
   // char unconditionally).
-  let both = JsxNode::Element(
+  let both = @jsx.JsxNode::Element(
     tag="a",
-    attrs=[JsxAttr::JsxAttr(name="b", value=JsxAttrValue::StringLit("x\"y'z"))],
+    attrs=[@jsx.JsxAttr::JsxAttr(name="b", value=@jsx.JsxAttrValue::StringLit("x\"y'z"))],
     children=[],
   )
   inspect(@core.Renderable::unparse(both), content="<a b=\"x\\\"y'z\"/>")
@@ -201,7 +201,7 @@ test "label truncation preserves surrogate pairs" {
   // not split an astral character sitting on the boundary.
   let text = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa" + "\u{1D11E}" + "zzzzz"
   inspect(
-    @core.Renderable::label(JsxNode::Text(text)),
+    @core.Renderable::label(@jsx.JsxNode::Text(text)),
     content="aaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u{1D11E}...",
   )
 }
@@ -210,13 +210,13 @@ test "label truncation preserves surrogate pairs" {
 test "unparse round-trips a parsed fixture" {
   let source = "<div class=\"foo\"><p>hi{x}</p></div>"
   let source_id = @core.SourceId("jsx-projection-round-trip")
-  let result = parse_ast(source_id, source) catch {
+  let result = @jsx.parse_ast(source_id, source) catch {
     _ => return fail("lex error")
   }
   let (ast, _diagnostics) = result
   inspect(@core.Renderable::unparse(ast), content=source)
   inspect(
-    @core.Renderable::unparse(JsxNode::Error("</span>")),
+    @core.Renderable::unparse(@jsx.JsxNode::Error("</span>")),
     content="</span>",
   )
 }

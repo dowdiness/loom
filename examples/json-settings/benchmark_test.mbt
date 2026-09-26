@@ -49,7 +49,7 @@ fn projection_failure_source(source : String) -> String {
 
 ///|
 /// Assert the fixture is in its valid semantic state outside a timed body.
-fn assert_current(attachment : SettingsAttachment) -> Unit {
+fn assert_current(attachment : @json-settings.SettingsAttachment) -> Unit {
   if attachment.state().to_string() != "Current" {
     abort("benchmark setup: expected Current state")
   }
@@ -160,7 +160,7 @@ test "authoring pipeline: apply_edit start + semantic read" (b : @bench.T) {
   let source = make_settings_source(0)
   let (edit, edited) = setting_edit(source, 0, "900")
   let source_id = @core.SourceId("json-settings-benchmark-pipeline-edit-start")
-  let attachment = try! SettingsAttachment::SettingsAttachment(
+  let attachment = try! @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, source,
   )
   assert_current(attachment)
@@ -179,7 +179,7 @@ test "authoring pipeline: apply_edit middle + semantic read" (b : @bench.T) {
   let source = make_settings_source(0)
   let (edit, edited) = setting_edit(source, 25, "925")
   let source_id = @core.SourceId("json-settings-benchmark-pipeline-edit-middle")
-  let attachment = try! SettingsAttachment::SettingsAttachment(
+  let attachment = try! @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, source,
   )
   assert_current(attachment)
@@ -198,7 +198,7 @@ test "authoring pipeline: apply_edit end + semantic read" (b : @bench.T) {
   let source = make_settings_source(0)
   let (edit, edited) = setting_edit(source, 49, "949")
   let source_id = @core.SourceId("json-settings-benchmark-pipeline-edit-end")
-  let attachment = try! SettingsAttachment::SettingsAttachment(
+  let attachment = try! @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, source,
   )
   assert_current(attachment)
@@ -219,7 +219,7 @@ test "authoring pipeline: set_source full replace + semantic read" (
   let source = make_settings_source(0)
   let replacement = make_settings_source(1)
   let source_id = @core.SourceId("json-settings-benchmark-pipeline-set-source")
-  let attachment = try! SettingsAttachment::SettingsAttachment(
+  let attachment = try! @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, source,
   )
   assert_current(attachment)
@@ -240,7 +240,7 @@ test "authoring pipeline: parser failure -> recovery" (b : @bench.T) {
   let source_id = @core.SourceId(
     "json-settings-benchmark-pipeline-parser-recovery",
   )
-  let attachment = try! SettingsAttachment::SettingsAttachment(
+  let attachment = try! @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, source,
   )
   assert_current(attachment)
@@ -261,7 +261,7 @@ test "authoring pipeline: projection failure -> recovery" (b : @bench.T) {
   let source_id = @core.SourceId(
     "json-settings-benchmark-pipeline-projection-recovery",
   )
-  let attachment = try! SettingsAttachment::SettingsAttachment(
+  let attachment = try! @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, source,
   )
   assert_current(attachment)
@@ -282,7 +282,7 @@ test "authoring pipeline: cold construction + initial semantic read" (
   let source = make_settings_source(0)
   let source_id = @core.SourceId("json-settings-benchmark-pipeline-cold")
   b.bench(() => {
-    let attachment = try! SettingsAttachment::SettingsAttachment(
+    let attachment = try! @json-settings.SettingsAttachment::SettingsAttachment(
       source_id, source,
     )
     b.keep(attachment.current_result())

@@ -162,3 +162,12 @@ fn test_grammar(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     ctx.finish_node()
   }
 }
+
+///|
+pub extend TestKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TestTok with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TestTok with Eq::{equal, not_equal}

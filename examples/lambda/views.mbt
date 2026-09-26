@@ -642,3 +642,66 @@ fn cst_to_type(node : @seam.SyntaxNode) -> @typecheck.Type? {
     _ => None
   }
 }
+
+///|
+pub extend AppExprView with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend AppExprView with ToJson::{to_json}
+
+///|
+pub extend BinaryExprView with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend BinaryExprView with ToJson::{to_json}
+
+///|
+pub extend BlockExprView with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend BlockExprView with ToJson::{to_json}
+
+///|
+pub extend HoleLiteralView with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend HoleLiteralView with ToJson::{to_json}
+
+///|
+pub extend IfExprView with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend IfExprView with ToJson::{to_json}
+
+///|
+pub extend IntLiteralView with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend IntLiteralView with ToJson::{to_json}
+
+///|
+pub extend LambdaExprView with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend LambdaExprView with ToJson::{to_json}
+
+///|
+pub extend LetDefView with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend LetDefView with ToJson::{to_json}
+
+///|
+pub extend ParenExprView with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend ParenExprView with ToJson::{to_json}
+
+///|
+pub extend TypeAnnotView with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend VarRefView with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend VarRefView with ToJson::{to_json}

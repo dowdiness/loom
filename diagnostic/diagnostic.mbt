@@ -402,3 +402,93 @@ pub fn Diagnostic::offset_by(
 pub(open) trait ToDiagnostic {
   fn to_diagnostic(Self) -> Diagnostic
 }
+
+///|
+pub extend TextOffset with Eq::{not_equal, equal}
+
+///|
+pub extend TextOffset with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TextOffset with Hash::{hash, hash_combine}
+
+///|
+pub extend TextOffset with Compare::{op_lt, op_le, op_ge, compare, op_gt}
+
+///|
+pub extend DiagnosticBuildError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TextRange with Eq::{not_equal, equal}
+
+///|
+pub extend TextRange with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TextRange with Hash::{hash, hash_combine}
+
+///|
+pub extend TextRange with Compare::{op_lt, op_le, op_ge, compare, op_gt}
+
+///|
+pub extend DiagnosticSeverity with Eq::{not_equal, equal}
+
+///|
+pub extend DiagnosticSeverity with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DiagnosticOrigin with Eq::{not_equal, equal}
+
+///|
+pub extend DiagnosticOrigin with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DiagnosticOrigin with Hash::{hash, hash_combine}
+
+///|
+pub extend DiagnosticCode with Eq::{not_equal, equal}
+
+///|
+pub extend DiagnosticCode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DiagnosticCode with Hash::{hash, hash_combine}
+
+///|
+pub extend SourceId with Eq::{not_equal, equal}
+
+///|
+pub extend SourceId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SourceId with Hash::{hash, hash_combine}
+
+///|
+pub extend SourceSpan with Eq::{not_equal, equal}
+
+///|
+pub extend SourceSpan with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SourceSpan with Hash::{hash, hash_combine}
+
+///|
+pub extend LabelStyle with Eq::{not_equal, equal}
+
+///|
+pub extend LabelStyle with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LabelStyle with Hash::{hash, hash_combine}
+
+///|
+pub extend DiagnosticLabel with Eq::{not_equal, equal}
+
+///|
+pub extend DiagnosticLabel with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Diagnostic with Eq::{not_equal, equal}
+
+///|
+pub extend Diagnostic with @moonbitlang/core/debug.Debug::{to_repr}

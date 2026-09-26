@@ -138,3 +138,21 @@ pub fn[T, K] GrammarIr::GrammarIr(
 ) -> Self[T, K] {
   { rules, root, }
 }
+
+///|
+pub extend Alt with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Alt with Eq::{equal, not_equal}
+
+///|
+pub extend Expr with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Expr with Eq::{equal, not_equal}
+
+///|
+pub extend GrammarIr with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GrammarIr with Eq::{equal, not_equal}

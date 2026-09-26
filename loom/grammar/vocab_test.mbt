@@ -14,12 +14,12 @@ fn tok(t : TestToken) -> @core.TokenInfo[TestToken] {
 /// Parse `tokens` against a one-rule grammar and return the diagnostics. `src`
 /// must be as long as the number of non-EOF tokens.
 fn vocab_diags(
-  rules : Map[RuleName, Expr[TestToken, TestKind]],
-  root : RuleName,
+  rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]],
+  root : @grammar.RuleName,
   tokens : Array[@core.TokenInfo[TestToken]],
   src : String,
-) -> @core.DiagnosticSet raise GrammarBuildError {
-  let parse_root = interpret(GrammarIr::GrammarIr(rules, root~))
+) -> @core.DiagnosticSet raise @grammar.GrammarBuildError {
+  let parse_root = @grammar.interpret(@grammar.GrammarIr::GrammarIr(rules, root~))
   let spec = test_spec(parse_root)
   let source_id = @core.SourceId("grammar-vocab-source")
   let (_, diags) = try! @core.parse_with(
@@ -34,8 +34,8 @@ fn vocab_diags(
 
 ///|
 test "Fail emits a diagnostic and an error placeholder" {
-  let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::Fail("boom"),
+  let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
+    "source": @grammar.Expr::Fail("boom"),
   }
   let diags = vocab_diags(rules, "source", [tok(TestToken::EOF)], "")
   inspect(diags.length(), content="1")
@@ -43,8 +43,8 @@ test "Fail emits a diagnostic and an error placeholder" {
 
 ///|
 test "EmitOr emits silently when the token is present" {
-  let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::EmitOr(TestToken::Int, TestKind::IntToken, "missing int"),
+  let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
+    "source": @grammar.Expr::EmitOr(TestToken::Int, TestKind::IntToken, "missing int"),
   }
   let diags = vocab_diags(
     rules,
@@ -57,8 +57,8 @@ test "EmitOr emits silently when the token is present" {
 
 ///|
 test "EmitOr reports the token when absent" {
-  let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::EmitOr(TestToken::Int, TestKind::IntToken, "missing int"),
+  let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
+    "source": @grammar.Expr::EmitOr(TestToken::Int, TestKind::IntToken, "missing int"),
   }
   let diags = vocab_diags(rules, "source", [tok(TestToken::EOF)], "")
   inspect(diags.length(), content="1")
@@ -66,10 +66,10 @@ test "EmitOr reports the token when absent" {
 
 ///|
 test "DiagnoseIf fires only when the predicate matches the peek" {
-  let matching : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::Seq([
-      Expr::DiagnoseIf(Pred::IsToken(TestToken::Int), "found int"),
-      Expr::Emit(TestToken::Int, TestKind::IntToken),
+  let matching : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
+    "source": @grammar.Expr::Seq([
+      @grammar.Expr::DiagnoseIf(@grammar.Pred::IsToken(TestToken::Int), "found int"),
+      @grammar.Expr::Emit(TestToken::Int, TestKind::IntToken),
     ]),
   }
   let diags = vocab_diags(
@@ -79,10 +79,10 @@ test "DiagnoseIf fires only when the predicate matches the peek" {
     "x",
   )
   inspect(diags.length(), content="1")
-  let nonmatching : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::Seq([
-      Expr::DiagnoseIf(Pred::IsToken(TestToken::Word), "found word"),
-      Expr::Emit(TestToken::Int, TestKind::IntToken),
+  let nonmatching : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
+    "source": @grammar.Expr::Seq([
+      @grammar.Expr::DiagnoseIf(@grammar.Pred::IsToken(TestToken::Word), "found word"),
+      @grammar.Expr::Emit(TestToken::Int, TestKind::IntToken),
     ]),
   }
   let diags2 = vocab_diags(
@@ -96,9 +96,9 @@ test "DiagnoseIf fires only when the predicate matches the peek" {
 
 ///|
 test "ExpectSkip consumes the soft separator then expects" {
-  let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::ExpectSkip(
-      Pred::IsToken(TestToken::Skip),
+  let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
+    "source": @grammar.Expr::ExpectSkip(
+      @grammar.Pred::IsToken(TestToken::Skip),
       TestKind::SkipKind,
       TestToken::Expected,
       TestKind::ExpectedKind,
@@ -115,14 +115,14 @@ test "ExpectSkip consumes the soft separator then expects" {
 
 ///|
 test "ConsumeGated consumes the run when the lookahead holds" {
-  let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::Seq([
-      Expr::ConsumeGated(
-        Pred::IsToken(TestToken::Skip),
+  let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
+    "source": @grammar.Expr::Seq([
+      @grammar.Expr::ConsumeGated(
+        @grammar.Pred::IsToken(TestToken::Skip),
         TestKind::SkipKind,
-        Pred::IsToken(TestToken::Int),
+        @grammar.Pred::IsToken(TestToken::Int),
       ),
-      Expr::Emit(TestToken::Int, TestKind::IntToken),
+      @grammar.Expr::Emit(TestToken::Int, TestKind::IntToken),
     ]),
   }
   let diags = vocab_diags(
@@ -136,11 +136,11 @@ test "ConsumeGated consumes the run when the lookahead holds" {
 
 ///|
 test "RequireSep is silent with a separator, diagnoses without one" {
-  let rule : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::RequireSep(
+  let rule : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
+    "source": @grammar.Expr::RequireSep(
       [(TestToken::Skip, TestKind::SkipKind)],
-      Pred::IsToken(TestToken::EOF),
-      Pred::Any,
+      @grammar.Pred::IsToken(TestToken::EOF),
+      @grammar.Pred::Any,
       msg_alt="alt",
       msg_else="else",
     ),
@@ -152,16 +152,16 @@ test "RequireSep is silent with a separator, diagnoses without one" {
     "s",
   )
   inspect(with_sep.length(), content="0")
-  let missing : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::Seq([
-      Expr::RequireSep(
+  let missing : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
+    "source": @grammar.Expr::Seq([
+      @grammar.Expr::RequireSep(
         [(TestToken::Skip, TestKind::SkipKind)],
-        Pred::IsToken(TestToken::EOF),
-        Pred::Any,
+        @grammar.Pred::IsToken(TestToken::EOF),
+        @grammar.Pred::Any,
         msg_alt="alt",
         msg_else="else",
       ),
-      Expr::Emit(TestToken::Int, TestKind::IntToken),
+      @grammar.Expr::Emit(TestToken::Int, TestKind::IntToken),
     ]),
   }
   let without_sep = vocab_diags(
@@ -186,24 +186,24 @@ test "RequireSep is silent with a separator, diagnoses without one" {
 test "RequireSep consumes a multi-token delimiter run with per-token kinds" {
   fn build(
     delims : Array[(TestToken, TestKind)],
-  ) -> Map[RuleName, Expr[TestToken, TestKind]] {
+  ) -> Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] {
     {
-      "source": Expr::Seq([
-        Expr::RequireSep(
+      "source": @grammar.Expr::Seq([
+        @grammar.Expr::RequireSep(
           delims,
-          Pred::IsToken(TestToken::EOF),
-          Pred::Any,
+          @grammar.Pred::IsToken(TestToken::EOF),
+          @grammar.Pred::Any,
           msg_alt="alt",
           msg_else="else",
         ),
-        Expr::Emit(TestToken::Int, TestKind::IntToken),
-        Expr::Choice([
-          Alt::{ starts: Pred::IsToken(TestToken::EOF), body: Expr::Empty, },
-          Alt::{
-            starts: Pred::Any,
-            body: Expr::ErrorNodeUntil(
+        @grammar.Expr::Emit(TestToken::Int, TestKind::IntToken),
+        @grammar.Expr::Choice([
+          @grammar.Alt::{ starts: @grammar.Pred::IsToken(TestToken::EOF), body: @grammar.Expr::Empty, },
+          @grammar.Alt::{
+            starts: @grammar.Pred::Any,
+            body: @grammar.Expr::ErrorNodeUntil(
               TestKind::Error,
-              Pred::IsToken(TestToken::EOF),
+              @grammar.Pred::IsToken(TestToken::EOF),
               "trailing",
             ),
           },
@@ -243,14 +243,14 @@ test "RequireSep consumes a multi-token delimiter run with per-token kinds" {
 
 ///|
 test "ErrorNodeUntil opens an error node over trailing garbage, EOF-guarded" {
-  let guarded : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::Choice([
-      Alt::{ starts: Pred::IsToken(TestToken::EOF), body: Expr::Empty, },
-      Alt::{
-        starts: Pred::Any,
-        body: Expr::ErrorNodeUntil(
+  let guarded : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
+    "source": @grammar.Expr::Choice([
+      @grammar.Alt::{ starts: @grammar.Pred::IsToken(TestToken::EOF), body: @grammar.Expr::Empty, },
+      @grammar.Alt::{
+        starts: @grammar.Pred::Any,
+        body: @grammar.Expr::ErrorNodeUntil(
           TestKind::Error,
-          Pred::IsToken(TestToken::EOF),
+          @grammar.Pred::IsToken(TestToken::EOF),
           "unexpected trailing tokens",
         ),
       },
@@ -269,18 +269,18 @@ test "ErrorNodeUntil opens an error node over trailing garbage, EOF-guarded" {
 
 ///|
 test "RepeatTopLevel parses every delimited item without diagnostics" {
-  let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::RepeatTopLevel(
+  let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
+    "source": @grammar.Expr::RepeatTopLevel(
       "word",
-      starts=Pred::IsToken(TestToken::Word),
-      delim=Pred::IsToken(TestToken::Skip),
+      starts=@grammar.Pred::IsToken(TestToken::Word),
+      delim=@grammar.Pred::IsToken(TestToken::Skip),
       delim_kind=TestKind::SkipKind,
       between_msg="expected separator between items",
       after_msg="expected separator after item",
     ),
-    "word": Expr::Node(
+    "word": @grammar.Expr::Node(
       TestKind::WordNode,
-      Expr::Emit(TestToken::Word, TestKind::WordToken),
+      @grammar.Expr::Emit(TestToken::Word, TestKind::WordToken),
     ),
   }
   let diags = vocab_diags(
@@ -299,18 +299,18 @@ test "RepeatTopLevel parses every delimited item without diagnostics" {
 
 ///|
 test "RepeatTopLevel diagnoses a missing delimiter between items" {
-  let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::RepeatTopLevel(
+  let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
+    "source": @grammar.Expr::RepeatTopLevel(
       "word",
-      starts=Pred::IsToken(TestToken::Word),
-      delim=Pred::IsToken(TestToken::Skip),
+      starts=@grammar.Pred::IsToken(TestToken::Word),
+      delim=@grammar.Pred::IsToken(TestToken::Skip),
       delim_kind=TestKind::SkipKind,
       between_msg="expected separator between items",
       after_msg="expected separator after item",
     ),
-    "word": Expr::Node(
+    "word": @grammar.Expr::Node(
       TestKind::WordNode,
-      Expr::Emit(TestToken::Word, TestKind::WordToken),
+      @grammar.Expr::Emit(TestToken::Word, TestKind::WordToken),
     ),
   }
   let diags = vocab_diags(
@@ -340,35 +340,35 @@ test "PrattBinary skip spans a gated separator before the operator (real interpr
     tok(TestToken::EOF),
   ]
   fn rules(
-    skip : (Pred[TestToken], TestKind)?,
-  ) -> Map[RuleName, Expr[TestToken, TestKind]] {
+    skip : (@grammar.Pred[TestToken], TestKind)?,
+  ) -> Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] {
     {
-      "source": Expr::Seq([
-        Expr::Ref("binary"),
-        Expr::Choice([
-          Alt::{ starts: Pred::IsToken(TestToken::EOF), body: Expr::Empty, },
-          Alt::{
-            starts: Pred::Any,
-            body: Expr::ErrorNodeUntil(
+      "source": @grammar.Expr::Seq([
+        @grammar.Expr::Ref("binary"),
+        @grammar.Expr::Choice([
+          @grammar.Alt::{ starts: @grammar.Pred::IsToken(TestToken::EOF), body: @grammar.Expr::Empty, },
+          @grammar.Alt::{
+            starts: @grammar.Pred::Any,
+            body: @grammar.Expr::ErrorNodeUntil(
               TestKind::Error,
-              Pred::IsToken(TestToken::EOF),
+              @grammar.Pred::IsToken(TestToken::EOF),
               "trailing",
             ),
           },
         ]),
       ]),
-      "binary": Expr::PrattBinary(
+      "binary": @grammar.Expr::PrattBinary(
         "atom",
         TestKind::WordNode,
         [(TestToken::Word, TestKind::WordToken)],
         skip~,
       ),
-      "atom": Expr::Emit(TestToken::Int, TestKind::IntToken),
+      "atom": @grammar.Expr::Emit(TestToken::Int, TestKind::IntToken),
     }
   }
 
   let with_skip = vocab_diags(
-    rules(Some((Pred::IsToken(TestToken::Skip), TestKind::SkipKind))),
+    rules(Some((@grammar.Pred::IsToken(TestToken::Skip), TestKind::SkipKind))),
     "source",
     tokens,
     "iswi",

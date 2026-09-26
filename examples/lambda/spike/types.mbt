@@ -31,3 +31,12 @@ pub impl Show for DivergenceClass with fn to_string(self) {
 pub impl Show for DivergenceClass with fn output(self, logger) {
   logger.write_string(self.to_string())
 }
+
+///|
+pub extend DivergenceClass with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DivergenceClass with Eq::{equal, not_equal}
+
+///|
+pub extend DivergenceClass with Show::{output, to_string}

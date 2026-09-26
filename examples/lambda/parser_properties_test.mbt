@@ -14,7 +14,7 @@ test "property: parser handles any string" {
   for input in inputs {
     // Parser should handle any input gracefully (may raise, but shouldn't panic)
     try {
-      let _term = parse(parser_properties_source_id(), input)
+      let _term = @lambda.parse(parser_properties_source_id(), input)
     } catch {
       _ => () // Error is ok, panic is not
     }
@@ -25,7 +25,7 @@ test "property: parser handles any string" {
 /// Property: Empty input raises (no expression to parse)
 test "property: empty input is safe" {
   try {
-    let _term = parse(parser_properties_source_id(), "")
+    let _term = @lambda.parse(parser_properties_source_id(), "")
   } catch {
     _ => () // May raise, which is fine
   }
@@ -38,7 +38,7 @@ test "property: single char is safe" {
   for c in chars {
     let input = c.to_string()
     try {
-      let _term = parse(parser_properties_source_id(), input)
+      let _term = @lambda.parse(parser_properties_source_id(), input)
     } catch {
       _ => () // Parser should handle any single character
     }
@@ -55,7 +55,7 @@ test "property: repeated characters are safe" {
       input = input + c.to_string()
     }
     try {
-      let _term = parse(parser_properties_source_id(), input)
+      let _term = @lambda.parse(parser_properties_source_id(), input)
     } catch {
       _ => () // Parse error is ok
     }
@@ -69,7 +69,7 @@ test "property: integers parse as Int terms" {
   for n in nums {
     let input = n.abs().to_string()
     try {
-      let term = parse(parser_properties_source_id(), input)
+      let term = @lambda.parse(parser_properties_source_id(), input)
       match term {
         @ast.Term::Int(_) => ()
         _ => abort("Integer literal should parse as Int term")
@@ -89,7 +89,7 @@ test "property: whitespace doesn't break parser" {
     let inputs = ["   " + text, text + "   ", "   " + text + "   "]
     for input in inputs {
       try {
-        let _term = parse(parser_properties_source_id(), input)
+        let _term = @lambda.parse(parser_properties_source_id(), input)
       } catch {
         _ => () // Parser should handle whitespace gracefully
       }
@@ -113,7 +113,7 @@ test "property: parentheses are safe" {
       input = input + ")"
     }
     try {
-      let _term = parse(parser_properties_source_id(), input)
+      let _term = @lambda.parse(parser_properties_source_id(), input)
     } catch {
       _ => () // Should handle nested parens without panic
     }
@@ -129,7 +129,7 @@ test "property: lambda syntax is robust" {
     for body in bodies {
       for input in ["(\{param}) => \{body}", "(\{param}, \{param}) => \{body}"] {
         try {
-          let _term = parse(parser_properties_source_id(), input)
+          let _term = @lambda.parse(parser_properties_source_id(), input)
         } catch {
           _ => ()
         }
@@ -151,7 +151,7 @@ test "property: mixed syntax is safe" {
       input = input + fragments[idx] + " "
     }
     try {
-      let _term = parse(parser_properties_source_id(), input)
+      let _term = @lambda.parse(parser_properties_source_id(), input)
     } catch {
       _ => () // Parser should handle random combinations gracefully
     }
@@ -164,8 +164,8 @@ test "property: parser is deterministic" {
   let inputs : Array[String] = @quickcheck.samples(15)
   for input in inputs {
     try {
-      let term1 = parse(parser_properties_source_id(), input)
-      let term2 = parse(parser_properties_source_id(), input)
+      let term1 = @lambda.parse(parser_properties_source_id(), input)
+      let term2 = @lambda.parse(parser_properties_source_id(), input)
       // Same input should produce identical Terms (Term derives Eq)
       assert_true(term1 == term2)
     } catch {
@@ -180,7 +180,7 @@ test "property: term structure is well-formed" {
   let inputs : Array[String] = @quickcheck.samples(20)
   for input in inputs {
     try {
-      let term = parse(parser_properties_source_id(), input)
+      let term = @lambda.parse(parser_properties_source_id(), input)
       check_well_formed(term)
     } catch {
       _ => () // Parse error is fine

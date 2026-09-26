@@ -124,7 +124,7 @@ fn assert_rename_diagnostic_labels(
 }
 
 ///|
-fn edit_starting_at(edits : Array[TextEdit], start : Int) -> TextEdit {
+fn edit_starting_at(edits : Array[@rename.TextEdit], start : Int) -> @rename.TextEdit {
   for e in edits {
     if e.start == start {
       return e
@@ -134,7 +134,7 @@ fn edit_starting_at(edits : Array[TextEdit], start : Int) -> TextEdit {
 }
 
 ///|
-fn edits_cover_offset(edits : Array[TextEdit], offset : Int) -> Bool {
+fn edits_cover_offset(edits : Array[@rename.TextEdit], offset : Int) -> Bool {
   for e in edits {
     if offset >= e.start && offset < e.end {
       return true
@@ -149,7 +149,7 @@ test "name_range_of: top-level LetDef identifier" {
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
   let foo_def = def_named(defs, "foo")
-  let (start, end) = name_range_of(foo_def, syntax)
+  let (start, end) = @rename.name_range_of(foo_def, syntax)
   inspect(start, content="4")
   inspect(end, content="7")
 }
@@ -160,7 +160,7 @@ test "name_range_of: lambda parameter identifier" {
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
   let x_def = def_named(defs, "x")
-  let (start, end) = name_range_of(x_def, syntax)
+  let (start, end) = @rename.name_range_of(x_def, syntax)
   inspect(start, content="10")
   inspect(end, content="11")
 }
@@ -171,7 +171,7 @@ test "name_range_of: fn parameter identifier" {
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
   let x_def = def_named(defs, "x")
-  let (start, end) = name_range_of(x_def, syntax)
+  let (start, end) = @rename.name_range_of(x_def, syntax)
   inspect(start, content="5")
   inspect(end, content="6")
 }
@@ -181,9 +181,9 @@ test "name_range_of: fn parameter can share function name" {
   let src = "fn f(f) { f }\n"
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
-  let target = locate_target(defs, syntax, 5)
+  let target = @rename.locate_target(defs, syntax, 5)
   inspect(target is Some(_), content="true")
-  let (start, end) = name_range_of(target.unwrap(), syntax)
+  let (start, end) = @rename.name_range_of(target.unwrap(), syntax)
   inspect(start, content="5")
   inspect(end, content="6")
 }
@@ -193,14 +193,14 @@ test "name_range_of: duplicate fn parameters keep separate ranges" {
   let src = "fn f(x, x) { x }\n"
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
-  let first = locate_target(defs, syntax, 5)
+  let first = @rename.locate_target(defs, syntax, 5)
   inspect(first is Some(_), content="true")
-  let (first_start, first_end) = name_range_of(first.unwrap(), syntax)
+  let (first_start, first_end) = @rename.name_range_of(first.unwrap(), syntax)
   inspect(first_start, content="5")
   inspect(first_end, content="6")
-  let second = locate_target(defs, syntax, 8)
+  let second = @rename.locate_target(defs, syntax, 8)
   inspect(second is Some(_), content="true")
-  let (second_start, second_end) = name_range_of(second.unwrap(), syntax)
+  let (second_start, second_end) = @rename.name_range_of(second.unwrap(), syntax)
   inspect(second_start, content="8")
   inspect(second_end, content="9")
 }
@@ -210,7 +210,7 @@ test "locate_target: hits top-level LetDef name" {
   let src = "let foo = bar\n"
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
-  let target = locate_target(defs, syntax, 5)
+  let target = @rename.locate_target(defs, syntax, 5)
   inspect(target is Some(_), content="true")
   inspect(target.unwrap().name, content="foo")
 }
@@ -220,7 +220,7 @@ test "locate_target: hits lambda parameter, not enclosing LetDef" {
   let src = "let id = (x) => x\n"
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
-  let target = locate_target(defs, syntax, 10)
+  let target = @rename.locate_target(defs, syntax, 10)
   inspect(target is Some(_), content="true")
   inspect(target.unwrap().name, content="x")
 }
@@ -230,7 +230,7 @@ test "locate_target: returns None for whitespace offset" {
   let src = "let foo = bar\n"
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
-  let target = locate_target(defs, syntax, 3)
+  let target = @rename.locate_target(defs, syntax, 3)
   inspect(target is None, content="true")
 }
 
@@ -238,7 +238,7 @@ test "locate_target: returns None for whitespace offset" {
 test "resolve_innermost: finds binding in same scope" {
   let (_, defs, _, enclosing) = facts_for_test("let x = a\n")
   let x_def = def_named(defs, "x")
-  let result = resolve_innermost(x_def.scope, "x", defs, enclosing)
+  let result = @rename.resolve_innermost(x_def.scope, "x", defs, enclosing)
   inspect(result is Some(_), content="true")
   inspect(result.unwrap().name, content="x")
 }
@@ -247,7 +247,7 @@ test "resolve_innermost: finds binding in same scope" {
 test "resolve_innermost: walks parent chain" {
   let (_, defs, _, enclosing) = facts_for_test("let x = a\nlet id = (y) => y\n")
   let y_def = def_named(defs, "y")
-  let result = resolve_innermost(y_def.scope, "x", defs, enclosing)
+  let result = @rename.resolve_innermost(y_def.scope, "x", defs, enclosing)
   inspect(result is Some(_), content="true")
   inspect(result.unwrap().name, content="x")
 }
@@ -257,7 +257,7 @@ test "resolve_innermost: innermost wins" {
   let (_, defs, _, enclosing) = facts_for_test("let x = a\nlet h = (x) => x\n")
   let outer_x = def_named(defs, "x")
   let inner_x = def_named_outside_scope(defs, "x", outer_x.scope)
-  let result = resolve_innermost(inner_x.scope, "x", defs, enclosing)
+  let result = @rename.resolve_innermost(inner_x.scope, "x", defs, enclosing)
   inspect(result is Some(_), content="true")
   inspect(result.unwrap().start, content=inner_x.start.to_string())
 }
@@ -265,8 +265,8 @@ test "resolve_innermost: innermost wins" {
 ///|
 test "resolve_innermost: duplicate fn params use latest slot" {
   let (syntax, defs, _, enclosing) = facts_for_test("fn f(x, x) { x }\n")
-  let second_x = locate_target(defs, syntax, 8).unwrap()
-  let result = resolve_innermost(second_x.scope, "x", defs, enclosing)
+  let second_x = @rename.locate_target(defs, syntax, 8).unwrap()
+  let result = @rename.resolve_innermost(second_x.scope, "x", defs, enclosing)
   inspect(result is Some(_), content="true")
   inspect(result.unwrap().name_start, content="8")
 }
@@ -275,7 +275,7 @@ test "resolve_innermost: duplicate fn params use latest slot" {
 test "resolve_innermost: returns None when no binding visible" {
   let (_, defs, _, enclosing) = facts_for_test("let x = a\n")
   let x_def = def_named(defs, "x")
-  let result = resolve_innermost(x_def.scope, "y", defs, enclosing)
+  let result = @rename.resolve_innermost(x_def.scope, "y", defs, enclosing)
   inspect(result is None, content="true")
 }
 
@@ -285,7 +285,7 @@ test "check_sibling_collision: same-scope name match fires" {
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
   let f_def = def_named(defs, "f")
-  let result = check_sibling_collision(
+  let result = @rename.check_sibling_collision(
     rename_test_source_id(),
     f_def,
     "g",
@@ -304,7 +304,7 @@ test "check_sibling_collision: no collision returns None" {
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
   let f_def = def_named(defs, "f")
-  let result = check_sibling_collision(
+  let result = @rename.check_sibling_collision(
     rename_test_source_id(),
     f_def,
     "totally_new",
@@ -319,8 +319,8 @@ test "check_sibling_collision: block let may shadow enclosing parameter" {
   let src = "let h = (x) => { let y = a; y }\n"
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
-  let block_y = locate_target(defs, syntax, 21).unwrap()
-  let result = check_sibling_collision(
+  let block_y = @rename.locate_target(defs, syntax, 21).unwrap()
+  let result = @rename.check_sibling_collision(
     rename_test_source_id(),
     block_y,
     "x",
@@ -336,7 +336,7 @@ test "is_strict_ancestor: top scope is ancestor of lambda scope" {
   let h_def = def_named(defs, "h")
   let x_def = def_named(defs, "x")
   inspect(
-    is_strict_ancestor(h_def.scope, x_def.scope, enclosing),
+    @rename.is_strict_ancestor(h_def.scope, x_def.scope, enclosing),
     content="true",
   )
 }
@@ -346,7 +346,7 @@ test "is_strict_ancestor: equal scopes return false" {
   let (_, defs, _, enclosing) = facts_for_test("let h = (x) => x\n")
   let x_def = def_named(defs, "x")
   inspect(
-    is_strict_ancestor(x_def.scope, x_def.scope, enclosing),
+    @rename.is_strict_ancestor(x_def.scope, x_def.scope, enclosing),
     content="false",
   )
 }
@@ -359,7 +359,7 @@ test "is_strict_ancestor: sibling lambda scopes return false" {
   let x_def = def_named(defs, "x")
   let y_def = def_named(defs, "y")
   inspect(
-    is_strict_ancestor(x_def.scope, y_def.scope, enclosing),
+    @rename.is_strict_ancestor(x_def.scope, y_def.scope, enclosing),
     content="false",
   )
 }
@@ -370,7 +370,7 @@ test "check_forward_capture: descendant binding fires" {
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let h_def = def_named(defs, "h")
   let outer_f = def_named_outside_scope(defs, "f", h_def.scope)
-  let result = check_forward_capture(
+  let result = @rename.check_forward_capture(
     rename_test_source_id(),
     outer_f,
     "g",
@@ -399,7 +399,7 @@ test "check_forward_capture: no descendant with new_name returns None" {
   let src = "let f = (x) => x\n"
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_def = def_named(defs, "f")
-  let result = check_forward_capture(
+  let result = @rename.check_forward_capture(
     rename_test_source_id(),
     f_def,
     "totally_new",
@@ -416,7 +416,7 @@ test "check_forward_capture: earlier descendant cannot capture later target" {
   let src = "let h = (g) => g\nlet f = a\n"
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_def = def_named(defs, "f")
-  let result = check_forward_capture(
+  let result = @rename.check_forward_capture(
     rename_test_source_id(),
     f_def,
     "g",
@@ -433,7 +433,7 @@ test "check_forward_capture: block-local let can capture edited reference" {
   let src = "let h = (f) => { let g = a; f }\n"
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_param = def_named(defs, "f")
-  let result = check_forward_capture(
+  let result = @rename.check_forward_capture(
     rename_test_source_id(),
     f_param,
     "g",
@@ -454,7 +454,7 @@ test "check_forward_capture: outer binding does not capture renamed inner refere
   let src = "let g = a\nlet h = (f) => f\n"
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_param = def_named(defs, "f")
-  let result = check_forward_capture(
+  let result = @rename.check_forward_capture(
     rename_test_source_id(),
     f_param,
     "g",
@@ -471,7 +471,7 @@ test "check_converse_capture: existing call to new_name with target as descendan
   let src = "let g = a\nlet h = (f) => f g\n"
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_param = def_named(defs, "f")
-  let result = check_converse_capture(
+  let result = @rename.check_converse_capture(
     rename_test_source_id(),
     f_param,
     "g",
@@ -499,7 +499,7 @@ test "check_converse_capture: no matching calls returns None" {
   let src = "let f = a\n"
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_def = def_named(defs, "f")
-  let result = check_converse_capture(
+  let result = @rename.check_converse_capture(
     rename_test_source_id(),
     f_def,
     "totally_new",
@@ -515,7 +515,7 @@ test "check_converse_capture: earlier top-level reference is not captured" {
   let src = "let h = g\nlet f = a\n"
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_def = def_named(defs, "f")
-  let result = check_converse_capture(
+  let result = @rename.check_converse_capture(
     rename_test_source_id(),
     f_def,
     "g",
@@ -531,7 +531,7 @@ test "check_converse_capture: later top-level reference can be captured" {
   let src = "let f = a\nlet h = g\n"
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_def = def_named(defs, "f")
-  let result = check_converse_capture(
+  let result = @rename.check_converse_capture(
     rename_test_source_id(),
     f_def,
     "g",
@@ -547,7 +547,7 @@ test "check_shadow: param shadows outer let binding" {
   let src = "let g = a\nlet h = (f) => f\n"
   let (syntax, defs, _, enclosing) = facts_for_test(src)
   let f_param = def_named(defs, "f")
-  let result = check_shadow(
+  let result = @rename.check_shadow(
     rename_test_source_id(),
     f_param,
     "g",
@@ -575,7 +575,7 @@ test "check_shadow: no outer binding returns None" {
   let src = "let h = (f) => f\n"
   let (syntax, defs, _, enclosing) = facts_for_test(src)
   let f_param = def_named(defs, "f")
-  let result = check_shadow(
+  let result = @rename.check_shadow(
     rename_test_source_id(),
     f_param,
     "g",
@@ -591,7 +591,7 @@ test "check_shadow: later top-level binding is not visible" {
   let src = "let h = (f) => f\nlet g = a\n"
   let (syntax, defs, _, enclosing) = facts_for_test(src)
   let f_param = def_named(defs, "f")
-  let result = check_shadow(
+  let result = @rename.check_shadow(
     rename_test_source_id(),
     f_param,
     "g",
@@ -606,8 +606,8 @@ test "check_shadow: later top-level binding is not visible" {
 test "check_shadow: block let shadows enclosing parameter" {
   let src = "let h = (x) => { let y = a; y }\n"
   let (syntax, defs, _, enclosing) = facts_for_test(src)
-  let block_y = locate_target(defs, syntax, 21).unwrap()
-  let result = check_shadow(
+  let block_y = @rename.locate_target(defs, syntax, 21).unwrap()
+  let result = @rename.check_shadow(
     rename_test_source_id(),
     block_y,
     "x",
@@ -626,7 +626,7 @@ test "check_shadow: block let shadows enclosing parameter" {
 test "fixture 1 (smoke): top-level let rename, three edits, no diagnostics" {
   let src = "let f = (x) => x\nlet r = f (f y)\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(
+  let plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -648,7 +648,7 @@ test "fixture 1 (smoke): top-level let rename, three edits, no diagnostics" {
 test "fixture 2 (sibling collision): rename f -> g when g exists at same scope" {
   let src = "let f = a\nlet g = b\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 4, "g")
+  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 4, "g")
   inspect(plan.target.unwrap().name, content="f")
   inspect(plan.edits.length() >= 1, content="true")
   inspect(
@@ -662,7 +662,7 @@ test "fixture 2 (sibling collision): rename f -> g when g exists at same scope" 
 test "fixture 10 (name-range correctness): edit UTF-16 ranges cover identifiers, not nodes" {
   let src1 = "let foo = bar\n"
   let (pipeline1, syntax1) = setup_pipeline(src1)
-  let plan1 = plan_rename(
+  let plan1 = @rename.plan_rename(
     rename_test_source_id(),
     pipeline1,
     src1,
@@ -676,7 +676,7 @@ test "fixture 10 (name-range correctness): edit UTF-16 ranges cover identifiers,
 
   let src2 = "let id = (x) => x\n"
   let (pipeline2, syntax2) = setup_pipeline(src2)
-  let plan2 = plan_rename(
+  let plan2 = @rename.plan_rename(
     rename_test_source_id(),
     pipeline2,
     src2,
@@ -690,7 +690,7 @@ test "fixture 10 (name-range correctness): edit UTF-16 ranges cover identifiers,
 
   let src3 = "fn f(x) { x }\n"
   let (pipeline3, syntax3) = setup_pipeline(src3)
-  let plan3 = plan_rename(
+  let plan3 = @rename.plan_rename(
     rename_test_source_id(),
     pipeline3,
     src3,
@@ -707,7 +707,7 @@ test "fixture 10 (name-range correctness): edit UTF-16 ranges cover identifiers,
 test "fixture 11 (fn repeated name): parameter rename does not edit function name" {
   let src = "fn f(f) { f }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 5, "g")
+  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 5, "g")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.target.unwrap().name, content="f")
   inspect(plan.edits.length(), content="2")
@@ -722,7 +722,7 @@ test "fixture 11 (fn repeated name): parameter rename does not edit function nam
 test "fixture 12 (top-level source order): forward free reference is not rewritten" {
   let src = "let a = f\nlet f = z\nlet b = f\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(
+  let plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -743,7 +743,7 @@ test "fixture 12 (top-level source order): forward free reference is not rewritt
 test "fixture 13 (sequential top-level): self-reference is not rewritten" {
   let src = "let f = f\nlet g = f\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(
+  let plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -765,7 +765,7 @@ test "fixture 13 (sequential top-level): self-reference is not rewritten" {
 test "fixture 14 (sequential top-level): duplicate name sees previous binding" {
   let src = "let f = a\nlet f = f\nlet g = f\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let first_plan = plan_rename(
+  let first_plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -779,7 +779,7 @@ test "fixture 14 (sequential top-level): duplicate name sees previous binding" {
   inspect(edits_cover_offset(first_plan.edits, 14), content="false")
   inspect(edits_cover_offset(first_plan.edits, 18), content="true")
   inspect(edits_cover_offset(first_plan.edits, 28), content="false")
-  let second_plan = plan_rename(
+  let second_plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -800,7 +800,7 @@ test "fixture 14 (sequential top-level): duplicate name sees previous binding" {
 test "fixture 15 (block let): local binding does not edit initializer" {
   let src = "let h = (x) => { let x = x; x }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(
+  let plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -822,7 +822,7 @@ test "fixture 15 (block let): local binding does not edit initializer" {
 test "fixture 16 (block let): unique local binding edits body reference" {
   let src = "let h = (x) => { let y = x; y }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(
+  let plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -842,7 +842,7 @@ test "fixture 16 (block let): unique local binding edits body reference" {
 test "fixture 17 (block let): local binding does not leak after block" {
   let src = "let h = { let x = a; x } x\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(
+  let plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -863,7 +863,7 @@ test "fixture 17 (block let): local binding does not leak after block" {
 test "fixture 18 (fn duplicate params): second parameter is targetable" {
   let src = "fn f(x, x) { x }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let first_plan = plan_rename(
+  let first_plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -877,7 +877,7 @@ test "fixture 18 (fn duplicate params): second parameter is targetable" {
   inspect(edits_cover_offset(first_plan.edits, 8), content="false")
   inspect(edits_cover_offset(first_plan.edits, 13), content="false")
   inspect(first_plan.diagnostics.length(), content="0")
-  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 8, "y")
+  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 8, "y")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
   inspect(edits_cover_offset(plan.edits, 5), content="false")
@@ -891,7 +891,7 @@ test "fixture 18 (fn duplicate params): second parameter is targetable" {
 test "fixture 19 (shadow source order): later top-level binding does not warn" {
   let src = "let h = (f) => f\nlet g = a\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 9, "g")
+  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 9, "g")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
   inspect(
@@ -905,7 +905,7 @@ test "fixture 19 (shadow source order): later top-level binding does not warn" {
 test "fixture 20 (converse source order): earlier top ref does not block" {
   let src = "let h = g\nlet f = a\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(
+  let plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -926,7 +926,7 @@ test "fixture 20 (converse source order): earlier top ref does not block" {
 test "fixture 21 (block let shadow): local rename to parameter name is legal" {
   let src = "let h = (x) => { let y = a; y }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(
+  let plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -951,7 +951,7 @@ test "fixture 21 (block let shadow): local rename to parameter name is legal" {
 test "fixture 22 (forward source order): earlier lambda param does not block" {
   let src = "let h = (g) => g\nlet f = a\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(
+  let plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -972,7 +972,7 @@ test "fixture 22 (forward source order): earlier lambda param does not block" {
 test "fixture 23 (block-local forward capture): block let blocks rename" {
   let src = "let h = (f) => { let g = a; f }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 9, "g")
+  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 9, "g")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
   inspect(
@@ -989,7 +989,7 @@ test "check_sibling_collision: target is not its own sibling" {
   let (defs, _) = @callers.extract_facts(syntax)
   let target = def_named(defs, "f")
   inspect(
-    check_sibling_collision(rename_test_source_id(), target, "f", defs, syntax)
+    @rename.check_sibling_collision(rename_test_source_id(), target, "f", defs, syntax)
     is None,
     content="true",
   )
@@ -999,7 +999,7 @@ test "check_sibling_collision: target is not its own sibling" {
 test "fixture 3 (forward capture): outer f rename to g, inner g intercepts" {
   let src = "let h = (f, g) => f g\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 9, "g")
+  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 9, "g")
   inspect(plan.target.unwrap().name, content="f")
   inspect(
     diagnostics_have_code(plan.diagnostics, "rename.capture"),
@@ -1012,7 +1012,7 @@ test "fixture 3 (forward capture): outer f rename to g, inner g intercepts" {
 test "fixture 4 (converse capture + shadow): rename param f -> g where outer g exists" {
   let src = "let g = a\nlet h = (f) => f g\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(
+  let plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -1036,7 +1036,7 @@ test "fixture 4 (converse capture + shadow): rename param f -> g where outer g e
 test "fixture 5 (shadow only): rename param f -> g, no body reference to g" {
   let src = "let g = a\nlet h = (f) => f\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(
+  let plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -1059,7 +1059,7 @@ test "fixture 5 (shadow only): rename param f -> g, no body reference to g" {
 test "fixture 6 (sequential top-level): rename f -> fff, self-ref untouched" {
   let src = "let f = (x) => f x\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(
+  let plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,
@@ -1079,7 +1079,7 @@ test "fixture 6 (sequential top-level): rename f -> fff, self-ref untouched" {
 test "fixture 7 (fn parameter): rename x -> y in fn f(x) { x }" {
   let src = "fn f(x) { x }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 5, "y")
+  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 5, "y")
   inspect(plan.target.unwrap().name, content="x")
   inspect(plan.edits.length(), content="2")
   inspect(plan.diagnostics.length(), content="0")
@@ -1090,7 +1090,7 @@ test "fixture 7 (fn parameter): rename x -> y in fn f(x) { x }" {
 test "fixture 8 (no-op): rename f -> f produces single Info diagnostic" {
   let src = "let f = a\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 4, "f")
+  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 4, "f")
   inspect(plan.edits.length(), content="0")
   inspect(plan.diagnostics.length(), content="1")
   inspect(
@@ -1109,7 +1109,7 @@ test "fixture 8 (no-op): rename f -> f produces single Info diagnostic" {
 test "fixture 9 (offset miss): whitespace offset returns no_target diagnostic" {
   let src = "let f = a\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(
+  let plan = @rename.plan_rename(
     rename_test_source_id(),
     pipeline,
     src,

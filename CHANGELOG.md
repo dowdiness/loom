@@ -37,7 +37,7 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Changed
 
-- CI and scheduled benchmarks now use MoonBit `0.10.12+1634b282e`.
+- CI and scheduled benchmarks now use MoonBit `0.10.14+7d59c7ec9`.
   Source formatting and strict-warning compatibility follow that toolchain.
 
 - `examples/markdown` now passes all 652 CommonMark 0.31.2 examples through the

@@ -709,3 +709,27 @@ fn[Id] fresh_stable_projection_leaf(
 ) -> StableProjectionLeaf[Id] {
   StableProjectionLeaf::new(leaf.start, leaf.end, leaf.key, allocate(leaf))
 }
+
+///|
+pub extend ProjectionIdentityBaseline with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ProjectionIdentityBaseline with Eq::{equal, not_equal}
+
+///|
+pub extend ProjectionIdentityWindow with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ProjectionIdentityWindow with Eq::{equal, not_equal}
+
+///|
+pub extend ProjectionLeaf with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ProjectionLeaf with Eq::{equal, not_equal}
+
+///|
+pub extend StableProjectionLeaf with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend StableProjectionLeaf with Eq::{equal, not_equal}

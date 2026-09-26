@@ -816,3 +816,15 @@ test "create_buffer: recovered mode lex updates incrementally" {
   debug_inspect(buffer.get_token(0), content="Err")
   debug_inspect(buffer.get_token(1), content="Err")
 }
+
+///|
+pub extend FKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend FMode with Eq::{equal, not_equal}
+
+///|
+pub extend FTok with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend FTok with Eq::{equal, not_equal}

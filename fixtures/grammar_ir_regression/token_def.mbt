@@ -34,3 +34,21 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
     Eof => @seam.RawKind(2)
   }
 }
+
+///|
+pub extend Token with @dowdiness/seam.IsEof::{is_eof}
+
+///|
+pub extend Token with @dowdiness/seam.IsTrivia::{is_trivia}
+
+///|
+pub extend Token with @dowdiness/seam.ToRawKind::{to_raw}
+
+///|
+pub extend Token with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Token with Eq::{equal, not_equal}
+
+///|
+pub extend Token with Show::{output, to_string}

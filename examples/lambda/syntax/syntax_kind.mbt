@@ -205,3 +205,24 @@ pub impl @seam.IsTrivia for SyntaxKind with fn is_trivia(self) {
 pub impl @seam.IsError for SyntaxKind with fn is_error(self) {
   self == ErrorToken
 }
+
+///|
+pub extend SyntaxKind with @dowdiness/seam.FromRawKind::{from_raw}
+
+///|
+pub extend SyntaxKind with @dowdiness/seam.IsError::{is_error}
+
+///|
+pub extend SyntaxKind with @dowdiness/seam.IsTrivia::{is_trivia}
+
+///|
+pub extend SyntaxKind with @dowdiness/seam.ToRawKind::{to_raw}
+
+///|
+pub extend SyntaxKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SyntaxKind with Eq::{equal, not_equal}
+
+///|
+pub extend SyntaxKind with Show::{output, to_string}

@@ -31,3 +31,21 @@ pub(all) enum Inline {
 pub impl Show for Inline with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
+
+///|
+pub extend Block with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Block with Eq::{equal, not_equal}
+
+///|
+pub extend Block with Show::{output, to_string}
+
+///|
+pub extend Inline with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Inline with Eq::{equal, not_equal}
+
+///|
+pub extend Inline with Show::{output, to_string}

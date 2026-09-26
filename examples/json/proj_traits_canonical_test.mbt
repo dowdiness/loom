@@ -7,7 +7,7 @@
 ///|
 /// Frozen, pre-change placeholder mapping. Returns `Some` for the 6
 /// fitting variants and `None` for the `Error` carve-out (UX masking).
-fn hand_written_placeholder_reference(v : JsonValue) -> String? {
+fn hand_written_placeholder_reference(v : @json.JsonValue) -> String? {
   match v {
     Null => Some("null")
     Bool(_) => Some("false")
@@ -38,7 +38,7 @@ fn gen_number(rs : @splitmix.RandomState) -> Double {
 }
 
 ///|
-fn gen_json(rs : @splitmix.RandomState, depth : Int) -> JsonValue {
+fn gen_json(rs : @splitmix.RandomState, depth : Int) -> @json.JsonValue {
   if depth <= 0 {
     match rs.split().next_uint64().to_int().abs() % 5 {
       0 => Null
@@ -55,7 +55,7 @@ fn gen_json(rs : @splitmix.RandomState, depth : Int) -> JsonValue {
       3 => String(gen_string(rs))
       4 => {
         let n = rs.split().next_uint64().to_int().abs() % 3
-        let items : Array[JsonValue] = []
+        let items : Array[@json.JsonValue] = []
         for _ in 0..<n {
           items.push(gen_json(rs, depth - 1))
         }
@@ -63,7 +63,7 @@ fn gen_json(rs : @splitmix.RandomState, depth : Int) -> JsonValue {
       }
       5 => {
         let n = rs.split().next_uint64().to_int().abs() % 3
-        let members : Array[(String, JsonValue)] = []
+        let members : Array[(String, @json.JsonValue)] = []
         for _ in 0..<n {
           members.push((gen_string(rs), gen_json(rs, depth - 1)))
         }
@@ -129,7 +129,7 @@ test "property: default_placeholder_via_canonical matches frozen reference" {
 ///|
 test "canonical: Null" {
   inspect(
-    @core.Canonical::canonical(JsonValue::Null),
+    @core.Canonical::canonical(@json.JsonValue::Null),
     content=(
       #|Null
     ),
@@ -139,7 +139,7 @@ test "canonical: Null" {
 ///|
 test "canonical: Bool normalized to false" {
   inspect(
-    @core.Canonical::canonical(JsonValue::Bool(true)),
+    @core.Canonical::canonical(@json.JsonValue::Bool(true)),
     content=(
       #|Bool(false)
     ),
@@ -149,7 +149,7 @@ test "canonical: Bool normalized to false" {
 ///|
 test "canonical: Number normalized to 0.0" {
   inspect(
-    @core.Canonical::canonical(JsonValue::Number(42.5)),
+    @core.Canonical::canonical(@json.JsonValue::Number(42.5)),
     content=(
       #|Number(0)
     ),
@@ -159,7 +159,7 @@ test "canonical: Number normalized to 0.0" {
 ///|
 test "canonical: String normalized to empty" {
   inspect(
-    @core.Canonical::canonical(JsonValue::String("hello")),
+    @core.Canonical::canonical(@json.JsonValue::String("hello")),
     content=(
       #|String("")
     ),
@@ -169,7 +169,7 @@ test "canonical: String normalized to empty" {
 ///|
 test "canonical: Array normalized to empty" {
   inspect(
-    @core.Canonical::canonical(JsonValue::Array([JsonValue::Null])),
+    @core.Canonical::canonical(@json.JsonValue::Array([@json.JsonValue::Null])),
     content=(
       #|Array([])
     ),
@@ -179,7 +179,7 @@ test "canonical: Array normalized to empty" {
 ///|
 test "canonical: Object normalized to empty" {
   inspect(
-    @core.Canonical::canonical(JsonValue::Object([("k", JsonValue::Null)])),
+    @core.Canonical::canonical(@json.JsonValue::Object([("k", @json.JsonValue::Null)])),
     content=(
       #|Object([])
     ),
@@ -189,7 +189,7 @@ test "canonical: Object normalized to empty" {
 ///|
 test "canonical: Error normalized to \"?\"" {
   inspect(
-    @core.Canonical::canonical(JsonValue::Error("parse failure")),
+    @core.Canonical::canonical(@json.JsonValue::Error("parse failure")),
     content=(
       #|Error("?")
     ),
@@ -200,7 +200,7 @@ test "canonical: Error normalized to \"?\"" {
 
 ///|
 test "placeholder: all variants match expected strings" {
-  let cases : Array[(JsonValue, String)] = [
+  let cases : Array[(@json.JsonValue, String)] = [
     (Null, "null"),
     (Bool(true), "false"),
     (Number(42.5), "0"),

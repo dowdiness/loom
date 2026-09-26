@@ -22,7 +22,7 @@ pub fn lex_moonbit(
     diagnostics.push(
       @core.lexer_diagnostic_at(
         source_id,
-        err.to_string(),
+        Show::to_string(err),
         start_pos.cnum,
         end_pos.cnum,
         "moonbitlang/lexer",

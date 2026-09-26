@@ -15,9 +15,11 @@ pub(all) enum MoonToken {
 pub impl Show for MoonToken with fn output(self, logger) {
   match self {
     Official(kind~) => {
-      logger.write_string(kind.to_string())
+      logger.write_string(Show::to_string(kind))
       logger.write_string("/")
-      logger.write_string(MoonbitSyntaxKind::from_token_kind(kind).to_string())
+      logger.write_string(
+        Show::to_string(MoonbitSyntaxKind::from_token_kind(kind)),
+      )
     }
     Whitespace => logger.write_string("Whitespace")
     Error(message) => logger.write_string("error: " + message)
@@ -296,3 +298,21 @@ fn MoonToken::from_official(token : @tokens.Token) -> MoonToken {
     kind => Official(kind~)
   }
 }
+
+///|
+pub extend MoonToken with @dowdiness/seam.IsEof::{is_eof}
+
+///|
+pub extend MoonToken with @dowdiness/seam.IsTrivia::{is_trivia}
+
+///|
+pub extend MoonToken with @dowdiness/seam.ToRawKind::{to_raw}
+
+///|
+pub extend MoonToken with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MoonToken with Eq::{equal, not_equal}
+
+///|
+pub extend MoonToken with Show::{output, to_string}

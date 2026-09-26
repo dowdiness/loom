@@ -317,3 +317,15 @@ pub fn project_markdown_roles(
 ) -> Array[MarkdownRoleSpan] {
   coalesce_emphasis_delimiter_spans(markdown_role_spans_iter(syntax).to_array())
 }
+
+///|
+pub extend MarkdownRole with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownRole with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownRoleSpan with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownRoleSpan with Eq::{equal, not_equal}

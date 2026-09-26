@@ -136,3 +136,15 @@ pub fn e3_follow_up_gate() -> (Bool, String) {
     true, "Ready: JSON E3 is 5/5 declarative, drives @grammar.interpret directly with no probe, D1 PASS.",
   )
 }
+
+///|
+pub extend E1Measurement with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend E1Measurement with Eq::{equal, not_equal}
+
+///|
+pub extend E2Measurement with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ReuseProbePlan with @moonbitlang/core/debug.Debug::{to_repr}

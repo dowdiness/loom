@@ -35,7 +35,7 @@ string fields, and enum fields.
 test "README token roles preserve source ranges" {
   let source = "osc = sine(freq: 440Hz, wave: \"saw\") -> audio"
   let source_id = @core.SourceId("graph-dsl-readme-token-roles")
-  let doc = match project_graph_source(source_id, source) {
+  let doc = match @graph-dsl.project_graph_source(source_id, source) {
     Ok(doc) => doc
     Err(messages) => abort(messages.join("; "))
   }
@@ -63,7 +63,7 @@ or duplicate node bindings.
 ///|
 test "README lower numeric parameter" {
   let source_id = @core.SourceId("graph-dsl-readme-lowering")
-  let doc = match project_graph_source(source_id, "osc = sine(freq: 440Hz)") {
+  let doc = match @graph-dsl.project_graph_source(source_id, "osc = sine(freq: 440Hz)") {
     Ok(doc) => doc
     Err(messages) => abort(messages.join("; "))
   }
@@ -94,7 +94,7 @@ projection success.
 ///|
 test "README last-good graph projection" {
   let source_id = @core.SourceId("graph-dsl-readme-last-good")
-  let attachment = GraphAttachment::GraphAttachment(
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(
     source_id, "osc = sine(freq: 440Hz)",
   )
   inspect(attachment.state(), content="Current")

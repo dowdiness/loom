@@ -906,3 +906,18 @@ pub fn[T, K] ReuseCursor::snapshot(
     spec: self.spec,
   }
 }
+
+///|
+pub extend OldToken with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend OldToken with Eq::{not_equal, equal}
+
+///|
+pub extend OldToken with Compare::{op_lt, op_le, op_ge, compare, op_gt}
+
+///|
+pub extend ReuseRejectionReason with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ReuseRejectionReason with Eq::{not_equal, equal}

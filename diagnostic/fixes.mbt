@@ -138,3 +138,27 @@ pub fn DiagnosticFix::apply(
     .to_owned()
   })
 }
+
+///|
+pub extend FixApplicability with Eq::{not_equal, equal}
+
+///|
+pub extend FixApplicability with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TextReplacement with Eq::{not_equal, equal}
+
+///|
+pub extend TextReplacement with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DiagnosticFixError with Eq::{not_equal, equal}
+
+///|
+pub extend DiagnosticFixError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DiagnosticFix with Eq::{not_equal, equal}
+
+///|
+pub extend DiagnosticFix with @moonbitlang/core/debug.Debug::{to_repr}

@@ -56,3 +56,9 @@ pub fn IncrementalParser::snapshot(
 ) -> MarkdownDocument {
   self.document
 }
+
+///|
+pub extend MarkdownUpdateError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownUpdateError with Eq::{equal, not_equal}

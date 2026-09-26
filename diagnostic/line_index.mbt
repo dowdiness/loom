@@ -136,3 +136,15 @@ fn line_index_for_offset(line_starts : Array[Int], offset : Int) -> Int {
     0
   }
 }
+
+///|
+pub extend LineCol with Eq::{not_equal, equal}
+
+///|
+pub extend LineCol with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LineRange with Eq::{not_equal, equal}
+
+///|
+pub extend LineRange with @moonbitlang/core/debug.Debug::{to_repr}

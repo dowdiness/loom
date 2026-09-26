@@ -489,3 +489,45 @@ pub fn CstNode::has_errors(
   }
   false
 }
+
+///|
+pub extend RawKind with Eq::{not_equal, equal}
+
+///|
+pub extend RawKind with Hash::{hash, hash_combine}
+
+///|
+pub extend RawKind with Compare::{op_lt, op_le, op_ge, compare, op_gt}
+
+///|
+pub extend RawKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RawKind with Show::{to_string, output}
+
+///|
+pub extend CstToken with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CstToken with Eq::{not_equal, equal}
+
+///|
+pub extend CstToken with Hash::{hash, hash_combine}
+
+///|
+pub extend CstElement with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CstElement with Eq::{not_equal, equal}
+
+///|
+pub extend CstElement with Hash::{hash, hash_combine}
+
+///|
+pub extend CstNode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CstNode with Eq::{not_equal, equal}
+
+///|
+pub extend CstNode with Hash::{hash, hash_combine}

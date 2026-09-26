@@ -5,7 +5,7 @@ fn json_punc(s : String) -> @pretty.Layout[@pretty.SyntaxCategory] {
 
 ///|
 fn escape_json_string(s : String) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for ch in s {
     match ch {
       '"' => buf.write_string("\\\"")
@@ -111,3 +111,9 @@ pub impl @pretty.Source for JsonValue with fn to_source(self) {
 
 ///|
 pub impl @pretty.Printable for JsonValue
+
+///|
+pub extend JsonValue with @dowdiness/pretty.Pretty::{to_layout}
+
+///|
+pub extend JsonValue with @dowdiness/pretty.Source::{to_source}

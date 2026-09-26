@@ -11,7 +11,7 @@ fn cst_tree_test_source_id() -> @core.SourceId {
 
 ///|
 fn test_parse_cst(source : String) -> @seam.CstNode {
-  let (cst, _) = parse_cst(cst_tree_test_source_id(), source) catch {
+  let (cst, _) = @lambda.parse_cst(cst_tree_test_source_id(), source) catch {
     _ => abort("lex error")
   }
   cst
@@ -19,7 +19,7 @@ fn test_parse_cst(source : String) -> @seam.CstNode {
 
 ///|
 fn test_parse_syntax(source : String) -> @seam.SyntaxNode {
-  let (cst, _) = parse_cst(cst_tree_test_source_id(), source) catch {
+  let (cst, _) = @lambda.parse_cst(cst_tree_test_source_id(), source) catch {
     _ => abort("lex error")
   }
   @seam.SyntaxNode::from_cst(cst)
@@ -201,7 +201,7 @@ test "cst: SyntaxNode child positions in application" {
 
 ///|
 test "cst: parse - simple integer" {
-  let term = parse(cst_tree_test_source_id(), "42") catch {
+  let term = @lambda.parse(cst_tree_test_source_id(), "42") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(term), content="42")
@@ -209,7 +209,7 @@ test "cst: parse - simple integer" {
 
 ///|
 test "cst: parse - variable" {
-  let term = parse(cst_tree_test_source_id(), "x") catch {
+  let term = @lambda.parse(cst_tree_test_source_id(), "x") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(term), content="x")
@@ -217,7 +217,7 @@ test "cst: parse - variable" {
 
 ///|
 test "cst: parse - lambda" {
-  let term = parse(cst_tree_test_source_id(), "(x) => x") catch {
+  let term = @lambda.parse(cst_tree_test_source_id(), "(x) => x") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(term), content="(x) => x")
@@ -225,7 +225,7 @@ test "cst: parse - lambda" {
 
 ///|
 test "cst: parse - lambda with body" {
-  let term = parse(cst_tree_test_source_id(), "(x) => x + 1") catch {
+  let term = @lambda.parse(cst_tree_test_source_id(), "(x) => x + 1") catch {
     _ => abort("parse failed")
   }
   inspect(
@@ -238,7 +238,7 @@ test "cst: parse - lambda with body" {
 
 ///|
 test "cst: parse - application" {
-  let term = parse(cst_tree_test_source_id(), "f x") catch {
+  let term = @lambda.parse(cst_tree_test_source_id(), "f x") catch {
     _ => abort("parse failed")
   }
   inspect(
@@ -251,7 +251,7 @@ test "cst: parse - application" {
 
 ///|
 test "cst: parse - nested application" {
-  let term = parse(cst_tree_test_source_id(), "f x y") catch {
+  let term = @lambda.parse(cst_tree_test_source_id(), "f x y") catch {
     _ => abort("parse failed")
   }
   inspect(
@@ -264,7 +264,7 @@ test "cst: parse - nested application" {
 
 ///|
 test "cst: parse - binary operation" {
-  let term = parse(cst_tree_test_source_id(), "1 + 2") catch {
+  let term = @lambda.parse(cst_tree_test_source_id(), "1 + 2") catch {
     _ => abort("parse failed")
   }
   inspect(
@@ -277,7 +277,7 @@ test "cst: parse - binary operation" {
 
 ///|
 test "cst: parse - chained binary (same op)" {
-  let term = parse(cst_tree_test_source_id(), "1 + 2 + 3") catch {
+  let term = @lambda.parse(cst_tree_test_source_id(), "1 + 2 + 3") catch {
     _ => abort("parse failed")
   }
   inspect(
@@ -290,7 +290,7 @@ test "cst: parse - chained binary (same op)" {
 
 ///|
 test "cst: parse - if-then-else" {
-  let term = parse(cst_tree_test_source_id(), "if x then 1 else 2") catch {
+  let term = @lambda.parse(cst_tree_test_source_id(), "if x then 1 else 2") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(term), content="if x then 1 else 2")
@@ -298,7 +298,7 @@ test "cst: parse - if-then-else" {
 
 ///|
 test "cst: parse - parenthesized expression" {
-  let term = parse(cst_tree_test_source_id(), "(x)") catch {
+  let term = @lambda.parse(cst_tree_test_source_id(), "(x)") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(term), content="x")
@@ -306,7 +306,7 @@ test "cst: parse - parenthesized expression" {
 
 ///|
 test "cst: parse - complex expression" {
-  let term = parse(cst_tree_test_source_id(), "(f, x) => f (f x)") catch {
+  let term = @lambda.parse(cst_tree_test_source_id(), "(f, x) => f (f x)") catch {
     _ => abort("parse failed")
   }
   inspect(
@@ -512,7 +512,7 @@ test "cst: has_errors on valid lambda" {
 
 ///|
 test "cst: error recovery - missing param produces ErrorToken" {
-  let (cst, diagnostics) = parse_cst(cst_tree_test_source_id(), "(,) => x") catch {
+  let (cst, diagnostics) = @lambda.parse_cst(cst_tree_test_source_id(), "(,) => x") catch {
     _ => abort("lex error")
   }
   inspect(
@@ -529,7 +529,7 @@ test "cst: error recovery - missing param produces ErrorToken" {
 
 ///|
 test "cst: error recovery - extra tokens wrapped in ErrorNode" {
-  let (cst, diagnostics) = parse_cst(cst_tree_test_source_id(), "42 )") catch {
+  let (cst, diagnostics) = @lambda.parse_cst(cst_tree_test_source_id(), "42 )") catch {
     _ => abort("lex error")
   }
   inspect(diagnostics.length() > 0, content="true")
@@ -550,7 +550,7 @@ test "cst: error recovery - extra tokens wrapped in ErrorNode" {
 
 ///|
 test "cst: error recovery - missing else in if" {
-  let (cst, diagnostics) = parse_cst(cst_tree_test_source_id(), "if x then y") catch {
+  let (cst, diagnostics) = @lambda.parse_cst(cst_tree_test_source_id(), "if x then y") catch {
     _ => abort("lex error")
   }
   inspect(diagnostics.length() > 0, content="true")
@@ -562,7 +562,7 @@ test "cst: error recovery - missing else in if" {
 
 ///|
 test "cst: error recovery - text_len preserved" {
-  let (cst, _) = parse_cst(cst_tree_test_source_id(), "(,) => x") catch {
+  let (cst, _) = @lambda.parse_cst(cst_tree_test_source_id(), "(,) => x") catch {
     _ => abort("lex error")
   }
   // text_len should cover the entire source
@@ -571,7 +571,7 @@ test "cst: error recovery - text_len preserved" {
 
 ///|
 test "cst: error recovery - multiple errors" {
-  let (cst, diagnostics) = parse_cst(cst_tree_test_source_id(), "(,) => x + )") catch {
+  let (cst, diagnostics) = @lambda.parse_cst(cst_tree_test_source_id(), "(,) => x + )") catch {
     _ => abort("lex error")
   }
   // Should have at least 2 errors: missing param, extra ")"
@@ -587,7 +587,7 @@ test "cst: error recovery preserves valid input" {
     "42", "x", "(x) => x", "f x", "1 + 2", "if x then 1 else 2", "(x)",
   ]
   for input in inputs {
-    let (recovered, diagnostics) = parse_cst(cst_tree_test_source_id(), input) catch {
+    let (recovered, diagnostics) = @lambda.parse_cst(cst_tree_test_source_id(), input) catch {
       _ => abort("lex error")
     }
     inspect(diagnostics.length(), content="0")
@@ -710,7 +710,7 @@ test "source file: def + final expression" {
 
 ///|
 test "source file: leading newlines before def + final expression" {
-  let (cst, diagnostics) = parse_cst(
+  let (cst, diagnostics) = @lambda.parse_cst(
     cst_tree_test_source_id(),
     "\nlet id = 1\nid",
   ) catch {
@@ -728,7 +728,7 @@ test "source file: leading newlines before def + final expression" {
 ///|
 test "source file: trailing tokens after final expression produce error" {
   // "1 )" has a trailing ')' that can't be part of any expression
-  let (cst, diagnostics) = parse_cst(cst_tree_test_source_id(), "1 )") catch {
+  let (cst, diagnostics) = @lambda.parse_cst(cst_tree_test_source_id(), "1 )") catch {
     _ => abort("lex error")
   }
   inspect(diagnostics.length() > 0, content="true")
@@ -743,7 +743,7 @@ test "source file: trailing tokens after final expression produce error" {
 ///|
 test "source file: in is a valid identifier after deprecation" {
   // "1 in x" parses as application: (1 in) x — no errors
-  let (cst, diagnostics) = parse_cst(cst_tree_test_source_id(), "1 in x") catch {
+  let (cst, diagnostics) = @lambda.parse_cst(cst_tree_test_source_id(), "1 in x") catch {
     _ => abort("lex error")
   }
   inspect(diagnostics.length(), content="0")

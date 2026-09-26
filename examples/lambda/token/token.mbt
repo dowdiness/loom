@@ -95,3 +95,9 @@ pub fn print_tokens(tokens : Array[Token]) -> String {
   let token_strs = tokens.map(print_token)
   "[" + token_strs.join(", ") + "]"
 }
+
+///|
+pub extend Token with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Token with Eq::{equal, not_equal}

@@ -258,3 +258,12 @@ pub impl @diagnostic.SourceResolver for MarkdownDocument with fn resolve_source(
     ),
   )
 }
+
+///|
+pub extend MarkdownDocument with @dowdiness/diagnostic.SourceResolver::{resolve_source}
+
+///|
+pub extend MarkdownSemanticSelectionKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownSemanticSelectionKind with Eq::{equal, not_equal}

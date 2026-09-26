@@ -1,7 +1,7 @@
 ///|
-fn list_incremental_html(ir : MarkdownIR) -> String raise {
+fn list_incremental_html(ir : @markdown.MarkdownIR) -> String raise {
   match
-    experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(ir, Escape) {
+    @markdown.experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(ir, Escape) {
     Ok(html) => html
     Err(error) => fail(@debug.to_string(error))
   }
@@ -15,7 +15,7 @@ fn assert_list_incremental_parity(
   updated : String,
 ) -> Unit raise {
   let source_id = @core.SourceId("markdown-list-incremental-" + label)
-  let incremental = @loom.new_parser(source_id, source, markdown_grammar)
+  let incremental = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
   assert_true(edit.start >= 0 && edit.old_len >= 0 && edit.new_len >= 0)
   assert_true(edit.old_end() <= source.length())
   assert_true(edit.new_end() <= updated.length())
@@ -25,10 +25,10 @@ fn assert_list_incremental_parity(
     updated[edit.new_end():].to_owned(),
   )
   incremental.apply_edit(edit, updated)
-  let fresh = @loom.new_parser(source_id, updated, markdown_grammar)
+  let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
-  let (direct_cst, direct_diagnostics) = try! parse_cst(source_id, updated)
+  let (direct_cst, direct_diagnostics) = try! @markdown.parse_cst(source_id, updated)
   let direct_syntax = @seam.SyntaxNode::from_cst(direct_cst)
   let incremental_diff = @core.tree_diff(
     incremental_syntax.cst_node(),
@@ -53,24 +53,24 @@ fn assert_list_incremental_parity(
   assert_eq(fresh.diagnostics().read_or_abort(), direct_diagnostics)
   assert_eq(incremental.ast().read_or_abort(), fresh.ast().read_or_abort())
   assert_eq(
-    project_markdown_roles(incremental_syntax),
-    project_markdown_roles(fresh_syntax),
+    @markdown.project_markdown_roles(incremental_syntax),
+    @markdown.project_markdown_roles(fresh_syntax),
   )
   assert_eq(
-    project_markdown_roles(fresh_syntax),
-    project_markdown_roles(direct_syntax),
+    @markdown.project_markdown_roles(fresh_syntax),
+    @markdown.project_markdown_roles(direct_syntax),
   )
-  let incremental_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let incremental_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     incremental_syntax,
     incremental.diagnostics().read_or_abort(),
   )
-  let fresh_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let fresh_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     fresh_syntax,
     fresh.diagnostics().read_or_abort(),
   )
-  let direct_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let direct_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, direct_syntax, direct_diagnostics,
   )
   assert_eq(incremental_ir, fresh_ir)

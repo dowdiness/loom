@@ -1,8 +1,8 @@
 ///|
 fn markdown_node_test_first_inline(
   source : String,
-) -> MarkdownNode raise Failure {
-  let root = parse(source).root()
+) -> @markdown.MarkdownNode raise Failure {
+  let root = @markdown.parse(source).root()
   guard root.children() is [block, ..] else { fail("expected one block") }
   guard block.children() is [inline, ..] else {
     fail("expected one inline node")
@@ -13,10 +13,10 @@ fn markdown_node_test_first_inline(
 ///|
 test "MarkdownNode preserves link reference forms" {
   let cases = [
-    ("[foo](/url)\n", MarkdownReferenceForm::Inline),
-    ("[foo][bar]\n\n[bar]: /url\n", MarkdownReferenceForm::FullReference),
-    ("[foo][]\n\n[foo]: /url\n", MarkdownReferenceForm::CollapsedReference),
-    ("[foo]\n\n[foo]: /url\n", MarkdownReferenceForm::ShortcutReference),
+    ("[foo](/url)\n", @markdown.MarkdownReferenceForm::Inline),
+    ("[foo][bar]\n\n[bar]: /url\n", @markdown.MarkdownReferenceForm::FullReference),
+    ("[foo][]\n\n[foo]: /url\n", @markdown.MarkdownReferenceForm::CollapsedReference),
+    ("[foo]\n\n[foo]: /url\n", @markdown.MarkdownReferenceForm::ShortcutReference),
   ]
   cases.each(case => {
     let (source, expected) = case
@@ -31,10 +31,10 @@ test "MarkdownNode preserves link reference forms" {
 ///|
 test "MarkdownNode preserves image reference forms" {
   let cases = [
-    ("![foo](/image)\n", MarkdownReferenceForm::Inline),
-    ("![foo][bar]\n\n[bar]: /image\n", MarkdownReferenceForm::FullReference),
-    ("![foo][]\n\n[foo]: /image\n", MarkdownReferenceForm::CollapsedReference),
-    ("![foo]\n\n[foo]: /image\n", MarkdownReferenceForm::ShortcutReference),
+    ("![foo](/image)\n", @markdown.MarkdownReferenceForm::Inline),
+    ("![foo][bar]\n\n[bar]: /image\n", @markdown.MarkdownReferenceForm::FullReference),
+    ("![foo][]\n\n[foo]: /image\n", @markdown.MarkdownReferenceForm::CollapsedReference),
+    ("![foo]\n\n[foo]: /image\n", @markdown.MarkdownReferenceForm::ShortcutReference),
   ]
   cases.each(case => {
     let (source, expected) = case
@@ -52,7 +52,7 @@ test "MarkdownNode preserves autolink hard-break and task metadata" {
     Autolink(kind=Uri, display="https://example.test", ..) => ()
     other => fail("expected URI autolink, got " + @debug.to_string(other))
   }
-  let paragraph = parse("a  \nb\\\nc\n").root().children()[0]
+  let paragraph = @markdown.parse("a  \nb\\\nc\n").root().children()[0]
   let forms = paragraph
     .children()
     .filter_map(node => {
@@ -62,7 +62,7 @@ test "MarkdownNode preserves autolink hard-break and task metadata" {
       }
     })
   assert_eq(forms, [TrailingSpaces(2), Backslash])
-  let item = parse("- [x] task\n", extensions=MarkdownExtensions::task_list())
+  let item = @markdown.parse("- [x] task\n", extensions=@markdown.MarkdownExtensions::task_list())
     .root()
     .children()[0].children()[0]
   match item.view() {
@@ -74,10 +74,10 @@ test "MarkdownNode preserves autolink hard-break and task metadata" {
 ///|
 test "MarkdownNode remains valid after its document goes out of scope" {
   let root = {
-    let document = parse("detached\n")
+    let document = @markdown.parse("detached\n")
     document.root()
   }
-  assert_eq(root.view(), MarkdownNodeView::Document)
+  assert_eq(root.view(), @markdown.MarkdownNodeView::Document)
   match root.children()[0].children()[0].view() {
     Text(value="detached") => ()
     other => fail("expected detached text, got " + @debug.to_string(other))

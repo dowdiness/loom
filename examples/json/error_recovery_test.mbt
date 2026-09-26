@@ -1,7 +1,7 @@
 ///|
 test "error recovery: trailing comma in object" {
   let source_id = @core.SourceId("json-error-trailing-object")
-  let (cst, diagnostics) = try! parse_cst(source_id, "{\"a\": 1,}")
+  let (cst, diagnostics) = try! @json.parse_cst(source_id, "{\"a\": 1,}")
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(tree.end() == "{\"a\": 1,}".length(), content="true")
   inspect(diagnostics.length() > 0, content="true")
@@ -10,7 +10,7 @@ test "error recovery: trailing comma in object" {
 ///|
 test "error recovery: trailing comma in array" {
   let source_id = @core.SourceId("json-error-trailing-array")
-  let (cst, diagnostics) = try! parse_cst(source_id, "[1,]")
+  let (cst, diagnostics) = try! @json.parse_cst(source_id, "[1,]")
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(tree.end() == "[1,]".length(), content="true")
   inspect(diagnostics.length() > 0, content="true")
@@ -19,7 +19,7 @@ test "error recovery: trailing comma in array" {
 ///|
 test "error recovery: missing colon" {
   let source_id = @core.SourceId("json-error-missing-colon")
-  let (cst, diagnostics) = try! parse_cst(source_id, "{\"key\" 42}")
+  let (cst, diagnostics) = try! @json.parse_cst(source_id, "{\"key\" 42}")
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(tree.end() == "{\"key\" 42}".length(), content="true")
   inspect(diagnostics.length() > 0, content="true")
@@ -28,7 +28,7 @@ test "error recovery: missing colon" {
 ///|
 test "error recovery: missing closing brace" {
   let source_id = @core.SourceId("json-error-missing-object-close")
-  let (cst, diagnostics) = try! parse_cst(source_id, "{\"a\": 1")
+  let (cst, diagnostics) = try! @json.parse_cst(source_id, "{\"a\": 1")
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(tree.end() == "{\"a\": 1".length(), content="true")
   inspect(diagnostics.length() > 0, content="true")
@@ -37,7 +37,7 @@ test "error recovery: missing closing brace" {
 ///|
 test "error recovery: empty input" {
   let source_id = @core.SourceId("json-error-empty")
-  let (cst, diagnostics) = try! parse_cst(source_id, "")
+  let (cst, diagnostics) = try! @json.parse_cst(source_id, "")
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(tree.end(), content="0")
   inspect(diagnostics.length() > 0, content="true")
@@ -46,7 +46,7 @@ test "error recovery: empty input" {
 ///|
 test "error recovery: missing closing bracket" {
   let source_id = @core.SourceId("json-error-missing-array-close")
-  let (cst, diagnostics) = try! parse_cst(source_id, "[1, 2")
+  let (cst, diagnostics) = try! @json.parse_cst(source_id, "[1, 2")
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(tree.end() == "[1, 2".length(), content="true")
   inspect(diagnostics.length() > 0, content="true")
@@ -59,7 +59,7 @@ test "error recovery: missing closing bracket" {
 // drop `2` as an unexpected trailing token. See loom #291.
 test "error recovery: missing comma between array elements" {
   let source_id = @core.SourceId("json-error-missing-array-comma")
-  let (value, diagnostics) = try! parse_json(source_id, "[1 2]")
+  let (value, diagnostics) = try! @json.parse_json(source_id, "[1 2]")
   // The missing separator must surface as a diagnostic.
   inspect(diagnostics.length() > 0, content="true")
   match value {
@@ -74,21 +74,21 @@ test "error recovery: missing comma between array elements" {
 ///|
 test "error recovery: missing comma array CST shape stays wrapper-free" {
   let source_id = @core.SourceId("json-error-missing-array-comma-cst")
-  let (cst, diagnostics) = try! parse_cst(source_id, "[1 2]")
+  let (cst, diagnostics) = try! @json.parse_cst(source_id, "[1 2]")
   inspect(diagnostics.length() > 0, content="true")
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [array_node] => {
-      inspect(SyntaxKind::from_raw(array_node.kind()), content="ArrayNode")
+      inspect(@json.SyntaxKind::from_raw(array_node.kind()), content="ArrayNode")
       match array_node.children() {
         [first, second] => {
-          inspect(SyntaxKind::from_raw(first.kind()), content="NumberValue")
-          inspect(SyntaxKind::from_raw(second.kind()), content="NumberValue")
+          inspect(@json.SyntaxKind::from_raw(first.kind()), content="NumberValue")
+          inspect(@json.SyntaxKind::from_raw(second.kind()), content="NumberValue")
         }
         _ => fail("expected two array values")
       }
       inspect(
-        array_node.direct_token_of_kind(SyntaxKind::ErrorToken.to_raw())
+        array_node.direct_token_of_kind(@json.SyntaxKind::ErrorToken.to_raw())
         is Some(_),
         content="true",
       )
@@ -100,18 +100,18 @@ test "error recovery: missing comma array CST shape stays wrapper-free" {
 ///|
 test "error recovery: trailing comma array CST shape stays wrapper-free" {
   let source_id = @core.SourceId("json-error-trailing-array-cst")
-  let (cst, diagnostics) = try! parse_cst(source_id, "[1,]")
+  let (cst, diagnostics) = try! @json.parse_cst(source_id, "[1,]")
   inspect(diagnostics.length() > 0, content="true")
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [array_node] => {
-      inspect(SyntaxKind::from_raw(array_node.kind()), content="ArrayNode")
+      inspect(@json.SyntaxKind::from_raw(array_node.kind()), content="ArrayNode")
       match array_node.children() {
         [_] => ()
         _ => fail("expected one array value")
       }
       inspect(
-        array_node.direct_token_of_kind(SyntaxKind::ErrorToken.to_raw())
+        array_node.direct_token_of_kind(@json.SyntaxKind::ErrorToken.to_raw())
         is Some(_),
         content="true",
       )
@@ -123,14 +123,14 @@ test "error recovery: trailing comma array CST shape stays wrapper-free" {
 ///|
 test "error recovery: non-sync array element stays an error child" {
   let source_id = @core.SourceId("json-error-non-sync-array-element")
-  let (cst, diagnostics) = try! parse_cst(source_id, "[1, @, 2]")
+  let (cst, diagnostics) = try! @json.parse_cst(source_id, "[1, @, 2]")
   inspect(diagnostics.length() > 0, content="true")
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [array_node] =>
       match array_node.children() {
         [_, middle, _] =>
-          inspect(SyntaxKind::from_raw(middle.kind()), content="ErrorToken")
+          inspect(@json.SyntaxKind::from_raw(middle.kind()), content="ErrorToken")
         _ => fail("expected three array values")
       }
     _ => fail("expected single array root child")
@@ -142,7 +142,7 @@ test "error recovery: non-sync array element stays an error child" {
 // omits the separator between members; the second member must be recovered.
 test "error recovery: missing comma between object members" {
   let source_id = @core.SourceId("json-error-missing-object-comma")
-  let (value, diagnostics) = try! parse_json(source_id, "{\"a\":1 \"b\":2}")
+  let (value, diagnostics) = try! @json.parse_json(source_id, "{\"a\":1 \"b\":2}")
   inspect(diagnostics.length() > 0, content="true")
   match value {
     Object(members) => {
@@ -158,19 +158,19 @@ test "error recovery: missing comma between object members" {
 ///|
 test "error recovery: missing comma object CST shape stays wrapper-free" {
   let source_id = @core.SourceId("json-error-missing-object-comma-cst")
-  let (cst, diagnostics) = try! parse_cst(source_id, "{\"a\":1 \"b\":2}")
+  let (cst, diagnostics) = try! @json.parse_cst(source_id, "{\"a\":1 \"b\":2}")
   inspect(diagnostics.length() > 0, content="true")
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [object_node] => {
-      inspect(SyntaxKind::from_raw(object_node.kind()), content="ObjectNode")
+      inspect(@json.SyntaxKind::from_raw(object_node.kind()), content="ObjectNode")
       match
-        object_node.direct_children_of_kind(SyntaxKind::MemberNode.to_raw()) {
+        object_node.direct_children_of_kind(@json.SyntaxKind::MemberNode.to_raw()) {
         [_, _] => ()
         _ => fail("expected two object members")
       }
       inspect(
-        object_node.direct_token_of_kind(SyntaxKind::ErrorToken.to_raw())
+        object_node.direct_token_of_kind(@json.SyntaxKind::ErrorToken.to_raw())
         is Some(_),
         content="true",
       )
@@ -182,19 +182,19 @@ test "error recovery: missing comma object CST shape stays wrapper-free" {
 ///|
 test "error recovery: trailing comma object CST shape stays wrapper-free" {
   let source_id = @core.SourceId("json-error-trailing-object-cst")
-  let (cst, diagnostics) = try! parse_cst(source_id, "{\"a\":1,}")
+  let (cst, diagnostics) = try! @json.parse_cst(source_id, "{\"a\":1,}")
   inspect(diagnostics.length() > 0, content="true")
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [object_node] => {
-      inspect(SyntaxKind::from_raw(object_node.kind()), content="ObjectNode")
+      inspect(@json.SyntaxKind::from_raw(object_node.kind()), content="ObjectNode")
       match
-        object_node.direct_children_of_kind(SyntaxKind::MemberNode.to_raw()) {
+        object_node.direct_children_of_kind(@json.SyntaxKind::MemberNode.to_raw()) {
         [_] => ()
         _ => fail("expected one object member")
       }
       inspect(
-        object_node.direct_token_of_kind(SyntaxKind::ErrorToken.to_raw())
+        object_node.direct_token_of_kind(@json.SyntaxKind::ErrorToken.to_raw())
         is Some(_),
         content="true",
       )

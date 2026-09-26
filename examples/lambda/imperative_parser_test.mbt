@@ -10,7 +10,7 @@ test "ImperativeParser::diagnostics empty on valid source" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(x) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   debug_inspect(parser.diagnostics().format(), content="[]")
@@ -21,7 +21,7 @@ test "ImperativeParser::diagnostics non-empty on invalid source" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(,) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")
@@ -32,7 +32,7 @@ test "ImperativeParser::new creates parser" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "42",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   inspect(parser.get_source(), content="42")
   inspect(parser.get_tree() is None, content="true")
@@ -43,7 +43,7 @@ test "ImperativeParser::parse initial parse" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(x) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let tree = parser.parse().ast
   inspect(@ast.print_term(tree), content="(x) => x")
@@ -55,7 +55,7 @@ test "ImperativeParser::edit simple insertion" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "42",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -72,7 +72,7 @@ test "ImperativeParser::edit simple deletion" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "42 + 1",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -87,7 +87,7 @@ test "ImperativeParser::edit replacement" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -102,7 +102,7 @@ test "ImperativeParser::edit with no initial tree" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
 
   // Edit without parsing first
@@ -116,7 +116,7 @@ test "ImperativeParser::edit preserves structure" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(f, x) => f x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let initial_tree = parser.parse().ast
 
@@ -144,7 +144,7 @@ test "ImperativeParser::multiple edits" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -169,7 +169,7 @@ test "ImperativeParser::edit result equals full reparse" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -178,7 +178,7 @@ test "ImperativeParser::edit result equals full reparse" {
   let incremental_tree = parser.edit(edit, "x + 1").ast
 
   // Full reparse
-  let full_tree = parse(imperative_parser_test_source_id(), "x + 1") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "x + 1") catch {
     _ => abort("parse failed")
   }
 
@@ -191,7 +191,7 @@ test "tree fragment reuse for unchanged regions" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(f, x) => f (x + 1)",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let initial_tree = parser.parse().ast
 
@@ -222,7 +222,7 @@ test "minimal reparsing for local edits" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "a + b + c + d",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -241,7 +241,7 @@ test "multiple incremental edits preserve correctness" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(x) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -257,7 +257,7 @@ test "multiple incremental edits preserve correctness" {
   inspect(@ast.print_term(tree3).contains("(y) => (x) =>"), content="true")
 
   // Final result should match full reparse
-  let full_tree = parse(imperative_parser_test_source_id(), "(y, x) => x + 2") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(y, x) => x + 2") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(tree3), content=@ast.print_term(full_tree))
@@ -268,7 +268,7 @@ test "damage tracking accuracy" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(a + b) + (c + d)",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -277,7 +277,7 @@ test "damage tracking accuracy" {
   let new_tree = parser.edit(edit, "(a + b) + (x + d)").ast
 
   // Incremental result must match a full reparse of the edited source
-  let full_tree = parse(imperative_parser_test_source_id(), "(a + b) + (x + d)") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(a + b) + (x + d)") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -290,7 +290,7 @@ test "Edge case: insertion at position 0" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -299,7 +299,7 @@ test "Edge case: insertion at position 0" {
   let new_tree = parser.edit(edit, "(x) => x").ast
 
   // Should correctly parse the new structure
-  let full_tree = parse(imperative_parser_test_source_id(), "(x) => x") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(x) => x") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -310,7 +310,7 @@ test "Edge case: insertion at end of document" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -319,7 +319,7 @@ test "Edge case: insertion at end of document" {
   let new_tree = parser.edit(edit, "x + 1").ast
 
   // Should correctly parse the new structure
-  let full_tree = parse(imperative_parser_test_source_id(), "x + 1") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "x + 1") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -330,7 +330,7 @@ test "Edge case: delete entire document" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x + y",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -347,14 +347,14 @@ test "Edge case: replace with longer text" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Replace single char with much longer expression
   let edit = @core.Edit::replace(0, 1, 15)
   let new_tree = parser.edit(edit, "(f, x) => f (f (x))").ast
-  let full_tree = parse(
+  let full_tree = @lambda.parse(
     imperative_parser_test_source_id(),
     "(f, x) => f (f (x))",
   ) catch {
@@ -368,14 +368,14 @@ test "Edge case: replace with shorter text" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(f, x) => f (f (x))",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Replace long expression with single char
   let edit = @core.Edit::replace(0, 15, 1)
   let new_tree = parser.edit(edit, "y").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "y") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "y") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -386,7 +386,7 @@ test "Edge case: consecutive insertions at same position" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -397,7 +397,7 @@ test "Edge case: consecutive insertions at same position" {
   // Second insertion at same position (after first edit)
   let edit2 = @core.Edit::insert(3, 2)
   let tree2 = parser.edit(edit2, "x y z").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "x y z") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "x y z") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(tree2), content=@ast.print_term(full_tree))
@@ -408,14 +408,14 @@ test "Edge case: insertion in middle of lambda parameter" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(x) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Insert in the middle of parameter name (should change structure)
   let edit = @core.Edit::insert(2, 1)
   let new_tree = parser.edit(edit, "(xy) => x").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "(xy) => x") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(xy) => x") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -426,14 +426,14 @@ test "Edge case: deletion at boundary between nodes" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x + y",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Delete the operator (critical boundary)
   let edit = @core.Edit::delete(2, 4)
   let new_tree = parser.edit(edit, "x y").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "x y") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "x y") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -444,14 +444,14 @@ test "Edge case: structural change from leaf to compound" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "42",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Change from simple int to binary operation
   let edit = @core.Edit::insert(2, 4)
   let new_tree = parser.edit(edit, "42 + 1").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "42 + 1") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "42 + 1") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -462,14 +462,14 @@ test "Edge case: structural change from compound to leaf" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x + y",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Change from binary operation to simple variable
   let edit = @core.Edit::replace(0, 5, 1)
   let new_tree = parser.edit(edit, "z").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "z") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "z") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -480,14 +480,14 @@ test "Edge case: nested lambda insertion at start" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(x) => x + 1",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Wrap with another lambda
   let edit = @core.Edit::insert(0, 3)
   let new_tree = parser.edit(edit, "(y, x) => x + 1").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "(y, x) => x + 1") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(y, x) => x + 1") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -498,7 +498,7 @@ test "Edge case: multiple rapid edits in sequence" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "a",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -509,7 +509,7 @@ test "Edge case: multiple rapid edits in sequence" {
   let _ = parser.edit(edit2, "a b c").ast
   let edit3 = @core.Edit::insert(5, 2)
   let tree3 = parser.edit(edit3, "a b c d").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "a b c d") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "a b c d") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(tree3), content=@ast.print_term(full_tree))
@@ -520,14 +520,14 @@ test "Edge case: edit that changes operator precedence" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "a + b * c",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Change to affect precedence structure
   let edit = @core.Edit::replace(4, 5, 5)
   let new_tree = parser.edit(edit, "a + b + c").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "a + b + c") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "a + b + c") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -538,7 +538,7 @@ test "Edge case: whitespace-only insertion" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(x) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -555,14 +555,14 @@ test "Edge case: validation with identical structure but different content" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(x) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Change variable name (same structure, different content)
   let edit = @core.Edit::replace(1, 2, 2)
   let new_tree = parser.edit(edit, "(y) => x").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "(y) => x") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(y) => x") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -573,7 +573,7 @@ test "Edge case: insertion that creates error node" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -590,7 +590,7 @@ test "Edge case: zero-length edit (no-op)" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x + y",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let initial_tree = parser.parse().ast
 
@@ -607,14 +607,14 @@ test "Edge case: position boundary at node start" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(x, y) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Insert exactly at inner lambda boundary
   let edit = @core.Edit::insert(3, 1)
   let new_tree = parser.edit(edit, "(x, y) => x").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "(x, y) => x") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(x, y) => x") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -625,14 +625,14 @@ test "Edge case: position boundary at node end" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(x, y) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Insert exactly at end of inner lambda
   let edit = @core.Edit::insert(7, 2)
   let new_tree = parser.edit(edit, "(x, y) => x y").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "(x, y) => x y") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(x, y) => x y") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -670,11 +670,11 @@ fn assert_lambda_incremental_edit_matches_full(
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     old_source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = try! parser.parse().ast
   let incremental = try! parser.edit(edit, new_source).ast
-  let full = parse(imperative_parser_test_source_id(), new_source) catch {
+  let full = @lambda.parse(imperative_parser_test_source_id(), new_source) catch {
     _ => abort("parse failed for edit matrix case: " + label)
   }
   assert_lambda_terms_match(label, incremental, full)
@@ -775,27 +775,27 @@ test "Differential: repeated edit sequence matches full reparse after each step"
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "a + b + c",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   let source1 = "a + x + c"
   let incremental1 = parser.edit(@core.Edit::replace(4, 5, 5), source1).ast
-  let full1 = parse(imperative_parser_test_source_id(), source1) catch {
+  let full1 = @lambda.parse(imperative_parser_test_source_id(), source1) catch {
     _ => abort("parse failed")
   }
   assert_lambda_terms_match("repeated edit 1", incremental1, full1)
 
   let source2 = "a + x + c + d"
   let incremental2 = parser.edit(@core.Edit::insert(9, 4), source2).ast
-  let full2 = parse(imperative_parser_test_source_id(), source2) catch {
+  let full2 = @lambda.parse(imperative_parser_test_source_id(), source2) catch {
     _ => abort("parse failed")
   }
   assert_lambda_terms_match("repeated edit 2", incremental2, full2)
 
   let source3 = "x + c + d"
   let incremental3 = parser.edit(@core.Edit::delete(0, 4), source3).ast
-  let full3 = parse(imperative_parser_test_source_id(), source3) catch {
+  let full3 = @lambda.parse(imperative_parser_test_source_id(), source3) catch {
     _ => abort("parse failed")
   }
   assert_lambda_terms_match("repeated edit 3", incremental3, full3)
@@ -806,14 +806,14 @@ test "Differential: single token edit in middle" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "a + b + c",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Change "b" to "x"
   let edit = @core.Edit::replace(4, 5, 5)
   let incremental = parser.edit(edit, "a + x + c").ast
-  let full = parse(imperative_parser_test_source_id(), "a + x + c") catch {
+  let full = @lambda.parse(imperative_parser_test_source_id(), "a + x + c") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incremental), content=@ast.print_term(full))
@@ -824,14 +824,14 @@ test "Differential: insert at beginning" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "y",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Insert "(x) => " at beginning
   let edit = @core.Edit::insert(0, 7)
   let incremental = parser.edit(edit, "(x) => y").ast
-  let full = parse(imperative_parser_test_source_id(), "(x) => y") catch {
+  let full = @lambda.parse(imperative_parser_test_source_id(), "(x) => y") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incremental), content=@ast.print_term(full))
@@ -842,14 +842,14 @@ test "Differential: delete in middle" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(x) => x + 1",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Delete " + 1"
   let edit = @core.Edit::delete(4, 8)
   let incremental = parser.edit(edit, "(x) => x").ast
-  let full = parse(imperative_parser_test_source_id(), "(x) => x") catch {
+  let full = @lambda.parse(imperative_parser_test_source_id(), "(x) => x") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incremental), content=@ast.print_term(full))
@@ -860,14 +860,14 @@ test "Differential: complex nested expression" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(f, x) => f (f x)",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Change inner "f" to "g"
   let edit = @core.Edit::replace(9, 10, 10)
   let incremental = parser.edit(edit, "(f, x) => f (g x)").ast
-  let full = parse(imperative_parser_test_source_id(), "(f, x) => f (g x)") catch {
+  let full = @lambda.parse(imperative_parser_test_source_id(), "(f, x) => f (g x)") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incremental), content=@ast.print_term(full))
@@ -878,14 +878,14 @@ test "Differential: if-then-else modification" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "if x then 1 else 2",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Change condition "x" to "y"
   let edit = @core.Edit::replace(3, 4, 4)
   let incremental = parser.edit(edit, "if y then 1 else 2").ast
-  let full = parse(imperative_parser_test_source_id(), "if y then 1 else 2") catch {
+  let full = @lambda.parse(imperative_parser_test_source_id(), "if y then 1 else 2") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incremental), content=@ast.print_term(full))
@@ -896,14 +896,14 @@ test "Differential: identifier boundary merge" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x y",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Delete boundary whitespace: "x y" -> "xy"
   let edit = @core.Edit::delete(1, 2)
   let incremental = parser.edit(edit, "xy").ast
-  let full = parse(imperative_parser_test_source_id(), "xy") catch {
+  let full = @lambda.parse(imperative_parser_test_source_id(), "xy") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(full), content="xy")
@@ -915,14 +915,14 @@ test "Differential: identifier boundary split" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "xy",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Insert boundary whitespace: "xy" -> "x y"
   let edit = @core.Edit::insert(1, 1)
   let incremental = parser.edit(edit, "x y").ast
-  let full = parse(imperative_parser_test_source_id(), "x y") catch {
+  let full = @lambda.parse(imperative_parser_test_source_id(), "x y") catch {
     _ => abort("parse failed")
   }
   inspect(
@@ -939,14 +939,14 @@ test "Differential: integer boundary merge" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "1 2",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Delete boundary whitespace: "1 2" -> "12"
   let edit = @core.Edit::delete(1, 2)
   let incremental = parser.edit(edit, "12").ast
-  let full = parse(imperative_parser_test_source_id(), "12") catch {
+  let full = @lambda.parse(imperative_parser_test_source_id(), "12") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(full), content="12")
@@ -958,14 +958,14 @@ test "Differential: integer boundary split" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "12",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Insert boundary whitespace: "12" -> "1 2"
   let edit = @core.Edit::insert(1, 1)
   let incremental = parser.edit(edit, "1 2").ast
-  let full = parse(imperative_parser_test_source_id(), "1 2") catch {
+  let full = @lambda.parse(imperative_parser_test_source_id(), "1 2") catch {
     _ => abort("parse failed")
   }
   inspect(
@@ -982,14 +982,14 @@ test "Differential: multiple consecutive edits" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "a",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // First edit: a -> a b
   let edit1 = @core.Edit::insert(1, 2)
   let incr1 = parser.edit(edit1, "a b").ast
-  let full1 = parse(imperative_parser_test_source_id(), "a b") catch {
+  let full1 = @lambda.parse(imperative_parser_test_source_id(), "a b") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr1), content=@ast.print_term(full1))
@@ -997,7 +997,7 @@ test "Differential: multiple consecutive edits" {
   // Second edit: a b -> a b c
   let edit2 = @core.Edit::insert(3, 2)
   let incr2 = parser.edit(edit2, "a b c").ast
-  let full2 = parse(imperative_parser_test_source_id(), "a b c") catch {
+  let full2 = @lambda.parse(imperative_parser_test_source_id(), "a b c") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr2), content=@ast.print_term(full2))
@@ -1005,7 +1005,7 @@ test "Differential: multiple consecutive edits" {
   // Third edit: a b c -> a b c d
   let edit3 = @core.Edit::insert(5, 2)
   let incr3 = parser.edit(edit3, "a b c d").ast
-  let full3 = parse(imperative_parser_test_source_id(), "a b c d") catch {
+  let full3 = @lambda.parse(imperative_parser_test_source_id(), "a b c d") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr3), content=@ast.print_term(full3))
@@ -1020,7 +1020,7 @@ test "Reuse: count is zero on initial parse" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(x) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   // Initial parse has no reuse (no old tree)
@@ -1032,7 +1032,7 @@ test "Reuse: nodes are reused for non-overlapping edits" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "a + b + c + d + e",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -1052,7 +1052,7 @@ test "Reuse: edit at end should allow front reuse" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "a b c d e",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -1070,7 +1070,7 @@ test "Reuse: full replacement has no reuse" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -1088,14 +1088,14 @@ test "Reuse: adjacent insert should not incorrectly reuse" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Insert at end (adjacent to existing node)
   let edit = @core.Edit::insert(1, 2)
   let incr_tree = parser.edit(edit, "x y").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "x y") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "x y") catch {
     _ => abort("parse failed")
   }
 
@@ -1109,14 +1109,14 @@ test "Reuse: whitespace-containing expressions parse correctly" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(x) => x + 1",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Edit only the number at the end
   let edit = @core.Edit::replace(8, 9, 9)
   let incr_tree = parser.edit(edit, "(x) => x + 2").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "(x) => x + 2") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(x) => x + 2") catch {
     _ => abort("parse failed")
   }
 
@@ -1129,14 +1129,14 @@ test "Reuse: multiple spaces between tokens" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "a   +   b",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Edit "b" -> "c"
   let edit = @core.Edit::replace(8, 9, 9)
   let incr_tree = parser.edit(edit, "a   +   c").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "a   +   c") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "a   +   c") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -1147,14 +1147,14 @@ test "Reuse: leading whitespace in source" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "  x + y",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Edit "y" -> "z"
   let edit = @core.Edit::replace(6, 7, 7)
   let incr_tree = parser.edit(edit, "  x + z").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "  x + z") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "  x + z") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -1165,14 +1165,14 @@ test "Reuse: trailing whitespace in source" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "x + y  ",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Edit "y" -> "z"
   let edit = @core.Edit::replace(4, 5, 5)
   let incr_tree = parser.edit(edit, "x + z  ").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "x + z  ") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "x + z  ") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -1183,7 +1183,7 @@ test "ImperativeParser::edit returns same AST when CST is unchanged" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "1+2",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let ast1 = parser.parse().ast
   // Edit: add trailing whitespace — CST content unchanged (whitespace is trivia)
@@ -1197,7 +1197,7 @@ test "ImperativeParser::reset parses new source fresh" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "42",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   let result = parser.reset("(x) => x").ast
@@ -1209,7 +1209,7 @@ test "ImperativeParser::reset clears old tree state" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "(x) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   // Reset to completely different source
@@ -1237,7 +1237,7 @@ test "ImperativeParser::reset clears old tree state" {
 test "source file: editing first def reuses second def" {
   let source1 = "let id = 1\nlet const = 2"
   let tokens1 = @lexer.tokenize(source1)
-  let (cst1, _, _) = parse_cst_recover_with_tokens(
+  let (cst1, _, _) = @lambda.parse_cst_recover_with_tokens(
     imperative_parser_test_source_id(),
     source1,
     tokens1,
@@ -1246,8 +1246,8 @@ test "source file: editing first def reuses second def" {
   // Same-length replacement: "1" → "5" at position 9 (damage window [9, 10))
   let source2 = "let id = 5\nlet const = 2"
   let tokens2 = @lexer.tokenize(source2)
-  let cursor = make_reuse_cursor(cst1, 9, 10, tokens2, source2)
-  let (_, _, reuse_count) = parse_cst_recover_with_tokens(
+  let cursor = @lambda.make_reuse_cursor(cst1, 9, 10, tokens2, source2)
+  let (_, _, reuse_count) = @lambda.parse_cst_recover_with_tokens(
     imperative_parser_test_source_id(),
     source2,
     tokens2,
@@ -1263,7 +1263,7 @@ test "source file: editing first def reuses second def" {
 test "source file: incremental parse == full reparse after first def edit" {
   let source1 = "let id = 1\nlet const = 2\nid"
   let tokens1 = @lexer.tokenize(source1)
-  let (cst1, _, _) = parse_cst_recover_with_tokens(
+  let (cst1, _, _) = @lambda.parse_cst_recover_with_tokens(
     imperative_parser_test_source_id(),
     source1,
     tokens1,
@@ -1272,17 +1272,17 @@ test "source file: incremental parse == full reparse after first def edit" {
   // Same-length replacement: "1" → "5"
   let source2 = "let id = 5\nlet const = 2\nid"
   let tokens2 = @lexer.tokenize(source2)
-  let cursor = make_reuse_cursor(cst1, 9, 10, tokens2, source2)
-  let (incr_cst, _, _) = parse_cst_recover_with_tokens(
+  let cursor = @lambda.make_reuse_cursor(cst1, 9, 10, tokens2, source2)
+  let (incr_cst, _, _) = @lambda.parse_cst_recover_with_tokens(
     imperative_parser_test_source_id(),
     source2,
     tokens2,
     Some(cursor),
   )
-  let (full_cst, _) = parse_cst(imperative_parser_test_source_id(), source2)
+  let (full_cst, _) = @lambda.parse_cst(imperative_parser_test_source_id(), source2)
   // Both trees must produce the same term structure
-  let incr_term = syntax_node_to_term(@seam.SyntaxNode::from_cst(incr_cst))
-  let full_term = syntax_node_to_term(@seam.SyntaxNode::from_cst(full_cst))
+  let incr_term = @lambda.syntax_node_to_term(@seam.SyntaxNode::from_cst(incr_cst))
+  let full_term = @lambda.syntax_node_to_term(@seam.SyntaxNode::from_cst(full_cst))
   inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
 }
 
@@ -1293,7 +1293,7 @@ test "source file: incremental parse == full reparse after first def edit" {
 test "source file: editing second def reuses first def" {
   let source1 = "let id = 1\nlet const = 2"
   let tokens1 = @lexer.tokenize(source1)
-  let (cst1, _, _) = parse_cst_recover_with_tokens(
+  let (cst1, _, _) = @lambda.parse_cst_recover_with_tokens(
     imperative_parser_test_source_id(),
     source1,
     tokens1,
@@ -1302,8 +1302,8 @@ test "source file: editing second def reuses first def" {
   // "let const = 2" — "2" is at position 22, same-length replacement (damage [22, 23))
   let source2 = "let id = 1\nlet const = 9"
   let tokens2 = @lexer.tokenize(source2)
-  let cursor = make_reuse_cursor(cst1, 22, 23, tokens2, source2)
-  let (_, _, reuse_count) = parse_cst_recover_with_tokens(
+  let cursor = @lambda.make_reuse_cursor(cst1, 22, 23, tokens2, source2)
+  let (_, _, reuse_count) = @lambda.parse_cst_recover_with_tokens(
     imperative_parser_test_source_id(),
     source2,
     tokens2,
@@ -1318,7 +1318,7 @@ test "Reuse: tokenization error clears stale concrete syntax tree state" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "1+1+1",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -1330,7 +1330,7 @@ test "Reuse: tokenization error clears stale concrete syntax tree state" {
   // Remove invalid token; incremental parse must match full reparse.
   let edit2 = @core.Edit::delete(5, 6)
   let incr_tree = parser.edit(edit2, "1+2+1").ast
-  let full_tree = parse(imperative_parser_test_source_id(), "1+2+1") catch {
+  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "1+2+1") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -1343,7 +1343,7 @@ test "ImperativeParser: CstFold cache reuses unchanged subtrees after edit" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     "1 + 2",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let t1 = parser.parse().ast
   inspect(
@@ -1383,12 +1383,12 @@ test "incremental - size threshold preserves correctness" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   let incremental_result = parser.edit(edit, edited).ast
   // Compare with batch parse
-  let batch_result = parse(imperative_parser_test_source_id(), edited) catch {
+  let batch_result = @lambda.parse(imperative_parser_test_source_id(), edited) catch {
     _ => abort("parse failed")
   }
   // Both should produce the same term
@@ -1410,12 +1410,12 @@ test "incremental - threshold 0 preserves correctness" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     source,
-    lambda_grammar_no_threshold,
+    @lambda.lambda_grammar_no_threshold,
   )
   let _ = parser.parse().ast
   let incremental_result = parser.edit(edit, edited).ast
   // Compare with batch parse
-  let batch_result = parse(imperative_parser_test_source_id(), edited) catch {
+  let batch_result = @lambda.parse(imperative_parser_test_source_id(), edited) catch {
     _ => abort("parse failed")
   }
   inspect(
@@ -1440,7 +1440,7 @@ test "incremental - threshold reduces reuse count for small nodes" {
   let parser_no_thresh = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     source,
-    lambda_grammar_no_threshold,
+    @lambda.lambda_grammar_no_threshold,
   )
   let _ = parser_no_thresh.parse()
   let _ = parser_no_thresh.edit(edit, edited)
@@ -1449,7 +1449,7 @@ test "incremental - threshold reduces reuse count for small nodes" {
   let parser_with_thresh = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser_with_thresh.parse()
   let _ = parser_with_thresh.edit(edit, edited)
@@ -1486,11 +1486,11 @@ test "incremental - correctness with balanced RepeatGroup trees" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   let incr = parser.edit(edit, edited).ast
-  let batch = parse(imperative_parser_test_source_id(), edited) catch {
+  let batch = @lambda.parse(imperative_parser_test_source_id(), edited) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr) == @ast.print_term(batch), content="true")
@@ -1506,14 +1506,14 @@ test "incremental: edit inside block matches full reparse" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   // Replace "1" with "2" at position 10
   let new_source = "{ let a = 2; a }"
   let edit = @core.Edit::new(10, 1, 1)
   let incr_term = parser.edit(edit, new_source).ast
-  let full_term = parse(imperative_parser_test_source_id(), new_source) catch {
+  let full_term = @lambda.parse(imperative_parser_test_source_id(), new_source) catch {
     _ => abort("parse error")
   }
   inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
@@ -1525,14 +1525,14 @@ test "incremental: edit body of param-list function matches full reparse" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   // Replace "x" with "y" in the body at position 14
   let new_source = "fn f(x, y) { y }\nf 1 2"
   let edit = @core.Edit::new(14, 1, 1)
   let incr_term = parser.edit(edit, new_source).ast
-  let full_term = parse(imperative_parser_test_source_id(), new_source) catch {
+  let full_term = @lambda.parse(imperative_parser_test_source_id(), new_source) catch {
     _ => abort("parse error")
   }
   inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
@@ -1544,14 +1544,14 @@ test "incremental: add block to let def matches full reparse" {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   // Replace "1" (1 char at pos 8) with "{ 1 }" (5 chars)
   let new_source = "let x = { 1 }\nx"
   let edit = @core.Edit::new(8, 1, 5)
   let incr_term = parser.edit(edit, new_source).ast
-  let full_term = parse(imperative_parser_test_source_id(), new_source) catch {
+  let full_term = @lambda.parse(imperative_parser_test_source_id(), new_source) catch {
     _ => abort("parse error")
   }
   inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))

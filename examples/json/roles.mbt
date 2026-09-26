@@ -172,3 +172,24 @@ fn json_role_spans_iter(node : @seam.SyntaxNode) -> Iter[JsonRoleSpan] {
 pub fn project_json_roles(syntax : @seam.SyntaxNode) -> Array[JsonRoleSpan] {
   json_role_spans_iter(syntax).to_array()
 }
+
+///|
+pub extend JsonRole with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend JsonRole with Eq::{equal, not_equal}
+
+///|
+pub extend JsonRoleSpan with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend JsonRoleSpan with Eq::{equal, not_equal}
+
+///|
+pub extend JsonRoleSpanExport with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend JsonRoleSpanExport with Eq::{equal, not_equal}
+
+///|
+pub extend JsonRoleSpanExport with ToJson::{to_json}

@@ -20,7 +20,7 @@ fn truncate_label(text : String) -> String {
   if text.length() <= LABEL_MAX {
     return text
   }
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for c in text.iter().take(LABEL_MAX) {
     buf.write_char(c)
   }
@@ -141,3 +141,9 @@ pub impl @core.Renderable for JsxNode with fn unparse(self) {
     Error(text) => text
   }
 }
+
+///|
+pub extend JsxNode with @dowdiness/loom/core.Renderable::{kind_tag, label, placeholder, unparse}
+
+///|
+pub extend JsxNode with @dowdiness/loom/core.TreeNode::{children, same_kind}

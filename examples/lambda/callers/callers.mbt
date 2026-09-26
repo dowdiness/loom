@@ -644,3 +644,33 @@ pub fn CallersPipeline::visible_from(
 ) -> Bool {
   self.visibility_watch.read_or_abort().get((scope, name)) is Some(_)
 }
+
+///|
+pub extend Call with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Call with Eq::{equal, not_equal}
+
+///|
+pub extend Call with Show::{output, to_string}
+
+///|
+pub extend Def with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Def with Eq::{equal, not_equal}
+
+///|
+pub extend Def with Show::{output, to_string}
+
+///|
+pub extend ScopeId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ScopeId with Eq::{equal, not_equal}
+
+///|
+pub extend ScopeId with Hash::{hash, hash_combine}
+
+///|
+pub extend ScopeId with Show::{output, to_string}

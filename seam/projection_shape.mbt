@@ -302,3 +302,23 @@ pub fn SyntaxNode::required_direct_children_of_kind(
     Err(child_shape_error(self, kind, matches, ExpectedAtLeastOne, message~))
   }
 }
+
+///|
+pub extend ProjectionShapeElement with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ProjectionShapeElement with Eq::{not_equal, equal}
+
+///|
+pub extend ProjectionShapeExpectation with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend ProjectionShapeExpectation with Eq::{not_equal, equal}
+
+///|
+pub extend ProjectionShapeError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ProjectionShapeError with Eq::{not_equal, equal}

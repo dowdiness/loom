@@ -310,7 +310,7 @@ fn official_parse_snapshot(source : String) -> OfficialTopLevelSummary {
 
 ///|
 fn differential_syntax_kind_name(node : @seam.SyntaxNode) -> String {
-  let kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+  let kind : @moonbit-example.MoonbitSyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   kind.to_string()
 }
 
@@ -319,7 +319,7 @@ fn differential_token_kind_names(
   tokens : Array[@seam.SyntaxToken],
 ) -> Array[String] {
   tokens.map(fn(token) {
-    let kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+    let kind : @moonbit-example.MoonbitSyntaxKind = @seam.FromRawKind::from_raw(token.kind())
     kind.to_string()
   })
 }
@@ -350,7 +350,7 @@ fn skeleton_top_level_summary(
   source_id : @core.SourceId,
   source : String,
 ) -> SkeletonTopLevelSummary {
-  let parser = try! @loom.new_parser(source_id, source, moonbit_grammar)
+  let parser = try! @loom.new_parser(source_id, source, @moonbit-example.moonbit_grammar)
   let root = parser.syntax_tree().read_or_abort()
   let ast = parser.ast().read_or_abort()
   let diagnostics = parser.diagnostics().read_or_abort()

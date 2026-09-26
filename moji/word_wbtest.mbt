@@ -9,7 +9,7 @@
 /// use with `inspect`.
 fn word_boundaries_str(text : String) -> String {
   let bs = word_boundaries(text)
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for i, b in bs {
     if i > 0 {
       buf.write_string(",")

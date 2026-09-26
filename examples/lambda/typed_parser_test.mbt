@@ -11,9 +11,9 @@ test "attach_typecheck: clean program has zero diagnostics" {
   let parser = @loom.new_parser(
     typed_parser_test_source_id(),
     "1 + 2",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
-  let typed = attach_typecheck(parser)
+  let typed = @lambda.attach_typecheck(parser)
   let result = typed.get()
   inspect(result.body_type.typ, content="Int")
   inspect(result.body_type.had_error, content="false")
@@ -25,9 +25,9 @@ test "attach_typecheck: unbound variable surfaces diagnostic" {
   let parser = @loom.new_parser(
     typed_parser_test_source_id(),
     "x + 1",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
-  let typed = attach_typecheck(parser)
+  let typed = @lambda.attach_typecheck(parser)
   let result = typed.get()
   inspect(result.body_type.had_error, content="true")
   inspect(result.all_diagnostics.length(), content="1")
@@ -39,9 +39,9 @@ test "attach_typecheck: unannotated lambda surfaces diagnostic" {
   let parser = @loom.new_parser(
     typed_parser_test_source_id(),
     "(x) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
-  let typed = attach_typecheck(parser)
+  let typed = @lambda.attach_typecheck(parser)
   let result = typed.get()
   inspect(result.body_type.had_error, content="true")
   inspect(result.all_diagnostics.length(), content="1")
@@ -53,9 +53,9 @@ test "attach_typecheck: edit flows through set_source (clean → error)" {
   let parser = @loom.new_parser(
     typed_parser_test_source_id(),
     "1 + 2",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
-  let typed = attach_typecheck(parser)
+  let typed = @lambda.attach_typecheck(parser)
   inspect(typed.get().all_diagnostics.length(), content="0")
   parser.set_source("x + 1")
   let r = typed.get()
@@ -68,9 +68,9 @@ test "attach_typecheck: edit flows through set_source (error → clean)" {
   let parser = @loom.new_parser(
     typed_parser_test_source_id(),
     "x + 1",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
-  let typed = attach_typecheck(parser)
+  let typed = @lambda.attach_typecheck(parser)
   inspect(typed.get().all_diagnostics.length(), content="1")
   parser.set_source("1 + 2")
   let r = typed.get()
@@ -85,9 +85,9 @@ test "attach_typecheck: edit flows through apply_edit (clean → error)" {
   let parser = @loom.new_parser(
     typed_parser_test_source_id(),
     "1 + 2",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
-  let typed = attach_typecheck(parser)
+  let typed = @lambda.attach_typecheck(parser)
   inspect(typed.get().all_diagnostics.length(), content="0")
   parser.apply_edit(@core.Edit::new(0, 5, 5), "x + 1")
   let r = typed.get()
@@ -103,9 +103,9 @@ test "attach_typecheck: parse error does not abort the pipeline" {
   let parser = @loom.new_parser(
     typed_parser_test_source_id(),
     "(x) =>",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
-  let typed = attach_typecheck(parser)
+  let typed = @lambda.attach_typecheck(parser)
   let _ = typed.get()
   parser.set_source("1 + 2")
   let r = typed.get()
@@ -124,9 +124,9 @@ test "attach_typecheck: unrecognized source produces a diagnostic, recovers on e
   let parser = @loom.new_parser(
     typed_parser_test_source_id(),
     "@invalid",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
-  let typed = attach_typecheck(parser)
+  let typed = @lambda.attach_typecheck(parser)
   let initial = typed.get()
   inspect(initial.body_type.had_error, content="true")
   inspect(initial.all_diagnostics.length(), content="1")
@@ -142,9 +142,9 @@ test "attach_typecheck: dispose cleans up without affecting parser" {
   let parser = @loom.new_parser(
     typed_parser_test_source_id(),
     "1 + 2",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
-  let typed = attach_typecheck(parser)
+  let typed = @lambda.attach_typecheck(parser)
   let _ = typed.get()
   typed.dispose()
   // Parser still works after typechecker scope is disposed.
@@ -161,9 +161,9 @@ test "attach_typecheck: chain survives Runtime::gc()" {
   let parser = @loom.new_parser(
     typed_parser_test_source_id(),
     "1 + 2",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
-  let typed = attach_typecheck(parser)
+  let typed = @lambda.attach_typecheck(parser)
   let _ = typed.get()
   parser.runtime().gc()
   parser.set_source("3 + 4")

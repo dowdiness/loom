@@ -7,7 +7,7 @@ A generic incremental parser framework for MoonBit — edit-aware lexing, a loss
 
 ## Quick Start
 
-Use MoonBit `0.10.12+1634b282e` to match CI. Run `moon` from the relevant module directory, and clone with `--recursive` for the git submodules:
+Use MoonBit `0.10.14+7d59c7ec9` to match CI. Run `moon` from the relevant module directory, and clone with `--recursive` for the git submodules:
 
 ```bash
 git clone --recursive https://github.com/dowdiness/loom.git && cd loom

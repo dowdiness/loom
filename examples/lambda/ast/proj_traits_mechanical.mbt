@@ -50,3 +50,14 @@ pub impl @loomcore.Renderable for Term with fn kind_tag(self) {
     Hole(_) => "Hole"
   }
 }
+
+///|
+pub extend Term with @dowdiness/loom/core.TreeNode::{same_kind, children}
+
+///|
+pub extend Term with @dowdiness/loom/core.Renderable::{
+  unparse,
+  label,
+  placeholder,
+  kind_tag,
+}

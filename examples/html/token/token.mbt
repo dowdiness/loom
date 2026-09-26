@@ -46,3 +46,9 @@ pub(all) enum Token {
   #loom.recovery("sync")
   EOF
 } derive(Eq, Debug)
+
+///|
+pub extend Token with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Token with Eq::{equal, not_equal}

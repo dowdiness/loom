@@ -1379,3 +1379,6 @@ test "diagnostic: DiagnoseIf silent when predicate does not match" {
     )
   }
 }
+
+///|
+pub extend GrammarWithTokens with @moonbitlang/core/debug.Debug::{to_repr}

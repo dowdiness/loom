@@ -1,7 +1,7 @@
 ///|
 test "label styles are constructible across the public package boundary" {
-  let primary = LabelStyle::Primary
-  let secondary = LabelStyle::Secondary
-  inspect(primary is LabelStyle::Primary, content="true")
-  inspect(secondary is LabelStyle::Secondary, content="true")
+  let primary = @core.LabelStyle::Primary
+  let secondary = @core.LabelStyle::Secondary
+  inspect(primary is @core.LabelStyle::Primary, content="true")
+  inspect(secondary is @core.LabelStyle::Secondary, content="true")
 }

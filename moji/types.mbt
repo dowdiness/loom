@@ -30,3 +30,9 @@ pub enum InCB {
   IcbExtend
   IcbLinker
 } derive(Eq)
+
+///|
+pub extend GCB with Eq::{not_equal, equal}
+
+///|
+pub extend InCB with Eq::{not_equal, equal}

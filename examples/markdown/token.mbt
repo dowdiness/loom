@@ -418,3 +418,39 @@ test "tokens map to their corresponding syntax raw kind" {
     assert_eq(token.to_raw(), kind.to_raw())
   }
 }
+
+///|
+pub extend OrderedListDelimiter with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend OrderedListDelimiter with Eq::{equal, not_equal}
+
+///|
+pub extend OrderedListMarker with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend OrderedListMarker with Eq::{equal, not_equal}
+
+///|
+pub extend Token with @dowdiness/seam.IsEof::{is_eof}
+
+///|
+pub extend Token with @dowdiness/seam.IsTrivia::{is_trivia}
+
+///|
+pub extend Token with @dowdiness/seam.ToRawKind::{to_raw}
+
+///|
+pub extend Token with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Token with Eq::{equal, not_equal}
+
+///|
+pub extend Token with Show::{output, to_string}
+
+///|
+pub extend UnorderedListMarker with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend UnorderedListMarker with Eq::{equal, not_equal}

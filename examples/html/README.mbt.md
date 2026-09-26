@@ -54,14 +54,14 @@ It is separate from both source text and diagnostic-producer identity.
 ///|
 test "parse a simple HTML document" {
   let source_id = @core.SourceId("html-readme-simple-document")
-  let (tree, _) = parse_cst(source_id, "<p>hello</p>")
+  let (tree, _) = @html.parse_cst(source_id, "<p>hello</p>")
   inspect(@syntax.SyntaxKind::from_raw(tree.kind()), content="RootNode")
 }
 
 ///|
 test "parse nested elements with diagnostics" {
   let source_id = @core.SourceId("html-readme-nested-elements")
-  let (_, diagnostics) = html_grammar.parse_cst(
+  let (_, diagnostics) = @html.html_grammar.parse_cst(
     source_id, "<ul><li>a</li><li>b</li></ul>",
   )
   inspect(diagnostics.length(), content="0")
@@ -70,21 +70,21 @@ test "parse nested elements with diagnostics" {
 ///|
 test "parse void element" {
   let source_id = @core.SourceId("html-readme-void-element")
-  let (_, diagnostics) = html_grammar.parse_cst(source_id, "<br>")
+  let (_, diagnostics) = @html.html_grammar.parse_cst(source_id, "<br>")
   inspect(diagnostics.length(), content="0")
 }
 
 ///|
 test "report mismatched close tag" {
   let source_id = @core.SourceId("html-readme-mismatched-close")
-  let (_, diagnostics) = html_grammar.parse_cst(source_id, "<div></span>")
+  let (_, diagnostics) = @html.html_grammar.parse_cst(source_id, "<div></span>")
   inspect(diagnostics.length() >= 1, content="true")
 }
 
 ///|
 test "report unclosed element" {
   let source_id = @core.SourceId("html-readme-unclosed-element")
-  let (_, diagnostics) = html_grammar.parse_cst(source_id, "<div><p>text")
+  let (_, diagnostics) = @html.html_grammar.parse_cst(source_id, "<div><p>text")
   inspect(diagnostics.length() >= 1, content="true")
 }
 ```

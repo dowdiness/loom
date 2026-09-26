@@ -23,23 +23,23 @@ fn assert_delimiter_incremental_projection_parity(
     source_id, label, source, edit, updated,
   )
 
-  let incremental = @loom.new_parser(source_id, source, markdown_grammar)
+  let incremental = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
   incremental.apply_edit(edit, updated)
-  let fresh = @loom.new_parser(source_id, updated, markdown_grammar)
+  let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
   let incremental_diagnostics = incremental.diagnostics().read_or_abort()
   let fresh_diagnostics = fresh.diagnostics().read_or_abort()
   let incremental_block = incremental.ast().read_or_abort()
   let fresh_block = fresh.ast().read_or_abort()
-  let incremental_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let incremental_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, incremental_syntax, incremental_diagnostics,
   )
-  let fresh_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let fresh_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, fresh_syntax, fresh_diagnostics,
   )
-  let incremental_roles = project_markdown_roles(incremental_syntax)
-  let fresh_roles = project_markdown_roles(fresh_syntax)
+  let incremental_roles = @markdown.project_markdown_roles(incremental_syntax)
+  let fresh_roles = @markdown.project_markdown_roles(fresh_syntax)
 
   inspect(incremental_block, content=@debug.to_string(fresh_block))
   guard incremental_ir == fresh_ir else {
@@ -54,10 +54,10 @@ fn assert_delimiter_incremental_projection_parity(
     )
   }
   inspect(
-    experimental_markdown_ir_to_block(incremental_ir),
+    @markdown.experimental_markdown_ir_to_block(incremental_ir),
     content=@debug.to_string(incremental_block),
   )
-  let actual_html = experimental_markdown_ir_to_commonmark_html(incremental_ir)
+  let actual_html = @markdown.experimental_markdown_ir_to_commonmark_html(incremental_ir)
   guard actual_html == expected_html else {
     fail(
       "unexpected incremental CommonMark HTML: " +
@@ -72,9 +72,9 @@ fn assert_delimiter_incremental_projection_parity(
   let role_parser = @loom.new_syntax_parser(
     source_id,
     source,
-    markdown_grammar.to_syntax_grammar(),
+    @markdown.markdown_grammar.to_syntax_grammar(),
   )
-  let role_attachment = attach_markdown_role_spans(role_parser)
+  let role_attachment = @markdown.attach_markdown_role_spans(role_parser)
   role_parser.apply_edit(edit, updated)
   guard role_attachment.spans() == fresh_roles else {
     role_attachment.dispose()

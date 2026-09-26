@@ -30,3 +30,6 @@ pub impl @core.Canonical for JsonValue with fn canonical(self) {
     Error(_) => Error("?")
   }
 }
+
+///|
+pub extend JsonValue with @dowdiness/loom/core.Canonical::{canonical}

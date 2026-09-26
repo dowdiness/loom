@@ -90,3 +90,9 @@ pub fn[Ast] ImperativeLanguage::new(
 ) -> ImperativeLanguage[Ast] {
   { full_parse, incremental_parse, atomic_parse, to_ast, get_fold_stats, }
 }
+
+///|
+pub extend ParseSnapshot with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ParseSnapshot with Eq::{equal, not_equal}

@@ -66,3 +66,12 @@ fn[A] has_hardline_trait(layout : Layout[A]) -> Bool {
 pub impl[A : Debug] Show for Layout[A] with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
+
+///|
+pub extend Layout with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Layout with Eq::{not_equal, equal}
+
+///|
+pub extend Layout with Show::{to_string, output}

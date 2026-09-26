@@ -7,14 +7,14 @@ fn assert_commonmark_list_regression(
   let source_id = @core.SourceId(
     "markdown-commonmark-list-regression-" + example.to_string(),
   )
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
   assert_true(diagnostics.is_empty())
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
-  let actual = experimental_markdown_ir_to_commonmark_html(ir)
+  let actual = @markdown.experimental_markdown_ir_to_commonmark_html(ir)
   guard actual == expected_html else {
     fail(
       "CommonMark list regression " +

@@ -43,15 +43,15 @@ fn recovery_benchmark_parse_to_syntax(
   source_id : @core.SourceId,
   source : String,
 ) -> @seam.SyntaxNode {
-  let (cst, _) = parse_cst(source_id, source) catch {
+  let (cst, _) = @markdown.parse_cst(source_id, source) catch {
     _ => abort("parse failed")
   }
   @seam.SyntaxNode::from_cst(cst)
 }
 
 ///|
-fn recovery_benchmark_direct_block(syntax : @seam.SyntaxNode) -> Block {
-  let fold = @core.CstFold::new(markdown_fold_node)
+fn recovery_benchmark_direct_block(syntax : @seam.SyntaxNode) -> @markdown.Block {
+  let fold = @core.CstFold::new(@markdown.markdown_fold_node)
   fold.fold(syntax)
 }
 
@@ -59,9 +59,9 @@ fn recovery_benchmark_direct_block(syntax : @seam.SyntaxNode) -> Block {
 fn recovery_benchmark_ir_block(
   source_id : @core.SourceId,
   syntax : @seam.SyntaxNode,
-) -> Block {
-  experimental_markdown_ir_to_block(
-    experimental_markdown_ir_from_syntax(source_id, syntax),
+) -> @markdown.Block {
+  @markdown.experimental_markdown_ir_to_block(
+    @markdown.experimental_markdown_ir_from_syntax(source_id, syntax),
   )
 }
 

@@ -10,7 +10,7 @@ struct Peer {
 
 ///|
 fn Peer::new(source_id : @core.SourceId, source : String) -> Peer {
-  let parser = new_imperative_parser(source_id, source)
+  let parser = @lambda.new_imperative_parser(source_id, source)
   let _ = try! parser.parse().ast
   { text: source, parser, }
 }
@@ -18,7 +18,7 @@ fn Peer::new(source_id : @core.SourceId, source : String) -> Peer {
 ///|
 /// Apply a TextDelta to a String, producing the new text.
 fn build_new_text(source : String, delta : Array[@core.TextDelta]) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   let mut cursor = 0
   for d in delta {
     match d {
@@ -104,7 +104,7 @@ test "tree_diff confirms incremental parse matches full reparse after sync" {
   let delta = [@core.TextDelta::Retain(2), @core.TextDelta::Insert(" + 1")]
   apply_peer_delta(peer, delta)
   // Full reparse of final text using parse (public API) — both return Term now
-  let full_term = try! parse(source_id, peer.text)
+  let full_term = try! @lambda.parse(source_id, peer.text)
   let incremental_term = peer.parser.get_tree().unwrap()
   inspect(incremental_term == full_term, content="true")
 }

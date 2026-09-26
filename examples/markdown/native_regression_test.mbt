@@ -6,21 +6,21 @@ test "native regression: CommonMark 254 list-relative quote makes progress" {
     "markdown-native-regression-commonmark-254-minimal",
   )
   let source = "1.  \n    > y\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   inspect(syntax.text(), content=source)
   inspect(diagnostics.is_empty(), content="true")
   match syntax.children() {
     [list] => {
-      let list_kind : SyntaxKind = @seam.FromRawKind::from_raw(list.kind())
+      let list_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(list.kind())
       inspect(list_kind, content="OrderedListNode")
       match list.children() {
         [item] => {
-          let item_kind : SyntaxKind = @seam.FromRawKind::from_raw(item.kind())
+          let item_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(item.kind())
           inspect(item_kind, content="ListItemNode")
           match item.children() {
             [quote] => {
-              let quote_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+              let quote_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
                 quote.kind(),
               )
               inspect(quote_kind, content="BlockQuoteNode")
@@ -47,7 +47,7 @@ test "native regression: CommonMark 254 full input completes" {
     "        indented code\n" +
     "\n" +
     "    > A block quote.\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
   inspect(@seam.SyntaxNode::from_cst(cst).text(), content=source)
   inspect(diagnostics.is_empty(), content="true")
 }

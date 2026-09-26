@@ -258,3 +258,9 @@ pub fn SettingsAttachment::dispose(self : SettingsAttachment) -> Unit {
 fn make_setting_id(_key : String, occurrence : Int) -> String {
   "setting#" + occurrence.to_string()
 }
+
+///|
+pub extend SettingsState with Eq::{equal, not_equal}
+
+///|
+pub extend SettingsState with Show::{output, to_string}

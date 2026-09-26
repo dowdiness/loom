@@ -9,7 +9,7 @@ fn assert_true(value : Bool) -> Unit {
 }
 
 ///|
-fn ok_doc(result : Result[GraphDoc, Array[String]]) -> GraphDoc {
+fn ok_doc(result : Result[@graph-dsl.GraphDoc, Array[String]]) -> @graph-dsl.GraphDoc {
   match result {
     Ok(doc) => doc
     Err(messages) => abort("expected graph doc, got: " + messages.join("; "))
@@ -17,7 +17,7 @@ fn ok_doc(result : Result[GraphDoc, Array[String]]) -> GraphDoc {
 }
 
 ///|
-fn ok_current(result : Result[GraphDoc, String]) -> GraphDoc {
+fn ok_current(result : Result[@graph-dsl.GraphDoc, String]) -> @graph-dsl.GraphDoc {
   match result {
     Ok(doc) => doc
     Err(message) => abort("expected current graph doc, got: " + message)
@@ -25,7 +25,7 @@ fn ok_current(result : Result[GraphDoc, String]) -> GraphDoc {
 }
 
 ///|
-fn ok_lowered(edit : LoweredGraphEdit?) -> LoweredGraphEdit {
+fn ok_lowered(edit : @graph-dsl.LoweredGraphEdit?) -> @graph-dsl.LoweredGraphEdit {
   match edit {
     Some(edit) => edit
     None => abort("expected lowered graph edit")
@@ -33,12 +33,12 @@ fn ok_lowered(edit : LoweredGraphEdit?) -> LoweredGraphEdit {
 }
 
 ///|
-fn triples(tokens : Array[GraphToken]) -> Array[(String, Int, Int)] {
+fn triples(tokens : Array[@graph-dsl.GraphToken]) -> Array[(String, Int, Int)] {
   tokens.map(token => (token.text(), token.start(), token.end()))
 }
 
 ///|
-fn node_id(doc : GraphDoc, binding : String) -> String {
+fn node_id(doc : @graph-dsl.GraphDoc, binding : String) -> String {
   match doc.find_node(binding) {
     Some(node) => node.id()
     None => abort("missing node: " + binding)
@@ -48,7 +48,7 @@ fn node_id(doc : GraphDoc, binding : String) -> String {
 ///|
 test "find_node_by_id round-trips the projection-identity token" {
   let source_id = @core.SourceId("graph-find-node-by-id")
-  let doc = ok_doc(project_graph_source(source_id, SAMPLE_SOURCE))
+  let doc = ok_doc(@graph-dsl.project_graph_source(source_id, SAMPLE_SOURCE))
   for binding in ["osc", "filter"] {
     let node = match doc.find_node(binding) {
       Some(node) => node
@@ -66,7 +66,7 @@ test "find_node_by_id round-trips the projection-identity token" {
 ///|
 test "projection exposes explicit token roles with source ranges" {
   let source_id = @core.SourceId("graph-token-roles")
-  let doc = ok_doc(project_graph_source(source_id, SAMPLE_SOURCE))
+  let doc = ok_doc(@graph-dsl.project_graph_source(source_id, SAMPLE_SOURCE))
   @debug.assert_eq(triples(doc.tokens_for_role(NodeBindingName)), [
     ("osc", 0, 3),
     ("filter", 46, 52),
@@ -97,7 +97,7 @@ test "projection exposes explicit token roles with source ranges" {
 ///|
 test "lower numeric parameter to one exact Edit and preserve neighboring ranges" {
   let source_id = @core.SourceId("graph-lower-numeric")
-  let doc = ok_doc(project_graph_source(source_id, SAMPLE_SOURCE))
+  let doc = ok_doc(@graph-dsl.project_graph_source(source_id, SAMPLE_SOURCE))
   let lowered = ok_lowered(doc.lower_set_numeric("osc", "freq", "880"))
   @debug.assert_eq(lowered.replacements().length(), 1)
   @debug.assert_eq(lowered.replacements()[0].start(), 17)
@@ -110,7 +110,7 @@ test "lower numeric parameter to one exact Edit and preserve neighboring ranges"
     }
     None => abort("single-token replacement should expose an incremental edit")
   }
-  let updated = ok_doc(project_graph_source(source_id, lowered.new_source()))
+  let updated = ok_doc(@graph-dsl.project_graph_source(source_id, lowered.new_source()))
   @debug.assert_eq(triples(updated.tokens_for_role(NumericParameter)), [
     ("880", 17, 20),
     ("1200", 83, 87),
@@ -124,13 +124,13 @@ test "lower numeric parameter to one exact Edit and preserve neighboring ranges"
 ///|
 test "rename binding lowers to binding and input-reference replacements" {
   let source_id = @core.SourceId("graph-rename-binding")
-  let doc = ok_doc(project_graph_source(source_id, SAMPLE_SOURCE))
+  let doc = ok_doc(@graph-dsl.project_graph_source(source_id, SAMPLE_SOURCE))
   let lowered = ok_lowered(doc.lower_rename_node_binding("osc", "lfo"))
   @debug.assert_eq(lowered.replacements().length(), 2)
   assert_true(lowered.incremental_edit() is None)
   @debug.assert_eq(lowered.replacements()[0].start(), 0)
   @debug.assert_eq(lowered.replacements()[1].start(), 70)
-  let renamed = ok_doc(project_graph_source(source_id, lowered.new_source()))
+  let renamed = ok_doc(@graph-dsl.project_graph_source(source_id, lowered.new_source()))
   @debug.assert_eq(triples(renamed.tokens_for_role(NodeBindingName)), [
     ("lfo", 0, 3),
     ("filter", 46, 52),
@@ -144,13 +144,13 @@ test "rename binding lowers to binding and input-reference replacements" {
 test "add connection lowers to insertion before call close paren" {
   let source_id = @core.SourceId("graph-add-connection")
   let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
-  let doc = ok_doc(project_graph_source(source_id, source))
+  let doc = ok_doc(@graph-dsl.project_graph_source(source_id, source))
   let lowered = ok_lowered(doc.lower_add_connection("meter", "osc"))
   @debug.assert_eq(lowered.replacements().length(), 1)
   @debug.assert_eq(lowered.replacements()[0].start(), 38)
   @debug.assert_eq(lowered.replacements()[0].old_len(), 0)
   @debug.assert_eq(lowered.replacements()[0].new_text(), "input: osc")
-  let updated = ok_doc(project_graph_source(source_id, lowered.new_source()))
+  let updated = ok_doc(@graph-dsl.project_graph_source(source_id, lowered.new_source()))
   @debug.assert_eq(triples(updated.tokens_for_role(InputReference)), [
     ("osc", 38 + "input: ".length(), 38 + "input: osc".length()),
   ])
@@ -162,14 +162,14 @@ fn assert_remove_connection_source(
   source : String,
   expected : String,
 ) -> Unit raise {
-  let doc = ok_doc(project_graph_source(source_id, source))
+  let doc = ok_doc(@graph-dsl.project_graph_source(source_id, source))
   let lowered = ok_lowered(
     doc.lower_remove_connection("target", "input", "osc"),
   )
   @debug.assert_eq(lowered.replacements().length(), 1)
   @debug.assert_eq(lowered.replacements()[0].new_text(), "")
   @debug.assert_eq(lowered.new_source(), expected)
-  let updated = ok_doc(project_graph_source(source_id, lowered.new_source()))
+  let updated = ok_doc(@graph-dsl.project_graph_source(source_id, lowered.new_source()))
   assert_true(updated.find_node("osc") is Some(_))
   assert_true(updated.find_node("target") is Some(_))
   @debug.assert_eq(updated.nodes().length(), doc.nodes().length())
@@ -234,7 +234,7 @@ test "remove connection consumes trailing parameter trailing comma" {
 test "remove connection preserves non-matching input-reference parameters" {
   let source_id = @core.SourceId("graph-remove-preserve-non-matching")
   let source = "osc = sine()\nlfo = sine()\ntarget = blend(input: osc, from: lfo)"
-  let doc = ok_doc(project_graph_source(source_id, source))
+  let doc = ok_doc(@graph-dsl.project_graph_source(source_id, source))
   let lowered = ok_lowered(
     doc.lower_remove_connection("target", "input", "osc"),
   )
@@ -242,7 +242,7 @@ test "remove connection preserves non-matching input-reference parameters" {
     lowered.new_source(),
     "osc = sine()\nlfo = sine()\ntarget = blend(from: lfo)",
   )
-  let updated = ok_doc(project_graph_source(source_id, lowered.new_source()))
+  let updated = ok_doc(@graph-dsl.project_graph_source(source_id, lowered.new_source()))
   @debug.assert_eq(
     updated.tokens_for_role(InputReference).map(token => token.text()),
     ["lfo"],
@@ -252,13 +252,13 @@ test "remove connection preserves non-matching input-reference parameters" {
 ///|
 test "insert new node binding lowers to append insertion" {
   let source_id = @core.SourceId("graph-insert-node")
-  let doc = ok_doc(project_graph_source(source_id, SAMPLE_SOURCE))
+  let doc = ok_doc(@graph-dsl.project_graph_source(source_id, SAMPLE_SOURCE))
   let lowered = ok_lowered(doc.lower_insert_node_binding("reverb", "plate"))
   @debug.assert_eq(lowered.replacements().length(), 1)
   @debug.assert_eq(lowered.replacements()[0].start(), SAMPLE_SOURCE.length())
   @debug.assert_eq(lowered.replacements()[0].old_len(), 0)
   @debug.assert_eq(lowered.replacements()[0].new_text(), "\nreverb = plate()")
-  let updated = ok_doc(project_graph_source(source_id, lowered.new_source()))
+  let updated = ok_doc(@graph-dsl.project_graph_source(source_id, lowered.new_source()))
   @debug.assert_eq(triples(updated.tokens_for_role(NodeBindingName)), [
     ("osc", 0, 3),
     ("filter", 46, 52),
@@ -269,7 +269,7 @@ test "insert new node binding lowers to append insertion" {
 ///|
 test "lowering rejects edits that would generate invalid graph source" {
   let source_id = @core.SourceId("graph-reject-invalid-lowering")
-  let doc = ok_doc(project_graph_source(source_id, SAMPLE_SOURCE))
+  let doc = ok_doc(@graph-dsl.project_graph_source(source_id, SAMPLE_SOURCE))
   assert_true(doc.lower_set_numeric("osc", "freq", "880Hz") is None)
   assert_true(doc.lower_rename_node_binding("osc", "bad name") is None)
   assert_true(doc.lower_rename_node_binding("osc", "filter") is None)
@@ -284,7 +284,7 @@ test "lowering rejects edits that would generate invalid graph source" {
 ///|
 test "public accessors return defensive array copies" {
   let source_id = @core.SourceId("graph-defensive-copies")
-  let doc = ok_doc(project_graph_source(source_id, SAMPLE_SOURCE))
+  let doc = ok_doc(@graph-dsl.project_graph_source(source_id, SAMPLE_SOURCE))
   let tokens = doc.tokens()
   let token_count = tokens.length()
   tokens.push(tokens[0])
@@ -308,7 +308,7 @@ test "public accessors return defensive array copies" {
 ///|
 test "attachment retains last good projection across parser and projection failures" {
   let source_id = @core.SourceId("graph-attachment-last-good")
-  let attachment = GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
   inspect(attachment.state(), content="Current")
   @debug.assert_eq(attachment.diagnostics(), [])
   let good = ok_current(attachment.current_result())
@@ -329,7 +329,7 @@ test "attachment retains last good projection across parser and projection failu
 ///|
 test "attachment apply_edit preserves node identity for unchanged graph nodes" {
   let source_id = @core.SourceId("graph-attachment-identity")
-  let attachment = GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
   let before = ok_current(attachment.current_result())
   let osc_id = node_id(before, "osc")
   let filter_id = node_id(before, "filter")
@@ -348,7 +348,7 @@ test "attachment apply_edit preserves node identity for unchanged graph nodes" {
 ///|
 test "parser diagnostics preserve caller source identity" {
   let source_id = @core.SourceId("graph-parser-diagnostics")
-  let (_, diagnostics) = try! graph_grammar.parse_cst(
+  let (_, diagnostics) = try! @graph-dsl.graph_grammar.parse_cst(
     source_id, "osc = sine(freq: )",
   )
   guard !diagnostics.is_empty() else {

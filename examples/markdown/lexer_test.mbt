@@ -1,6 +1,6 @@
 ///|
 test "lexer: heading" {
-  let tokens = tokenize("# Hello\n")
+  let tokens = @markdown.tokenize("# Hello\n")
   inspect(@debug.to_string(tokens[0].token), content="HeadingMarker(1)")
   inspect(@debug.to_string(tokens[1].token), content="Text(\"Hello\")")
   inspect(@debug.to_string(tokens[2].token), content="Newline")
@@ -9,21 +9,21 @@ test "lexer: heading" {
 
 ///|
 test "lexer: h2 heading" {
-  let tokens = tokenize("## World\n")
+  let tokens = @markdown.tokenize("## World\n")
   inspect(@debug.to_string(tokens[0].token), content="HeadingMarker(2)")
   inspect(@debug.to_string(tokens[1].token), content="Text(\"World\")")
 }
 
 ///|
 test "lexer: paragraph text preserves spaces" {
-  let tokens = tokenize("hello world\n")
+  let tokens = @markdown.tokenize("hello world\n")
   inspect(@debug.to_string(tokens[0].token), content="Text(\"hello world\")")
   inspect(@debug.to_string(tokens[1].token), content="Newline")
 }
 
 ///|
 test "lexer: paragraph text keeps non-BMP character in one token" {
-  let tokens = tokenize("hello 😈 world\n")
+  let tokens = @markdown.tokenize("hello 😈 world\n")
   inspect(
     @debug.to_string(tokens[0].token),
     content="Text(\"hello 😈 world\")",
@@ -33,7 +33,7 @@ test "lexer: paragraph text keeps non-BMP character in one token" {
 
 ///|
 test "lexer: CRLF paragraph newline" {
-  let tokens = tokenize("hello\r\n")
+  let tokens = @markdown.tokenize("hello\r\n")
   inspect(@debug.to_string(tokens[0].token), content="Text(\"hello\")")
   inspect(@debug.to_string(tokens[1].token), content="Newline")
   inspect(tokens[1].len, content="2")
@@ -41,7 +41,7 @@ test "lexer: CRLF paragraph newline" {
 
 ///|
 test "lexer: whitespace-only CRLF line is blank" {
-  let tokens = tokenize(" \t\r\nnext")
+  let tokens = @markdown.tokenize(" \t\r\nnext")
   inspect(@debug.to_string(tokens[0].token), content="BlankLine")
   inspect(tokens[0].len, content="4")
   inspect(@debug.to_string(tokens[1].token), content="Text(\"next\")")
@@ -49,7 +49,7 @@ test "lexer: whitespace-only CRLF line is blank" {
 
 ///|
 test "lexer: code fence with info" {
-  let tokens = tokenize("```python\ncode here\n```\n")
+  let tokens = @markdown.tokenize("```python\ncode here\n```\n")
   inspect(
     @debug.to_string(tokens[0].token),
     content="CodeFenceOpen(3, \"python\")",
@@ -64,7 +64,7 @@ test "lexer: code fence with info" {
 
 ///|
 test "lexer: code fence info and text keep non-BMP characters" {
-  let tokens = tokenize("```😈\ncode 😈\n```\n")
+  let tokens = @markdown.tokenize("```😈\ncode 😈\n```\n")
   inspect(
     @debug.to_string(tokens[0].token),
     content="CodeFenceOpen(3, \"😈\")",
@@ -76,7 +76,7 @@ test "lexer: code fence info and text keep non-BMP characters" {
 
 ///|
 test "lexer: inline markers" {
-  let tokens = tokenize("**bold** and *italic*\n")
+  let tokens = @markdown.tokenize("**bold** and *italic*\n")
   inspect(@debug.to_string(tokens[0].token), content="Star")
   inspect(@debug.to_string(tokens[1].token), content="Star")
   inspect(@debug.to_string(tokens[2].token), content="Text(\"bold\")")
@@ -90,7 +90,7 @@ test "lexer: inline markers" {
 
 ///|
 test "lexer: underscore markers are one-character public facts" {
-  let tokens = tokenize("__bold__ and _italic_\n")
+  let tokens = @markdown.tokenize("__bold__ and _italic_\n")
   inspect(
     tokens.map(token => @debug.to_string(token.token)).join("|"),
     content="Underscore|Underscore|Text(\"bold\")|Underscore|Underscore|Text(\" and \")|Underscore|Text(\"italic\")|Underscore|Newline|EOF",
@@ -99,14 +99,14 @@ test "lexer: underscore markers are one-character public facts" {
 
 ///|
 test "lexer: list marker consumes trailing space" {
-  let tokens = tokenize("- item\n")
+  let tokens = @markdown.tokenize("- item\n")
   inspect(@debug.to_string(tokens[0].token), content="ListMarker")
   inspect(@debug.to_string(tokens[1].token), content="Text(\"item\")")
 }
 
 ///|
 test "lexer: ordered list marker consumes full marker text" {
-  let tokens = tokenize("01. item\n")
+  let tokens = @markdown.tokenize("01. item\n")
   inspect(
     @debug.to_string(tokens[0].token),
     content="OrderedListMarker({ start: 1, delimiter: Period })",
@@ -116,14 +116,14 @@ test "lexer: ordered list marker consumes full marker text" {
 
 ///|
 test "lexer: blank line" {
-  let tokens = tokenize("\n\n")
+  let tokens = @markdown.tokenize("\n\n")
   // First \n from empty line -> BlankLine, second \n -> BlankLine
   inspect(@debug.to_string(tokens[0].token), content="BlankLine")
 }
 
 ///|
 test "lexer: code fence backtick count matching" {
-  let tokens = tokenize("````\n```\n````\n")
+  let tokens = @markdown.tokenize("````\n```\n````\n")
   inspect(@debug.to_string(tokens[0].token), content="CodeFenceOpen(4, \"\")")
   inspect(@debug.to_string(tokens[2].token), content="CodeText(\"```\")")
   inspect(@debug.to_string(tokens[4].token), content="CodeFenceClose")
@@ -131,7 +131,7 @@ test "lexer: code fence backtick count matching" {
 
 ///|
 test "lexer: link brackets" {
-  let tokens = tokenize("[text](url)\n")
+  let tokens = @markdown.tokenize("[text](url)\n")
   inspect(@debug.to_string(tokens[0].token), content="LeftBracket")
   inspect(@debug.to_string(tokens[1].token), content="Text(\"text\")")
   inspect(@debug.to_string(tokens[2].token), content="RightBracket")
@@ -142,27 +142,27 @@ test "lexer: link brackets" {
 
 ///|
 test "lexer: typed angle candidates expose source facts without splitting ordinary text" {
-  let uri = tokenize("<https://foo.bar.`baz>`\n")
+  let uri = @markdown.tokenize("<https://foo.bar.`baz>`\n")
   inspect(
     uri.map(token => @debug.to_string(token.token)).join("|"),
     content="Text(\"<\")|Text(\"https://foo.bar.\")|Backtick|Text(\"baz\")|Text(\">\")|Backtick|Newline|EOF",
   )
-  let email = tokenize("<foo@bar.example>\n")
+  let email = @markdown.tokenize("<foo@bar.example>\n")
   inspect(
     email.map(token => @debug.to_string(token.token)).join("|"),
     content="Text(\"<\")|Text(\"foo@bar.example\")|Text(\">\")|Newline|EOF",
   )
-  let inline_html = tokenize("<i>text</i>\n")
+  let inline_html = @markdown.tokenize("<i>text</i>\n")
   inspect(
     inline_html.map(token => @debug.to_string(token.token)).join("|"),
     content="Text(\"<\")|Text(\"i\")|Text(\">\")|Text(\"text\")|Text(\"<\")|Text(\"/i\")|Text(\">\")|Newline|EOF",
   )
-  let backtick_html = tokenize("<a href=\"`\">`\n")
+  let backtick_html = @markdown.tokenize("<a href=\"`\">`\n")
   inspect(
     backtick_html.map(token => @debug.to_string(token.token)).join("|"),
     content="Text(\"<\")|Text(\"a href=\\\"\")|Backtick|Text(\"\\\"\")|Text(\">\")|Backtick|Newline|EOF",
   )
-  let escaped_html = tokenize("\\<i>\n")
+  let escaped_html = @markdown.tokenize("\\<i>\n")
   inspect(
     escaped_html.map(token => @debug.to_string(token.token)).join("|"),
     content="Text(\"\\\\<i\")|Text(\">\")|Newline|EOF",
@@ -171,7 +171,7 @@ test "lexer: typed angle candidates expose source facts without splitting ordina
 
 ///|
 test "lexer: baseline indentation exposes normal line-start tokens" {
-  let tokens = tokenize("    `code`\n  # heading\n")
+  let tokens = @markdown.tokenize("    `code`\n  # heading\n")
   inspect(@debug.to_string(tokens[0].token), content="Indentation(\"    \")")
   inspect(@debug.to_string(tokens[1].token), content="Backtick")
   inspect(@debug.to_string(tokens[2].token), content="Text(\"code\")")
@@ -184,26 +184,26 @@ test "lexer: baseline indentation exposes normal line-start tokens" {
 
 ///|
 test "lexer: baseline indentation preserves marker candidates" {
-  let heading = tokenize("  # heading\n")
+  let heading = @markdown.tokenize("  # heading\n")
   inspect(@debug.to_string(heading[0].token), content="Indentation(\"  \")")
   inspect(@debug.to_string(heading[1].token), content="HeadingMarker(1)")
 
-  let quote = tokenize("    > quote\n")
+  let quote = @markdown.tokenize("    > quote\n")
   inspect(@debug.to_string(quote[0].token), content="Indentation(\"    \")")
   inspect(@debug.to_string(quote[1].token), content="BlockQuoteMarker")
 
-  let list = tokenize("    - item\n")
+  let list = @markdown.tokenize("    - item\n")
   inspect(@debug.to_string(list[0].token), content="Indentation(\"    \")")
   inspect(@debug.to_string(list[1].token), content="ListMarker")
 
-  let fence = tokenize("    ```\n")
+  let fence = @markdown.tokenize("    ```\n")
   inspect(@debug.to_string(fence[0].token), content="Indentation(\"    \")")
   inspect(@debug.to_string(fence[1].token), content="CodeFenceOpen(3, \"\")")
 }
 
 ///|
 test "lexer: list-relative indentation exposes inline candidates" {
-  let tokens = tokenize("- item\n    `code`\n")
+  let tokens = @markdown.tokenize("- item\n    `code`\n")
   inspect(@debug.to_string(tokens[3].token), content="Indentation(\"    \")")
   inspect(@debug.to_string(tokens[4].token), content="Backtick")
   inspect(@debug.to_string(tokens[5].token), content="Text(\"code\")")
@@ -212,46 +212,46 @@ test "lexer: list-relative indentation exposes inline candidates" {
 
 ///|
 test "lexer: list-relative indentation preserves marker candidates" {
-  let heading = tokenize("- item\n    # heading\n")
+  let heading = @markdown.tokenize("- item\n    # heading\n")
   inspect(@debug.to_string(heading[3].token), content="Indentation(\"    \")")
   inspect(@debug.to_string(heading[4].token), content="HeadingMarker(1)")
 
-  let quote = tokenize("- item\n    > quote\n")
+  let quote = @markdown.tokenize("- item\n    > quote\n")
   inspect(@debug.to_string(quote[3].token), content="Indentation(\"    \")")
   inspect(@debug.to_string(quote[4].token), content="BlockQuoteMarker")
 
-  let list = tokenize("- item\n    - nested\n")
+  let list = @markdown.tokenize("- item\n    - nested\n")
   inspect(@debug.to_string(list[3].token), content="Indentation(\"    \")")
   inspect(@debug.to_string(list[4].token), content="ListMarker")
 
-  let fence = tokenize("- item\n    ```\n")
+  let fence = @markdown.tokenize("- item\n    ```\n")
   inspect(@debug.to_string(fence[3].token), content="Indentation(\"    \")")
   inspect(@debug.to_string(fence[4].token), content="CodeFenceOpen(3, \"\")")
 }
 
 ///|
 test "lexer: list-content indentation preserves quote candidate" {
-  let tokens = tokenize("- item\n  > quote\n")
+  let tokens = @markdown.tokenize("- item\n  > quote\n")
   inspect(@debug.to_string(tokens[3].token), content="Indentation(\"  \")")
   inspect(@debug.to_string(tokens[4].token), content="BlockQuoteMarker")
 }
 
 ///|
 test "lexer: indented thematic break preserves indentation token" {
-  let tokens = tokenize("  ---\n")
+  let tokens = @markdown.tokenize("  ---\n")
   inspect(@debug.to_string(tokens[0].token), content="Indentation(\"  \")")
   inspect(@debug.to_string(tokens[1].token), content="ThematicBreak")
 }
 
 ///|
 test "lexer: three-space-prefixed closing fence closes code block" {
-  let tokens = tokenize("   ```\ncode\n   ```\n")
+  let tokens = @markdown.tokenize("   ```\ncode\n   ```\n")
   inspect(@debug.to_string(tokens[5].token), content="CodeFenceClose")
 }
 
 ///|
 test "lexer: public code-block mode keeps the positive fence length" {
-  let (_, mode) = markdown_lex_step("      ~~~~\n", 6, LineStart)
+  let (_, mode) = @markdown.markdown_lex_step("      ~~~~\n", 6, LineStart)
   match mode {
     CodeBlock(length, '~') => inspect(length, content="4")
     _ => fail("expected public CodeBlock mode")
@@ -261,10 +261,10 @@ test "lexer: public code-block mode keeps the positive fence length" {
 ///|
 test "lexer: blockquote fence produces QuotedCodeBlock mode" {
   let source = "> ```\n> code\n"
-  let tokens = tokenize(source)
+  let tokens = @markdown.tokenize(source)
   let fence_token = tokens[1]
   inspect(@debug.to_string(fence_token.token), content="CodeFenceOpen(3, \"\")")
-  let (_, mode) = markdown_lex_step(source, "> ".length(), BlockQuoteLineStart)
+  let (_, mode) = @markdown.markdown_lex_step(source, "> ".length(), BlockQuoteLineStart)
   match mode {
     QuotedCodeBlock(length, '`') => inspect(length, content="3")
     _ => fail("expected QuotedCodeBlock mode, got " + @debug.to_string(mode))
@@ -273,7 +273,7 @@ test "lexer: blockquote fence produces QuotedCodeBlock mode" {
 
 ///|
 test "lexer: unquoted fence produces CodeBlock not QuotedCodeBlock" {
-  let (_, mode) = markdown_lex_step("```\n", 0, LineStart)
+  let (_, mode) = @markdown.markdown_lex_step("```\n", 0, LineStart)
   match mode {
     CodeBlock(3, '`') => ()
     _ => fail("expected CodeBlock mode, got " + @debug.to_string(mode))
@@ -282,7 +282,7 @@ test "lexer: unquoted fence produces CodeBlock not QuotedCodeBlock" {
 
 ///|
 test "lexer: deeply nested list fence closes beyond column four" {
-  let tokens = tokenize("- a\n  - b\n      ~~~~\n      code\n      ~~~~\n")
+  let tokens = @markdown.tokenize("- a\n  - b\n      ~~~~\n      code\n      ~~~~\n")
   inspect(
     tokens.map(token => @debug.to_string(token.token)).join("|"),
     content="ListMarker|Text(\"a\")|Newline|Indentation(\"  \")|ListMarker|Text(\"b\")|Newline|Indentation(\"      \")|CodeFenceOpen(4, \"\")|Newline|CodeText(\"      code\")|Newline|CodeFenceClose|EOF",
@@ -292,7 +292,7 @@ test "lexer: deeply nested list fence closes beyond column four" {
 ///|
 test "lexer: public mode recovers deeply nested fence indentation" {
   let source = "- a\n  - b\n      ~~~~\n      code\n      ~~~~\n"
-  let (tokens, _) = @core.tokenize_with_modes(markdown_mode_lexer, source, EOF)
+  let (tokens, _) = @core.tokenize_with_modes(@markdown.markdown_mode_lexer, source, EOF)
   inspect(
     tokens.map(token => @debug.to_string(token.token)).join("|"),
     content="ListMarker|Text(\"a\")|Newline|Indentation(\"  \")|ListMarker|Text(\"b\")|Newline|Indentation(\"      \")|CodeFenceOpen(4, \"\")|Newline|CodeText(\"      code\")|Newline|CodeFenceClose|EOF",
@@ -304,8 +304,8 @@ test "lexer: detached mode recovers list-owned opening indent" {
   let source = "- a\n    ~~~~\n    code\n    ~~~~\n"
   let content_pos = "- a\n    ~~~~\n".length()
   let close_pos = content_pos + "    code\n".length()
-  let (_, mode) = markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
-  let (step, _) = markdown_lex_step(source, close_pos, mode)
+  let (_, mode) = @markdown.markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (step, _) = @markdown.markdown_lex_step(source, close_pos, mode)
   match step {
     @core.LexStep::Produced(info, next_offset~) => {
       ignore(next_offset)
@@ -320,8 +320,8 @@ test "lexer: detached mode ignores root indented code before nested fence" {
   let source = "    ~~~~\n- a\n    ~~~~\n    code\n    ~~~~\n"
   let content_pos = "    ~~~~\n- a\n    ~~~~\n".length()
   let close_pos = content_pos + "    code\n".length()
-  let (_, mode) = markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
-  let (step, _) = markdown_lex_step(source, close_pos, mode)
+  let (_, mode) = @markdown.markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (step, _) = @markdown.markdown_lex_step(source, close_pos, mode)
   match step {
     @core.LexStep::Produced(info, next_offset~) => {
       ignore(next_offset)
@@ -336,8 +336,8 @@ test "lexer: detached mode rejects root code after wide ordered marker" {
   let source = "1234. a\n    ~~~~\n    code\n    ~~~~\n"
   let content_pos = "1234. a\n    ~~~~\n".length()
   let close_pos = content_pos + "    code\n".length()
-  let (_, mode) = markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
-  let (step, _) = markdown_lex_step(source, close_pos, mode)
+  let (_, mode) = @markdown.markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (step, _) = @markdown.markdown_lex_step(source, close_pos, mode)
   match step {
     @core.LexStep::Produced(info, next_offset~) => {
       ignore(next_offset)
@@ -352,8 +352,8 @@ test "lexer: detached mode rejects malformed ordered marker ownership" {
   let source = "1234.foo\n      ~~~~\n      code\n      ~~~~\n"
   let content_pos = "1234.foo\n      ~~~~\n".length()
   let close_pos = content_pos + "      code\n".length()
-  let (_, mode) = markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
-  let (step, _) = markdown_lex_step(source, close_pos, mode)
+  let (_, mode) = @markdown.markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (step, _) = @markdown.markdown_lex_step(source, close_pos, mode)
   match step {
     @core.LexStep::Produced(info, next_offset~) => {
       ignore(next_offset)
@@ -366,9 +366,9 @@ test "lexer: detached mode rejects malformed ordered marker ownership" {
 ///|
 test "lexer: detached public mode recovers repeated list fence indentation" {
   let source = "- - ```\n>>```\n     ```\n"
-  let (_, mode0) = markdown_lex_step(source, 4, LineStart)
-  let (_, mode1) = markdown_lex_step(source, 7, mode0)
-  let (content_step, mode2) = markdown_lex_step(source, 8, mode1)
+  let (_, mode0) = @markdown.markdown_lex_step(source, 4, LineStart)
+  let (_, mode1) = @markdown.markdown_lex_step(source, 7, mode0)
+  let (content_step, mode2) = @markdown.markdown_lex_step(source, 8, mode1)
   match content_step {
     @core.LexStep::Produced(info, next_offset~) => {
       inspect(@debug.to_string(info.token), content="CodeText(\">>```\")")
@@ -376,8 +376,8 @@ test "lexer: detached public mode recovers repeated list fence indentation" {
     }
     _ => fail("expected quote-like code content")
   }
-  let (_, mode3) = markdown_lex_step(source, 13, mode2)
-  let (step, _) = markdown_lex_step(source, 14, mode3)
+  let (_, mode3) = @markdown.markdown_lex_step(source, 13, mode2)
+  let (step, _) = @markdown.markdown_lex_step(source, 14, mode3)
   match step {
     @core.LexStep::Produced(info, next_offset~) => {
       inspect(@debug.to_string(info.token), content="CodeText(\"     ```\")")
@@ -390,9 +390,9 @@ test "lexer: detached public mode recovers repeated list fence indentation" {
 ///|
 test "lexer: detached public mode ignores repeated-list code content" {
   let source = "- - ```\n- - ```\n    ```\n"
-  let (_, mode0) = markdown_lex_step(source, 4, LineStart)
-  let (_, mode1) = markdown_lex_step(source, 7, mode0)
-  let (content_step, mode2) = markdown_lex_step(source, 8, mode1)
+  let (_, mode0) = @markdown.markdown_lex_step(source, 4, LineStart)
+  let (_, mode1) = @markdown.markdown_lex_step(source, 7, mode0)
+  let (content_step, mode2) = @markdown.markdown_lex_step(source, 8, mode1)
   match content_step {
     @core.LexStep::Produced(info, next_offset~) => {
       inspect(@debug.to_string(info.token), content="CodeText(\"- - ```\")")
@@ -400,8 +400,8 @@ test "lexer: detached public mode ignores repeated-list code content" {
     }
     _ => fail("expected repeated-list code content")
   }
-  let (_, mode3) = markdown_lex_step(source, 15, mode2)
-  let (close_step, _) = markdown_lex_step(source, 16, mode3)
+  let (_, mode3) = @markdown.markdown_lex_step(source, 15, mode2)
+  let (close_step, _) = @markdown.markdown_lex_step(source, 16, mode3)
   match close_step {
     @core.LexStep::Produced(info, next_offset~) => {
       inspect(@debug.to_string(info.token), content="CodeFenceClose")
@@ -413,14 +413,14 @@ test "lexer: detached public mode ignores repeated-list code content" {
 
 ///|
 test "lexer: inline backtick runs are maximal and escaped runs remain visible" {
-  let runs = tokenize("``code```\n")
+  let runs = @markdown.tokenize("``code```\n")
   inspect(@debug.to_string(runs[0].token), content="Backtick")
   inspect(runs[0].len, content="2")
   inspect(@debug.to_string(runs[1].token), content="Text(\"code\")")
   inspect(@debug.to_string(runs[2].token), content="Backtick")
   inspect(runs[2].len, content="3")
 
-  let escaped = tokenize("\\`literal\n")
+  let escaped = @markdown.tokenize("\\`literal\n")
   inspect(escaped[0].len, content="1")
   inspect(@debug.to_string(escaped[1].token), content="Backtick")
 }

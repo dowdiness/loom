@@ -38,7 +38,7 @@ fn bf_random_codepoint(seed : Int) -> (Int, Int) {
 /// (excluding surrogates), including control chars, null bytes, and
 /// non-ASCII codepoints.
 fn bf_make_raw_string(seed : Int, len : Int) -> (String, Int) {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   let mut s = seed
   for _i = 0; _i < len; _i = _i + 1 {
     let (codepoint, next_s) = bf_random_codepoint(s)
@@ -57,7 +57,7 @@ fn bf_make_mixed_string(seed : Int, len : Int) -> (String, Int) {
     "x", "=>", ",", "(", ")", "+", "-", "if", "then", "else", "let", " = ", "\n",
     "\t", "\u{00}", "42", "  ",
   ]
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   let mut s = seed
   let frag_len = fragments.length()
   for _i = 0; _i < len; _i = _i + 1 {
@@ -94,7 +94,7 @@ test "fuzz: parse handles raw byte streams" {
     let len = seed.abs() % 50 + 1
     let (input, _) = bf_make_raw_string(seed, len)
     try {
-      let _term = parse(parser_byte_fuzz_source_id(), input)
+      let _term = @lambda.parse(parser_byte_fuzz_source_id(), input)
     } catch {
       _ => () // Parse error is expected, abort is not
     }
@@ -109,7 +109,7 @@ test "fuzz: parse_term handles raw byte streams" {
     let len = seed.abs() % 50 + 1
     let (input, _) = bf_make_raw_string(seed, len)
     try {
-      let (_term, _diags) = parse_term(parser_byte_fuzz_source_id(), input)
+      let (_term, _diags) = @lambda.parse_term(parser_byte_fuzz_source_id(), input)
     } catch {
       _ => ()
     }
@@ -126,7 +126,7 @@ test "fuzz: imperative parser handles raw byte streams" {
     let parser = @loom.new_imperative_parser(
       parser_byte_fuzz_source_id(),
       input,
-      lambda_grammar,
+      @lambda.lambda_grammar,
     )
     let _term = parser.parse().ast
   }
@@ -144,7 +144,7 @@ test "fuzz: incremental edit with raw byte streams" {
     let parser = @loom.new_imperative_parser(
       parser_byte_fuzz_source_id(),
       source,
-      lambda_grammar,
+      @lambda.lambda_grammar,
     )
     let _ = parser.parse().ast
     let mut current_source = source
@@ -205,7 +205,7 @@ test "fuzz: parse handles mixed syntax and raw bytes" {
     let len = seed.abs() % 40 + 5
     let (input, _) = bf_make_mixed_string(seed, len)
     try {
-      let _term = parse(parser_byte_fuzz_source_id(), input)
+      let _term = @lambda.parse(parser_byte_fuzz_source_id(), input)
     } catch {
       _ => ()
     }
@@ -216,7 +216,7 @@ test "fuzz: parse handles mixed syntax and raw bytes" {
 /// Property: Strings with only control characters and null bytes.
 test "fuzz: parse handles control characters" {
   for case_i = 0; case_i < 50; case_i = case_i + 1 {
-    let buf = StringBuilder::new()
+    let buf = StringBuilder()
     let mut seed = 3 + case_i * 37
     let len = seed.abs() % 20 + 1
     for _i = 0; _i < len; _i = _i + 1 {
@@ -227,7 +227,7 @@ test "fuzz: parse handles control characters" {
     }
     let input = buf.to_string()
     try {
-      let _term = parse(parser_byte_fuzz_source_id(), input)
+      let _term = @lambda.parse(parser_byte_fuzz_source_id(), input)
     } catch {
       _ => ()
     }
@@ -243,7 +243,7 @@ test "fuzz: parse handles high unicode" {
   ]
   for input in inputs {
     try {
-      let _term = parse(parser_byte_fuzz_source_id(), input)
+      let _term = @lambda.parse(parser_byte_fuzz_source_id(), input)
     } catch {
       _ => ()
     }
