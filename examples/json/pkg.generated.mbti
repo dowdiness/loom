@@ -77,22 +77,32 @@ pub(all) enum JsonRole {
   Punctuation
   Error
 } derive(Eq, @debug.Debug)
+pub fn JsonRole::equal(Self, Self) -> Bool
 pub fn JsonRole::export_name(Self) -> String
+pub fn JsonRole::not_equal(Self, Self) -> Bool
+pub fn JsonRole::to_repr(Self) -> @debug.Repr
 
 pub struct JsonRoleSpan {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn JsonRoleSpan::JsonRoleSpan(role~ : JsonRole, start~ : Int, end~ : Int) -> Self
 pub fn JsonRoleSpan::end(Self) -> Int
+pub fn JsonRoleSpan::equal(Self, Self) -> Bool
+pub fn JsonRoleSpan::not_equal(Self, Self) -> Bool
 pub fn JsonRoleSpan::role(Self) -> JsonRole
 pub fn JsonRoleSpan::start(Self) -> Int
+pub fn JsonRoleSpan::to_repr(Self) -> @debug.Repr
 
 pub struct JsonRoleSpanExport {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn JsonRoleSpanExport::end(Self) -> Int
+pub fn JsonRoleSpanExport::equal(Self, Self) -> Bool
+pub fn JsonRoleSpanExport::not_equal(Self, Self) -> Bool
 pub fn JsonRoleSpanExport::role(Self) -> String
 pub fn JsonRoleSpanExport::start(Self) -> Int
+pub fn JsonRoleSpanExport::to_json(Self) -> Json
+pub fn JsonRoleSpanExport::to_repr(Self) -> @debug.Repr
 pub impl ToJson for JsonRoleSpanExport
 
 pub struct JsonRoleSpansAttachment {
@@ -111,6 +121,21 @@ pub(all) enum JsonValue {
   Object(Array[(String, JsonValue)])
   Error(String)
 } derive(Eq, ToJson, @debug.Debug)
+pub fn JsonValue::canonical(Self) -> Self
+pub fn JsonValue::children(Self) -> Array[Self]
+pub fn JsonValue::equal(Self, Self) -> Bool
+pub fn JsonValue::kind_tag(Self) -> String
+pub fn JsonValue::label(Self) -> String
+pub fn JsonValue::not_equal(Self, Self) -> Bool
+pub fn JsonValue::output(Self, &Logger) -> Unit
+pub fn JsonValue::placeholder(Self) -> String
+pub fn JsonValue::same_kind(Self, Self) -> Bool
+pub fn JsonValue::to_json(Self) -> Json
+pub fn JsonValue::to_layout(Self) -> @pretty.Layout[@pretty.SyntaxCategory]
+pub fn JsonValue::to_repr(Self) -> @debug.Repr
+pub fn JsonValue::to_source(Self) -> String
+pub fn JsonValue::to_string(Self) -> String
+pub fn JsonValue::unparse(Self) -> String
 pub impl @core.Canonical for JsonValue
 pub impl @core.Renderable for JsonValue
 pub impl @core.TreeNode for JsonValue
@@ -144,7 +169,16 @@ pub(all) enum SyntaxKind {
   ErrorNode
   RootNode
 } derive(Eq, @debug.Debug)
+pub fn SyntaxKind::equal(Self, Self) -> Bool
+pub fn SyntaxKind::from_raw(@seam.RawKind) -> Self
+pub fn SyntaxKind::is_error(Self) -> Bool
 pub fn SyntaxKind::is_token(Self) -> Bool
+pub fn SyntaxKind::is_trivia(Self) -> Bool
+pub fn SyntaxKind::not_equal(Self, Self) -> Bool
+pub fn SyntaxKind::output(Self, &Logger) -> Unit
+pub fn SyntaxKind::to_raw(Self) -> @seam.RawKind
+pub fn SyntaxKind::to_repr(Self) -> @debug.Repr
+pub fn SyntaxKind::to_string(Self) -> String
 pub impl @seam.FromRawKind for SyntaxKind
 pub impl @seam.IsError for SyntaxKind
 pub impl @seam.IsTrivia for SyntaxKind
@@ -167,6 +201,14 @@ pub(all) enum Token {
   Error(String)
   EOF
 } derive(Eq, @debug.Debug)
+pub fn Token::equal(Self, Self) -> Bool
+pub fn Token::is_eof(Self) -> Bool
+pub fn Token::is_trivia(Self) -> Bool
+pub fn Token::not_equal(Self, Self) -> Bool
+pub fn Token::output(Self, &Logger) -> Unit
+pub fn Token::to_raw(Self) -> @seam.RawKind
+pub fn Token::to_repr(Self) -> @debug.Repr
+pub fn Token::to_string(Self) -> String
 pub impl @seam.IsEof for Token
 pub impl @seam.IsTrivia for Token
 pub impl @seam.ToRawKind for Token

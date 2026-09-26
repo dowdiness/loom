@@ -17,6 +17,9 @@ pub(all) suberror StuckReason {
   ParseError
   Divergence
 } derive(@debug.Debug)
+pub fn StuckReason::output(Self, &Logger) -> Unit
+pub fn StuckReason::to_repr(Self) -> @debug.Repr
+pub fn StuckReason::to_string(Self) -> String
 pub impl Show for StuckReason
 
 // Types and methods
@@ -25,13 +28,21 @@ pub struct Env {
 } derive(Eq, @debug.Debug)
 pub fn Env::bind(Self, String, Value) -> Self
 pub fn Env::empty() -> Self
+pub fn Env::equal(Self, Self) -> Bool
 pub fn Env::lookup(Self, String) -> Value?
+pub fn Env::not_equal(Self, Self) -> Bool
+pub fn Env::to_repr(Self) -> @debug.Repr
 
 pub(all) enum Value {
   VInt(Int)
   VClosure(Env, String, @ast.Term)
   VUnit
 } derive(Eq, @debug.Debug)
+pub fn Value::equal(Self, Self) -> Bool
+pub fn Value::not_equal(Self, Self) -> Bool
+pub fn Value::output(Self, &Logger) -> Unit
+pub fn Value::to_repr(Self) -> @debug.Repr
+pub fn Value::to_string(Self) -> String
 pub impl Show for Value
 
 // Type aliases

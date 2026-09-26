@@ -20,6 +20,9 @@ pub fn project_graph_source(@diagnostic.SourceId, String) -> Result[GraphDoc, Ar
 pub enum GraphAst {
   Parsed
 } derive(Eq, @debug.Debug)
+pub fn GraphAst::equal(Self, Self) -> Bool
+pub fn GraphAst::not_equal(Self, Self) -> Bool
+pub fn GraphAst::to_repr(Self) -> @debug.Repr
 
 pub struct GraphAttachment {
   // private fields
@@ -40,6 +43,11 @@ pub enum GraphAttachmentState {
   ProjectionBlocked
   GraphBlocked
 } derive(Eq, @debug.Debug)
+pub fn GraphAttachmentState::equal(Self, Self) -> Bool
+pub fn GraphAttachmentState::not_equal(Self, Self) -> Bool
+pub fn GraphAttachmentState::output(Self, &Logger) -> Unit
+pub fn GraphAttachmentState::to_repr(Self) -> @debug.Repr
+pub fn GraphAttachmentState::to_string(Self) -> String
 pub impl Show for GraphAttachmentState
 
 pub struct GraphAttachmentSubscription {
@@ -50,6 +58,7 @@ pub fn GraphAttachmentSubscription::unsubscribe(Self) -> Unit
 pub struct GraphDoc {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn GraphDoc::equal(Self, Self) -> Bool
 pub fn GraphDoc::find_node(Self, String) -> GraphNode?
 pub fn GraphDoc::find_node_by_id(Self, String) -> GraphNode?
 pub fn GraphDoc::lower_add_connection(Self, String, String) -> LoweredGraphEdit?
@@ -58,7 +67,9 @@ pub fn GraphDoc::lower_remove_connection(Self, String, String, String) -> Lowere
 pub fn GraphDoc::lower_rename_node_binding(Self, String, String) -> LoweredGraphEdit?
 pub fn GraphDoc::lower_set_numeric(Self, String, String, String) -> LoweredGraphEdit?
 pub fn GraphDoc::nodes(Self) -> Array[GraphNode]
+pub fn GraphDoc::not_equal(Self, Self) -> Bool
 pub fn GraphDoc::source(Self) -> String
+pub fn GraphDoc::to_repr(Self) -> @debug.Repr
 pub fn GraphDoc::tokens(Self) -> Array[GraphToken]
 pub fn GraphDoc::tokens_for_role(Self, GraphTokenRole) -> Array[GraphToken]
 
@@ -70,16 +81,22 @@ pub fn GraphNode::binding_token(Self) -> GraphToken
 pub fn GraphNode::constructor_name(Self) -> String
 pub fn GraphNode::constructor_token(Self) -> GraphToken
 pub fn GraphNode::end(Self) -> Int
+pub fn GraphNode::equal(Self, Self) -> Bool
 pub fn GraphNode::id(Self) -> String
+pub fn GraphNode::not_equal(Self, Self) -> Bool
 pub fn GraphNode::output_tokens(Self) -> Array[GraphToken]
 pub fn GraphNode::params(Self) -> Array[GraphParam]
 pub fn GraphNode::start(Self) -> Int
+pub fn GraphNode::to_repr(Self) -> @debug.Repr
 
 pub struct GraphParam {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn GraphParam::equal(Self, Self) -> Bool
 pub fn GraphParam::name(Self) -> String
 pub fn GraphParam::name_token(Self) -> GraphToken
+pub fn GraphParam::not_equal(Self, Self) -> Bool
+pub fn GraphParam::to_repr(Self) -> @debug.Repr
 pub fn GraphParam::value_kind(Self) -> GraphValueKind
 pub fn GraphParam::value_tokens(Self) -> Array[GraphToken]
 
@@ -87,10 +104,13 @@ pub struct GraphToken {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn GraphToken::end(Self) -> Int
+pub fn GraphToken::equal(Self, Self) -> Bool
+pub fn GraphToken::not_equal(Self, Self) -> Bool
 pub fn GraphToken::role(Self) -> GraphTokenRole
 pub fn GraphToken::span(Self) -> SourceSpan
 pub fn GraphToken::start(Self) -> Int
 pub fn GraphToken::text(Self) -> String
+pub fn GraphToken::to_repr(Self) -> @debug.Repr
 
 pub(all) enum GraphTokenRole {
   NodeBindingName
@@ -104,6 +124,11 @@ pub(all) enum GraphTokenRole {
   StringField
   EnumField
 } derive(Eq, @debug.Debug)
+pub fn GraphTokenRole::equal(Self, Self) -> Bool
+pub fn GraphTokenRole::not_equal(Self, Self) -> Bool
+pub fn GraphTokenRole::output(Self, &Logger) -> Unit
+pub fn GraphTokenRole::to_repr(Self) -> @debug.Repr
+pub fn GraphTokenRole::to_string(Self) -> String
 pub impl Show for GraphTokenRole
 
 pub enum GraphValueKind {
@@ -112,30 +137,44 @@ pub enum GraphValueKind {
   EnumValue
   InputRef
 } derive(Eq, @debug.Debug)
+pub fn GraphValueKind::equal(Self, Self) -> Bool
+pub fn GraphValueKind::not_equal(Self, Self) -> Bool
+pub fn GraphValueKind::output(Self, &Logger) -> Unit
+pub fn GraphValueKind::to_repr(Self) -> @debug.Repr
+pub fn GraphValueKind::to_string(Self) -> String
 pub impl Show for GraphValueKind
 
 pub struct LoweredGraphEdit {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn LoweredGraphEdit::equal(Self, Self) -> Bool
 pub fn LoweredGraphEdit::incremental_edit(Self) -> @core.Edit?
 pub fn LoweredGraphEdit::new_source(Self) -> String
+pub fn LoweredGraphEdit::not_equal(Self, Self) -> Bool
 pub fn LoweredGraphEdit::replacements(Self) -> Array[SourceReplacement]
+pub fn LoweredGraphEdit::to_repr(Self) -> @debug.Repr
 
 pub struct SourceReplacement {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn SourceReplacement::edit(Self) -> @core.Edit
+pub fn SourceReplacement::equal(Self, Self) -> Bool
 pub fn SourceReplacement::new_text(Self) -> String
+pub fn SourceReplacement::not_equal(Self, Self) -> Bool
 pub fn SourceReplacement::old_end(Self) -> Int
 pub fn SourceReplacement::old_len(Self) -> Int
 pub fn SourceReplacement::start(Self) -> Int
+pub fn SourceReplacement::to_repr(Self) -> @debug.Repr
 
 pub struct SourceSpan {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn SourceSpan::end(Self) -> Int
+pub fn SourceSpan::equal(Self, Self) -> Bool
 pub fn SourceSpan::length(Self) -> Int
+pub fn SourceSpan::not_equal(Self, Self) -> Bool
 pub fn SourceSpan::start(Self) -> Int
+pub fn SourceSpan::to_repr(Self) -> @debug.Repr
 
 pub enum SyntaxKind {
   IdentifierToken
@@ -157,6 +196,12 @@ pub enum SyntaxKind {
   ValueNode
   OutputNode
 } derive(Eq, @debug.Debug)
+pub fn SyntaxKind::equal(Self, Self) -> Bool
+pub fn SyntaxKind::not_equal(Self, Self) -> Bool
+pub fn SyntaxKind::output(Self, &Logger) -> Unit
+pub fn SyntaxKind::to_raw(Self) -> @seam.RawKind
+pub fn SyntaxKind::to_repr(Self) -> @debug.Repr
+pub fn SyntaxKind::to_string(Self) -> String
 pub impl @seam.ToRawKind for SyntaxKind
 pub impl Show for SyntaxKind
 
@@ -175,6 +220,14 @@ pub enum Token {
   Error(String)
   EOF
 } derive(Eq, @debug.Debug)
+pub fn Token::equal(Self, Self) -> Bool
+pub fn Token::is_eof(Self) -> Bool
+pub fn Token::is_trivia(Self) -> Bool
+pub fn Token::not_equal(Self, Self) -> Bool
+pub fn Token::output(Self, &Logger) -> Unit
+pub fn Token::to_raw(Self) -> @seam.RawKind
+pub fn Token::to_repr(Self) -> @debug.Repr
+pub fn Token::to_string(Self) -> String
 pub impl @seam.IsEof for Token
 pub impl @seam.IsTrivia for Token
 pub impl @seam.ToRawKind for Token

@@ -82,6 +82,11 @@ pub enum DivergenceClass {
   ReplicationResidual(String)
   WrongModelStop(String)
 } derive(Eq, @debug.Debug)
+pub fn DivergenceClass::equal(Self, Self) -> Bool
+pub fn DivergenceClass::not_equal(Self, Self) -> Bool
+pub fn DivergenceClass::output(Self, &Logger) -> Unit
+pub fn DivergenceClass::to_repr(Self) -> @debug.Repr
+pub fn DivergenceClass::to_string(Self) -> String
 pub impl Show for DivergenceClass
 
 pub struct E1Measurement {
@@ -90,12 +95,16 @@ pub struct E1Measurement {
   hardcoded_rules : Int
   escape_hatch_rules : Int
 } derive(Eq, @debug.Debug)
+pub fn E1Measurement::equal(Self, Self) -> Bool
+pub fn E1Measurement::not_equal(Self, Self) -> Bool
+pub fn E1Measurement::to_repr(Self) -> @debug.Repr
 
 pub struct E2Measurement {
   residue_count : Int
   residues : Array[(String, String)]
   grown_nodes : Array[String]
 } derive(@debug.Debug)
+pub fn E2Measurement::to_repr(Self) -> @debug.Repr
 
 pub struct EditStep {
   label : String
@@ -103,10 +112,12 @@ pub struct EditStep {
   after : String
   edit : @core.Edit
 } derive(@debug.Debug)
+pub fn EditStep::to_repr(Self) -> @debug.Repr
 
 pub struct NewlineAppProbeResult {
   divergence : DivergenceClass
 } derive(@debug.Debug)
+pub fn NewlineAppProbeResult::to_repr(Self) -> @debug.Repr
 
 pub(all) struct OracleStepResult {
   label : String
@@ -119,6 +130,9 @@ pub(all) struct OracleStepResult {
   a_reuse_count : Int
   b_reuse_count : Int
 } derive(Eq, @debug.Debug)
+pub fn OracleStepResult::equal(Self, Self) -> Bool
+pub fn OracleStepResult::not_equal(Self, Self) -> Bool
+pub fn OracleStepResult::to_repr(Self) -> @debug.Repr
 
 pub struct ReifiedIrOracleResult {
   d1_passed : Bool
@@ -126,6 +140,7 @@ pub struct ReifiedIrOracleResult {
   d2b_passed : Bool
   divergence : DivergenceClass
 } derive(@debug.Debug)
+pub fn ReifiedIrOracleResult::to_repr(Self) -> @debug.Repr
 
 pub struct ReuseProbePlan {
   target_grammar : String
@@ -133,6 +148,7 @@ pub struct ReuseProbePlan {
   expected_oracle_result : String
   gate_condition : String
 } derive(@debug.Debug)
+pub fn ReuseProbePlan::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

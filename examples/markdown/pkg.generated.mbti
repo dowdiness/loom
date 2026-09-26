@@ -76,6 +76,9 @@ pub fn tokenize(String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
 pub suberror MarkdownUpdateError {
   ChangeSetMismatch
 } derive(Eq, @debug.Debug)
+pub fn MarkdownUpdateError::equal(Self, Self) -> Bool
+pub fn MarkdownUpdateError::not_equal(Self, Self) -> Bool
+pub fn MarkdownUpdateError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub(all) enum Block {
@@ -90,6 +93,17 @@ pub(all) enum Block {
   HtmlBlock(String)
   Error(String)
 } derive(Eq, @debug.Debug)
+pub fn Block::children(Self) -> Array[Self]
+pub fn Block::equal(Self, Self) -> Bool
+pub fn Block::kind_tag(Self) -> String
+pub fn Block::label(Self) -> String
+pub fn Block::not_equal(Self, Self) -> Bool
+pub fn Block::output(Self, &Logger) -> Unit
+pub fn Block::placeholder(Self) -> String
+pub fn Block::same_kind(Self, Self) -> Bool
+pub fn Block::to_repr(Self) -> @debug.Repr
+pub fn Block::to_string(Self) -> String
+pub fn Block::unparse(Self) -> String
 pub impl @core.Renderable for Block
 pub impl @core.TreeNode for Block
 pub impl Show for Block
@@ -109,6 +123,17 @@ pub(all) enum Inline {
   Link(Array[Inline], String)
   Error(String)
 } derive(Eq, @debug.Debug)
+pub fn Inline::children(Self) -> Array[Self]
+pub fn Inline::equal(Self, Self) -> Bool
+pub fn Inline::kind_tag(Self) -> String
+pub fn Inline::label(Self) -> String
+pub fn Inline::not_equal(Self, Self) -> Bool
+pub fn Inline::output(Self, &Logger) -> Unit
+pub fn Inline::placeholder(Self) -> String
+pub fn Inline::same_kind(Self, Self) -> Bool
+pub fn Inline::to_repr(Self) -> @debug.Repr
+pub fn Inline::to_string(Self) -> String
+pub fn Inline::unparse(Self) -> String
 pub impl @core.Renderable for Inline
 pub impl @core.TreeNode for Inline
 pub impl Show for Inline
@@ -117,11 +142,15 @@ pub(all) enum MarkdownAutolinkKind {
   Uri
   Email
 } derive(Eq, @debug.Debug)
+pub fn MarkdownAutolinkKind::equal(Self, Self) -> Bool
+pub fn MarkdownAutolinkKind::not_equal(Self, Self) -> Bool
+pub fn MarkdownAutolinkKind::to_repr(Self) -> @debug.Repr
 
 pub struct MarkdownDocument {
   // private fields
 }
 pub fn MarkdownDocument::diagnostics(Self) -> @core.DiagnosticSet
+pub fn MarkdownDocument::resolve_source(Self, @diagnostic.SourceId) -> @diagnostic.SourceSnapshot?
 pub fn MarkdownDocument::root(Self) -> MarkdownNode
 pub fn MarkdownDocument::selection(Self, MarkdownNode, kind~ : MarkdownSemanticSelectionKind) -> MarkdownSemanticSelection?
 pub fn MarkdownDocument::semantic_read(Self) -> MarkdownSemanticRead
@@ -146,13 +175,19 @@ pub fn MarkdownDocumentUpdates::document_update(Self) -> MarkdownDocumentUpdate
 pub struct MarkdownExtensions {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn MarkdownExtensions::equal(Self, Self) -> Bool
 pub fn MarkdownExtensions::none() -> Self
+pub fn MarkdownExtensions::not_equal(Self, Self) -> Bool
 pub fn MarkdownExtensions::task_list() -> Self
+pub fn MarkdownExtensions::to_repr(Self) -> @debug.Repr
 
 pub(all) enum MarkdownHardBreakForm {
   TrailingSpaces(Int)
   Backslash
 } derive(Eq, @debug.Debug)
+pub fn MarkdownHardBreakForm::equal(Self, Self) -> Bool
+pub fn MarkdownHardBreakForm::not_equal(Self, Self) -> Bool
+pub fn MarkdownHardBreakForm::to_repr(Self) -> @debug.Repr
 
 pub struct MarkdownIR {
   // private fields
@@ -161,6 +196,7 @@ pub fn MarkdownIR::children(Self) -> Array[Self]
 pub fn MarkdownIR::content_origin(Self) -> MarkdownIROrigin?
 pub fn MarkdownIR::destination_origin(Self) -> MarkdownIROrigin?
 pub fn MarkdownIR::diagnostics(Self) -> Array[@diagnostic.Diagnostic]
+pub fn MarkdownIR::equal(Self, Self) -> Bool
 pub fn MarkdownIR::heading_depth(Self) -> Int?
 pub fn MarkdownIR::is_raw(Self) -> Bool
 pub fn MarkdownIR::is_recovered(Self) -> Bool
@@ -168,15 +204,20 @@ pub fn MarkdownIR::is_unsupported(Self) -> Bool
 pub fn MarkdownIR::kind_tag(Self) -> String
 pub fn MarkdownIR::label_origin(Self) -> MarkdownIROrigin?
 pub fn MarkdownIR::list_marker(Self) -> UnorderedListMarker?
+pub fn MarkdownIR::not_equal(Self, Self) -> Bool
 pub fn MarkdownIR::origin(Self) -> MarkdownIROrigin
 pub fn MarkdownIR::spread(Self) -> Bool?
 pub fn MarkdownIR::text_value(Self) -> String?
+pub fn MarkdownIR::to_repr(Self) -> @debug.Repr
 pub fn MarkdownIR::view(Self) -> MarkdownIRView
 
 pub(all) enum MarkdownIRAutolinkKind {
   UriAutolink
   EmailAutolink
 } derive(Eq, @debug.Debug)
+pub fn MarkdownIRAutolinkKind::equal(Self, Self) -> Bool
+pub fn MarkdownIRAutolinkKind::not_equal(Self, Self) -> Bool
+pub fn MarkdownIRAutolinkKind::to_repr(Self) -> @debug.Repr
 
 pub(all) enum MarkdownIRCanonicalFormatFailure {
   ExpectedDocument
@@ -184,21 +225,33 @@ pub(all) enum MarkdownIRCanonicalFormatFailure {
   Unrepresentable
   SearchLimitExceeded(observed~ : Int, limit~ : Int)
 } derive(Eq, @debug.Debug)
+pub fn MarkdownIRCanonicalFormatFailure::equal(Self, Self) -> Bool
+pub fn MarkdownIRCanonicalFormatFailure::not_equal(Self, Self) -> Bool
+pub fn MarkdownIRCanonicalFormatFailure::to_repr(Self) -> @debug.Repr
 
 pub(all) enum MarkdownIRCanonicalOpaqueKind {
   Raw
   Recovered
   Unsupported
 } derive(Eq, @debug.Debug)
+pub fn MarkdownIRCanonicalOpaqueKind::equal(Self, Self) -> Bool
+pub fn MarkdownIRCanonicalOpaqueKind::not_equal(Self, Self) -> Bool
+pub fn MarkdownIRCanonicalOpaqueKind::to_repr(Self) -> @debug.Repr
 
 pub(all) enum MarkdownIRHardBreakSurface {
   TrailingSpaces(Int)
   Backslash
 } derive(Eq, @debug.Debug)
+pub fn MarkdownIRHardBreakSurface::equal(Self, Self) -> Bool
+pub fn MarkdownIRHardBreakSurface::not_equal(Self, Self) -> Bool
+pub fn MarkdownIRHardBreakSurface::to_repr(Self) -> @debug.Repr
 
 pub(all) enum MarkdownIRHtmlRenderError {
   RawHtmlRejected(RawHtmlSurface, MarkdownIROrigin)
 } derive(Eq, @debug.Debug)
+pub fn MarkdownIRHtmlRenderError::equal(Self, Self) -> Bool
+pub fn MarkdownIRHtmlRenderError::not_equal(Self, Self) -> Bool
+pub fn MarkdownIRHtmlRenderError::to_repr(Self) -> @debug.Repr
 
 pub(all) enum MarkdownIRLinkReferenceForm {
   InlineLinkForm
@@ -206,6 +259,9 @@ pub(all) enum MarkdownIRLinkReferenceForm {
   CollapsedReferenceLinkForm
   ShortcutReferenceLinkForm
 } derive(Eq, @debug.Debug)
+pub fn MarkdownIRLinkReferenceForm::equal(Self, Self) -> Bool
+pub fn MarkdownIRLinkReferenceForm::not_equal(Self, Self) -> Bool
+pub fn MarkdownIRLinkReferenceForm::to_repr(Self) -> @debug.Repr
 
 pub(all) struct MarkdownIRLinkSurface {
   form : MarkdownIRLinkReferenceForm
@@ -214,18 +270,27 @@ pub(all) struct MarkdownIRLinkSurface {
   destination_origin : MarkdownIROrigin?
   title_origin : MarkdownIROrigin?
 } derive(Eq, @debug.Debug)
+pub fn MarkdownIRLinkSurface::equal(Self, Self) -> Bool
+pub fn MarkdownIRLinkSurface::not_equal(Self, Self) -> Bool
+pub fn MarkdownIRLinkSurface::to_repr(Self) -> @debug.Repr
 
 pub struct MarkdownIROrigin {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn MarkdownIROrigin::end(Self) -> Int
+pub fn MarkdownIROrigin::equal(Self, Self) -> Bool
+pub fn MarkdownIROrigin::not_equal(Self, Self) -> Bool
 pub fn MarkdownIROrigin::start(Self) -> Int
+pub fn MarkdownIROrigin::to_repr(Self) -> @debug.Repr
 
 pub struct MarkdownIRTask {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn MarkdownIRTask::checked(Self) -> Bool
+pub fn MarkdownIRTask::equal(Self, Self) -> Bool
 pub fn MarkdownIRTask::marker_origin(Self) -> MarkdownIROrigin
+pub fn MarkdownIRTask::not_equal(Self, Self) -> Bool
+pub fn MarkdownIRTask::to_repr(Self) -> @debug.Repr
 
 pub(all) enum MarkdownIRView {
   Document
@@ -253,6 +318,9 @@ pub(all) enum MarkdownIRView {
   Raw(value~ : String)
   Recovered(value~ : String)
 } derive(Eq, @debug.Debug)
+pub fn MarkdownIRView::equal(Self, Self) -> Bool
+pub fn MarkdownIRView::not_equal(Self, Self) -> Bool
+pub fn MarkdownIRView::to_repr(Self) -> @debug.Repr
 
 pub(all) enum MarkdownLexMode {
   LineStart
@@ -264,6 +332,9 @@ pub(all) enum MarkdownLexMode {
   HtmlBlockUntil(String)
   HtmlBlockEndLine
 } derive(Eq, @debug.Debug)
+pub fn MarkdownLexMode::equal(Self, Self) -> Bool
+pub fn MarkdownLexMode::not_equal(Self, Self) -> Bool
+pub fn MarkdownLexMode::to_repr(Self) -> @debug.Repr
 
 pub struct MarkdownLexSession {
   // private fields
@@ -304,6 +375,9 @@ pub(all) enum MarkdownNodeView {
   Raw(value~ : String)
   Recovered(value~ : String)
 } derive(Eq, @debug.Debug)
+pub fn MarkdownNodeView::equal(Self, Self) -> Bool
+pub fn MarkdownNodeView::not_equal(Self, Self) -> Bool
+pub fn MarkdownNodeView::to_repr(Self) -> @debug.Repr
 
 pub struct MarkdownPreviousUpdate {
   // private fields
@@ -322,6 +396,9 @@ pub(all) enum MarkdownReferenceForm {
   CollapsedReference
   ShortcutReference
 } derive(Eq, @debug.Debug)
+pub fn MarkdownReferenceForm::equal(Self, Self) -> Bool
+pub fn MarkdownReferenceForm::not_equal(Self, Self) -> Bool
+pub fn MarkdownReferenceForm::to_repr(Self) -> @debug.Repr
 
 pub(all) enum MarkdownRole {
   HeadingMarker
@@ -339,13 +416,19 @@ pub(all) enum MarkdownRole {
   Punctuation
   Error
 } derive(Eq, @debug.Debug)
+pub fn MarkdownRole::equal(Self, Self) -> Bool
+pub fn MarkdownRole::not_equal(Self, Self) -> Bool
+pub fn MarkdownRole::to_repr(Self) -> @debug.Repr
 
 pub struct MarkdownRoleSpan {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn MarkdownRoleSpan::end(Self) -> Int
+pub fn MarkdownRoleSpan::equal(Self, Self) -> Bool
+pub fn MarkdownRoleSpan::not_equal(Self, Self) -> Bool
 pub fn MarkdownRoleSpan::role(Self) -> MarkdownRole
 pub fn MarkdownRoleSpan::start(Self) -> Int
+pub fn MarkdownRoleSpan::to_repr(Self) -> @debug.Repr
 
 pub struct MarkdownRoleSpansAttachment {
   // private fields
@@ -379,6 +462,9 @@ pub(all) enum MarkdownSemanticSelectionKind {
   Title
   AutolinkDisplay
 } derive(Eq, @debug.Debug)
+pub fn MarkdownSemanticSelectionKind::equal(Self, Self) -> Bool
+pub fn MarkdownSemanticSelectionKind::not_equal(Self, Self) -> Bool
+pub fn MarkdownSemanticSelectionKind::to_repr(Self) -> @debug.Repr
 
 pub struct MarkdownTopLevelBlock {
   // private fields
@@ -390,14 +476,20 @@ pub(all) enum OrderedListDelimiter {
   Period
   Paren
 } derive(Eq, @debug.Debug)
+pub fn OrderedListDelimiter::equal(Self, Self) -> Bool
+pub fn OrderedListDelimiter::not_equal(Self, Self) -> Bool
+pub fn OrderedListDelimiter::to_repr(Self) -> @debug.Repr
 
 pub struct OrderedListMarker {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn OrderedListMarker::OrderedListMarker(start~ : Int, delimiter~ : OrderedListDelimiter) -> Self
 pub fn OrderedListMarker::delimiter(Self) -> OrderedListDelimiter
+pub fn OrderedListMarker::equal(Self, Self) -> Bool
+pub fn OrderedListMarker::not_equal(Self, Self) -> Bool
 pub fn OrderedListMarker::start(Self) -> Int
 pub fn OrderedListMarker::text(Self) -> String
+pub fn OrderedListMarker::to_repr(Self) -> @debug.Repr
 
 pub(all) enum RawHtmlPolicy {
   Escape
@@ -405,11 +497,17 @@ pub(all) enum RawHtmlPolicy {
   Reject
   Passthrough
 } derive(Eq, @debug.Debug)
+pub fn RawHtmlPolicy::equal(Self, Self) -> Bool
+pub fn RawHtmlPolicy::not_equal(Self, Self) -> Bool
+pub fn RawHtmlPolicy::to_repr(Self) -> @debug.Repr
 
 pub(all) enum RawHtmlSurface {
   RawHtmlBlock
   RawHtmlInline
 } derive(Eq, @debug.Debug)
+pub fn RawHtmlSurface::equal(Self, Self) -> Bool
+pub fn RawHtmlSurface::not_equal(Self, Self) -> Bool
+pub fn RawHtmlSurface::to_repr(Self) -> @debug.Repr
 
 pub(all) enum SyntaxKind {
   AtxHeadingMarkerToken
@@ -460,7 +558,14 @@ pub(all) enum SyntaxKind {
   TaskListMarkerNode
   ReferenceLinkOpenerNode
 } derive(Eq, @debug.Debug)
+pub fn SyntaxKind::equal(Self, Self) -> Bool
+pub fn SyntaxKind::from_raw(@seam.RawKind) -> Self
 pub fn SyntaxKind::is_token(Self) -> Bool
+pub fn SyntaxKind::not_equal(Self, Self) -> Bool
+pub fn SyntaxKind::output(Self, &Logger) -> Unit
+pub fn SyntaxKind::to_raw(Self) -> @seam.RawKind
+pub fn SyntaxKind::to_repr(Self) -> @debug.Repr
+pub fn SyntaxKind::to_string(Self) -> String
 pub impl @seam.FromRawKind for SyntaxKind
 pub impl @seam.ToRawKind for SyntaxKind
 pub impl Show for SyntaxKind
@@ -491,6 +596,14 @@ pub(all) enum Token {
   Error(String)
   EOF
 } derive(Eq, @debug.Debug)
+pub fn Token::equal(Self, Self) -> Bool
+pub fn Token::is_eof(Self) -> Bool
+pub fn Token::is_trivia(Self) -> Bool
+pub fn Token::not_equal(Self, Self) -> Bool
+pub fn Token::output(Self, &Logger) -> Unit
+pub fn Token::to_raw(Self) -> @seam.RawKind
+pub fn Token::to_repr(Self) -> @debug.Repr
+pub fn Token::to_string(Self) -> String
 pub impl @seam.IsEof for Token
 pub impl @seam.IsTrivia for Token
 pub impl @seam.ToRawKind for Token
@@ -501,6 +614,9 @@ pub(all) enum UnorderedListMarker {
   Star
   Plus
 } derive(Eq, @debug.Debug)
+pub fn UnorderedListMarker::equal(Self, Self) -> Bool
+pub fn UnorderedListMarker::not_equal(Self, Self) -> Bool
+pub fn UnorderedListMarker::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

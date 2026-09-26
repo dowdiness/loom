@@ -16,12 +16,14 @@ pub struct BlockExprProj {
 }
 pub fn BlockExprProj::cast(@seam.SyntaxNode) -> Self?
 pub fn BlockExprProj::defs(Self) -> Array[@seam.SyntaxNode]
+pub fn BlockExprProj::syntax_node(Self) -> @seam.SyntaxNode
 pub impl @seam.AstView for BlockExprProj
 
 pub struct IfConditionProj {
   node : @seam.SyntaxNode
 }
 pub fn IfConditionProj::cast(@seam.SyntaxNode) -> Self?
+pub fn IfConditionProj::syntax_node(Self) -> @seam.SyntaxNode
 pub impl @seam.AstView for IfConditionProj
 
 pub struct IfExprProj {
@@ -30,6 +32,7 @@ pub struct IfExprProj {
 pub fn IfExprProj::cast(@seam.SyntaxNode) -> Self?
 pub fn IfExprProj::condition(Self, message? : String) -> Result[@seam.SyntaxNode, @seam.ProjectionShapeError]
 pub fn IfExprProj::else_branch(Self, message? : String) -> Result[@seam.SyntaxNode?, @seam.ProjectionShapeError]
+pub fn IfExprProj::syntax_node(Self) -> @seam.SyntaxNode
 pub fn IfExprProj::then_branch(Self, message? : String) -> Result[@seam.SyntaxNode, @seam.ProjectionShapeError]
 pub impl @seam.AstView for IfExprProj
 
@@ -38,6 +41,7 @@ pub struct LambdaBodyProj {
 }
 pub fn LambdaBodyProj::cast(@seam.SyntaxNode) -> Self?
 pub fn LambdaBodyProj::inner(Self, message? : String) -> Result[@seam.SyntaxNode, @seam.ProjectionShapeError]
+pub fn LambdaBodyProj::syntax_node(Self) -> @seam.SyntaxNode
 pub impl @seam.AstView for LambdaBodyProj
 
 pub struct LambdaExprProj {
@@ -45,6 +49,7 @@ pub struct LambdaExprProj {
 }
 pub fn LambdaExprProj::body(Self, message? : String) -> Result[@seam.SyntaxNode, @seam.ProjectionShapeError]
 pub fn LambdaExprProj::cast(@seam.SyntaxNode) -> Self?
+pub fn LambdaExprProj::syntax_node(Self) -> @seam.SyntaxNode
 pub impl @seam.AstView for LambdaExprProj
 
 pub(all) enum SyntaxKind {
@@ -96,7 +101,16 @@ pub(all) enum SyntaxKind {
   IfElse
   LambdaBody
 } derive(Eq, @debug.Debug)
+pub fn SyntaxKind::equal(Self, Self) -> Bool
+pub fn SyntaxKind::from_raw(@seam.RawKind) -> Self
+pub fn SyntaxKind::is_error(Self) -> Bool
 pub fn SyntaxKind::is_token(Self) -> Bool
+pub fn SyntaxKind::is_trivia(Self) -> Bool
+pub fn SyntaxKind::not_equal(Self, Self) -> Bool
+pub fn SyntaxKind::output(Self, &Logger) -> Unit
+pub fn SyntaxKind::to_raw(Self) -> @seam.RawKind
+pub fn SyntaxKind::to_repr(Self) -> @debug.Repr
+pub fn SyntaxKind::to_string(Self) -> String
 pub impl @seam.FromRawKind for SyntaxKind
 pub impl @seam.IsError for SyntaxKind
 pub impl @seam.IsTrivia for SyntaxKind

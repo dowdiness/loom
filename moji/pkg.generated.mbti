@@ -49,18 +49,27 @@ pub(all) suberror DisplayWidthError {
   InvalidStartColumn(Int)
   InvalidTabWidth(Int)
 } derive(Eq, @debug.Debug)
+pub fn DisplayWidthError::equal(Self, Self) -> Bool
+pub fn DisplayWidthError::not_equal(Self, Self) -> Bool
+pub fn DisplayWidthError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub(all) enum AmbiguousWidth {
   Narrow
   Wide
 } derive(Eq, @debug.Debug)
+pub fn AmbiguousWidth::equal(Self, Self) -> Bool
+pub fn AmbiguousWidth::not_equal(Self, Self) -> Bool
+pub fn AmbiguousWidth::to_repr(Self) -> @debug.Repr
 
 pub struct DisplayUnit {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn DisplayUnit::cell_end(Self) -> Int
 pub fn DisplayUnit::cell_start(Self) -> Int
+pub fn DisplayUnit::equal(Self, Self) -> Bool
+pub fn DisplayUnit::not_equal(Self, Self) -> Bool
+pub fn DisplayUnit::to_repr(Self) -> @debug.Repr
 pub fn DisplayUnit::utf16_end(Self) -> Int
 pub fn DisplayUnit::utf16_start(Self) -> Int
 
@@ -80,6 +89,8 @@ pub enum GCB {
   LV
   LVT
 } derive(Eq)
+pub fn GCB::equal(Self, Self) -> Bool
+pub fn GCB::not_equal(Self, Self) -> Bool
 
 pub enum InCB {
   IcbNone
@@ -87,6 +98,8 @@ pub enum InCB {
   IcbExtend
   IcbLinker
 } derive(Eq)
+pub fn InCB::equal(Self, Self) -> Bool
+pub fn InCB::not_equal(Self, Self) -> Bool
 
 pub enum WB {
   WbOther
@@ -109,6 +122,8 @@ pub enum WB {
   WbExtendNumLet
   WbWSegSpace
 } derive(Eq)
+pub fn WB::equal(Self, Self) -> Bool
+pub fn WB::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

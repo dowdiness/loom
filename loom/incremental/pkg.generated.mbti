@@ -70,6 +70,9 @@ pub struct ParseSnapshot[Ast] {
   reuse_count : Int
 } derive(Eq, @debug.Debug)
 pub fn[Ast] ParseSnapshot::copy(Self[Ast]) -> Self[Ast]
+pub fn[Ast : Eq] ParseSnapshot::equal(Self[Ast], Self[Ast]) -> Bool
+pub fn[Ast : Eq] ParseSnapshot::not_equal(Self[Ast], Self[Ast]) -> Bool
+pub fn[Ast : @debug.Debug] ParseSnapshot::to_repr(Self[Ast]) -> @debug.Repr
 
 pub struct PerfStats {
   enabled : @ref.Ref[Bool]

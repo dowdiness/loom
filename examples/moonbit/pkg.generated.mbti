@@ -32,6 +32,14 @@ pub(all) enum MoonToken {
   Error(String)
   EOF
 } derive(Eq, @debug.Debug)
+pub fn MoonToken::equal(Self, Self) -> Bool
+pub fn MoonToken::is_eof(Self) -> Bool
+pub fn MoonToken::is_trivia(Self) -> Bool
+pub fn MoonToken::not_equal(Self, Self) -> Bool
+pub fn MoonToken::output(Self, &Logger) -> Unit
+pub fn MoonToken::to_raw(Self) -> @seam.RawKind
+pub fn MoonToken::to_repr(Self) -> @debug.Repr
+pub fn MoonToken::to_string(Self) -> String
 pub impl @seam.IsEof for MoonToken
 pub impl @seam.IsTrivia for MoonToken
 pub impl @seam.ToRawKind for MoonToken
@@ -42,6 +50,9 @@ pub(all) struct MoonbitParseShell {
   token_count : Int
   contains_errors : Bool
 } derive(Eq, @debug.Debug)
+pub fn MoonbitParseShell::equal(Self, Self) -> Bool
+pub fn MoonbitParseShell::not_equal(Self, Self) -> Bool
+pub fn MoonbitParseShell::to_repr(Self) -> @debug.Repr
 
 pub(all) enum MoonbitSyntaxKind {
   TriviaToken
@@ -180,6 +191,9 @@ pub(all) enum MoonbitSyntaxKind {
   GuardExclamationToken
   LexscanToken
   ExtendToken
+  VarToken
+  ErrdeferToken
+  NocancelToken
   SourceFileNode
   SourceItemNode
   LetItemNode
@@ -199,6 +213,13 @@ pub(all) enum MoonbitSyntaxKind {
   ForExprNode
   BinExprNode
 } derive(Eq, @debug.Debug)
+pub fn MoonbitSyntaxKind::equal(Self, Self) -> Bool
+pub fn MoonbitSyntaxKind::from_raw(@seam.RawKind) -> Self
+pub fn MoonbitSyntaxKind::not_equal(Self, Self) -> Bool
+pub fn MoonbitSyntaxKind::output(Self, &Logger) -> Unit
+pub fn MoonbitSyntaxKind::to_raw(Self) -> @seam.RawKind
+pub fn MoonbitSyntaxKind::to_repr(Self) -> @debug.Repr
+pub fn MoonbitSyntaxKind::to_string(Self) -> String
 pub impl @seam.FromRawKind for MoonbitSyntaxKind
 pub impl @seam.ToRawKind for MoonbitSyntaxKind
 pub impl Show for MoonbitSyntaxKind

@@ -57,3 +57,15 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
   }
   @seam.RawKind(n)
 }
+
+///|
+pub extend Token with @dowdiness/seam.IsEof::{is_eof}
+
+///|
+pub extend Token with @dowdiness/seam.IsTrivia::{is_trivia}
+
+///|
+pub extend Token with @dowdiness/seam.ToRawKind::{to_raw}
+
+///|
+pub extend Token with Show::{output, to_string}

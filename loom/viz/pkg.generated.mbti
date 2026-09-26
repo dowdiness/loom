@@ -21,7 +21,12 @@ pub(all) struct DotTreeNode {
   children : Array[DotTreeNode]
   edge_labels : Array[String]
 }
+pub fn DotTreeNode::children(Self) -> Array[Self]
+pub fn DotTreeNode::edge_label(Self, Int) -> String
 pub fn DotTreeNode::from_graph(@parser.Graph) -> Self?
+pub fn DotTreeNode::label(Self) -> String
+pub fn DotTreeNode::node_attrs(Self) -> String
+pub fn DotTreeNode::node_id(Self) -> Int
 pub impl DotNode for DotTreeNode
 
 // Type aliases

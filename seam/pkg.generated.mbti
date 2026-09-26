@@ -25,9 +25,13 @@ pub(all) suberror EventStreamError {
   UnbalancedStart(missing_finishes~ : Int)
   OrphanedEvent
 } derive(@debug.Debug)
+pub fn EventStreamError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 type BufferedEvent derive(Eq, @debug.Debug)
+pub fn BufferedEvent::equal(Self, Self) -> Bool
+pub fn BufferedEvent::not_equal(Self, Self) -> Bool
+pub fn BufferedEvent::to_repr(Self) -> @debug.Repr
 
 pub(all) enum CstElement {
   Token(CstToken)
@@ -36,12 +40,17 @@ pub(all) enum CstElement {
 pub fn[R : Folder] CstElement::accept_fold(Self) -> R
 pub fn[R : TransformFolder] CstElement::accept_transform_fold(Self) -> R
 pub fn CstElement::each(Self, (Self) -> Bool) -> Bool
+pub fn CstElement::equal(Self, Self) -> Bool
 pub fn[F : Finder] CstElement::find(Self, F) -> Self?
 pub fn[R] CstElement::fold(Self, (CstToken) -> R, (R, R) -> R, R) -> R
+pub fn CstElement::hash(Self) -> Int
+pub fn CstElement::hash_combine(Self, Hasher) -> Unit
 pub fn CstElement::iter(Self) -> Iter[Self]
 pub fn CstElement::kind(Self) -> RawKind
 pub fn CstElement::map(Self, (Self) -> Self) -> Self raise Failure
+pub fn CstElement::not_equal(Self, Self) -> Bool
 pub fn CstElement::text_len(Self) -> Int
+pub fn CstElement::to_repr(Self) -> @debug.Repr
 pub fn CstElement::token_count(Self, Array[RawKind]) -> Int
 pub fn[R] CstElement::transform(Self, (CstToken) -> R, (RawKind, Array[R]) -> R) -> R
 pub fn[R] CstElement::transform_fold(Self, (CstToken) -> R, (RawKind) -> R, (RawKind, R, R) -> R) -> R
@@ -60,13 +69,18 @@ pub struct CstNode {
 pub fn CstNode::children(Self) -> ArrayView[CstElement]
 pub fn CstNode::direct_elements_iter(Self) -> Iter[CstElement]
 pub fn CstNode::each(Self, (CstElement) -> Bool) -> Bool
+pub fn CstNode::equal(Self, Self) -> Bool
 pub fn CstNode::first_token(Self, (RawKind) -> Bool) -> CstToken?
 pub fn CstNode::has_any_error(Self) -> Bool
 pub fn CstNode::has_errors(Self, RawKind, RawKind) -> Bool
+pub fn CstNode::hash(Self) -> Int
+pub fn CstNode::hash_combine(Self, Hasher) -> Unit
 pub fn CstNode::kind(Self) -> RawKind
 pub fn CstNode::new(RawKind, Array[CstElement], policy~ : CstMetadataPolicy) -> Self raise Failure
 pub fn CstNode::new_unclassified(RawKind, Array[CstElement]) -> Self raise Failure
+pub fn CstNode::not_equal(Self, Self) -> Bool
 pub fn CstNode::text_len(Self) -> Int
+pub fn CstNode::to_repr(Self) -> @debug.Repr
 pub fn CstNode::token_count(Self) -> Int
 pub fn CstNode::with_replaced_child(Self, Int, CstElement) -> Self raise Failure
 pub fn CstNode::with_replaced_root(Self, Self) -> Self raise Failure
@@ -80,10 +94,15 @@ pub struct CstToken {
 #alias(new, deprecated)
 pub fn CstToken::CstToken(RawKind, StringView) -> Self
 pub fn CstToken::end_offset(Self) -> Int
+pub fn CstToken::equal(Self, Self) -> Bool
+pub fn CstToken::hash(Self) -> Int
+pub fn CstToken::hash_combine(Self, Hasher) -> Unit
 pub fn CstToken::is_source_backed(Self) -> Bool
+pub fn CstToken::not_equal(Self, Self) -> Bool
 pub fn CstToken::start_offset(Self) -> Int
 pub fn CstToken::text(Self) -> StringView
 pub fn CstToken::text_len(Self) -> Int
+pub fn CstToken::to_repr(Self) -> @debug.Repr
 #alias(source, deprecated)
 pub fn CstToken::unsafe_backing_source(Self) -> String
 pub impl Eq for CstToken
@@ -130,6 +149,12 @@ pub fn Interner::new() -> Self
 pub fn Interner::size(Self) -> Int
 
 pub(all) struct NodeCount(Int) derive(@debug.Debug)
+pub fn NodeCount::output(Self, &Logger) -> Unit
+pub fn NodeCount::tf_child(Self, Self) -> Self
+pub fn NodeCount::tf_init(RawKind) -> Self
+pub fn NodeCount::tf_token(CstToken) -> Self
+pub fn NodeCount::to_repr(Self) -> @debug.Repr
+pub fn NodeCount::to_string(Self) -> String
 pub impl TransformFolder for NodeCount
 pub impl Show for NodeCount
 
@@ -146,11 +171,17 @@ pub(all) enum ParseEvent {
   Tombstone
   ReuseNode(CstNode)
 } derive(Eq, @debug.Debug)
+pub fn ParseEvent::equal(Self, Self) -> Bool
+pub fn ParseEvent::not_equal(Self, Self) -> Bool
+pub fn ParseEvent::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ProjectionShapeElement {
   TokenElement
   ChildElement
 } derive(Eq, @debug.Debug)
+pub fn ProjectionShapeElement::equal(Self, Self) -> Bool
+pub fn ProjectionShapeElement::not_equal(Self, Self) -> Bool
+pub fn ProjectionShapeElement::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ProjectionShapeError {
   message : String
@@ -163,6 +194,9 @@ pub(all) struct ProjectionShapeError {
   end : Int
 } derive(Eq, @debug.Debug)
 pub fn ProjectionShapeError::ProjectionShapeError(SyntaxNode, RawKind, ProjectionShapeElement, ProjectionShapeExpectation, Int, Int, Int, message~ : String) -> Self
+pub fn ProjectionShapeError::equal(Self, Self) -> Bool
+pub fn ProjectionShapeError::not_equal(Self, Self) -> Bool
+pub fn ProjectionShapeError::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ProjectionShapeExpectation {
   ExpectedZero
@@ -170,8 +204,23 @@ pub(all) enum ProjectionShapeExpectation {
   ExpectedOne
   ExpectedAtLeastOne
 } derive(Eq, @debug.Debug)
+pub fn ProjectionShapeExpectation::equal(Self, Self) -> Bool
+pub fn ProjectionShapeExpectation::not_equal(Self, Self) -> Bool
+pub fn ProjectionShapeExpectation::to_repr(Self) -> @debug.Repr
 
 pub(all) struct RawKind(Int) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn RawKind::compare(Self, Self) -> Int
+pub fn RawKind::equal(Self, Self) -> Bool
+pub fn RawKind::hash(Self) -> Int
+pub fn RawKind::hash_combine(Self, Hasher) -> Unit
+pub fn RawKind::not_equal(Self, Self) -> Bool
+pub fn RawKind::op_ge(Self, Self) -> Bool
+pub fn RawKind::op_gt(Self, Self) -> Bool
+pub fn RawKind::op_le(Self, Self) -> Bool
+pub fn RawKind::op_lt(Self, Self) -> Bool
+pub fn RawKind::output(Self, &Logger) -> Unit
+pub fn RawKind::to_repr(Self) -> @debug.Repr
+pub fn RawKind::to_string(Self) -> String
 pub impl Show for RawKind
 
 pub(all) enum SyntaxElement {
@@ -180,6 +229,7 @@ pub(all) enum SyntaxElement {
 } derive(@debug.Debug)
 pub fn SyntaxElement::end(Self) -> Int
 pub fn SyntaxElement::start(Self) -> Int
+pub fn SyntaxElement::to_repr(Self) -> @debug.Repr
 
 pub struct SyntaxNode {
   // private fields
@@ -200,6 +250,7 @@ pub fn SyntaxNode::direct_elements_iter(Self) -> Iter[SyntaxElement]
 pub fn SyntaxNode::direct_token_of_kind(Self, RawKind) -> SyntaxToken?
 pub fn SyntaxNode::direct_tokens_of_kind(Self, RawKind) -> Array[SyntaxToken]
 pub fn SyntaxNode::end(Self) -> Int
+pub fn SyntaxNode::equal(Self, Self) -> Bool
 pub fn SyntaxNode::expect_no_direct_children_of_kind(Self, RawKind, message~ : String) -> Result[Unit, ProjectionShapeError]
 pub fn SyntaxNode::expect_no_direct_tokens_of_kind(Self, RawKind, message~ : String) -> Result[Unit, ProjectionShapeError]
 pub fn SyntaxNode::find_at(Self, Int) -> Self
@@ -212,10 +263,12 @@ pub fn SyntaxNode::has_direct_token_of_kind(Self, RawKind) -> Bool
 pub fn SyntaxNode::is_error(Self, RawKind) -> Bool
 pub fn SyntaxNode::kind(Self) -> RawKind
 pub fn SyntaxNode::nodes_and_tokens(Self, trivia_kind? : RawKind?) -> (Array[Self], Array[SyntaxToken])
+pub fn SyntaxNode::not_equal(Self, Self) -> Bool
 pub fn SyntaxNode::nth_child(Self, Int) -> Self?
 pub fn SyntaxNode::optional_direct_child_of_kind(Self, RawKind, message~ : String) -> Result[Self?, ProjectionShapeError]
 pub fn SyntaxNode::optional_direct_token_of_kind(Self, RawKind, message~ : String) -> Result[SyntaxToken?, ProjectionShapeError]
 pub fn SyntaxNode::optional_direct_token_text_of_kind(Self, RawKind, message~ : String) -> Result[String?, ProjectionShapeError]
+pub fn SyntaxNode::output(Self, &Logger) -> Unit
 pub fn SyntaxNode::parent(Self) -> Self?
 pub fn SyntaxNode::required_direct_child_of_kind(Self, RawKind, message~ : String) -> Result[Self, ProjectionShapeError]
 pub fn SyntaxNode::required_direct_children_of_kind(Self, RawKind, message~ : String) -> Result[Array[Self], ProjectionShapeError]
@@ -226,6 +279,9 @@ pub fn SyntaxNode::required_direct_tokens_text_of_kind(Self, RawKind, message~ :
 pub fn SyntaxNode::start(Self) -> Int
 pub fn SyntaxNode::text(Self) -> String
 pub fn SyntaxNode::tight_span(Self, trivia_kind? : RawKind?) -> (Int, Int)
+pub fn SyntaxNode::to_json(Self) -> Json
+pub fn SyntaxNode::to_repr(Self) -> @debug.Repr
+pub fn SyntaxNode::to_string(Self) -> String
 pub fn SyntaxNode::token_at_offset(Self, Int) -> TokenAtOffset
 pub fn SyntaxNode::token_text(Self, RawKind) -> String
 pub fn SyntaxNode::tokens(Self) -> Array[SyntaxToken]
@@ -241,12 +297,21 @@ pub struct SyntaxToken {
 pub fn SyntaxToken::end(Self) -> Int
 pub fn SyntaxToken::kind(Self) -> RawKind
 pub fn SyntaxToken::new(CstToken, Int) -> Self
+pub fn SyntaxToken::output(Self, &Logger) -> Unit
 pub fn SyntaxToken::start(Self) -> Int
 pub fn SyntaxToken::text(Self) -> String
 pub fn SyntaxToken::text_view(Self) -> StringView
+pub fn SyntaxToken::to_repr(Self) -> @debug.Repr
+pub fn SyntaxToken::to_string(Self) -> String
 pub impl Show for SyntaxToken
 
 pub(all) struct TextLen(Int) derive(@debug.Debug)
+pub fn TextLen::fold_combine(Self, Self) -> Self
+pub fn TextLen::fold_empty() -> Self
+pub fn TextLen::fold_token(CstToken) -> Self
+pub fn TextLen::output(Self, &Logger) -> Unit
+pub fn TextLen::to_repr(Self) -> @debug.Repr
+pub fn TextLen::to_string(Self) -> String
 pub impl Folder for TextLen
 pub impl Show for TextLen
 
@@ -255,6 +320,7 @@ pub enum TokenAtOffset {
   Single(SyntaxToken)
   Between(SyntaxToken, SyntaxToken)
 } derive(@debug.Debug)
+pub fn TokenAtOffset::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 
