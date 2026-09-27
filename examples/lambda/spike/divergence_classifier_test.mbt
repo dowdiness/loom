@@ -142,7 +142,8 @@ test "classify_run: ReplicationResidual beats NoDivergence" {
     make_result(true, true, false, false),
   ]
   match @spike.classify_run(results) {
-    @spike.DivergenceClass::ReplicationResidual(_) => inspect(true, content="true")
+    @spike.DivergenceClass::ReplicationResidual(_) =>
+      inspect(true, content="true")
     other => inspect(other, content="expected ReplicationResidual")
   }
 }
@@ -174,7 +175,8 @@ test "classify_run: combined fixture → ReplicationResidual (message wording)" 
     b,
   )
   match @spike.classify_run(results) {
-    @spike.DivergenceClass::ReplicationResidual(_) => inspect(true, content="true")
+    @spike.DivergenceClass::ReplicationResidual(_) =>
+      inspect(true, content="true")
     other => inspect(other, content="expected ReplicationResidual")
   }
 }

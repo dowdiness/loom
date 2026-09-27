@@ -105,7 +105,10 @@ test "mode-switch fuzz: prefix let insert preserves B D1 and A/B parity" {
         "A/B incremental CST divergence after prefix insert on source [\{mode_show_source(initial)}]",
       )
     }
-    guard @spike.diagnostics_structurally_equal(a_snap.diagnostics, b_snap.diagnostics) else {
+    guard @spike.diagnostics_structurally_equal(
+      a_snap.diagnostics,
+      b_snap.diagnostics,
+    ) else {
       fail(
         "A/B incremental diagnostics divergence after prefix insert on source [\{mode_show_source(initial)}]",
       )

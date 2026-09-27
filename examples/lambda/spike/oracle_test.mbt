@@ -7,7 +7,12 @@ fn oracle_test_source_id() -> @core.SourceId {
 test "oracle: let def fixture passes all checks" {
   let (initial, steps) = @spike.let_def_fixture()
   let b = @spike.build_b_syntax_grammar()
-  let results = @spike.run_oracle_fixture(oracle_test_source_id(), initial, steps, b)
+  let results = @spike.run_oracle_fixture(
+    oracle_test_source_id(),
+    initial,
+    steps,
+    b,
+  )
   for result in results {
     inspect(result.d1_ok, content="true")
     inspect(result.d2a_ok, content="true")
@@ -20,7 +25,12 @@ test "oracle: let def fixture passes all checks" {
 test "oracle: top-level reuse fixture passes all checks" {
   let (initial, steps) = @spike.top_level_reuse_fixture()
   let b = @spike.build_b_syntax_grammar()
-  let results = @spike.run_oracle_fixture(oracle_test_source_id(), initial, steps, b)
+  let results = @spike.run_oracle_fixture(
+    oracle_test_source_id(),
+    initial,
+    steps,
+    b,
+  )
   for result in results {
     inspect(result.d1_ok, content="true")
     inspect(result.d2a_ok, content="true")
@@ -33,7 +43,12 @@ test "oracle: top-level reuse fixture passes all checks" {
 test "oracle: app/bop Pratt fixture passes all checks" {
   let (initial, steps) = @spike.app_bop_fixture()
   let b = @spike.build_b_syntax_grammar()
-  let results = @spike.run_oracle_fixture(oracle_test_source_id(), initial, steps, b)
+  let results = @spike.run_oracle_fixture(
+    oracle_test_source_id(),
+    initial,
+    steps,
+    b,
+  )
   for result in results {
     inspect(result.d1_ok, content="true")
     inspect(result.d2a_ok, content="true")
@@ -46,7 +61,12 @@ test "oracle: app/bop Pratt fixture passes all checks" {
 test "oracle: error recovery fixture — malformed then recovery" {
   let (initial, steps) = @spike.error_recovery_fixture()
   let b = @spike.build_b_syntax_grammar()
-  let results = @spike.run_oracle_fixture(oracle_test_source_id(), initial, steps, b)
+  let results = @spike.run_oracle_fixture(
+    oracle_test_source_id(),
+    initial,
+    steps,
+    b,
+  )
   inspect(results.length(), content="2")
   // Step 0: malformed — diagnostics non-empty, D2b trivially passes.
   let malformed = results[0]
@@ -67,7 +87,12 @@ test "oracle: error recovery fixture — malformed then recovery" {
 test "oracle: combined fixture — all oracle checks" {
   let (initial, steps) = @spike.combined_fixture()
   let b = @spike.build_b_syntax_grammar()
-  let results = @spike.run_oracle_fixture(oracle_test_source_id(), initial, steps, b)
+  let results = @spike.run_oracle_fixture(
+    oracle_test_source_id(),
+    initial,
+    steps,
+    b,
+  )
   for result in results {
     inspect(result.d1_ok, content="true")
     inspect(result.d2a_ok, content="true")
@@ -82,7 +107,12 @@ test "oracle: soft newline before = passes D2a (P3 regression)" {
   // A passes the edit via lambda_expect → D2a fails unless fixed.
   let (initial, steps) = @spike.soft_newline_fixture()
   let b = @spike.build_b_syntax_grammar()
-  let results = @spike.run_oracle_fixture(oracle_test_source_id(), initial, steps, b)
+  let results = @spike.run_oracle_fixture(
+    oracle_test_source_id(),
+    initial,
+    steps,
+    b,
+  )
   for result in results {
     inspect(result.d1_ok, content="true")
     inspect(result.d2a_ok, content="true")
@@ -99,7 +129,12 @@ test "oracle: soft newline before RHS expression passes D2a (P2)" {
   // placeholder for the newline and 1 becomes a dangling trailing expression.
   let (initial, steps) = @spike.rhs_newline_fixture()
   let b = @spike.build_b_syntax_grammar()
-  let results = @spike.run_oracle_fixture(oracle_test_source_id(), initial, steps, b)
+  let results = @spike.run_oracle_fixture(
+    oracle_test_source_id(),
+    initial,
+    steps,
+    b,
+  )
   for result in results {
     inspect(result.d1_ok, content="true")
     inspect(result.d2a_ok, content="true")
@@ -114,7 +149,12 @@ test "oracle: let with param list diagnostic matches A (P2)" {
   // B skips that diagnostic and D2a diverges on diagnostic count.
   let (initial, steps) = @spike.let_param_list_fixture()
   let b = @spike.build_b_syntax_grammar()
-  let results = @spike.run_oracle_fixture(oracle_test_source_id(), initial, steps, b)
+  let results = @spike.run_oracle_fixture(
+    oracle_test_source_id(),
+    initial,
+    steps,
+    b,
+  )
   for result in results {
     inspect(result.d1_ok, content="true")
     inspect(result.d2a_ok, content="true")
@@ -269,7 +309,12 @@ test "reified grammar IR passes D1 D2a D2b oracle or records residue" {
 test "watch-item: ExpectSkip missing = at EOF holds A/B parity (finding #1)" {
   let (initial, steps) = @spike.expect_skip_eof_fixture()
   let b = @spike.build_b_syntax_grammar()
-  let results = @spike.run_oracle_fixture(oracle_test_source_id(), initial, steps, b)
+  let results = @spike.run_oracle_fixture(
+    oracle_test_source_id(),
+    initial,
+    steps,
+    b,
+  )
   inspect(results.length(), content="2")
   // Positive control: the malformed step (missing `=`/RHS at EOF) must actually
   // FIRE the ExpectSkip diagnostic — otherwise "A/B agree" is vacuous because the
@@ -293,7 +338,12 @@ test "watch-item: ExpectSkip missing = at EOF holds A/B parity (finding #1)" {
 test "watch-item: block delimiter drop/restore holds A/B parity (finding #4)" {
   let (initial, steps) = @spike.block_delimiter_fixture()
   let b = @spike.build_b_syntax_grammar()
-  let results = @spike.run_oracle_fixture(oracle_test_source_id(), initial, steps, b)
+  let results = @spike.run_oracle_fixture(
+    oracle_test_source_id(),
+    initial,
+    steps,
+    b,
+  )
   inspect(results.length(), content="2")
   // Positive control: dropping the newline between two `let` defs must FIRE the
   // RequireSep "between definitions" diagnostic. Bare expressions (`1 2`) are

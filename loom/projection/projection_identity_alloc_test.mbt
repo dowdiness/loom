@@ -81,7 +81,9 @@ fn test_item_summaries(
 
 ///|
 test "projection identity: string allocator mints per-key occurrences" {
-  let allocator = @projection.ProjectionStringIdAllocator::new(test_make_string_id)
+  let allocator = @projection.ProjectionStringIdAllocator::new(
+    test_make_string_id,
+  )
   let first = allocator.allocate(test_leaf(0, 2, "sound:bd"))
   let second = allocator.allocate(test_leaf(3, 5, "sound:bd"))
   let other = allocator.allocate(test_leaf(6, 8, "sound:sd"))
@@ -350,12 +352,15 @@ test "projection identity: baseline optional edit advance preserves suffix" {
 
 ///|
 test "projection identity: retained last-good baseline survives recovery" {
-  let baseline = @projection.ProjectionIdentityBaseline::new("s(\"bd sd bd bd\")", [
-    test_stable(3, 5, "sound:bd", "mini:sound:bd:0"),
-    test_stable(6, 8, "sound:sd", "mini:sound:sd:0"),
-    test_stable(9, 11, "sound:bd", "mini:sound:bd:2"),
-    test_stable(12, 14, "sound:bd", "mini:sound:bd:1"),
-  ])
+  let baseline = @projection.ProjectionIdentityBaseline::new(
+    "s(\"bd sd bd bd\")",
+    [
+      test_stable(3, 5, "sound:bd", "mini:sound:bd:0"),
+      test_stable(6, 8, "sound:sd", "mini:sound:sd:0"),
+      test_stable(9, 11, "sound:bd", "mini:sound:bd:2"),
+      test_stable(12, 14, "sound:bd", "mini:sound:bd:1"),
+    ],
+  )
   let recovered = [
     test_leaf(3, 5, "sound:bd"),
     test_leaf(6, 8, "sound:sd"),

@@ -1,5 +1,9 @@
 ///|
-fn test_leaf(start : Int, end : Int, key : String) -> @projection.ProjectionLeaf {
+fn test_leaf(
+  start : Int,
+  end : Int,
+  key : String,
+) -> @projection.ProjectionLeaf {
   @projection.ProjectionLeaf::new(start, end, key)
 }
 
@@ -14,7 +18,9 @@ fn test_stable(
 }
 
 ///|
-fn test_ids(leaves : Array[@projection.StableProjectionLeaf[String]]) -> Array[String] {
+fn test_ids(
+  leaves : Array[@projection.StableProjectionLeaf[String]],
+) -> Array[String] {
   leaves.map(leaf => leaf.id)
 }
 

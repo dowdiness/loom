@@ -19,7 +19,9 @@ fn vocab_diags(
   tokens : Array[@core.TokenInfo[TestToken]],
   src : String,
 ) -> @core.DiagnosticSet raise @grammar.GrammarBuildError {
-  let parse_root = @grammar.interpret(@grammar.GrammarIr::GrammarIr(rules, root~))
+  let parse_root = @grammar.interpret(
+    @grammar.GrammarIr::GrammarIr(rules, root~),
+  )
   let spec = test_spec(parse_root)
   let source_id = @core.SourceId("grammar-vocab-source")
   let (_, diags) = try! @core.parse_with(
@@ -44,7 +46,11 @@ test "Fail emits a diagnostic and an error placeholder" {
 ///|
 test "EmitOr emits silently when the token is present" {
   let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
-    "source": @grammar.Expr::EmitOr(TestToken::Int, TestKind::IntToken, "missing int"),
+    "source": @grammar.Expr::EmitOr(
+      TestToken::Int,
+      TestKind::IntToken,
+      "missing int",
+    ),
   }
   let diags = vocab_diags(
     rules,
@@ -58,7 +64,11 @@ test "EmitOr emits silently when the token is present" {
 ///|
 test "EmitOr reports the token when absent" {
   let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
-    "source": @grammar.Expr::EmitOr(TestToken::Int, TestKind::IntToken, "missing int"),
+    "source": @grammar.Expr::EmitOr(
+      TestToken::Int,
+      TestKind::IntToken,
+      "missing int",
+    ),
   }
   let diags = vocab_diags(rules, "source", [tok(TestToken::EOF)], "")
   inspect(diags.length(), content="1")
@@ -68,7 +78,10 @@ test "EmitOr reports the token when absent" {
 test "DiagnoseIf fires only when the predicate matches the peek" {
   let matching : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
     "source": @grammar.Expr::Seq([
-      @grammar.Expr::DiagnoseIf(@grammar.Pred::IsToken(TestToken::Int), "found int"),
+      @grammar.Expr::DiagnoseIf(
+        @grammar.Pred::IsToken(TestToken::Int),
+        "found int",
+      ),
       @grammar.Expr::Emit(TestToken::Int, TestKind::IntToken),
     ]),
   }
@@ -81,7 +94,10 @@ test "DiagnoseIf fires only when the predicate matches the peek" {
   inspect(diags.length(), content="1")
   let nonmatching : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
     "source": @grammar.Expr::Seq([
-      @grammar.Expr::DiagnoseIf(@grammar.Pred::IsToken(TestToken::Word), "found word"),
+      @grammar.Expr::DiagnoseIf(
+        @grammar.Pred::IsToken(TestToken::Word),
+        "found word",
+      ),
       @grammar.Expr::Emit(TestToken::Int, TestKind::IntToken),
     ]),
   }
@@ -198,7 +214,10 @@ test "RequireSep consumes a multi-token delimiter run with per-token kinds" {
         ),
         @grammar.Expr::Emit(TestToken::Int, TestKind::IntToken),
         @grammar.Expr::Choice([
-          @grammar.Alt::{ starts: @grammar.Pred::IsToken(TestToken::EOF), body: @grammar.Expr::Empty, },
+          @grammar.Alt::{
+            starts: @grammar.Pred::IsToken(TestToken::EOF),
+            body: @grammar.Expr::Empty,
+          },
           @grammar.Alt::{
             starts: @grammar.Pred::Any,
             body: @grammar.Expr::ErrorNodeUntil(
@@ -245,7 +264,10 @@ test "RequireSep consumes a multi-token delimiter run with per-token kinds" {
 test "ErrorNodeUntil opens an error node over trailing garbage, EOF-guarded" {
   let guarded : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
     "source": @grammar.Expr::Choice([
-      @grammar.Alt::{ starts: @grammar.Pred::IsToken(TestToken::EOF), body: @grammar.Expr::Empty, },
+      @grammar.Alt::{
+        starts: @grammar.Pred::IsToken(TestToken::EOF),
+        body: @grammar.Expr::Empty,
+      },
       @grammar.Alt::{
         starts: @grammar.Pred::Any,
         body: @grammar.Expr::ErrorNodeUntil(
@@ -346,7 +368,10 @@ test "PrattBinary skip spans a gated separator before the operator (real interpr
       "source": @grammar.Expr::Seq([
         @grammar.Expr::Ref("binary"),
         @grammar.Expr::Choice([
-          @grammar.Alt::{ starts: @grammar.Pred::IsToken(TestToken::EOF), body: @grammar.Expr::Empty, },
+          @grammar.Alt::{
+            starts: @grammar.Pred::IsToken(TestToken::EOF),
+            body: @grammar.Expr::Empty,
+          },
           @grammar.Alt::{
             starts: @grammar.Pred::Any,
             body: @grammar.Expr::ErrorNodeUntil(

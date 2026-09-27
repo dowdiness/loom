@@ -126,7 +126,10 @@ test "Native runs in sequence between declarative neighbors" {
     },
     root="source",
   )
-  let natives : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
+  let natives : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = {
     "mark": fn(_caps) {
       fn(ctx, _dispatcher) { ctx.emit_token(TestKind::WordToken) }
     },
@@ -157,7 +160,10 @@ test "Native runs in sequence between declarative neighbors" {
 ///|
 test "native capability dispatches a declared Choice" {
   let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
-    "source": @grammar.Expr::Node(TestKind::Root, @grammar.Expr::Native("delegate")),
+    "source": @grammar.Expr::Node(
+      TestKind::Root,
+      @grammar.Expr::Native("delegate"),
+    ),
     "inner": @grammar.Expr::Choice([
       @grammar.Alt::{
         starts: @grammar.Pred::IsToken(TestToken::Int),
@@ -165,7 +171,10 @@ test "native capability dispatches a declared Choice" {
       },
     ]),
   }
-  let factories : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
+  let factories : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = {
     "delegate": caps => {
       let target = caps.require("inner")
       fn(ctx, dispatcher) { ignore(dispatcher.try_rule(ctx, target)) }
@@ -199,7 +208,10 @@ test "native capability dispatches a declared Choice" {
 ///|
 test "valid nonmatching native capability returns false without diagnostics" {
   let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
-    "source": @grammar.Expr::Node(TestKind::Root, @grammar.Expr::Native("delegate")),
+    "source": @grammar.Expr::Node(
+      TestKind::Root,
+      @grammar.Expr::Native("delegate"),
+    ),
     "inner": @grammar.Expr::Choice([
       @grammar.Alt::{
         starts: @grammar.Pred::IsToken(TestToken::Word),
@@ -208,7 +220,10 @@ test "valid nonmatching native capability returns false without diagnostics" {
     ]),
   }
   let mut matched = true
-  let factories : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
+  let factories : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = {
     "delegate": caps => {
       let target = caps.require("inner")
       fn(ctx, dispatcher) { matched = dispatcher.try_rule(ctx, target) }
@@ -338,7 +353,10 @@ test "bind rejects missing and unexpected handlers before parsing" {
     { "source": @grammar.Expr::Native("mark") },
     root="source",
   )
-  let compiled_native = @grammar.compile(native_ir, native_names=Set::Set(["mark"]))
+  let compiled_native = @grammar.compile(
+    native_ir,
+    native_names=Set::Set(["mark"]),
+  )
   let missing = try {
     let _ = @grammar.bind(compiled_native)
     None
@@ -349,12 +367,18 @@ test "bind rejects missing and unexpected handlers before parsing" {
     Some(@grammar.GrammarBindError::MissingNative("mark")) => ()
     _ => fail("expected missing native bind error")
   }
-  let extra : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
-    "unexpected": fn(_caps) { fn(_ctx, _dispatcher) {  } },
-  }
+  let extra : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = { "unexpected": fn(_caps) { fn(_ctx, _dispatcher) {  } } }
   let unexpected = try {
     let _ = @grammar.bind(
-      @grammar.compile(@grammar.GrammarIr::GrammarIr({ "source": @grammar.Expr::Empty }, root="source")),
+      @grammar.compile(
+        @grammar.GrammarIr::GrammarIr(
+          { "source": @grammar.Expr::Empty },
+          root="source",
+        ),
+      ),
       natives=extra,
     )
     None
@@ -369,7 +393,10 @@ test "bind rejects missing and unexpected handlers before parsing" {
     { "source": @grammar.Expr::Empty },
     root="source",
   )
-  let compiled_guard = @grammar.compile(guard_ir, guard_names=Set::Set(["allow"]))
+  let compiled_guard = @grammar.compile(
+    guard_ir,
+    guard_names=Set::Set(["allow"]),
+  )
   let missing_guard = try {
     let _ = @grammar.bind(compiled_guard)
     None
@@ -380,9 +407,10 @@ test "bind rejects missing and unexpected handlers before parsing" {
     Some(@grammar.GrammarBindError::MissingGuard("allow")) => ()
     _ => fail("expected missing guard bind error")
   }
-  let extra_guard : Map[@grammar.RuleName, @grammar.HostGuard[TestToken, TestKind]] = {
-    "unexpected_guard": _ctx => true,
-  }
+  let extra_guard : Map[
+    @grammar.RuleName,
+    @grammar.HostGuard[TestToken, TestKind],
+  ] = { "unexpected_guard": _ctx => true }
   let unexpected_guard = try {
     let _ = @grammar.bind(@grammar.compile(guard_ir), guards=extra_guard)
     None
@@ -398,12 +426,18 @@ test "bind rejects missing and unexpected handlers before parsing" {
 ///|
 test "RepeatWhile runtime guard reports an opaque native with no progress" {
   let ir : @grammar.GrammarIr[TestToken, TestKind] = @grammar.GrammarIr::GrammarIr(
-    { "source": @grammar.Expr::RepeatWhile(@grammar.Pred::Any, @grammar.Expr::Native("noop")) },
+    {
+      "source": @grammar.Expr::RepeatWhile(
+        @grammar.Pred::Any,
+        @grammar.Expr::Native("noop"),
+      ),
+    },
     root="source",
   )
-  let factories : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
-    "noop": _caps => fn(_ctx, _dispatcher) {  },
-  }
+  let factories : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = { "noop": _caps => fn(_ctx, _dispatcher) {  } }
   let parse_root = @grammar.interpret(ir, natives=factories)
   let tokens = [
     @core.TokenInfo::new(TestToken::Int, 1),
@@ -436,9 +470,10 @@ test "RepeatTopLevel runtime guard reports an opaque native with no progress" {
     },
     root="source",
   )
-  let factories : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
-    "noop": _caps => fn(_ctx, _dispatcher) {  },
-  }
+  let factories : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = { "noop": _caps => fn(_ctx, _dispatcher) {  } }
   let parse_root = @grammar.interpret(ir, natives=factories)
   let tokens = [
     @core.TokenInfo::new(TestToken::Int, 1),
@@ -462,12 +497,18 @@ test "RepeatTopLevel runtime guard reports an opaque native with no progress" {
 ///|
 test "runtime cycle guard stops unknown recursive re-entry" {
   let ir : @grammar.GrammarIr[TestToken, TestKind] = @grammar.GrammarIr::GrammarIr(
-    { "source": @grammar.Expr::Seq([@grammar.Expr::Native("noop"), @grammar.Expr::Ref("source")]) },
+    {
+      "source": @grammar.Expr::Seq([
+        @grammar.Expr::Native("noop"),
+        @grammar.Expr::Ref("source"),
+      ]),
+    },
     root="source",
   )
-  let factories : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
-    "noop": _caps => fn(_ctx, _dispatcher) {  },
-  }
+  let factories : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = { "noop": _caps => fn(_ctx, _dispatcher) {  } }
   let parse_root = @grammar.interpret(ir, natives=factories)
   let tokens = [
     @core.TokenInfo::new(TestToken::Int, 1),
@@ -496,7 +537,10 @@ test "runtime cycle guard permits recursive re-entry after token progress" {
             @grammar.Expr::Ref("source"),
           ]),
         },
-        @grammar.Alt::{ starts: @grammar.Pred::IsToken(TestToken::EOF), body: @grammar.Expr::Empty, },
+        @grammar.Alt::{
+          starts: @grammar.Pred::IsToken(TestToken::EOF),
+          body: @grammar.Expr::Empty,
+        },
       ]),
     },
     root="source",
@@ -573,8 +617,15 @@ test "required EmitOr diagnoses a missing item at a stop token" {
   let ir : @grammar.GrammarIr[TestToken, TestKind] = @grammar.GrammarIr::GrammarIr(
     {
       "source": @grammar.Expr::Seq([
-        @grammar.Expr::EmitOr(TestToken::Int, TestKind::IntToken, "expected expression"),
-        @grammar.Expr::ErrorUntil(@grammar.Pred::IsToken(TestToken::Expected), "unexpected input"),
+        @grammar.Expr::EmitOr(
+          TestToken::Int,
+          TestKind::IntToken,
+          "expected expression",
+        ),
+        @grammar.Expr::ErrorUntil(
+          @grammar.Pred::IsToken(TestToken::Expected),
+          "unexpected input",
+        ),
         @grammar.Expr::Emit(TestToken::Expected, TestKind::ExpectedKind),
       ]),
     },
@@ -627,12 +678,18 @@ test "runtime cycle guard stops recursive native dispatch" {
     {
       "source": @grammar.Expr::Native("delegate"),
       "choice": @grammar.Expr::Choice([
-        @grammar.Alt::{ starts: @grammar.Pred::Any, body: @grammar.Expr::Ref("source"), },
+        @grammar.Alt::{
+          starts: @grammar.Pred::Any,
+          body: @grammar.Expr::Ref("source"),
+        },
       ]),
     },
     root="source",
   )
-  let factories : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
+  let factories : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = {
     "delegate": caps => {
       let target = caps.require("choice")
       fn(ctx, dispatcher) { ignore(dispatcher.try_rule(ctx, target)) }
@@ -660,7 +717,11 @@ test "runtime cycle guard stops recursive native dispatch" {
 test "PrattApp runtime guard reports an empty atom" {
   let ir : @grammar.GrammarIr[TestToken, TestKind] = @grammar.GrammarIr::GrammarIr(
     {
-      "source": @grammar.Expr::PrattApp("empty", TestKind::WordNode, @grammar.Pred::Any),
+      "source": @grammar.Expr::PrattApp(
+        "empty",
+        TestKind::WordNode,
+        @grammar.Pred::Any,
+      ),
       "empty": @grammar.Expr::Empty,
     },
     root="source",
@@ -684,10 +745,16 @@ test "PrattApp runtime guard reports an empty atom" {
 ///|
 test "native factory cannot acquire an undeclared capability" {
   let ir : @grammar.GrammarIr[TestToken, TestKind] = @grammar.GrammarIr::GrammarIr(
-    { "source": @grammar.Expr::Native("delegate"), "inner": @grammar.Expr::Choice([]) },
+    {
+      "source": @grammar.Expr::Native("delegate"),
+      "inner": @grammar.Expr::Choice([]),
+    },
     root="source",
   )
-  let factories : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
+  let factories : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = {
     "delegate": caps => {
       let _ = caps.require("not_declared")
       fn(_ctx, _dispatcher) {  }
@@ -712,7 +779,10 @@ test "native factory cannot acquire an undeclared capability" {
 /// Characterization: convenience and explicit setup have equivalent behavior.
 test "interpret and compile -> bind preserve native and HostGuard behavior" {
   let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
-    "source": @grammar.Expr::Node(TestKind::Root, @grammar.Expr::Native("delegate")),
+    "source": @grammar.Expr::Node(
+      TestKind::Root,
+      @grammar.Expr::Native("delegate"),
+    ),
     "close_boundary": @grammar.Expr::Choice([
       @grammar.Alt::{
         starts: @grammar.Pred::HostGuard("allow_close"),
@@ -724,7 +794,10 @@ test "interpret and compile -> bind preserve native and HostGuard behavior" {
   let native_rule_refs : Map[@grammar.RuleName, Set[@grammar.RuleName]] = {
     "delegate": Set::Set(["close_boundary"]),
   }
-  let factories : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
+  let factories : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = {
     "delegate": caps => {
       let target = caps.require("close_boundary")
       fn(ctx, dispatcher) { ignore(dispatcher.try_rule(ctx, target)) }
@@ -733,7 +806,12 @@ test "interpret and compile -> bind preserve native and HostGuard behavior" {
   let guards : Map[@grammar.RuleName, @grammar.HostGuard[TestToken, TestKind]] = {
     "allow_close": fn(_ctx) { true },
   }
-  let direct = @grammar.interpret(ir, natives=factories, guards~, native_rule_refs~)
+  let direct = @grammar.interpret(
+    ir,
+    natives=factories,
+    guards~,
+    native_rule_refs~,
+  )
   let compiled = @grammar.compile(
     ir,
     native_names=Set::Set(["delegate"]),
@@ -768,16 +846,27 @@ test "interpret and compile -> bind preserve native and HostGuard behavior" {
 /// Characterization: each binding owns its fresh native registry.
 test "compiled grammar accepts fresh native registries per parse" {
   let ir : @grammar.GrammarIr[TestToken, TestKind] = @grammar.GrammarIr::GrammarIr(
-    { "source": @grammar.Expr::Node(TestKind::Root, @grammar.Expr::Native("mark")) },
+    {
+      "source": @grammar.Expr::Node(
+        TestKind::Root,
+        @grammar.Expr::Native("mark"),
+      ),
+    },
     root="source",
   )
   let compiled = @grammar.compile(ir, native_names=Set::Set(["mark"]))
-  let first : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
+  let first : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = {
     "mark": fn(_caps) {
       fn(ctx, _dispatcher) { ctx.emit_token(TestKind::IntToken) }
     },
   }
-  let second : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
+  let second : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = {
     "mark": fn(_caps) {
       fn(ctx, _dispatcher) { ctx.emit_token(TestKind::WordToken) }
     },
@@ -829,12 +918,20 @@ test "compiled grammar accepts fresh native registries per parse" {
 /// Characterization: binding factories do not execute parser callbacks.
 test "compiled execution defers native callbacks until parsing" {
   let ir : @grammar.GrammarIr[TestToken, TestKind] = @grammar.GrammarIr::GrammarIr(
-    { "source": @grammar.Expr::Node(TestKind::Root, @grammar.Expr::Native("mark")) },
+    {
+      "source": @grammar.Expr::Node(
+        TestKind::Root,
+        @grammar.Expr::Native("mark"),
+      ),
+    },
     root="source",
   )
   let compiled = @grammar.compile(ir, native_names=Set::Set(["mark"]))
   let mut native_calls = 0
-  let factories : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
+  let factories : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = {
     "mark": fn(_caps) {
       fn(ctx, _dispatcher) {
         native_calls += 1
@@ -869,13 +966,19 @@ test "native dispatch reports the cycle guard as an unmatched rule" {
     {
       "source": @grammar.Expr::Native("delegate"),
       "choice": @grammar.Expr::Choice([
-        @grammar.Alt::{ starts: @grammar.Pred::Any, body: @grammar.Expr::Native("delegate"), },
+        @grammar.Alt::{
+          starts: @grammar.Pred::Any,
+          body: @grammar.Expr::Native("delegate"),
+        },
       ]),
     },
     root="source",
   )
   let results : Array[Bool] = []
-  let factories : Map[@grammar.RuleName, @grammar.NativeFactory[TestToken, TestKind]] = {
+  let factories : Map[
+    @grammar.RuleName,
+    @grammar.NativeFactory[TestToken, TestKind],
+  ] = {
     "delegate": caps => {
       let target = caps.require("choice")
       (ctx, dispatcher) => results.push(dispatcher.try_rule(ctx, target))
@@ -913,7 +1016,11 @@ test "native dispatch reports the cycle guard as an unmatched rule" {
 test "PrattApp runtime guard stops a repeated atom that stops consuming" {
   let ir : @grammar.GrammarIr[TestToken, TestKind] = @grammar.GrammarIr::GrammarIr(
     {
-      "source": @grammar.Expr::PrattApp("atom", TestKind::WordNode, @grammar.Pred::Any),
+      "source": @grammar.Expr::PrattApp(
+        "atom",
+        TestKind::WordNode,
+        @grammar.Pred::Any,
+      ),
       "atom": @grammar.Expr::Choice([
         @grammar.Alt::{
           starts: @grammar.Pred::IsToken(TestToken::Int),

@@ -1,5 +1,8 @@
 ///|
-fn eval_to_result(env : @eval.Env, term : @ast.Term) -> Result[@eval.Value, @eval.StuckReason] {
+fn eval_to_result(
+  env : @eval.Env,
+  term : @ast.Term,
+) -> Result[@eval.Value, @eval.StuckReason] {
   try @eval.eval(env, term) catch {
     reason => Err(reason)
   } noraise {

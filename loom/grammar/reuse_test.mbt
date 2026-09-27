@@ -10,8 +10,12 @@ test "WrapIfNext wraps a matching prefix without spurious diagnostics" {
     @grammar.Pred::IsToken(TestToken::Int),
     @grammar.Expr::Emit(TestToken::Int, TestKind::IntToken),
   )
-  let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = { "source": expr }
-  let parse_root = @grammar.interpret(@grammar.GrammarIr::GrammarIr(rules, root="source"))
+  let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = {
+    "source": expr,
+  }
+  let parse_root = @grammar.interpret(
+    @grammar.GrammarIr::GrammarIr(rules, root="source"),
+  )
   let spec = test_spec(parse_root)
   let lex = _src => {
     [
@@ -44,7 +48,10 @@ fn pratt_reuse_starts() -> Array[Int] {
 }
 
 ///|
-fn pratt_reuse_rules() -> Map[@grammar.RuleName, @grammar.Expr[TestToken, TestToken]] {
+fn pratt_reuse_rules() -> Map[
+  @grammar.RuleName,
+  @grammar.Expr[TestToken, TestToken],
+] {
   {
     "source": @grammar.Expr::Seq([
       @grammar.Expr::Ref("binary"),
@@ -115,7 +122,10 @@ fn binary_growth_starts() -> Array[Int] {
 }
 
 ///|
-fn binary_growth_rules() -> Map[@grammar.RuleName, @grammar.Expr[TestToken, TestToken]] {
+fn binary_growth_rules() -> Map[
+  @grammar.RuleName,
+  @grammar.Expr[TestToken, TestToken],
+] {
   {
     "source": @grammar.Expr::Ref("binary"),
     "binary": @grammar.Expr::PrattBinary(
@@ -143,7 +153,10 @@ fn app_old_starts() -> Array[Int] {
 }
 
 ///|
-fn app_growth_rules() -> Map[@grammar.RuleName, @grammar.Expr[TestToken, TestToken]] {
+fn app_growth_rules() -> Map[
+  @grammar.RuleName,
+  @grammar.Expr[TestToken, TestToken],
+] {
   {
     "source": @grammar.Expr::Ref("application"),
     "application": @grammar.Expr::PrattApp(

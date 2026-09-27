@@ -124,7 +124,10 @@ fn assert_rename_diagnostic_labels(
 }
 
 ///|
-fn edit_starting_at(edits : Array[@rename.TextEdit], start : Int) -> @rename.TextEdit {
+fn edit_starting_at(
+  edits : Array[@rename.TextEdit],
+  start : Int,
+) -> @rename.TextEdit {
   for e in edits {
     if e.start == start {
       return e
@@ -200,7 +203,10 @@ test "name_range_of: duplicate fn parameters keep separate ranges" {
   inspect(first_end, content="6")
   let second = @rename.locate_target(defs, syntax, 8)
   inspect(second is Some(_), content="true")
-  let (second_start, second_end) = @rename.name_range_of(second.unwrap(), syntax)
+  let (second_start, second_end) = @rename.name_range_of(
+    second.unwrap(),
+    syntax,
+  )
   inspect(second_start, content="8")
   inspect(second_end, content="9")
 }
@@ -648,7 +654,14 @@ test "fixture 1 (smoke): top-level let rename, three edits, no diagnostics" {
 test "fixture 2 (sibling collision): rename f -> g when g exists at same scope" {
   let src = "let f = a\nlet g = b\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 4, "g")
+  let plan = @rename.plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    4,
+    "g",
+  )
   inspect(plan.target.unwrap().name, content="f")
   inspect(plan.edits.length() >= 1, content="true")
   inspect(
@@ -707,7 +720,14 @@ test "fixture 10 (name-range correctness): edit UTF-16 ranges cover identifiers,
 test "fixture 11 (fn repeated name): parameter rename does not edit function name" {
   let src = "fn f(f) { f }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 5, "g")
+  let plan = @rename.plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    5,
+    "g",
+  )
   inspect(plan.target is Some(_), content="true")
   inspect(plan.target.unwrap().name, content="f")
   inspect(plan.edits.length(), content="2")
@@ -877,7 +897,14 @@ test "fixture 18 (fn duplicate params): second parameter is targetable" {
   inspect(edits_cover_offset(first_plan.edits, 8), content="false")
   inspect(edits_cover_offset(first_plan.edits, 13), content="false")
   inspect(first_plan.diagnostics.length(), content="0")
-  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 8, "y")
+  let plan = @rename.plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    8,
+    "y",
+  )
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
   inspect(edits_cover_offset(plan.edits, 5), content="false")
@@ -891,7 +918,14 @@ test "fixture 18 (fn duplicate params): second parameter is targetable" {
 test "fixture 19 (shadow source order): later top-level binding does not warn" {
   let src = "let h = (f) => f\nlet g = a\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 9, "g")
+  let plan = @rename.plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    9,
+    "g",
+  )
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
   inspect(
@@ -972,7 +1006,14 @@ test "fixture 22 (forward source order): earlier lambda param does not block" {
 test "fixture 23 (block-local forward capture): block let blocks rename" {
   let src = "let h = (f) => { let g = a; f }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 9, "g")
+  let plan = @rename.plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    9,
+    "g",
+  )
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
   inspect(
@@ -989,7 +1030,13 @@ test "check_sibling_collision: target is not its own sibling" {
   let (defs, _) = @callers.extract_facts(syntax)
   let target = def_named(defs, "f")
   inspect(
-    @rename.check_sibling_collision(rename_test_source_id(), target, "f", defs, syntax)
+    @rename.check_sibling_collision(
+      rename_test_source_id(),
+      target,
+      "f",
+      defs,
+      syntax,
+    )
     is None,
     content="true",
   )
@@ -999,7 +1046,14 @@ test "check_sibling_collision: target is not its own sibling" {
 test "fixture 3 (forward capture): outer f rename to g, inner g intercepts" {
   let src = "let h = (f, g) => f g\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 9, "g")
+  let plan = @rename.plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    9,
+    "g",
+  )
   inspect(plan.target.unwrap().name, content="f")
   inspect(
     diagnostics_have_code(plan.diagnostics, "rename.capture"),
@@ -1079,7 +1133,14 @@ test "fixture 6 (sequential top-level): rename f -> fff, self-ref untouched" {
 test "fixture 7 (fn parameter): rename x -> y in fn f(x) { x }" {
   let src = "fn f(x) { x }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 5, "y")
+  let plan = @rename.plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    5,
+    "y",
+  )
   inspect(plan.target.unwrap().name, content="x")
   inspect(plan.edits.length(), content="2")
   inspect(plan.diagnostics.length(), content="0")
@@ -1090,7 +1151,14 @@ test "fixture 7 (fn parameter): rename x -> y in fn f(x) { x }" {
 test "fixture 8 (no-op): rename f -> f produces single Info diagnostic" {
   let src = "let f = a\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = @rename.plan_rename(rename_test_source_id(), pipeline, src, syntax, 4, "f")
+  let plan = @rename.plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    4,
+    "f",
+  )
   inspect(plan.edits.length(), content="0")
   inspect(plan.diagnostics.length(), content="1")
   inspect(

@@ -105,7 +105,11 @@ test "explicit semantic retry uses latest snapshot without another parser update
 ///|
 test "semantic rejection retains baseline and isolates snapshot diagnostics" {
   let source_id = @core.SourceId("rejected-source")
-  let parser = @pipeline.Parser::new(source_id, "ok", test_imperative_language())
+  let parser = @pipeline.Parser::new(
+    source_id,
+    "ok",
+    test_imperative_language(),
+  )
   let calls = Ref(0)
   let analysis : @pipeline.SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
       previous,
@@ -148,13 +152,14 @@ test "semantic intent survives equal snapshots and explicit equal-text batches" 
     test_imperative_language(),
   )
   let analysis : @pipeline.SemanticAnalysis[String, String] = parser.attach_semantic((
-    previous,
-    _snapshot,
-    change,
-  ) => {
-    let value = previous.map(value => value.value()).unwrap_or("initial")
-    Accept(if change.edit() is Some(_) { value + "!" } else { value })
-  })
+      previous,
+      _snapshot,
+      change,
+    ) => {
+      let value = previous.map(value => value.value()).unwrap_or("initial")
+      Accept(if change.edit() is Some(_) { value + "!" } else { value })
+    },
+  )
   defer analysis.dispose()
   let original = analysis.read()
   parser.apply_edit(@core.Edit::new(0, 1, 1), "abc")
@@ -249,7 +254,9 @@ test "disposing during candidate construction cancels acceptance" {
     test_imperative_language(),
   )
   let close = Ref(false)
-  let handle : Ref[@pipeline.SemanticAnalysis[SemanticTestValue, String]?] = Ref(None)
+  let handle : Ref[@pipeline.SemanticAnalysis[SemanticTestValue, String]?] = Ref(
+    None,
+  )
   let analysis : @pipeline.SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
       previous,
       snapshot,

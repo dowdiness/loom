@@ -39,7 +39,11 @@ fn syntax_test_language() -> @incremental.ImperativeLanguage[Unit] {
 ///|
 test "SyntaxParser::new publishes initial source / syntax / diagnostics" {
   let source_id = @core.SourceId("pipeline-syntax-initial-source")
-  let parser = @pipeline.SyntaxParser::new(source_id, "hello", syntax_test_language())
+  let parser = @pipeline.SyntaxParser::new(
+    source_id,
+    "hello",
+    syntax_test_language(),
+  )
   inspect(parser.source().read_or_abort(), content="hello")
   debug_inspect(parser.diagnostics().read_or_abort().format(), content="[]")
   let snapshot = parser.snapshot().read_or_abort()
@@ -56,7 +60,11 @@ test "SyntaxParser::new publishes initial source / syntax / diagnostics" {
 ///|
 test "SyntaxParser::set_source updates syntax and diagnostics" {
   let source_id = @core.SourceId("pipeline-syntax-update-source")
-  let parser = @pipeline.SyntaxParser::new(source_id, "ok", syntax_test_language())
+  let parser = @pipeline.SyntaxParser::new(
+    source_id,
+    "ok",
+    syntax_test_language(),
+  )
   parser.set_source("@bad")
   inspect(parser.source().read_or_abort(), content="@bad")
   inspect(
@@ -77,7 +85,11 @@ test "SyntaxParser::set_source updates syntax and diagnostics" {
 ///|
 test "SyntaxParser::apply_edit advances source and reuse count" {
   let source_id = @core.SourceId("pipeline-syntax-edit-source")
-  let parser = @pipeline.SyntaxParser::new(source_id, "abc", syntax_test_language())
+  let parser = @pipeline.SyntaxParser::new(
+    source_id,
+    "abc",
+    syntax_test_language(),
+  )
   parser.apply_edit(@core.Edit::new(0, 3, 6), "abcdef")
   inspect(parser.source().read_or_abort(), content="abcdef")
   inspect(
@@ -90,7 +102,11 @@ test "SyntaxParser::apply_edit advances source and reuse count" {
 ///|
 test "SyntaxParser::diagnostics is isolated from snapshot diagnostic mutation" {
   let source_id = @core.SourceId("pipeline-syntax-defensive-source")
-  let parser = @pipeline.SyntaxParser::new(source_id, "abc", syntax_test_language())
+  let parser = @pipeline.SyntaxParser::new(
+    source_id,
+    "abc",
+    syntax_test_language(),
+  )
   let snapshot = parser.snapshot().read_or_abort()
   snapshot.diagnostics.push(@core.lexer_diagnostic("external mutation"))
   inspect(parser.diagnostics().read_or_abort().length(), content="0")
@@ -99,7 +115,11 @@ test "SyntaxParser::diagnostics is isolated from snapshot diagnostic mutation" {
 ///|
 test "SyntaxParser exposes its runtime for downstream derived cells" {
   let source_id = @core.SourceId("pipeline-syntax-runtime-source")
-  let parser = @pipeline.SyntaxParser::new(source_id, "xy", syntax_test_language())
+  let parser = @pipeline.SyntaxParser::new(
+    source_id,
+    "xy",
+    syntax_test_language(),
+  )
   let rt = parser.runtime()
   let echo_derived : @incr.Derived[Int] = @incr.Derived(
     rt,
