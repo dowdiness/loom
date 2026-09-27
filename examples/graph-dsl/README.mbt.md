@@ -63,7 +63,8 @@ or duplicate node bindings.
 ///|
 test "README lower numeric parameter" {
   let source_id = @core.SourceId("graph-dsl-readme-lowering")
-  let doc = match @graph-dsl.project_graph_source(source_id, "osc = sine(freq: 440Hz)") {
+  let doc = match
+    @graph-dsl.project_graph_source(source_id, "osc = sine(freq: 440Hz)") {
     Ok(doc) => doc
     Err(messages) => abort(messages.join("; "))
   }

@@ -6,7 +6,10 @@
 ///|
 test "subscribe fires the listener on set_source" {
   let source_id = @core.SourceId("graph-dsl-observer-set-source")
-  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(
+    source_id,
+    SAMPLE_SOURCE,
+  )
   let count : Ref[Int] = { val: 0, }
   let _sub = attachment.subscribe(() => count.val = count.val + 1)
   attachment.set_source("osc = sine(freq: 880Hz)")
@@ -16,7 +19,10 @@ test "subscribe fires the listener on set_source" {
 ///|
 test "subscribe fires the listener on apply_edit" {
   let source_id = @core.SourceId("graph-dsl-observer-apply-edit")
-  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(
+    source_id,
+    SAMPLE_SOURCE,
+  )
   let before = ok_current(attachment.current_result())
   let lowered = ok_lowered(before.lower_set_numeric("osc", "freq", "880"))
   let edit = match lowered.incremental_edit() {
@@ -32,7 +38,10 @@ test "subscribe fires the listener on apply_edit" {
 ///|
 test "the constructor settle does not fire listeners subscribed afterwards" {
   let source_id = @core.SourceId("graph-dsl-observer-constructor-settle")
-  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(
+    source_id,
+    SAMPLE_SOURCE,
+  )
   let count : Ref[Int] = { val: 0, }
   let _sub = attachment.subscribe(() => count.val = count.val + 1)
   inspect(count.val, content="0")
@@ -41,7 +50,10 @@ test "the constructor settle does not fire listeners subscribed afterwards" {
 ///|
 test "every listener fires on a single settle" {
   let source_id = @core.SourceId("graph-dsl-observer-every-listener")
-  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(
+    source_id,
+    SAMPLE_SOURCE,
+  )
   let a : Ref[Int] = { val: 0, }
   let b : Ref[Int] = { val: 0, }
   let _s1 = attachment.subscribe(() => a.val = a.val + 1)
@@ -54,7 +66,10 @@ test "every listener fires on a single settle" {
 ///|
 test "the listener fires when the new source is parser-blocked" {
   let source_id = @core.SourceId("graph-dsl-observer-parser-blocked")
-  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(
+    source_id,
+    SAMPLE_SOURCE,
+  )
   let count : Ref[Int] = { val: 0, }
   let _sub = attachment.subscribe(() => count.val = count.val + 1)
   attachment.set_source("osc = sine(freq: )")
@@ -65,7 +80,10 @@ test "the listener fires when the new source is parser-blocked" {
 ///|
 test "a listener may unsubscribe itself during notification" {
   let source_id = @core.SourceId("graph-dsl-observer-self-unsubscribe")
-  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(
+    source_id,
+    SAMPLE_SOURCE,
+  )
   let count : Ref[Int] = { val: 0, }
   let holder : Ref[@graph-dsl.GraphAttachmentSubscription?] = { val: None, }
   let sub = attachment.subscribe(() => {
@@ -87,7 +105,10 @@ test "a listener may unsubscribe itself during notification" {
 ///|
 test "the listener fires even when the new source is projection-blocked" {
   let source_id = @core.SourceId("graph-dsl-observer-projection-blocked")
-  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(
+    source_id,
+    SAMPLE_SOURCE,
+  )
   let count : Ref[Int] = { val: 0, }
   let _sub = attachment.subscribe(() => count.val = count.val + 1)
   attachment.set_source("osc = sine(input: missing)")
@@ -98,7 +119,10 @@ test "the listener fires even when the new source is projection-blocked" {
 ///|
 test "unsubscribe stops notifications" {
   let source_id = @core.SourceId("graph-dsl-observer-unsubscribe")
-  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(
+    source_id,
+    SAMPLE_SOURCE,
+  )
   let count : Ref[Int] = { val: 0, }
   let sub = attachment.subscribe(() => count.val = count.val + 1)
   attachment.set_source("osc = sine(freq: 880Hz)")
@@ -111,7 +135,10 @@ test "unsubscribe stops notifications" {
 ///|
 test "unsubscribe is idempotent" {
   let source_id = @core.SourceId("graph-dsl-observer-idempotent-unsubscribe")
-  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(
+    source_id,
+    SAMPLE_SOURCE,
+  )
   let count : Ref[Int] = { val: 0, }
   let sub = attachment.subscribe(() => count.val = count.val + 1)
   sub.unsubscribe()
@@ -123,7 +150,10 @@ test "unsubscribe is idempotent" {
 ///|
 test "one listener detaching does not affect the others" {
   let source_id = @core.SourceId("graph-dsl-observer-independent-listeners")
-  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(
+    source_id,
+    SAMPLE_SOURCE,
+  )
   let a : Ref[Int] = { val: 0, }
   let b : Ref[Int] = { val: 0, }
   let s1 = attachment.subscribe(() => a.val = a.val + 1)
@@ -137,7 +167,10 @@ test "one listener detaching does not affect the others" {
 ///|
 test "dispose clears listeners and unsubscribe stays safe afterwards" {
   let source_id = @core.SourceId("graph-dsl-observer-dispose")
-  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(source_id, SAMPLE_SOURCE)
+  let attachment = @graph-dsl.GraphAttachment::GraphAttachment(
+    source_id,
+    SAMPLE_SOURCE,
+  )
   let count : Ref[Int] = { val: 0, }
   let sub = attachment.subscribe(() => count.val = count.val + 1)
   attachment.dispose()

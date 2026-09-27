@@ -26,13 +26,18 @@ test "IR has no closure predicate escape hatch" {
 
 ///|
 test "Native holds only a RuleName and stays structural data" {
-  let a : @grammar.Expr[Int, Int] = @grammar.Expr::Native("parse_element_with_stack")
-  let b : @grammar.Expr[Int, Int] = @grammar.Expr::Native("parse_element_with_stack")
+  let a : @grammar.Expr[Int, Int] = @grammar.Expr::Native(
+    "parse_element_with_stack",
+  )
+  let b : @grammar.Expr[Int, Int] = @grammar.Expr::Native(
+    "parse_element_with_stack",
+  )
   let c : @grammar.Expr[Int, Int] = @grammar.Expr::Native("other")
   inspect(a == b, content="true")
   inspect(a == c, content="false")
   match a {
-    @grammar.Expr::Native(name) => inspect(name, content="parse_element_with_stack")
+    @grammar.Expr::Native(name) =>
+      inspect(name, content="parse_element_with_stack")
     _ => fail("expected Native")
   }
   inspect(@debug.to_string(a), content="Native(\"parse_element_with_stack\")")

@@ -239,4 +239,10 @@ fn build_tree(
 }
 
 ///|
-pub extend DotTreeNode with DotNode::{children, edge_label, label, node_attrs, node_id}
+pub extend DotTreeNode with DotNode::{
+  children,
+  edge_label,
+  label,
+  node_attrs,
+  node_id,
+}

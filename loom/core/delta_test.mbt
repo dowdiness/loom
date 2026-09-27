@@ -21,7 +21,10 @@ test "to_edits: pure insert at start" {
 
 ///|
 test "to_edits: insert after retain" {
-  let result = @core.to_edits([@core.TextDelta::Retain(5), @core.TextDelta::Insert("hi")])
+  let result = @core.to_edits([
+    @core.TextDelta::Retain(5),
+    @core.TextDelta::Insert("hi"),
+  ])
   inspect(result.length(), content="1")
   inspect(result[0].start, content="5")
   inspect(result[0].old_len, content="0")
@@ -30,7 +33,10 @@ test "to_edits: insert after retain" {
 
 ///|
 test "to_edits: delete after retain" {
-  let result = @core.to_edits([@core.TextDelta::Retain(3), @core.TextDelta::Delete(4)])
+  let result = @core.to_edits([
+    @core.TextDelta::Retain(3),
+    @core.TextDelta::Delete(4),
+  ])
   inspect(result.length(), content="1")
   inspect(result[0].start, content="3")
   inspect(result[0].old_len, content="4")
@@ -78,7 +84,10 @@ test "to_edits: insert then delete — no merge, positions adjusted" {
   // [Insert("x"), Delete(2)] — Insert comes first, Delete does not merge
   // Insert("x"): emit Edit { start: 0, old_len: 0, new_len: 1 }, accumulated_delta = 1
   // Delete(2): emit Edit { start: 0 + 1 = 1, old_len: 2, new_len: 0 }
-  let result = @core.to_edits([@core.TextDelta::Insert("x"), @core.TextDelta::Delete(2)])
+  let result = @core.to_edits([
+    @core.TextDelta::Insert("x"),
+    @core.TextDelta::Delete(2),
+  ])
   inspect(result.length(), content="2")
   inspect(result[0].start, content="0")
   inspect(result[0].old_len, content="0")
