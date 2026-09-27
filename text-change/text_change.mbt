@@ -256,3 +256,15 @@ pub fn TextChange::is_noop(self : TextChange) -> Bool {
     ReplaceRange(_) | ReplaceAll(_) => false
   }
 }
+
+///|
+pub extend TextChange with Eq::{not_equal, equal}
+
+///|
+pub extend TextChange with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ChangeSetError with Eq::{not_equal, equal}
+
+///|
+pub extend ChangeSetError with @moonbitlang/core/debug.Debug::{to_repr}

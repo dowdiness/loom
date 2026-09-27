@@ -224,7 +224,7 @@ fn perf_residual_project_readme_excerpt() -> String {
 
 ///|
 fn perf_residual_syntax(source : String) -> @seam.SyntaxNode {
-  let (cst, _) = parse_cst(
+  let (cst, _) = @markdown.parse_cst(
     @core.SourceId("markdown-performance-residual"),
     source,
   ) catch {
@@ -236,7 +236,7 @@ fn perf_residual_syntax(source : String) -> @seam.SyntaxNode {
 ///|
 fn bench_perf_residual_tokenize(b : @bench.T, source : String) -> Unit {
   b.bench(fn() {
-    let tokens = tokenize(source) catch { _ => abort("lex failed") }
+    let tokens = @markdown.tokenize(source) catch { _ => abort("lex failed") }
     b.keep(tokens)
   })
 }
@@ -244,7 +244,7 @@ fn bench_perf_residual_tokenize(b : @bench.T, source : String) -> Unit {
 ///|
 fn bench_perf_residual_cst(b : @bench.T, source : String) -> Unit {
   b.bench(fn() {
-    let (cst, diagnostics) = parse_cst(
+    let (cst, diagnostics) = @markdown.parse_cst(
       @core.SourceId("markdown-performance-residual"),
       source,
     ) catch {
@@ -259,7 +259,7 @@ fn bench_perf_residual_cst(b : @bench.T, source : String) -> Unit {
 fn bench_perf_residual_ast(b : @bench.T, source : String) -> Unit {
   b.bench(fn() {
     b.keep(
-      try! parse_block_ast(
+      try! @markdown.parse_block_ast(
         @core.SourceId("markdown-performance-residual"),
         source,
       ),
@@ -271,15 +271,15 @@ fn bench_perf_residual_ast(b : @bench.T, source : String) -> Unit {
 fn bench_perf_residual_direct_block(b : @bench.T, source : String) -> Unit {
   let syntax = perf_residual_syntax(source)
   b.bench(fn() {
-    let fold = @core.CstFold::new(markdown_fold_node)
+    let fold = @core.CstFold::new(@markdown.markdown_fold_node)
     b.keep(fold.fold(syntax))
   })
 }
 
 ///|
-fn perf_residual_recursive_block(root : @seam.SyntaxNode) -> Block {
-  fn lower(node : @seam.SyntaxNode) -> Block {
-    markdown_fold_node(node, lower)
+fn perf_residual_recursive_block(root : @seam.SyntaxNode) -> @markdown.Block {
+  fn lower(node : @seam.SyntaxNode) -> @markdown.Block {
+    @markdown.markdown_fold_node(node, lower)
   }
   lower(root)
 }
@@ -295,7 +295,7 @@ fn bench_perf_residual_ir_construction(b : @bench.T, source : String) -> Unit {
   let syntax = perf_residual_syntax(source)
   b.bench(fn() {
     b.keep(
-      experimental_markdown_ir_from_syntax(
+      @markdown.experimental_markdown_ir_from_syntax(
         @core.SourceId("markdown-performance-residual"),
         syntax,
       ),
@@ -305,22 +305,22 @@ fn bench_perf_residual_ir_construction(b : @bench.T, source : String) -> Unit {
 
 ///|
 fn bench_perf_residual_ir_adapter(b : @bench.T, source : String) -> Unit {
-  let ir = experimental_markdown_ir_from_syntax(
+  let ir = @markdown.experimental_markdown_ir_from_syntax(
     @core.SourceId("markdown-performance-residual"),
     perf_residual_syntax(source),
   )
-  b.bench(fn() { b.keep(experimental_markdown_ir_to_block(ir)) })
+  b.bench(fn() { b.keep(@markdown.experimental_markdown_ir_to_block(ir)) })
 }
 
 ///|
 fn bench_perf_residual_ir_block(b : @bench.T, source : String) -> Unit {
   let syntax = perf_residual_syntax(source)
   b.bench(fn() {
-    let ir = experimental_markdown_ir_from_syntax(
+    let ir = @markdown.experimental_markdown_ir_from_syntax(
       @core.SourceId("markdown-performance-residual"),
       syntax,
     )
-    b.keep(experimental_markdown_ir_to_block(ir))
+    b.keep(@markdown.experimental_markdown_ir_to_block(ir))
   })
 }
 
@@ -332,7 +332,7 @@ fn bench_perf_residual_syntax_cycle(
   let parser = try! @loom.new_syntax_parser(
     @core.SourceId("markdown-performance-residual-edit"),
     fixture.source,
-    markdown_grammar.to_syntax_grammar(),
+    @markdown.markdown_grammar.to_syntax_grammar(),
   )
   let syntax = parser.syntax_tree()
   ignore(syntax.read_or_abort())
@@ -384,13 +384,13 @@ test "perf residual: 10k edit matrix covers position and block kind" {
     let incremental = try! @loom.new_syntax_parser(
       @core.SourceId("markdown-performance-residual-parity"),
       fixture.source,
-      markdown_grammar.to_syntax_grammar(),
+      @markdown.markdown_grammar.to_syntax_grammar(),
     )
     incremental.apply_edit(fixture.edit, fixture.edited)
     let fresh = try! @loom.new_syntax_parser(
       @core.SourceId("markdown-performance-residual-parity"),
       fixture.edited,
-      markdown_grammar.to_syntax_grammar(),
+      @markdown.markdown_grammar.to_syntax_grammar(),
     )
     assert_eq(
       incremental.syntax_tree().read_or_abort(),

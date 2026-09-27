@@ -165,3 +165,9 @@ pub fn SyntaxParser::diagnostics(
 pub fn SyntaxParser::runtime(self : SyntaxParser) -> @incr.Runtime {
   self.parser.runtime()
 }
+
+///|
+pub extend SyntaxSnapshot with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SyntaxSnapshot with Eq::{equal, not_equal}

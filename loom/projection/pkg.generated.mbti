@@ -23,9 +23,12 @@ pub struct ProjectionIdentityBaseline[Id] {
 } derive(Eq, @debug.Debug)
 pub fn[Id] ProjectionIdentityBaseline::advance(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : @core.Edit) -> Self[Id]
 pub fn[Id] ProjectionIdentityBaseline::advance_with_optional_edit(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, @core.Edit?) -> Self[Id]
+pub fn[Id : Eq] ProjectionIdentityBaseline::equal(Self[Id], Self[Id]) -> Bool
 pub fn[Id] ProjectionIdentityBaseline::leaves(Self[Id]) -> Array[StableProjectionLeaf[Id]]
 pub fn[Id] ProjectionIdentityBaseline::new(String, Array[StableProjectionLeaf[Id]]) -> Self[Id]
+pub fn[Id : Eq] ProjectionIdentityBaseline::not_equal(Self[Id], Self[Id]) -> Bool
 pub fn[Id] ProjectionIdentityBaseline::source(Self[Id]) -> String
+pub fn[Id : @debug.Debug] ProjectionIdentityBaseline::to_repr(Self[Id]) -> @debug.Repr
 
 pub struct ProjectionIdentityTracker[Id] {
   // private fields
@@ -41,13 +44,19 @@ pub fn[Id] ProjectionIdentityTracker::record_failed_input(Self[Id], String, sour
 pub fn[Id] ProjectionIdentityTracker::record_failed_input_with_optional_edit(Self[Id], String, String?, @core.Edit?) -> Unit
 
 type ProjectionIdentityWindow derive(Eq, @debug.Debug)
+pub fn ProjectionIdentityWindow::equal(Self, Self) -> Bool
+pub fn ProjectionIdentityWindow::not_equal(Self, Self) -> Bool
+pub fn ProjectionIdentityWindow::to_repr(Self) -> @debug.Repr
 
 pub struct ProjectionLeaf {
   start : Int
   end : Int
   key : String
 } derive(Eq, @debug.Debug)
+pub fn ProjectionLeaf::equal(Self, Self) -> Bool
 pub fn ProjectionLeaf::new(Int, Int, String) -> Self
+pub fn ProjectionLeaf::not_equal(Self, Self) -> Bool
+pub fn ProjectionLeaf::to_repr(Self) -> @debug.Repr
 
 pub struct ProjectionStringIdAllocator {
   // private fields
@@ -62,7 +71,10 @@ pub struct StableProjectionLeaf[Id] {
   key : String
   id : Id
 } derive(Eq, @debug.Debug)
+pub fn[Id : Eq] StableProjectionLeaf::equal(Self[Id], Self[Id]) -> Bool
 pub fn[Id] StableProjectionLeaf::new(Int, Int, String, Id) -> Self[Id]
+pub fn[Id : Eq] StableProjectionLeaf::not_equal(Self[Id], Self[Id]) -> Bool
+pub fn[Id : @debug.Debug] StableProjectionLeaf::to_repr(Self[Id]) -> @debug.Repr
 
 // Type aliases
 

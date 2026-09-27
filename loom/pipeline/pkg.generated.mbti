@@ -18,6 +18,9 @@ import {
 pub suberror ParserUpdateError {
   ChangeSetMismatch
 } derive(Eq, @debug.Debug)
+pub fn ParserUpdateError::equal(Self, Self) -> Bool
+pub fn ParserUpdateError::not_equal(Self, Self) -> Bool
+pub fn ParserUpdateError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub struct Parser[Ast] {
@@ -109,6 +112,9 @@ pub struct SyntaxSnapshot {
   reuse_count : Int
 } derive(Eq, @debug.Debug)
 pub fn SyntaxSnapshot::copy(Self) -> Self
+pub fn SyntaxSnapshot::equal(Self, Self) -> Bool
+pub fn SyntaxSnapshot::not_equal(Self, Self) -> Bool
+pub fn SyntaxSnapshot::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

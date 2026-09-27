@@ -8,15 +8,15 @@ fn assert_commonmark_blockquote_html_regression(
   let source_id = @core.SourceId(
     "markdown-commonmark-blockquote-" + kind + "-" + label,
   )
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
   assert_true(diagnostics.is_empty())
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   let actual = match
-    experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+    @markdown.experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
       ir,
       Passthrough,
     ) {

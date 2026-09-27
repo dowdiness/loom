@@ -62,6 +62,9 @@ pub fn[A] text_with_width(String, Int) -> Layout[A] raise PrettyBuildError
 pub(all) suberror PrettyBuildError {
   NegativeTextWidth(Int)
 } derive(Eq, @debug.Debug)
+pub fn PrettyBuildError::equal(Self, Self) -> Bool
+pub fn PrettyBuildError::not_equal(Self, Self) -> Bool
+pub fn PrettyBuildError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub(all) enum Cmd[A] {
@@ -70,6 +73,11 @@ pub(all) enum Cmd[A] {
   CAnnStart(A)
   CAnnEnd(A)
 } derive(Eq, @debug.Debug)
+pub fn[A : Eq] Cmd::equal(Self[A], Self[A]) -> Bool
+pub fn[A : Eq] Cmd::not_equal(Self[A], Self[A]) -> Bool
+pub fn[A : @debug.Debug] Cmd::output(Self[A], &Logger) -> Unit
+pub fn[A : @debug.Debug] Cmd::to_repr(Self[A]) -> @debug.Repr
+pub fn[A : @debug.Debug] Cmd::to_string(Self[A]) -> String
 pub impl[A : @debug.Debug] Show for Cmd[A]
 
 pub enum Layout[A] {
@@ -82,6 +90,12 @@ pub enum Layout[A] {
   Group(Layout[A], Int)
   Annotate(A, Layout[A], Int)
 } derive(Eq, @debug.Debug)
+pub fn[A] Layout::add(Self[A], Self[A]) -> Self[A]
+pub fn[A : Eq] Layout::equal(Self[A], Self[A]) -> Bool
+pub fn[A : Eq] Layout::not_equal(Self[A], Self[A]) -> Bool
+pub fn[A : @debug.Debug] Layout::output(Self[A], &Logger) -> Unit
+pub fn[A : @debug.Debug] Layout::to_repr(Self[A]) -> @debug.Repr
+pub fn[A : @debug.Debug] Layout::to_string(Self[A]) -> String
 pub impl[A] Add for Layout[A]
 pub impl[A : @debug.Debug] Show for Layout[A]
 
@@ -89,6 +103,11 @@ pub(all) struct Span {
   start : Int
   end : Int
 } derive(Eq, @debug.Debug)
+pub fn Span::equal(Self, Self) -> Bool
+pub fn Span::not_equal(Self, Self) -> Bool
+pub fn Span::output(Self, &Logger) -> Unit
+pub fn Span::to_repr(Self) -> @debug.Repr
+pub fn Span::to_string(Self) -> String
 pub impl Show for Span
 
 pub(all) enum SyntaxCategory {
@@ -103,6 +122,11 @@ pub(all) enum SyntaxCategory {
   EvalAnnotation
   EvalError
 } derive(Eq, @debug.Debug)
+pub fn SyntaxCategory::equal(Self, Self) -> Bool
+pub fn SyntaxCategory::not_equal(Self, Self) -> Bool
+pub fn SyntaxCategory::output(Self, &Logger) -> Unit
+pub fn SyntaxCategory::to_repr(Self) -> @debug.Repr
+pub fn SyntaxCategory::to_string(Self) -> String
 pub impl Show for SyntaxCategory
 
 // Type aliases

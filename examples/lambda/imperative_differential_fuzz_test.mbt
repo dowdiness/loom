@@ -159,14 +159,16 @@ test "differential-fast: deterministic random edit sequences" {
   for case_i = 0; case_i < 30; case_i = case_i + 1 {
     let mut seed = 17 + case_i * 97
     let mut source = idf_make_source(seed, false)
-    let parser = @loom.new_imperative_parser(source_id, source, lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      source_id, source, @lambda.lambda_grammar,
+    )
     let _ = parser.parse().ast
     for edit_i = 0; edit_i < 8; edit_i = edit_i + 1 {
       let (new_source, edit, next_seed) = idf_apply_random_edit(
         source, seed, false,
       )
       let incremental = parser.edit(edit, new_source).ast
-      let (cst, errors) = parse_cst(source_id, new_source) catch {
+      let (cst, errors) = @lambda.parse_cst(source_id, new_source) catch {
         _ => {
           source = new_source
           seed = next_seed
@@ -175,7 +177,9 @@ test "differential-fast: deterministic random edit sequences" {
       }
       // Phase 4 correctness today is strongest on well-formed inputs.
       if errors.length() == 0 {
-        let full_term = syntax_node_to_term(@seam.SyntaxNode::from_cst(cst))
+        let full_term = @lambda.syntax_node_to_term(
+          @seam.SyntaxNode::from_cst(cst),
+        )
         idf_assert_incremental_matches_full(
           incremental,
           full_term,
@@ -198,7 +202,9 @@ test "differential-fast: malformed input sequences terminate" {
   for case_i = 0; case_i < 20; case_i = case_i + 1 {
     let mut seed = 43 + case_i * 131
     let mut source = idf_make_source(seed, true)
-    let parser = @loom.new_imperative_parser(source_id, source, lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      source_id, source, @lambda.lambda_grammar,
+    )
     let _ = parser.parse().ast
     for edit_i = 0; edit_i < 8; edit_i = edit_i + 1 {
       let (new_source, edit, next_seed) = idf_apply_random_edit(
@@ -208,7 +214,7 @@ test "differential-fast: malformed input sequences terminate" {
       // Verify incremental parse produces a Term (print_term must not panic)
       let _ = @ast.print_term(incremental)
       try {
-        let _ = parse_cst(source_id, new_source)
+        let _ = @lambda.parse_cst(source_id, new_source)
       } catch {
         _ => ()
       }
@@ -220,7 +226,7 @@ test "differential-fast: malformed input sequences terminate" {
     let repair = "x + 1"
     let repair_edit = @core.Edit::replace(0, source.length(), repair.length())
     let repaired = parser.edit(repair_edit, repair).ast
-    let full_repaired = parse(source_id, repair) catch {
+    let full_repaired = @lambda.parse(source_id, repair) catch {
       _ => abort("parse failed on repair")
     }
     idf_assert_incremental_matches_full(
@@ -320,7 +326,9 @@ fn idf_assert_source_file_matches_full(
   full_cst : @seam.CstNode,
   context : String,
 ) -> Unit {
-  let full_term = syntax_node_to_term(@seam.SyntaxNode::from_cst(full_cst))
+  let full_term = @lambda.syntax_node_to_term(
+    @seam.SyntaxNode::from_cst(full_cst),
+  )
   // Structural equality (Term derives Eq) is stronger than string comparison:
   // two structurally distinct trees that happen to print identically would pass
   // string comparison but fail here.
@@ -346,14 +354,16 @@ test "differential-fast: source-file grammar deterministic fuzz" {
   for case_i = 0; case_i < 25; case_i = case_i + 1 {
     let mut seed = 53 + case_i * 113
     let mut source = idf_make_source_file_source(seed)
-    let parser = @loom.new_imperative_parser(source_id, source, lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      source_id, source, @lambda.lambda_grammar,
+    )
     let _ = parser.parse().ast
     for edit_i = 0; edit_i < 8; edit_i = edit_i + 1 {
       let (new_source, edit, next_seed) = idf_apply_source_file_edit(
         source, seed,
       )
       let incr_term = parser.edit(edit, new_source).ast
-      let (full_cst, full_errors) = parse_cst(source_id, new_source) catch {
+      let (full_cst, full_errors) = @lambda.parse_cst(source_id, new_source) catch {
         _ => {
           source = new_source
           seed = next_seed
@@ -383,14 +393,16 @@ test "differential-long: larger deterministic random edit sequences" {
   for case_i = 0; case_i < 80; case_i = case_i + 1 {
     let mut seed = 101 + case_i * 193
     let mut source = idf_make_source(seed, false)
-    let parser = @loom.new_imperative_parser(source_id, source, lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      source_id, source, @lambda.lambda_grammar,
+    )
     let _ = parser.parse().ast
     for edit_i = 0; edit_i < 16; edit_i = edit_i + 1 {
       let (new_source, edit, next_seed) = idf_apply_random_edit(
         source, seed, false,
       )
       let incremental = parser.edit(edit, new_source).ast
-      let (cst, errors) = parse_cst(source_id, new_source) catch {
+      let (cst, errors) = @lambda.parse_cst(source_id, new_source) catch {
         _ => {
           source = new_source
           seed = next_seed
@@ -398,7 +410,9 @@ test "differential-long: larger deterministic random edit sequences" {
         }
       }
       if errors.length() == 0 {
-        let full_term = syntax_node_to_term(@seam.SyntaxNode::from_cst(cst))
+        let full_term = @lambda.syntax_node_to_term(
+          @seam.SyntaxNode::from_cst(cst),
+        )
         idf_assert_incremental_matches_full(
           incremental,
           full_term,

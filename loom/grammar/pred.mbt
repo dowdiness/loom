@@ -42,3 +42,9 @@ pub fn[T : Eq] Pred::matches(self : Self[T], token : T) -> Bool {
     All(left, right) => left.matches(token) && right.matches(token)
   }
 }
+
+///|
+pub extend Pred with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Pred with Eq::{equal, not_equal}

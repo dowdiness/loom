@@ -365,3 +365,6 @@ test "parser context baseline token_at scans delimiter facts without moving" {
   inspect(ctx.peek_index(0) == before, content="true")
   inspect(ctx.peek_index(2) == before_third, content="true")
 }
+
+///|
+pub extend ProbeTokenKind with Eq::{equal, not_equal}

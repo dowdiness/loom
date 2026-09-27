@@ -95,3 +95,12 @@ fn text_change_to_delta(
 pub fn text_to_delta(old : String, new : String) -> Array[TextDelta] {
   text_change_to_delta(@shared_text_change.compute_text_change(old, new))
 }
+
+///|
+pub extend TextDelta with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TextDelta with Eq::{not_equal, equal}
+
+///|
+pub extend TextDelta with Show::{to_string, output}

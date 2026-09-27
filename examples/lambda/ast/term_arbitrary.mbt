@@ -50,3 +50,9 @@ fn gen_term(rs : @splitmix.RandomState, depth : Int) -> Term {
     }
   }
 }
+
+///|
+pub extend Term with @moonbitlang/core/quickcheck.Arbitrary::{arbitrary}
+
+///|
+pub extend Term with @qc.Shrink::{shrink}

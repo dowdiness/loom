@@ -197,3 +197,18 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     _ => ErrorNode
   }
 }
+
+///|
+pub extend SyntaxKind with @dowdiness/seam.FromRawKind::{from_raw}
+
+///|
+pub extend SyntaxKind with @dowdiness/seam.ToRawKind::{to_raw}
+
+///|
+pub extend SyntaxKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SyntaxKind with Eq::{equal, not_equal}
+
+///|
+pub extend SyntaxKind with Show::{output, to_string}

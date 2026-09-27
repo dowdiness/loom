@@ -27,3 +27,9 @@ pub(all) enum Token {
   CandidateO
   EOF
 } derive(Eq, Debug)
+
+///|
+pub extend Token with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Token with Eq::{equal, not_equal}

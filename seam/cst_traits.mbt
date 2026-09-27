@@ -112,3 +112,21 @@ pub impl TransformFolder for NodeCount with fn tf_init(_kind) {
 pub impl TransformFolder for NodeCount with fn tf_child(acc, child) {
   NodeCount(acc.0 + child.0)
 }
+
+///|
+pub extend TextLen with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TextLen with Show::{to_string, output}
+
+///|
+pub extend TextLen with Folder::{fold_empty, fold_token, fold_combine}
+
+///|
+pub extend NodeCount with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend NodeCount with Show::{to_string, output}
+
+///|
+pub extend NodeCount with TransformFolder::{tf_init, tf_token, tf_child}

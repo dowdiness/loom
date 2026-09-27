@@ -241,3 +241,9 @@ pub fn[Ast] Parser::diagnostics(
 pub fn[Ast] Parser::runtime(self : Parser[Ast]) -> @incr.Runtime {
   self.rt
 }
+
+///|
+pub extend ParserUpdateError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ParserUpdateError with Eq::{equal, not_equal}

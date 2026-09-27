@@ -42,6 +42,9 @@ pub(all) enum Token {
   CandidateO
   EOF
 } derive(Eq, @debug.Debug)
+pub fn Token::equal(Self, Self) -> Bool
+pub fn Token::not_equal(Self, Self) -> Bool
+pub fn Token::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

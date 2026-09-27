@@ -26,14 +26,16 @@ fn CommonMarkHtmlFixture::label(self : CommonMarkHtmlFixture) -> String {
 }
 
 ///|
-fn CommonMarkHtmlFixture::ir(self : CommonMarkHtmlFixture) -> MarkdownIR {
+fn CommonMarkHtmlFixture::ir(
+  self : CommonMarkHtmlFixture,
+) -> @markdown.MarkdownIR {
   let source_id = @core.SourceId(
     "markdown-commonmark-html-fixture:" + self.example.to_string(),
   )
-  let (cst, diagnostics) = parse_cst(source_id, self.source) catch {
+  let (cst, diagnostics) = @markdown.parse_cst(source_id, self.source) catch {
     _ => abort("CommonMark HTML fixture parse failed for " + self.label())
   }
-  experimental_markdown_ir_from_syntax_with_diagnostics(
+  @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
@@ -43,7 +45,7 @@ fn CommonMarkHtmlFixture::ir(self : CommonMarkHtmlFixture) -> MarkdownIR {
 ///|
 fn CommonMarkHtmlFixture::actual_html(self : CommonMarkHtmlFixture) -> String {
   match
-    experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+    @markdown.experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
       self.ir(),
       Passthrough,
     ) {
@@ -289,27 +291,29 @@ test "experimental MarkdownIR: example 91 angle boundary supports line endings a
 test "experimental MarkdownIR: CommonMark HTML renderer supports setext headings in containers" {
   let source_id = @core.SourceId("markdown-commonmark-html-setext-containers")
   let blockquote = "> Foo\n> ---\n"
-  let (blockquote_cst, blockquote_diagnostics) = try! parse_cst(
+  let (blockquote_cst, blockquote_diagnostics) = try! @markdown.parse_cst(
     source_id, blockquote,
   )
-  let blockquote_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let blockquote_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(blockquote_cst),
     blockquote_diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(blockquote_ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(blockquote_ir),
     content="<blockquote>\n<h2>Foo</h2>\n</blockquote>\n",
   )
   let list_item = "- Bar\n  ---\n"
-  let (list_cst, list_diagnostics) = try! parse_cst(source_id, list_item)
-  let list_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (list_cst, list_diagnostics) = try! @markdown.parse_cst(
+    source_id, list_item,
+  )
+  let list_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(list_cst),
     list_diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(list_ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(list_ir),
     content="<ul>\n<li>\n<h2>Bar</h2>\n</li>\n</ul>\n",
   )
 }
@@ -318,14 +322,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer supports setext headings
 test "experimental MarkdownIR: CommonMark HTML renderer escapes text code and link attributes" {
   let source_id = @core.SourceId("markdown-commonmark-html-escaping")
   let source = "<>&\"\n\n```\n<>&\"\n```\n\n[<>&\"](https://example.com/?a=1&b=\"q\")\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<p>&lt;&gt;&amp;&quot;</p>
       #|<pre><code>&lt;&gt;&amp;&quot;
@@ -342,14 +346,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer preserves whitespace-onl
     "markdown-commonmark-html-whitespace-list-item",
   )
   let source = "- ` `\n- [](/)\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<ul>
       #|<li><code> </code></li>
@@ -364,14 +368,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer preserves whitespace-onl
 test "experimental MarkdownIR: CommonMark HTML renderer keeps tab continuation inside empty list item" {
   let source_id = @core.SourceId("markdown-commonmark-html-empty-list-tab")
   let source = "-\n\tfoo\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<ul>
       #|<li>foo</li>
@@ -385,14 +389,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer keeps tab continuation i
 test "experimental MarkdownIR: CommonMark HTML renderer stops list code block before paragraph continuation" {
   let source_id = @core.SourceId("markdown-commonmark-html-list-code-boundary")
   let source = "-\t\tfoo\n    bar\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<ul>
       #|<li>
@@ -409,14 +413,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer stops list code block be
 test "experimental MarkdownIR: CommonMark HTML renderer keeps quoted tab-indented marker as list" {
   let source_id = @core.SourceId("markdown-commonmark-html-quoted-tab-list")
   let source = "> \t- foo\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<blockquote>
       #|<ul>
@@ -434,14 +438,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer preserves extra code ind
     "markdown-commonmark-html-blank-marker-code-indent",
   )
   let source = "-   \n        code\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<ul>
       #|<li>
@@ -458,14 +462,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer preserves extra code ind
 test "experimental MarkdownIR: CommonMark HTML renderer keeps column-relative blockquote tab as paragraph" {
   let source_id = @core.SourceId("markdown-commonmark-html-blockquote-tab")
   let source = "> \tfoo\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<blockquote>
       #|<p>foo</p>
@@ -479,14 +483,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer keeps column-relative bl
 test "experimental MarkdownIR: CommonMark HTML renderer normalizes tab paragraph continuation" {
   let source_id = @core.SourceId("markdown-commonmark-html-tab-paragraph")
   let source = "foo\n\tbar\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<p>foo
       #|bar</p>
@@ -499,14 +503,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer normalizes tab paragraph
 test "experimental MarkdownIR: CommonMark HTML renderer keeps tab-indented marker as code block" {
   let source_id = @core.SourceId("markdown-commonmark-html-tab-code-block")
   let source = "\t- foo\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<pre><code>- foo
       #|</code></pre>
@@ -519,14 +523,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer keeps tab-indented marke
 test "experimental MarkdownIR: CommonMark HTML renderer uses loose list spread" {
   let source_id = @core.SourceId("markdown-commonmark-html-loose-list")
   let source = "- one\n\n- two\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<ul>
       #|<li>
@@ -545,14 +549,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer uses loose list spread" 
 test "experimental MarkdownIR: CommonMark HTML renderer keeps multi-item nested list tight" {
   let source_id = @core.SourceId("markdown-commonmark-html-tight-nested-list")
   let source = "- a\n  - b\n  - c\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<ul>
       #|<li>a
@@ -571,14 +575,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer keeps multi-item nested 
 test "experimental MarkdownIR: CommonMark HTML renderer resumes top-level list after nested flow" {
   let source_id = @core.SourceId("markdown-commonmark-html-resume-top-list")
   let source = "- a\n  - b\n- c\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<ul>
       #|<li>a
@@ -597,14 +601,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer resumes top-level list a
 test "experimental MarkdownIR: CommonMark HTML renderer keeps mixed-marker loose lists separate" {
   let source_id = @core.SourceId("markdown-commonmark-html-mixed-marker-lists")
   let source = "- one\n\n+ two\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<ul>
       #|<li>one</li>
@@ -623,14 +627,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer preserves marker-change 
     "markdown-commonmark-html-marker-change-boundary",
   )
   let source = "- one\n+ two\n\n+ three\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<ul>
       #|<li>one</li>
@@ -652,14 +656,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer preserves marker-change 
 test "experimental MarkdownIR: CommonMark HTML renderer leaves empty loose list items paragraphless" {
   let source_id = @core.SourceId("markdown-commonmark-html-empty-loose-item")
   let source = "- \n\n- two\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<ul>
       #|<li></li>
@@ -676,14 +680,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer leaves empty loose list 
 test "experimental MarkdownIR: CommonMark HTML renderer keeps quoted loose list in one blockquote" {
   let source_id = @core.SourceId("markdown-commonmark-html-quoted-loose-list")
   let source = "> - a\n>\n> - b\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<blockquote>
       #|<ul>
@@ -706,14 +710,14 @@ test "experimental MarkdownIR: CommonMark HTML renderer keeps non-one quoted ord
     "markdown-commonmark-html-non-one-ordered-marker",
   )
   let source = "> text\n> 14. still text\n"
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content=(
       #|<blockquote>
       #|<p>text

@@ -39,8 +39,8 @@ fn test_item_key(item : TestProjectionItem) -> String {
 }
 
 ///|
-fn test_item_leaf(item : TestProjectionItem) -> ProjectionLeaf {
-  ProjectionLeaf::new(item.start, item.end, test_item_key(item))
+fn test_item_leaf(item : TestProjectionItem) -> @projection.ProjectionLeaf {
+  @projection.ProjectionLeaf::new(item.start, item.end, test_item_key(item))
 }
 
 ///|
@@ -81,7 +81,7 @@ fn test_item_summaries(
 
 ///|
 test "projection identity: string allocator mints per-key occurrences" {
-  let allocator = ProjectionStringIdAllocator::new(test_make_string_id)
+  let allocator = @projection.ProjectionStringIdAllocator::new(test_make_string_id)
   let first = allocator.allocate(test_leaf(0, 2, "sound:bd"))
   let second = allocator.allocate(test_leaf(3, 5, "sound:bd"))
   let other = allocator.allocate(test_leaf(6, 8, "sound:sd"))
@@ -93,11 +93,11 @@ test "projection identity: string allocator mints per-key occurrences" {
 
 ///|
 test "projection identity: string allocator skips baseline ids" {
-  let baseline = ProjectionIdentityBaseline::new("bd bd", [
+  let baseline = @projection.ProjectionIdentityBaseline::new("bd bd", [
     test_stable(0, 2, "sound:bd", "mini:sound:bd:0"),
     test_stable(3, 5, "sound:bd", "mini:sound:bd:1"),
   ])
-  let allocator = ProjectionStringIdAllocator::from_baseline(
+  let allocator = @projection.ProjectionStringIdAllocator::from_baseline(
     baseline, test_make_string_id,
   )
   let first = allocator.allocate(test_leaf(3, 5, "sound:bd"))
@@ -111,11 +111,11 @@ test "projection identity: string allocator skips baseline ids" {
 
 ///|
 test "projection identity: item adapter zips ids back onto domain items" {
-  let baseline = ProjectionIdentityBaseline::new("bd bd", [
+  let baseline = @projection.ProjectionIdentityBaseline::new("bd bd", [
     test_stable(0, 2, "sound:bd", "mini:sound:bd:0"),
     test_stable(3, 5, "sound:bd", "mini:sound:bd:1"),
   ])
-  let allocator = ProjectionStringIdAllocator::from_baseline(
+  let allocator = @projection.ProjectionStringIdAllocator::from_baseline(
     baseline, test_make_string_id,
   )
   let items = [
@@ -123,7 +123,7 @@ test "projection identity: item adapter zips ids back onto domain items" {
     test_item(3, 5, "sound", "bd"),
     test_item(6, 8, "sound", "bd"),
   ]
-  let result = realign_projection_items(
+  let result = @projection.realign_projection_items(
     baseline,
     "bd bd bd",
     items,
@@ -150,11 +150,11 @@ test "projection identity: item adapter zips ids back onto domain items" {
 
 ///|
 test "projection identity: optional item adapter accepts None fallback" {
-  let baseline = ProjectionIdentityBaseline::new("bd bd", [
+  let baseline = @projection.ProjectionIdentityBaseline::new("bd bd", [
     test_stable(0, 2, "sound:bd", "mini:sound:bd:0"),
     test_stable(3, 5, "sound:bd", "mini:sound:bd:1"),
   ])
-  let allocator = ProjectionStringIdAllocator::from_baseline(
+  let allocator = @projection.ProjectionStringIdAllocator::from_baseline(
     baseline, test_make_string_id,
   )
   let items = [
@@ -162,7 +162,7 @@ test "projection identity: optional item adapter accepts None fallback" {
     test_item(3, 5, "sound", "sd"),
     test_item(6, 8, "sound", "bd"),
   ]
-  let result = realign_projection_items_with_optional_edit(
+  let result = @projection.realign_projection_items_with_optional_edit(
     baseline,
     "bd sd bd",
     items,
@@ -179,7 +179,7 @@ test "projection identity: optional item adapter accepts None fallback" {
 
 ///|
 test "projection identity: insertion among duplicates preserves suffix" {
-  let baseline = ProjectionIdentityBaseline::new("bd bd", [
+  let baseline = @projection.ProjectionIdentityBaseline::new("bd bd", [
     test_stable(0, 2, "sound:bd", "bd:0"),
     test_stable(3, 5, "sound:bd", "bd:1"),
   ])
@@ -188,7 +188,7 @@ test "projection identity: insertion among duplicates preserves suffix" {
     test_leaf(3, 5, "sound:sd"),
     test_leaf(6, 8, "sound:bd"),
   ]
-  let result = realign_projection_identities(
+  let result = @projection.realign_projection_identities(
     baseline,
     "bd sd bd",
     next,
@@ -203,7 +203,7 @@ test "projection identity: insertion among duplicates preserves suffix" {
 
 ///|
 test "projection identity: deletion preserves shifted suffix duplicate" {
-  let baseline = ProjectionIdentityBaseline::new("bd sd bd", [
+  let baseline = @projection.ProjectionIdentityBaseline::new("bd sd bd", [
     test_stable(0, 2, "sound:bd", "bd:0"),
     test_stable(3, 5, "sound:sd", "sd:0"),
     test_stable(6, 8, "sound:bd", "bd:1"),
@@ -220,7 +220,7 @@ test "projection identity: deletion preserves shifted suffix duplicate" {
 
 ///|
 test "projection identity: replacement inside duplicate family is fresh" {
-  let baseline = ProjectionIdentityBaseline::new("bd bd bd", [
+  let baseline = @projection.ProjectionIdentityBaseline::new("bd bd bd", [
     test_stable(0, 2, "sound:bd", "bd:0"),
     test_stable(3, 5, "sound:bd", "bd:1"),
     test_stable(6, 8, "sound:bd", "bd:2"),
@@ -230,7 +230,7 @@ test "projection identity: replacement inside duplicate family is fresh" {
     test_leaf(3, 5, "sound:sd"),
     test_leaf(6, 8, "sound:bd"),
   ]
-  let result = realign_projection_identities(
+  let result = @projection.realign_projection_identities(
     baseline,
     "bd sd bd",
     next,
@@ -245,12 +245,12 @@ test "projection identity: replacement inside duplicate family is fresh" {
 
 ///|
 test "projection identity: whitespace-only edit preserves sourced ids" {
-  let baseline = ProjectionIdentityBaseline::new("bd sd", [
+  let baseline = @projection.ProjectionIdentityBaseline::new("bd sd", [
     test_stable(0, 2, "sound:bd", "bd:0"),
     test_stable(3, 5, "sound:sd", "sd:0"),
   ])
   let next = [test_leaf(0, 2, "sound:bd"), test_leaf(5, 7, "sound:sd")]
-  let result = realign_projection_identities(
+  let result = @projection.realign_projection_identities(
     baseline,
     "bd   sd",
     next,
@@ -262,7 +262,7 @@ test "projection identity: whitespace-only edit preserves sourced ids" {
 
 ///|
 test "projection identity: source diff fallback preserves prefix and suffix" {
-  let baseline = ProjectionIdentityBaseline::new("bd bd", [
+  let baseline = @projection.ProjectionIdentityBaseline::new("bd bd", [
     test_stable(0, 2, "sound:bd", "bd:0"),
     test_stable(3, 5, "sound:bd", "bd:1"),
   ])
@@ -271,7 +271,7 @@ test "projection identity: source diff fallback preserves prefix and suffix" {
     test_leaf(3, 5, "sound:sd"),
     test_leaf(6, 8, "sound:bd"),
   ]
-  let result = realign_projection_identities(
+  let result = @projection.realign_projection_identities(
     baseline,
     "bd sd bd",
     next,
@@ -285,7 +285,7 @@ test "projection identity: source diff fallback preserves prefix and suffix" {
 
 ///|
 test "projection identity: optional edit helper accepts Some edit" {
-  let baseline = ProjectionIdentityBaseline::new("bd bd", [
+  let baseline = @projection.ProjectionIdentityBaseline::new("bd bd", [
     test_stable(0, 2, "sound:bd", "bd:0"),
     test_stable(3, 5, "sound:bd", "bd:1"),
   ])
@@ -294,7 +294,7 @@ test "projection identity: optional edit helper accepts Some edit" {
     test_leaf(3, 5, "sound:sd"),
     test_leaf(6, 8, "sound:bd"),
   ]
-  let result = realign_projection_identities_with_optional_edit(
+  let result = @projection.realign_projection_identities_with_optional_edit(
     baseline,
     "bd sd bd",
     next,
@@ -309,7 +309,7 @@ test "projection identity: optional edit helper accepts Some edit" {
 
 ///|
 test "projection identity: optional edit helper accepts None fallback" {
-  let baseline = ProjectionIdentityBaseline::new("bd bd", [
+  let baseline = @projection.ProjectionIdentityBaseline::new("bd bd", [
     test_stable(0, 2, "sound:bd", "bd:0"),
     test_stable(3, 5, "sound:bd", "bd:1"),
   ])
@@ -318,7 +318,7 @@ test "projection identity: optional edit helper accepts None fallback" {
     test_leaf(3, 5, "sound:sd"),
     test_leaf(6, 8, "sound:bd"),
   ]
-  let result = realign_projection_identities_with_optional_edit(
+  let result = @projection.realign_projection_identities_with_optional_edit(
     baseline,
     "bd sd bd",
     next,
@@ -333,7 +333,7 @@ test "projection identity: optional edit helper accepts None fallback" {
 
 ///|
 test "projection identity: baseline optional edit advance preserves suffix" {
-  let baseline = ProjectionIdentityBaseline::new("bd sd bd", [
+  let baseline = @projection.ProjectionIdentityBaseline::new("bd sd bd", [
     test_stable(0, 2, "sound:bd", "bd:0"),
     test_stable(3, 5, "sound:sd", "sd:0"),
     test_stable(6, 8, "sound:bd", "bd:1"),
@@ -350,7 +350,7 @@ test "projection identity: baseline optional edit advance preserves suffix" {
 
 ///|
 test "projection identity: retained last-good baseline survives recovery" {
-  let baseline = ProjectionIdentityBaseline::new("s(\"bd sd bd bd\")", [
+  let baseline = @projection.ProjectionIdentityBaseline::new("s(\"bd sd bd bd\")", [
     test_stable(3, 5, "sound:bd", "mini:sound:bd:0"),
     test_stable(6, 8, "sound:sd", "mini:sound:sd:0"),
     test_stable(9, 11, "sound:bd", "mini:sound:bd:2"),
@@ -362,7 +362,7 @@ test "projection identity: retained last-good baseline survives recovery" {
     test_leaf(9, 11, "sound:bd"),
     test_leaf(12, 14, "sound:bd"),
   ]
-  let result = realign_projection_identities(
+  let result = @projection.realign_projection_identities(
     baseline,
     "s(\"bd sd bd bd\")",
     recovered,
@@ -376,12 +376,12 @@ test "projection identity: retained last-good baseline survives recovery" {
 
 ///|
 test "projection identity: key mismatch in reusable region allocates fresh" {
-  let baseline = ProjectionIdentityBaseline::new("aa bb", [
+  let baseline = @projection.ProjectionIdentityBaseline::new("aa bb", [
     test_stable(0, 2, "sound:aa", "aa:0"),
     test_stable(3, 5, "sound:bb", "bb:0"),
   ])
   let next = [test_leaf(0, 2, "note:aa"), test_leaf(3, 5, "sound:bb")]
-  let result = realign_projection_identities(
+  let result = @projection.realign_projection_identities(
     baseline,
     "aa bb!",
     next,

@@ -7,49 +7,52 @@ fn parse_tree_test_source_id() -> @core.SourceId {
 
 ///|
 test "parse_cstsimple integer" {
-  let (cst, _) = parse_cst(parse_tree_test_source_id(), "42") catch {
+  let (cst, _) = @lambda.parse_cst(parse_tree_test_source_id(), "42") catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)
   let node = root.nth_child(0).unwrap()
-  inspect(@ast.print_term(syntax_node_to_term(root)), content="42")
+  inspect(@ast.print_term(@lambda.syntax_node_to_term(root)), content="42")
   inspect(node.start(), content="0")
   inspect(node.end(), content="2")
 }
 
 ///|
 test "parse_cstsimple variable" {
-  let (cst, _) = parse_cst(parse_tree_test_source_id(), "x") catch {
+  let (cst, _) = @lambda.parse_cst(parse_tree_test_source_id(), "x") catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)
   let node = root.nth_child(0).unwrap()
-  inspect(@ast.print_term(syntax_node_to_term(root)), content="x")
+  inspect(@ast.print_term(@lambda.syntax_node_to_term(root)), content="x")
   inspect(node.start(), content="0")
   inspect(node.end(), content="1")
 }
 
 ///|
 test "parse_cstidentity function" {
-  let (cst, _) = parse_cst(parse_tree_test_source_id(), "(x) => x") catch {
+  let (cst, _) = @lambda.parse_cst(parse_tree_test_source_id(), "(x) => x") catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)
   let node = root.nth_child(0).unwrap()
-  inspect(@ast.print_term(syntax_node_to_term(root)), content="(x) => x")
+  inspect(
+    @ast.print_term(@lambda.syntax_node_to_term(root)),
+    content="(x) => x",
+  )
   inspect(node.start(), content="0")
   inspect(node.end() >= 3, content="true")
 }
 
 ///|
 test "parse_cstbinary operator" {
-  let (cst, _) = parse_cst(parse_tree_test_source_id(), "1 + 2") catch {
+  let (cst, _) = @lambda.parse_cst(parse_tree_test_source_id(), "1 + 2") catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)
-  inspect(@ast.print_term(syntax_node_to_term(root)), content="1 + 2")
+  inspect(@ast.print_term(@lambda.syntax_node_to_term(root)), content="1 + 2")
   let node = root.nth_child(0).unwrap()
-  let v = match BinaryExprView::cast(node) {
+  let v = match @lambda.BinaryExprView::cast(node) {
     Some(v) => v
     None => abort("expected BinaryExpr")
   }
@@ -60,13 +63,13 @@ test "parse_cstbinary operator" {
 
 ///|
 test "parse_cstapplication" {
-  let (cst, _) = parse_cst(parse_tree_test_source_id(), "f x") catch {
+  let (cst, _) = @lambda.parse_cst(parse_tree_test_source_id(), "f x") catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)
-  inspect(@ast.print_term(syntax_node_to_term(root)), content="f x")
+  inspect(@ast.print_term(@lambda.syntax_node_to_term(root)), content="f x")
   let node = root.nth_child(0).unwrap()
-  let v = match AppExprView::cast(node) {
+  let v = match @lambda.AppExprView::cast(node) {
     Some(v) => v
     None => abort("expected AppExpr")
   }
@@ -76,16 +79,19 @@ test "parse_cstapplication" {
 
 ///|
 test "parse_cstif-then-else" {
-  let (cst, _) = parse_cst(parse_tree_test_source_id(), "if x then y else z") catch {
+  let (cst, _) = @lambda.parse_cst(
+    parse_tree_test_source_id(),
+    "if x then y else z",
+  ) catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)
   inspect(
-    @ast.print_term(syntax_node_to_term(root)),
+    @ast.print_term(@lambda.syntax_node_to_term(root)),
     content="if x then y else z",
   )
   let node = root.nth_child(0).unwrap()
-  let v = match IfExprView::cast(node) {
+  let v = match @lambda.IfExprView::cast(node) {
     Some(v) => v
     None => abort("expected IfExpr")
   }
@@ -101,14 +107,14 @@ test "parse_cstif-then-else" {
 
 ///|
 test "parse_cstcomplex expression" {
-  let (cst, _) = parse_cst(parse_tree_test_source_id(), "(f, x) => f x") catch {
+  let (cst, _) = @lambda.parse_cst(parse_tree_test_source_id(), "(f, x) => f x") catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)
-  let printed = @ast.print_term(syntax_node_to_term(root))
+  let printed = @ast.print_term(@lambda.syntax_node_to_term(root))
   inspect(printed, content="(f) => (x) => f x")
   let node = root.nth_child(0).unwrap()
-  let v = match LambdaExprView::cast(node) {
+  let v = match @lambda.LambdaExprView::cast(node) {
     Some(v) => v
     None => abort("expected LambdaExpr")
   }
@@ -117,12 +123,12 @@ test "parse_cstcomplex expression" {
 
 ///|
 test "parse_cstpreserves source positions" {
-  let (cst, _) = parse_cst(parse_tree_test_source_id(), "  x  +  y  ") catch {
+  let (cst, _) = @lambda.parse_cst(parse_tree_test_source_id(), "  x  +  y  ") catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)
   let node = root.nth_child(0).unwrap()
-  let v = match BinaryExprView::cast(node) {
+  let v = match @lambda.BinaryExprView::cast(node) {
     Some(v) => v
     None => abort("expected BinaryExpr")
   }
@@ -135,11 +141,11 @@ test "parse_cstpreserves source positions" {
 
 ///|
 test "syntax_node_to_term: missing lambda body produces Term::Error" {
-  let (cst, _) = parse_cst(parse_tree_test_source_id(), "(x) =>") catch {
+  let (cst, _) = @lambda.parse_cst(parse_tree_test_source_id(), "(x) =>") catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)
-  let term = syntax_node_to_term(root)
+  let term = @lambda.syntax_node_to_term(root)
   // Body of the lambda should be Term::Error — direct structural match
   inspect(
     match term {
@@ -155,7 +161,7 @@ test "syntax_node_to_term: missing lambda body produces Term::Error" {
 ///|
 // Helper: parse source, return the first TypeAnnot's type child.
 fn extract_type_node(src : String) -> @seam.SyntaxNode? {
-  let (cst, _) = parse_cst(parse_tree_test_source_id(), src) catch {
+  let (cst, _) = @lambda.parse_cst(parse_tree_test_source_id(), src) catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)
@@ -205,7 +211,7 @@ test "type_of_node: right-associative arrow" {
 
 ///|
 fn typed_from_source(src : String) -> @typecheck.TypedTerm {
-  let (cst, _) = parse_cst(parse_tree_test_source_id(), src) catch {
+  let (cst, _) = @lambda.parse_cst(parse_tree_test_source_id(), src) catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)
@@ -402,7 +408,7 @@ test "type_of_node: malformed returns TError" {
   // `(x :) => x` — parser emits empty TypeAnnot (no type child).
   // extract_type_node returns None. The TypeAnnot itself is the error signal.
   // We call type_of_node on the TypeAnnot node directly, which returns TError.
-  let (cst, _) = parse_cst(parse_tree_test_source_id(), "(x :) => x") catch {
+  let (cst, _) = @lambda.parse_cst(parse_tree_test_source_id(), "(x :) => x") catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)

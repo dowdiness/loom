@@ -12,7 +12,7 @@
 pub fn project_lambda_leaves(
   root : @seam.SyntaxNode,
 ) -> Array[@loom.ProjectionLeaf] {
-  let acc : Array[@loom.ProjectionLeaf] = Array::new()
+  let acc : Array[@loom.ProjectionLeaf] = Array(capacity=0)
   collect_lambda_leaves(root, acc)
   acc
 }

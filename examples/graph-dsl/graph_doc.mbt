@@ -313,3 +313,51 @@ pub fn GraphDoc::find_node_by_id(self : GraphDoc, id : String) -> GraphNode? {
   }
   None
 }
+
+///|
+pub extend GraphDoc with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GraphDoc with Eq::{equal, not_equal}
+
+///|
+pub extend GraphNode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GraphNode with Eq::{equal, not_equal}
+
+///|
+pub extend GraphParam with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GraphParam with Eq::{equal, not_equal}
+
+///|
+pub extend GraphToken with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GraphToken with Eq::{equal, not_equal}
+
+///|
+pub extend GraphTokenRole with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GraphTokenRole with Eq::{equal, not_equal}
+
+///|
+pub extend GraphTokenRole with Show::{output, to_string}
+
+///|
+pub extend GraphValueKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GraphValueKind with Eq::{equal, not_equal}
+
+///|
+pub extend GraphValueKind with Show::{output, to_string}
+
+///|
+pub extend SourceSpan with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SourceSpan with Eq::{equal, not_equal}

@@ -350,3 +350,41 @@ pub impl @pretty.Pretty for Term with fn to_layout(self) {
 
 ///|
 pub impl @pretty.Printable for Term
+
+///|
+pub extend Term with @dowdiness/pretty.Source::{to_source}
+
+///|
+pub extend SourceText with TermSym::{
+  bop,
+  if_then_else,
+  mod,
+  unit,
+  let_def,
+  variable,
+  hole,
+  int_lit,
+  unbound,
+  app,
+  lam,
+  error_term,
+}
+
+///|
+pub extend PrettyLayout with TermSym::{
+  bop,
+  if_then_else,
+  mod,
+  unit,
+  let_def,
+  variable,
+  hole,
+  int_lit,
+  unbound,
+  app,
+  lam,
+  error_term,
+}
+
+///|
+pub extend Term with @dowdiness/pretty.Pretty::{to_layout}

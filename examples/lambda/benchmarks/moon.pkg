@@ -10,5 +10,4 @@ import {
   "moonbitlang/core/bench",
   "dowdiness/loom",
   "dowdiness/lambda/spike",
-  "dowdiness/incr/cells",
 }

@@ -838,3 +838,54 @@ fn[T, K] clone_compiled_expr(expr : CompiledExpr[T, K]) -> CompiledExpr[T, K] {
     Empty => Empty
   }
 }
+
+///|
+pub extend CompiledAlt with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CompiledAlt with Eq::{equal, not_equal}
+
+///|
+pub extend CompiledExpr with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CompiledExpr with Eq::{equal, not_equal}
+
+///|
+pub extend CompiledPred with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CompiledPred with Eq::{equal, not_equal}
+
+///|
+pub extend GrammarCompileError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GrammarCompileError with Eq::{equal, not_equal}
+
+///|
+pub extend GuardSlot with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GuardSlot with Compare::{compare, op_ge, op_gt, op_le, op_lt}
+
+///|
+pub extend GuardSlot with Eq::{equal, not_equal}
+
+///|
+pub extend NativeSlot with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend NativeSlot with Compare::{compare, op_ge, op_gt, op_le, op_lt}
+
+///|
+pub extend NativeSlot with Eq::{equal, not_equal}
+
+///|
+pub extend RuleSlot with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RuleSlot with Compare::{compare, op_ge, op_gt, op_le, op_lt}
+
+///|
+pub extend RuleSlot with Eq::{equal, not_equal}

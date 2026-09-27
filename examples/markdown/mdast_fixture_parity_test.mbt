@@ -14,9 +14,9 @@ enum MdastFixtureStatus {
 }
 
 ///|
-fn MdastFixture::ir(self : MdastFixture) -> MarkdownIR {
+fn MdastFixture::ir(self : MdastFixture) -> @markdown.MarkdownIR {
   let source_id = @core.SourceId("markdown-mdast-fixture:" + self.name)
-  let (cst, diagnostics) = parse_cst(source_id, self.source) catch {
+  let (cst, diagnostics) = @markdown.parse_cst(source_id, self.source) catch {
     _ =>
       abort(
         "Markdown mdast fixture parse failed for " +
@@ -25,7 +25,7 @@ fn MdastFixture::ir(self : MdastFixture) -> MarkdownIR {
         @debug.to_string(self.source),
       )
   }
-  experimental_markdown_ir_from_syntax_with_diagnostics(
+  @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
@@ -40,7 +40,7 @@ fn canonical_mdast_fixture_json(json : Json) -> Json {
 ///|
 fn MdastFixture::actual_json(self : MdastFixture) -> Json {
   canonical_mdast_fixture_json(
-    experimental_markdown_ir_to_mdast_json(self.ir()),
+    @markdown.experimental_markdown_ir_to_mdast_json(self.ir()),
   )
 }
 

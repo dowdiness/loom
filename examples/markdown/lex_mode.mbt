@@ -9,3 +9,9 @@ pub(all) enum MarkdownLexMode {
   HtmlBlockUntil(String)
   HtmlBlockEndLine
 } derive(Eq, Debug)
+
+///|
+pub extend MarkdownLexMode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownLexMode with Eq::{equal, not_equal}

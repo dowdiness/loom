@@ -1,6 +1,6 @@
 ///|
 test "projection identity tracker: first success without baseline allocates all ids" {
-  let tracker : ProjectionIdentityTracker[String] = ProjectionIdentityTracker()
+  let tracker : @projection.ProjectionIdentityTracker[String] = ProjectionIdentityTracker()
   let next = [test_leaf(0, 2, "sound:aa"), test_leaf(3, 5, "sound:bb")]
   let stable = tracker.realign_success("aa bb", next, test_allocate("fresh:"))
   debug_inspect(
@@ -23,8 +23,8 @@ test "projection identity tracker: first success without baseline allocates all 
 
 ///|
 test "projection identity tracker: direct successful edit previews then commits" {
-  let tracker = ProjectionIdentityTracker::from_baseline(
-    ProjectionIdentityBaseline::new("bd sd bd", [
+  let tracker = @projection.ProjectionIdentityTracker::from_baseline(
+    @projection.ProjectionIdentityBaseline::new("bd sd bd", [
       test_stable(0, 2, "sound:bd", "bd:0"),
       test_stable(3, 5, "sound:sd", "sd:0"),
       test_stable(6, 8, "sound:bd", "bd:1"),
@@ -54,8 +54,8 @@ test "projection identity tracker: direct successful edit previews then commits"
 
 ///|
 test "projection identity tracker: failed input exact edit is reused on recovery" {
-  let tracker = ProjectionIdentityTracker::from_baseline(
-    ProjectionIdentityBaseline::new("bd bd", [
+  let tracker = @projection.ProjectionIdentityTracker::from_baseline(
+    @projection.ProjectionIdentityBaseline::new("bd bd", [
       test_stable(0, 2, "sound:bd", "bd:0"),
       test_stable(3, 5, "sound:bd", "bd:1"),
     ]),
@@ -87,8 +87,8 @@ test "projection identity tracker: failed input exact edit is reused on recovery
 
 ///|
 test "projection identity tracker: projection failure with no edit uses source diff" {
-  let tracker = ProjectionIdentityTracker::from_baseline(
-    ProjectionIdentityBaseline::new("aa bb", [
+  let tracker = @projection.ProjectionIdentityTracker::from_baseline(
+    @projection.ProjectionIdentityBaseline::new("aa bb", [
       test_stable(0, 2, "sound:aa", "aa:0"),
       test_stable(3, 5, "sound:bb", "bb:0"),
     ]),
@@ -112,8 +112,8 @@ test "projection identity tracker: projection failure with no edit uses source d
 
 ///|
 test "projection identity tracker: mismatched pending exact edit falls back to source diff" {
-  let tracker = ProjectionIdentityTracker::from_baseline(
-    ProjectionIdentityBaseline::new("aa bb", [
+  let tracker = @projection.ProjectionIdentityTracker::from_baseline(
+    @projection.ProjectionIdentityBaseline::new("aa bb", [
       test_stable(0, 2, "sound:aa", "aa:0"),
       test_stable(3, 5, "sound:bb", "bb:0"),
     ]),
@@ -141,8 +141,8 @@ test "projection identity tracker: mismatched pending exact edit falls back to s
 
 ///|
 test "projection identity tracker: failed baseline edit survives recovery that restores text" {
-  let tracker = ProjectionIdentityTracker::from_baseline(
-    ProjectionIdentityBaseline::new("aa bb cc", [
+  let tracker = @projection.ProjectionIdentityTracker::from_baseline(
+    @projection.ProjectionIdentityBaseline::new("aa bb cc", [
       test_stable(0, 2, "sound:aa", "aa:0"),
       test_stable(3, 5, "sound:bb", "bb:0"),
       test_stable(6, 8, "sound:cc", "cc:0"),
@@ -172,8 +172,8 @@ test "projection identity tracker: failed baseline edit survives recovery that r
 
 ///|
 test "projection identity tracker: recovery edit relative to malformed text does not overwrite pending edit" {
-  let tracker = ProjectionIdentityTracker::from_baseline(
-    ProjectionIdentityBaseline::new("aa aa cc", [
+  let tracker = @projection.ProjectionIdentityTracker::from_baseline(
+    @projection.ProjectionIdentityBaseline::new("aa aa cc", [
       test_stable(0, 2, "sound:aa", "aa:0"),
       test_stable(3, 5, "sound:aa", "aa:1"),
       test_stable(6, 8, "sound:cc", "cc:0"),
@@ -203,8 +203,8 @@ test "projection identity tracker: recovery edit relative to malformed text does
 
 ///|
 test "projection identity tracker: multiple failed edits compose reverted text exactly" {
-  let tracker = ProjectionIdentityTracker::from_baseline(
-    ProjectionIdentityBaseline::new("aa bb cc", [
+  let tracker = @projection.ProjectionIdentityTracker::from_baseline(
+    @projection.ProjectionIdentityBaseline::new("aa bb cc", [
       test_stable(0, 2, "sound:aa", "aa:0"),
       test_stable(3, 5, "sound:bb", "bb:0"),
       test_stable(6, 8, "sound:cc", "cc:0"),
@@ -238,8 +238,8 @@ test "projection identity tracker: multiple failed edits compose reverted text e
 
 ///|
 test "projection identity tracker: composition allows extra malformed damage" {
-  let tracker = ProjectionIdentityTracker::from_baseline(
-    ProjectionIdentityBaseline::new("aa aa cc", [
+  let tracker = @projection.ProjectionIdentityTracker::from_baseline(
+    @projection.ProjectionIdentityBaseline::new("aa aa cc", [
       test_stable(0, 2, "sound:aa", "aa:0"),
       test_stable(3, 5, "sound:aa", "aa:1"),
       test_stable(6, 8, "sound:cc", "cc:0"),
@@ -269,8 +269,8 @@ test "projection identity tracker: composition allows extra malformed damage" {
 
 ///|
 test "projection identity tracker: invalid exact edit length falls back to source diff" {
-  let tracker = ProjectionIdentityTracker::from_baseline(
-    ProjectionIdentityBaseline::new("aa bb", [
+  let tracker = @projection.ProjectionIdentityTracker::from_baseline(
+    @projection.ProjectionIdentityBaseline::new("aa bb", [
       test_stable(0, 2, "sound:aa", "aa:0"),
       test_stable(3, 5, "sound:bb", "bb:0"),
     ]),
@@ -294,8 +294,8 @@ test "projection identity tracker: invalid exact edit length falls back to sourc
 
 ///|
 test "projection identity tracker: wrong-position exact edit falls back to source diff" {
-  let tracker = ProjectionIdentityTracker::from_baseline(
-    ProjectionIdentityBaseline::new("aa bb", [
+  let tracker = @projection.ProjectionIdentityTracker::from_baseline(
+    @projection.ProjectionIdentityBaseline::new("aa bb", [
       test_stable(0, 2, "sound:aa", "aa:0"),
       test_stable(3, 5, "sound:bb", "bb:0"),
     ]),
@@ -319,8 +319,8 @@ test "projection identity tracker: wrong-position exact edit falls back to sourc
 
 ///|
 test "projection identity tracker: second failed edit degrades to source diff" {
-  let tracker = ProjectionIdentityTracker::from_baseline(
-    ProjectionIdentityBaseline::new("aa bb", [
+  let tracker = @projection.ProjectionIdentityTracker::from_baseline(
+    @projection.ProjectionIdentityBaseline::new("aa bb", [
       test_stable(0, 2, "sound:aa", "aa:0"),
       test_stable(3, 5, "sound:bb", "bb:0"),
     ]),
@@ -349,8 +349,8 @@ test "projection identity tracker: second failed edit degrades to source diff" {
 
 ///|
 test "projection identity tracker: allocator only runs for changed leaves" {
-  let tracker = ProjectionIdentityTracker::from_baseline(
-    ProjectionIdentityBaseline::new("aa bb cc", [
+  let tracker = @projection.ProjectionIdentityTracker::from_baseline(
+    @projection.ProjectionIdentityBaseline::new("aa bb cc", [
       test_stable(0, 2, "sound:aa", "aa:0"),
       test_stable(3, 5, "sound:bb", "bb:0"),
       test_stable(6, 8, "sound:cc", "cc:0"),

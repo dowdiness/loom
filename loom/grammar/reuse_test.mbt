@@ -5,13 +5,13 @@
 /// A wired WrapIfNext emits no diagnostic; the Task-4 placeholder would, so
 /// this asserts the incremental node is actually interpreted (red → green).
 test "WrapIfNext wraps a matching prefix without spurious diagnostics" {
-  let expr : Expr[TestToken, TestKind] = Expr::WrapIfNext(
+  let expr : @grammar.Expr[TestToken, TestKind] = @grammar.Expr::WrapIfNext(
     TestKind::Root,
-    Pred::IsToken(TestToken::Int),
-    Expr::Emit(TestToken::Int, TestKind::IntToken),
+    @grammar.Pred::IsToken(TestToken::Int),
+    @grammar.Expr::Emit(TestToken::Int, TestKind::IntToken),
   )
-  let rules : Map[RuleName, Expr[TestToken, TestKind]] = { "source": expr }
-  let parse_root = interpret(GrammarIr::GrammarIr(rules, root="source"))
+  let rules : Map[@grammar.RuleName, @grammar.Expr[TestToken, TestKind]] = { "source": expr }
+  let parse_root = @grammar.interpret(@grammar.GrammarIr::GrammarIr(rules, root="source"))
   let spec = test_spec(parse_root)
   let lex = _src => {
     [
@@ -44,20 +44,20 @@ fn pratt_reuse_starts() -> Array[Int] {
 }
 
 ///|
-fn pratt_reuse_rules() -> Map[RuleName, Expr[TestToken, TestToken]] {
+fn pratt_reuse_rules() -> Map[@grammar.RuleName, @grammar.Expr[TestToken, TestToken]] {
   {
-    "source": Expr::Seq([
-      Expr::Ref("binary"),
-      Expr::Emit(TestToken::Skip, TestToken::Skip),
-      Expr::Ref("binary"),
+    "source": @grammar.Expr::Seq([
+      @grammar.Expr::Ref("binary"),
+      @grammar.Expr::Emit(TestToken::Skip, TestToken::Skip),
+      @grammar.Expr::Ref("binary"),
     ]),
-    "binary": Expr::PrattBinary(
+    "binary": @grammar.Expr::PrattBinary(
       "atom",
       TestToken::Word,
       [(TestToken::Word, TestToken::Word)],
       skip=None,
     ),
-    "atom": Expr::Emit(TestToken::Int, TestToken::Int),
+    "atom": @grammar.Expr::Emit(TestToken::Int, TestToken::Int),
   }
 }
 
@@ -115,16 +115,16 @@ fn binary_growth_starts() -> Array[Int] {
 }
 
 ///|
-fn binary_growth_rules() -> Map[RuleName, Expr[TestToken, TestToken]] {
+fn binary_growth_rules() -> Map[@grammar.RuleName, @grammar.Expr[TestToken, TestToken]] {
   {
-    "source": Expr::Ref("binary"),
-    "binary": Expr::PrattBinary(
+    "source": @grammar.Expr::Ref("binary"),
+    "binary": @grammar.Expr::PrattBinary(
       "atom",
       TestToken::Word,
       [(TestToken::Word, TestToken::Word)],
       skip=None,
     ),
-    "atom": Expr::Emit(TestToken::Int, TestToken::Int),
+    "atom": @grammar.Expr::Emit(TestToken::Int, TestToken::Int),
   }
 }
 
@@ -143,15 +143,15 @@ fn app_old_starts() -> Array[Int] {
 }
 
 ///|
-fn app_growth_rules() -> Map[RuleName, Expr[TestToken, TestToken]] {
+fn app_growth_rules() -> Map[@grammar.RuleName, @grammar.Expr[TestToken, TestToken]] {
   {
-    "source": Expr::Ref("application"),
-    "application": Expr::PrattApp(
+    "source": @grammar.Expr::Ref("application"),
+    "application": @grammar.Expr::PrattApp(
       "atom",
       TestToken::Word,
-      Pred::IsToken(TestToken::Int),
+      @grammar.Pred::IsToken(TestToken::Int),
     ),
-    "atom": Expr::Emit(TestToken::Int, TestToken::Int),
+    "atom": @grammar.Expr::Emit(TestToken::Int, TestToken::Int),
   }
 }
 
@@ -172,8 +172,8 @@ fn app_growth_starts() -> Array[Int] {
 
 ///|
 test "PrattBinary reuses unchanged retroactive wrapper before later edit" {
-  let parse_root = interpret(
-    GrammarIr::GrammarIr(pratt_reuse_rules(), root="source"),
+  let parse_root = @grammar.interpret(
+    @grammar.GrammarIr::GrammarIr(pratt_reuse_rules(), root="source"),
   )
   let spec = pratt_reuse_spec(parse_root)
   let tokens = pratt_reuse_tokens()
@@ -242,8 +242,8 @@ test "PrattBinary reuses unchanged retroactive wrapper before later edit" {
 
 ///|
 test "PrattBinary growth matches fresh full parse after suffix append" {
-  let parse_root = interpret(
-    GrammarIr::GrammarIr(binary_growth_rules(), root="source"),
+  let parse_root = @grammar.interpret(
+    @grammar.GrammarIr::GrammarIr(binary_growth_rules(), root="source"),
   )
   let spec = pratt_reuse_spec(parse_root)
   let old_tokens = [
@@ -298,8 +298,8 @@ test "PrattBinary growth matches fresh full parse after suffix append" {
 
 ///|
 test "PrattApp growth matches fresh full parse after suffix append" {
-  let parse_root = interpret(
-    GrammarIr::GrammarIr(app_growth_rules(), root="source"),
+  let parse_root = @grammar.interpret(
+    @grammar.GrammarIr::GrammarIr(app_growth_rules(), root="source"),
   )
   let spec = pratt_reuse_spec(parse_root)
   let old_tokens = app_old_tokens()

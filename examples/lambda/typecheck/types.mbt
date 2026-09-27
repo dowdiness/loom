@@ -127,3 +127,63 @@ pub(all) struct TypecheckIndex {
   intern_table : @incr.InternTable[DefEntry]
   derived_map : @incr.DerivedMap[@incr.InternId, TypeResult]
 }
+
+///|
+pub extend DefEntry with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DefEntry with Eq::{equal, not_equal}
+
+///|
+pub extend DefEntry with Hash::{hash, hash_combine}
+
+///|
+pub extend ModuleTypeResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ModuleTypeResult with Eq::{equal, not_equal}
+
+///|
+pub extend ResolvedModule with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ResolvedModule with Eq::{equal, not_equal}
+
+///|
+pub extend Type with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Type with Eq::{equal, not_equal}
+
+///|
+pub extend Type with Show::{output, to_string}
+
+///|
+pub extend TypeDiagnostic with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TypeDiagnostic with Eq::{equal, not_equal}
+
+///|
+pub extend TypeDiagnostic with Show::{output, to_string}
+
+///|
+pub extend TypeEnv with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TypeEnv with Eq::{equal, not_equal}
+
+///|
+pub extend TypeResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TypeResult with Eq::{equal, not_equal}
+
+///|
+pub extend TypedTerm with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TypedTerm with Eq::{equal, not_equal}
+
+///|
+pub extend TypedTerm with Show::{output, to_string}

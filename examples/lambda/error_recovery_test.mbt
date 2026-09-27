@@ -9,7 +9,7 @@ fn recovery_test_source_id() -> @core.SourceId {
 fn parse_cst_or_fail_recovery(
   source : String,
 ) -> (@seam.CstNode, @core.DiagnosticSet) raise {
-  parse_cst(recovery_test_source_id(), source) catch {
+  @lambda.parse_cst(recovery_test_source_id(), source) catch {
     _ => fail("lex error on " + source)
   }
 }
@@ -216,7 +216,7 @@ test "lambda_expect: missing ')' in if condition keeps then/else" {
   assert_cst_complete(source, cst)
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(
-    @ast.print_term(syntax_node_to_term(tree)),
+    @ast.print_term(@lambda.syntax_node_to_term(tree)),
     content="if x then y else z",
   )
   let mut found_paren = false
@@ -339,7 +339,7 @@ test "incremental: fix missing lambda body by editing" {
   let parser = @loom.new_imperative_parser(
     recovery_test_source_id(),
     "(x) =>",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")
@@ -358,7 +358,7 @@ test "incremental: introduce error by deleting lambda body" {
   let parser = @loom.new_imperative_parser(
     recovery_test_source_id(),
     "(x) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length(), content="0")
@@ -375,7 +375,7 @@ test "incremental: fix missing paren by appending" {
   let parser = @loom.new_imperative_parser(
     recovery_test_source_id(),
     "((x) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")
@@ -393,7 +393,7 @@ test "incremental: error to error edit" {
   let parser = @loom.new_imperative_parser(
     recovery_test_source_id(),
     "(,) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")

@@ -237,3 +237,6 @@ fn build_tree(
   visiting[nid] = false
   Some({ int_id, id: nid, label, attrs, children: kids, edge_labels, })
 }
+
+///|
+pub extend DotTreeNode with DotNode::{children, edge_label, label, node_attrs, node_id}

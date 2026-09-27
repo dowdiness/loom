@@ -16,6 +16,9 @@ pub(all) enum LexMode {
   Inline
   LineStart
 } derive(Eq, @debug.Debug)
+pub fn LexMode::equal(Self, Self) -> Bool
+pub fn LexMode::not_equal(Self, Self) -> Bool
+pub fn LexMode::to_repr(Self) -> @debug.Repr
 
 pub(all) enum Token {
   HeadingMarker(Int)
@@ -26,6 +29,9 @@ pub(all) enum Token {
   Error(String)
   EOF
 } derive(Eq, @debug.Debug)
+pub fn Token::equal(Self, Self) -> Bool
+pub fn Token::not_equal(Self, Self) -> Bool
+pub fn Token::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

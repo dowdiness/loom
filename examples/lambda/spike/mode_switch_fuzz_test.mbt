@@ -59,11 +59,11 @@ test "mode-switch fuzz: prefix let insert preserves B D1 and A/B parity" {
     fail("mode-switch fuzzer produced no programs")
   }
 
-  let a_grammar = normalized_syntax_grammar(
+  let a_grammar = @spike.normalized_syntax_grammar(
     @lambda.lambda_grammar.spec,
     @lambda.lambda_grammar.lex,
   )
-  let b_grammar = build_b_syntax_grammar()
+  let b_grammar = @spike.build_b_syntax_grammar()
   let source_id = mode_switch_fuzz_source_id()
 
   for initial in programs {
@@ -75,7 +75,7 @@ test "mode-switch fuzz: prefix let insert preserves B D1 and A/B parity" {
     guard @core.tree_diff(a_seed, b_seed).is_empty() else {
       fail("seed CST divergence on source [\{mode_show_source(initial)}]")
     }
-    guard diagnostics_structurally_equal(a_seed_diag, b_seed_diag) else {
+    guard @spike.diagnostics_structurally_equal(a_seed_diag, b_seed_diag) else {
       fail(
         "seed diagnostic divergence on source [\{mode_show_source(initial)}]",
       )
@@ -105,7 +105,7 @@ test "mode-switch fuzz: prefix let insert preserves B D1 and A/B parity" {
         "A/B incremental CST divergence after prefix insert on source [\{mode_show_source(initial)}]",
       )
     }
-    guard diagnostics_structurally_equal(a_snap.diagnostics, b_snap.diagnostics) else {
+    guard @spike.diagnostics_structurally_equal(a_snap.diagnostics, b_snap.diagnostics) else {
       fail(
         "A/B incremental diagnostics divergence after prefix insert on source [\{mode_show_source(initial)}]",
       )

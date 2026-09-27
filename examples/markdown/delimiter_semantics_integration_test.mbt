@@ -2,12 +2,12 @@
 fn delimiter_integration_ir_from_source(
   source_id : @core.SourceId,
   source : String,
-) -> MarkdownIR {
-  let (cst, diagnostics) = parse_cst(source_id, source) catch {
+) -> @markdown.MarkdownIR {
+  let (cst, diagnostics) = @markdown.parse_cst(source_id, source) catch {
     _ =>
       abort("Markdown parse failed for delimiter integration source: " + source)
   }
-  experimental_markdown_ir_from_syntax_with_diagnostics(
+  @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
@@ -17,7 +17,7 @@ fn delimiter_integration_ir_from_source(
 ///|
 fn delimiter_integration_origin_source(
   source : String,
-  origin : MarkdownIROrigin,
+  origin : @markdown.MarkdownIROrigin,
 ) -> String {
   source[origin.start():origin.end()].to_owned()
 }
@@ -25,7 +25,7 @@ fn delimiter_integration_origin_source(
 ///|
 fn assert_delimiter_integration_origins(
   source : String,
-  node : MarkdownIR,
+  node : @markdown.MarkdownIR,
   expected_full : String,
   expected_content : String,
 ) -> Unit raise {
@@ -46,7 +46,7 @@ fn assert_delimiter_integration_origins(
 ///|
 fn assert_delimiter_integration_text(
   source : String,
-  node : MarkdownIR,
+  node : @markdown.MarkdownIR,
   expected : String,
 ) -> Unit raise {
   inspect(node.kind_tag(), content="Text")
@@ -68,12 +68,12 @@ test "delimiter integration: official examples keep direct and MarkdownIR Block 
     "_a `_`_\n",
   ]
   for source in sources {
-    let via_ir = experimental_markdown_ir_to_block(
+    let via_ir = @markdown.experimental_markdown_ir_to_block(
       delimiter_integration_ir_from_source(source_id, source),
     )
     inspect(
       via_ir,
-      content=@debug.to_string(parse_block_ast(source_id, source)),
+      content=@debug.to_string(@markdown.parse_block_ast(source_id, source)),
     )
   }
 }
@@ -91,7 +91,7 @@ test "delimiter integration: CommonMark 0.31.2 rule of three uses original run l
   for case in cases {
     let (source, expected_html) = case
     inspect(
-      experimental_markdown_ir_to_commonmark_html(
+      @markdown.experimental_markdown_ir_to_commonmark_html(
         delimiter_integration_ir_from_source(source_id, source),
       ),
       content=expected_html,
@@ -257,13 +257,13 @@ test "delimiter integration: links scope delimiters and code spans stay opaque" 
 test "delimiter integration: literal marker after soft break preserves spacing" {
   let source_id = @core.SourceId("markdown-delimiter-soft-break-spacing")
   let source = "a\n_b\n"
-  let direct = parse_block_ast(source_id, source)
+  let direct = @markdown.parse_block_ast(source_id, source)
   inspect(
     direct,
     content="Document([Paragraph([Text(\"a\"), Text(\" \"), Text(\"_b\")])])",
   )
   inspect(
-    experimental_markdown_ir_to_block(
+    @markdown.experimental_markdown_ir_to_block(
       delimiter_integration_ir_from_source(source_id, source),
     ),
     content=@debug.to_string(direct),
@@ -284,10 +284,10 @@ test "delimiter integration: literal marker coalescing respects source barriers"
   ]
   for case in cases {
     let (source, expected) = case
-    let direct = parse_block_ast(source_id, source)
+    let direct = @markdown.parse_block_ast(source_id, source)
     inspect(direct, content=expected)
     inspect(
-      experimental_markdown_ir_to_block(
+      @markdown.experimental_markdown_ir_to_block(
         delimiter_integration_ir_from_source(source_id, source),
       ),
       content=@debug.to_string(direct),

@@ -58,7 +58,7 @@ growing span keeps its projection identity) and `Renderable` (normalized
 ///|
 test "parse a closed tree" {
   let source_id = @core.SourceId("jsx-readme-closed-tree")
-  let (_, diagnostics) = parse_ast(
+  let (_, diagnostics) = @jsx.parse_ast(
     source_id, "<div class=\"foo\"><p>hi{x}</p></div>",
   )
   inspect(diagnostics.length(), content="0")
@@ -67,13 +67,15 @@ test "parse a closed tree" {
 ///|
 test "a truncated streaming prefix keeps its children" {
   let source_id = @core.SourceId("jsx-readme-streaming-prefix")
-  let (ast, diagnostics) = parse_ast(source_id, "<div><span>text")
+  let (ast, diagnostics) = @jsx.parse_ast(source_id, "<div><span>text")
   inspect(diagnostics.length(), content="2")
   @debug.assert_eq(
     ast,
-    JsxNode::Root(children=[
-      JsxNode::Element(tag="div", attrs=[], children=[
-        JsxNode::Element(tag="span", attrs=[], children=[JsxNode::Text("text")]),
+    @jsx.JsxNode::Root(children=[
+      @jsx.JsxNode::Element(tag="div", attrs=[], children=[
+        @jsx.JsxNode::Element(tag="span", attrs=[], children=[
+          @jsx.JsxNode::Text("text"),
+        ]),
       ]),
     ]),
   )
@@ -82,7 +84,7 @@ test "a truncated streaming prefix keeps its children" {
 ///|
 test "a truncated expression is diagnosed, not discarded" {
   let source_id = @core.SourceId("jsx-readme-truncated-expression")
-  let (ast, _) = parse_ast(source_id, "<p>{foo.bar(")
+  let (ast, _) = @jsx.parse_ast(source_id, "<p>{foo.bar(")
   guard ast is Root(children=[Element(children=[ExprSpan(raw~)], ..)]) else {
     fail("unexpected shape")
   }

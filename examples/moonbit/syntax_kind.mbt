@@ -145,6 +145,9 @@ pub(all) enum MoonbitSyntaxKind {
   GuardExclamationToken
   LexscanToken
   ExtendToken
+  VarToken
+  ErrdeferToken
+  NocancelToken
   // Node kinds
   SourceFileNode
   SourceItemNode
@@ -312,6 +315,9 @@ pub impl @seam.ToRawKind for MoonbitSyntaxKind with fn to_raw(self) {
       GuardExclamationToken => 229
       LexscanToken => 230
       ExtendToken => 231
+      VarToken => 232
+      ErrdeferToken => 233
+      NocancelToken => 234
       SourceFileNode => 10
       SourceItemNode => 11
       LetItemNode => 12
@@ -491,6 +497,9 @@ pub impl @seam.FromRawKind for MoonbitSyntaxKind with fn from_raw(raw) {
     229 => GuardExclamationToken
     230 => LexscanToken
     231 => ExtendToken
+    232 => VarToken
+    233 => ErrdeferToken
+    234 => NocancelToken
     _ => ErrorToken
   }
 }
@@ -537,6 +546,7 @@ fn MoonbitSyntaxKind::from_token_kind(
     TK_CONTINUE => ContinueToken
     TK_DECLARE => DeclareToken
     TK_DEFER => DeferToken
+    TK_ERRDEFER => ErrdeferToken
     TK_DERIVE => DeriveToken
     TK_DOTDOT => DotDotToken
     TK_DOT_INT => DotIntToken
@@ -578,6 +588,7 @@ fn MoonbitSyntaxKind::from_token_kind(
     TK_LBRACE => LbraceToken
     TK_LBRACKET => LbracketToken
     TK_LET => LetToken
+    TK_VAR => VarToken
     TK_LETREC => LetrecToken
     TK_LEXMATCH => LexmatchToken
     TK_LEXMATCH_QUESTION => LexmatchQuestionToken
@@ -593,6 +604,7 @@ fn MoonbitSyntaxKind::from_token_kind(
     TK_NEWLINE => NewlineToken
     TK_NOBREAK => NobreakToken
     TK_NORAISE => NoraiseToken
+    TK_NOCANCEL => NocancelToken
     TK_PACKAGE => PackageToken
     TK_PACKAGE_NAME => PackageNameToken
     TK_PIPE => PipeToken
@@ -649,3 +661,18 @@ fn MoonbitSyntaxKind::from_token_kind(
     TK_EXTEND => ExtendToken
   }
 }
+
+///|
+pub extend MoonbitSyntaxKind with @dowdiness/seam.FromRawKind::{from_raw}
+
+///|
+pub extend MoonbitSyntaxKind with @dowdiness/seam.ToRawKind::{to_raw}
+
+///|
+pub extend MoonbitSyntaxKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MoonbitSyntaxKind with Eq::{equal, not_equal}
+
+///|
+pub extend MoonbitSyntaxKind with Show::{output, to_string}

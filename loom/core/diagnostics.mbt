@@ -648,3 +648,42 @@ priv struct ReusedErrorSpan {
   start : Int
   end : Int
 }
+
+///|
+pub extend TokenInfo with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TokenInfo with Eq::{not_equal, equal}
+
+///|
+pub extend LocatedToken with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LocatedToken with Eq::{not_equal, equal}
+
+///|
+pub extend LexResult with Eq::{not_equal, equal}
+
+///|
+pub extend LexResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LexResultError with Eq::{not_equal, equal}
+
+///|
+pub extend LexResultError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SourceEdit with Eq::{not_equal, equal}
+
+///|
+pub extend SourceEdit with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DiagnosticSet with Eq::{not_equal, equal}
+
+///|
+pub extend DiagnosticSet with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LexError with @dowdiness/diagnostic.ToDiagnostic::{to_diagnostic}

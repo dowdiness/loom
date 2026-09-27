@@ -12,36 +12,38 @@ fn assert_line_break_incremental_projection_parity(
       source_id, label, source, edit, updated,
     ),
   )
-  let incremental = @loom.new_parser(source_id, source, markdown_grammar)
+  let incremental = @loom.new_parser(
+    source_id, source, @markdown.markdown_grammar,
+  )
   incremental.apply_edit(edit, updated)
-  let fresh = @loom.new_parser(source_id, updated, markdown_grammar)
+  let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
   let incremental_diagnostics = incremental.diagnostics().read_or_abort()
   let fresh_diagnostics = fresh.diagnostics().read_or_abort()
-  let incremental_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let incremental_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, incremental_syntax, incremental_diagnostics,
   )
-  let fresh_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let fresh_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, fresh_syntax, fresh_diagnostics,
   )
   assert_eq(incremental_diagnostics, fresh_diagnostics)
   assert_eq(incremental.ast().read_or_abort(), fresh.ast().read_or_abort())
   assert_eq(incremental_ir, fresh_ir)
   assert_eq(
-    project_markdown_roles(incremental_syntax),
-    project_markdown_roles(fresh_syntax),
+    @markdown.project_markdown_roles(incremental_syntax),
+    @markdown.project_markdown_roles(fresh_syntax),
   )
   assert_eq(
-    experimental_markdown_ir_to_mdast_json(incremental_ir),
-    experimental_markdown_ir_to_mdast_json(fresh_ir),
+    @markdown.experimental_markdown_ir_to_mdast_json(incremental_ir),
+    @markdown.experimental_markdown_ir_to_mdast_json(fresh_ir),
   )
-  let incremental_html = experimental_markdown_ir_to_commonmark_html(
+  let incremental_html = @markdown.experimental_markdown_ir_to_commonmark_html(
     incremental_ir,
   )
   assert_eq(
     incremental_html,
-    experimental_markdown_ir_to_commonmark_html(fresh_ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(fresh_ir),
   )
   inspect(incremental_html, content=expected_html)
 }

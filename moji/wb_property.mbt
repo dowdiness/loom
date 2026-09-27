@@ -87,3 +87,6 @@ pub fn wb_of(cp : Int) -> WB {
   }
   WbOther
 }
+
+///|
+pub extend WB with Eq::{not_equal, equal}

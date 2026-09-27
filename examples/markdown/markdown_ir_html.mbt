@@ -478,3 +478,23 @@ pub fn experimental_markdown_ir_to_commonmark_html(ir : MarkdownIR) -> String {
     Err(_) => abort("Escape raw HTML policy cannot reject valid HTML")
   }
 }
+
+///|
+pub extend MarkdownIRHtmlRenderError with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend MarkdownIRHtmlRenderError with Eq::{equal, not_equal}
+
+///|
+pub extend RawHtmlPolicy with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RawHtmlPolicy with Eq::{equal, not_equal}
+
+///|
+pub extend RawHtmlSurface with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RawHtmlSurface with Eq::{equal, not_equal}

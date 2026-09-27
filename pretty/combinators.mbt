@@ -116,3 +116,12 @@ pub fn[A] bracket(l : String, r : String, doc : Layout[A]) -> Layout[A] {
     _ => group(text(l) + nest(line() + doc) + line() + text(r))
   }
 }
+
+///|
+pub extend PrettyBuildError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PrettyBuildError with Eq::{not_equal, equal}
+
+///|
+pub extend Layout with Add::{add}

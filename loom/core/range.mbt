@@ -58,3 +58,18 @@ pub fn Range::length(self : Range) -> Int {
 pub fn Range::minimum_by_length(self : Range, other : Range) -> Range {
   @cmp.minimum_by_key(self, other, Range::length)
 }
+
+///|
+pub extend Range with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Range with Eq::{not_equal, equal}
+
+///|
+pub extend Range with Hash::{hash, hash_combine}
+
+///|
+pub extend Range with Compare::{op_lt, op_le, op_ge, compare, op_gt}
+
+///|
+pub extend Range with Show::{to_string, output}

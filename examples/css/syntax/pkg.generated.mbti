@@ -27,7 +27,16 @@ pub(all) enum SyntaxKind {
   Decl
   ErrorNode
 } derive(Eq, @debug.Debug)
+pub fn SyntaxKind::equal(Self, Self) -> Bool
+pub fn SyntaxKind::from_raw(@seam.RawKind) -> Self
+pub fn SyntaxKind::is_error(Self) -> Bool
 pub fn SyntaxKind::is_token(Self) -> Bool
+pub fn SyntaxKind::is_trivia(Self) -> Bool
+pub fn SyntaxKind::not_equal(Self, Self) -> Bool
+pub fn SyntaxKind::output(Self, &Logger) -> Unit
+pub fn SyntaxKind::to_raw(Self) -> @seam.RawKind
+pub fn SyntaxKind::to_repr(Self) -> @debug.Repr
+pub fn SyntaxKind::to_string(Self) -> String
 pub impl @seam.FromRawKind for SyntaxKind
 pub impl @seam.IsError for SyntaxKind
 pub impl @seam.IsTrivia for SyntaxKind

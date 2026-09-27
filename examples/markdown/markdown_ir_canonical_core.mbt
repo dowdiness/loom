@@ -1502,3 +1502,19 @@ fn markdown_ir_canonical_search_next_layer(
   }
   abort("unreachable canonical search state")
 }
+
+///|
+pub extend MarkdownIRCanonicalFormatFailure with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend MarkdownIRCanonicalFormatFailure with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownIRCanonicalOpaqueKind with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend MarkdownIRCanonicalOpaqueKind with Eq::{equal, not_equal}

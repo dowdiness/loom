@@ -20,7 +20,7 @@ fn assert_source_fidelity(
   source_id : @core.SourceId,
   source : String,
 ) -> Unit raise {
-  let (cst, _) = parse_cst(source_id, source)
+  let (cst, _) = @markdown.parse_cst(source_id, source)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   inspect(collect_leaf_texts(syntax) == source, content="true")
 }

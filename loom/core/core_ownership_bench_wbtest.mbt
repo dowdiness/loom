@@ -15,3 +15,9 @@ test "core ownership: LexResult::with_starts 10000 tokens" (b : @bench.T) {
   let diagnostics = DiagnosticSet::empty()
   b.bench(fn() { b.keep(LexResult::with_starts(tokens, starts, diagnostics~)) })
 }
+
+///|
+pub extend CoreOwnershipBenchToken with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CoreOwnershipBenchToken with Eq::{equal, not_equal}

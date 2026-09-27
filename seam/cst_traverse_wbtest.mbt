@@ -483,3 +483,9 @@ test "find: single token no match" {
   let found = elem.find(NumberFinder::{ kind: RawKind(10), })
   inspect(found is None, content="true")
 }
+
+///|
+pub extend NodeKindFinder with Finder::{check}
+
+///|
+pub extend NumberFinder with Finder::{check}

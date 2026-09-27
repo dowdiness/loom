@@ -4,9 +4,4 @@ import {
   "dowdiness/loom/core",
   "dowdiness/seam",
   "moonbitlang/core/debug",
-  "moonbitlang/core/string",
 }
-
-import {
-  "dowdiness/diagnostic",
-} for "test"

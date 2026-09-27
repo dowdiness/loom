@@ -30,12 +30,18 @@ pub struct JsxAttr {
   value : JsxAttrValue
 } derive(Eq, @debug.Debug)
 pub fn JsxAttr::JsxAttr(name~ : String, value~ : JsxAttrValue) -> Self
+pub fn JsxAttr::equal(Self, Self) -> Bool
+pub fn JsxAttr::not_equal(Self, Self) -> Bool
+pub fn JsxAttr::to_repr(Self) -> @debug.Repr
 
 pub(all) enum JsxAttrValue {
   StringLit(String)
   ExprSpan(raw~ : String)
   Bare
 } derive(Eq, @debug.Debug)
+pub fn JsxAttrValue::equal(Self, Self) -> Bool
+pub fn JsxAttrValue::not_equal(Self, Self) -> Bool
+pub fn JsxAttrValue::to_repr(Self) -> @debug.Repr
 
 pub(all) enum JsxNode {
   Root(children~ : Array[JsxNode])
@@ -45,6 +51,15 @@ pub(all) enum JsxNode {
   ExprSpan(raw~ : String)
   Error(String)
 } derive(Eq, @debug.Debug)
+pub fn JsxNode::children(Self) -> Array[Self]
+pub fn JsxNode::equal(Self, Self) -> Bool
+pub fn JsxNode::kind_tag(Self) -> String
+pub fn JsxNode::label(Self) -> String
+pub fn JsxNode::not_equal(Self, Self) -> Bool
+pub fn JsxNode::placeholder(Self) -> String
+pub fn JsxNode::same_kind(Self, Self) -> Bool
+pub fn JsxNode::to_repr(Self) -> @debug.Repr
+pub fn JsxNode::unparse(Self) -> String
 pub impl @core.Renderable for JsxNode
 pub impl @core.TreeNode for JsxNode
 

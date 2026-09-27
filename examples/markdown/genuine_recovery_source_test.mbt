@@ -3,23 +3,23 @@ fn genuine_recovery_source_ir(
   source_id : @core.SourceId,
   source : String,
   diagnostics? : @core.DiagnosticSet = @core.DiagnosticSet::empty(),
-) -> MarkdownIR {
+) -> @markdown.MarkdownIR {
   let error = try! @seam.CstNode::new_unclassified(
-    @seam.ToRawKind::to_raw(SyntaxKind::ErrorNode),
+    @seam.ToRawKind::to_raw(@markdown.SyntaxKind::ErrorNode),
     [
       @seam.CstElement::Token(
         @seam.CstToken::CstToken(
-          @seam.ToRawKind::to_raw(SyntaxKind::TextToken),
+          @seam.ToRawKind::to_raw(@markdown.SyntaxKind::TextToken),
           source.view(),
         ),
       ),
     ],
   )
   let root = try! @seam.CstNode::new_unclassified(
-    @seam.ToRawKind::to_raw(SyntaxKind::DocumentNode),
+    @seam.ToRawKind::to_raw(@markdown.SyntaxKind::DocumentNode),
     [@seam.CstElement::Node(error)],
   )
-  experimental_markdown_ir_from_syntax_with_diagnostics(
+  @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(root),
     diagnostics,
@@ -53,15 +53,18 @@ test "genuine parser recovery preserves exact source and separates diagnostics" 
     _ => fail("expected one recovered document child")
   }
   assert_eq(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     "𐐀&lt;unexpected&gt;",
   )
-  let mdast = experimental_markdown_ir_to_mdast_json(ir).stringify()
+  let mdast = @markdown.experimental_markdown_ir_to_mdast_json(ir).stringify()
   assert_true(mdast.contains("mdastRecovered"))
   assert_true(mdast.contains("\"value\":\"𐐀<unexpected>\""))
-  assert_eq(experimental_markdown_ir_preserve_rewrite(ir, source), source)
   assert_eq(
-    experimental_markdown_ir_local_transform_rewrite(
+    @markdown.experimental_markdown_ir_preserve_rewrite(ir, source),
+    source,
+  )
+  assert_eq(
+    @markdown.experimental_markdown_ir_local_transform_rewrite(
       ir,
       source,
       target_origin=ir.children()[0].origin(),
@@ -69,8 +72,12 @@ test "genuine parser recovery preserves exact source and separates diagnostics" 
     ),
     "replacement",
   )
-  assert_eq(experimental_markdown_ir_canonical_format(source_id, ir), source)
-  match experimental_markdown_ir_canonical_format_checked(source_id, ir) {
+  assert_eq(
+    @markdown.experimental_markdown_ir_canonical_format(source_id, ir),
+    source,
+  )
+  match
+    @markdown.experimental_markdown_ir_canonical_format_checked(source_id, ir) {
     Err(OpaqueNode(Recovered, Some(_))) => ()
     _ => fail("checked formatting must reject genuine recovery")
   }

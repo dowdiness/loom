@@ -156,3 +156,18 @@ pub impl @core.AstView for BlockExprProj with fn syntax_node(self) {
 pub fn BlockExprProj::defs(self : BlockExprProj) -> Array[@seam.SyntaxNode] {
   self.node.direct_children_of_kind(LetDef.to_raw())
 }
+
+///|
+pub extend BlockExprProj with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend IfConditionProj with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend IfExprProj with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend LambdaBodyProj with @dowdiness/seam.AstView::{syntax_node}
+
+///|
+pub extend LambdaExprProj with @dowdiness/seam.AstView::{syntax_node}

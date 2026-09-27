@@ -80,7 +80,7 @@ fn scaled_markdown_doc(repeats : Int) -> String {
 test "markdown: 10x (~200 lines) - tokenize" (b : @bench.T) {
   let source = scaled_markdown_doc(10)
   b.bench(() => {
-    let tokens = tokenize(source) catch { _ => abort("lex failed") }
+    let tokens = @markdown.tokenize(source) catch { _ => abort("lex failed") }
     b.keep(tokens)
   })
 }
@@ -89,7 +89,7 @@ test "markdown: 10x (~200 lines) - tokenize" (b : @bench.T) {
 test "markdown: 10x (~200 lines) - full parse" (b : @bench.T) {
   let source = scaled_markdown_doc(10)
   b.bench(() => {
-    let ast = try! parse_block_ast(
+    let ast = try! @markdown.parse_block_ast(
       @core.SourceId("markdown-benchmark-document"),
       source,
     )
@@ -103,7 +103,7 @@ test "markdown: 10x (~200 lines) - incremental" (b : @bench.T) {
   let parser = @loom.new_imperative_parser(
     @core.SourceId("markdown-benchmark-document"),
     source,
-    markdown_grammar,
+    @markdown.markdown_grammar,
   )
   let _ = try! parser.parse().ast
   // Edit in the middle: change a character in a paragraph
@@ -121,7 +121,7 @@ test "markdown: 10x (~200 lines) - incremental" (b : @bench.T) {
 test "markdown: 50x (~1000 lines) - tokenize" (b : @bench.T) {
   let source = scaled_markdown_doc(50)
   b.bench(() => {
-    let tokens = tokenize(source) catch { _ => abort("lex failed") }
+    let tokens = @markdown.tokenize(source) catch { _ => abort("lex failed") }
     b.keep(tokens)
   })
 }
@@ -130,7 +130,7 @@ test "markdown: 50x (~1000 lines) - tokenize" (b : @bench.T) {
 test "markdown: 50x (~1000 lines) - full parse" (b : @bench.T) {
   let source = scaled_markdown_doc(50)
   b.bench(() => {
-    let ast = try! parse_block_ast(
+    let ast = try! @markdown.parse_block_ast(
       @core.SourceId("markdown-benchmark-document"),
       source,
     )
@@ -144,7 +144,7 @@ test "markdown: 50x (~1000 lines) - incremental" (b : @bench.T) {
   let parser = @loom.new_imperative_parser(
     @core.SourceId("markdown-benchmark-document"),
     source,
-    markdown_grammar,
+    @markdown.markdown_grammar,
   )
   let _ = try! parser.parse().ast
   let mid = source.length() / 2
@@ -161,7 +161,7 @@ test "markdown: 50x (~1000 lines) - incremental" (b : @bench.T) {
 test "markdown: 100x (~2000 lines) - tokenize" (b : @bench.T) {
   let source = scaled_markdown_doc(100)
   b.bench(() => {
-    let tokens = tokenize(source) catch { _ => abort("lex failed") }
+    let tokens = @markdown.tokenize(source) catch { _ => abort("lex failed") }
     b.keep(tokens)
   })
 }
@@ -170,7 +170,7 @@ test "markdown: 100x (~2000 lines) - tokenize" (b : @bench.T) {
 test "markdown: 100x (~2000 lines) - full parse" (b : @bench.T) {
   let source = scaled_markdown_doc(100)
   b.bench(() => {
-    let ast = try! parse_block_ast(
+    let ast = try! @markdown.parse_block_ast(
       @core.SourceId("markdown-benchmark-document"),
       source,
     )
@@ -184,7 +184,7 @@ test "markdown: 100x (~2000 lines) - incremental" (b : @bench.T) {
   let parser = @loom.new_imperative_parser(
     @core.SourceId("markdown-benchmark-document"),
     source,
-    markdown_grammar,
+    @markdown.markdown_grammar,
   )
   let _ = try! parser.parse().ast
   let mid = source.length() / 2
@@ -205,7 +205,7 @@ test "markdown: 100x (~2000 lines) - incremental" (b : @bench.T) {
 test "markdown: realistic doc - full parse (CST)" (b : @bench.T) {
   let source = realistic_markdown_doc()
   b.bench(() => {
-    let (cst, _) = parse_cst(
+    let (cst, _) = @markdown.parse_cst(
       @core.SourceId("markdown-benchmark-document"),
       source,
     ) catch {
@@ -219,7 +219,7 @@ test "markdown: realistic doc - full parse (CST)" (b : @bench.T) {
 test "markdown: realistic doc - full parse (CST+AST)" (b : @bench.T) {
   let source = realistic_markdown_doc()
   b.bench(() => {
-    let ast = try! parse_block_ast(
+    let ast = try! @markdown.parse_block_ast(
       @core.SourceId("markdown-benchmark-document"),
       source,
     )
@@ -233,7 +233,7 @@ test "markdown: realistic doc - full parse (CST+AST)" (b : @bench.T) {
 test "markdown: realistic doc - tokenize only" (b : @bench.T) {
   let source = realistic_markdown_doc()
   b.bench(() => {
-    let tokens = tokenize(source) catch { _ => abort("lex failed") }
+    let tokens = @markdown.tokenize(source) catch { _ => abort("lex failed") }
     b.keep(tokens)
   })
 }
@@ -244,7 +244,7 @@ test "markdown: realistic doc - tokenize only" (b : @bench.T) {
 /// Pre-parse helper used by lowering benchmarks so each iteration measures
 /// only the fold, not the parser.
 fn parse_to_syntax(source : String) -> @seam.SyntaxNode {
-  let (cst, _) = parse_cst(
+  let (cst, _) = @markdown.parse_cst(
     @core.SourceId("markdown-benchmark-document"),
     source,
   ) catch {
@@ -257,7 +257,7 @@ fn parse_to_syntax(source : String) -> @seam.SyntaxNode {
 test "markdown: realistic doc - lowering SyntaxNode -> Block" (b : @bench.T) {
   let syntax = parse_to_syntax(realistic_markdown_doc())
   b.bench(() => {
-    let fold = @core.CstFold::new(markdown_fold_node)
+    let fold = @core.CstFold::new(@markdown.markdown_fold_node)
     let block = fold.fold(syntax)
     b.keep(block)
   })
@@ -269,11 +269,11 @@ test "markdown: realistic doc - lowering SyntaxNode -> MarkdownIR -> Block" (
 ) {
   let syntax = parse_to_syntax(realistic_markdown_doc())
   b.bench(() => {
-    let ir = experimental_markdown_ir_from_syntax(
+    let ir = @markdown.experimental_markdown_ir_from_syntax(
       @core.SourceId("markdown-benchmark-document"),
       syntax,
     )
-    let block = experimental_markdown_ir_to_block(ir)
+    let block = @markdown.experimental_markdown_ir_to_block(ir)
     b.keep(block)
   })
 }
@@ -282,7 +282,7 @@ test "markdown: realistic doc - lowering SyntaxNode -> MarkdownIR -> Block" (
 test "markdown: 50x doc - lowering SyntaxNode -> Block" (b : @bench.T) {
   let syntax = parse_to_syntax(scaled_markdown_doc(50))
   b.bench(() => {
-    let fold = @core.CstFold::new(markdown_fold_node)
+    let fold = @core.CstFold::new(@markdown.markdown_fold_node)
     let block = fold.fold(syntax)
     b.keep(block)
   })
@@ -294,11 +294,11 @@ test "markdown: 50x doc - lowering SyntaxNode -> MarkdownIR -> Block" (
 ) {
   let syntax = parse_to_syntax(scaled_markdown_doc(50))
   b.bench(() => {
-    let ir = experimental_markdown_ir_from_syntax(
+    let ir = @markdown.experimental_markdown_ir_from_syntax(
       @core.SourceId("markdown-benchmark-document"),
       syntax,
     )
-    let block = experimental_markdown_ir_to_block(ir)
+    let block = @markdown.experimental_markdown_ir_to_block(ir)
     b.keep(block)
   })
 }
@@ -315,7 +315,7 @@ test "markdown: realistic doc - incremental (edit paragraph)" (b : @bench.T) {
   let parser = @loom.new_imperative_parser(
     @core.SourceId("markdown-benchmark-document"),
     source,
-    markdown_grammar,
+    @markdown.markdown_grammar,
   )
   let _ = try! parser.parse().ast
   // Edit inside "comprehensive" -> change 'c' to 'C' in a paragraph
@@ -337,7 +337,7 @@ test "markdown: realistic doc - incremental (edit heading)" (b : @bench.T) {
   let parser = @loom.new_imperative_parser(
     @core.SourceId("markdown-benchmark-document"),
     source,
-    markdown_grammar,
+    @markdown.markdown_grammar,
   )
   let _ = try! parser.parse().ast
   // Edit inside "Architecture" heading -> change 'A' to 'a'
@@ -359,7 +359,7 @@ test "markdown: realistic doc - incremental (edit list item)" (b : @bench.T) {
   let parser = @loom.new_imperative_parser(
     @core.SourceId("markdown-benchmark-document"),
     source,
-    markdown_grammar,
+    @markdown.markdown_grammar,
   )
   let _ = try! parser.parse().ast
   // Edit inside "Second item" -> change 'S' to 's'
@@ -381,7 +381,7 @@ test "markdown: realistic doc - incremental (edit code block)" (b : @bench.T) {
   let parser = @loom.new_imperative_parser(
     @core.SourceId("markdown-benchmark-document"),
     source,
-    markdown_grammar,
+    @markdown.markdown_grammar,
   )
   let _ = try! parser.parse().ast
   // Edit inside code block: "fibonacci" -> change 'f' to 'F'

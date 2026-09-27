@@ -464,3 +464,6 @@ test "goal_span_exceeds: DivGoal does not false-positive" {
   // With shorter baseline (len=0), it "exceeds" but never matches real data
   inspect(buf.goal_span_exceeds(0, 0), content="true")
 }
+
+///|
+pub extend GoalTestKind with @moonbitlang/core/debug.Debug::{to_repr}

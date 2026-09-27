@@ -1,5 +1,5 @@
 ///|
-fn eval_to_result(env : Env, term : @ast.Term) -> Result[Value, StuckReason] {
+fn eval_to_result(env : @eval.Env, term : @ast.Term) -> Result[@eval.Value, @eval.StuckReason] {
   try @eval.eval(env, term) catch {
     reason => Err(reason)
   } noraise {
@@ -10,20 +10,20 @@ fn eval_to_result(env : Env, term : @ast.Term) -> Result[Value, StuckReason] {
 ///|
 test "eval: integer literal" {
   let term = @ast.Term::Int(42)
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VInt(42))")
 }
 
 ///|
 test "eval: unit literal" {
   let term = @ast.Term::Unit
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VUnit)")
 }
 
 ///|
 test "eval: variable lookup" {
-  let env = Env::empty().bind("x", VInt(5))
+  let env = @eval.Env::empty().bind("x", VInt(5))
   let term = @ast.Term::Var("x")
   let result = eval_to_result(env, term)
   debug_inspect(result, content="Ok(VInt(5))")
@@ -32,21 +32,21 @@ test "eval: variable lookup" {
 ///|
 test "eval: unbound variable" {
   let term = @ast.Term::Var("x")
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Err(Unbound(\"x\"))")
 }
 
 ///|
 test "eval: addition" {
   let term = @ast.Term::Bop(Plus, @ast.Term::Int(2), @ast.Term::Int(3))
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VInt(5))")
 }
 
 ///|
 test "eval: subtraction" {
   let term = @ast.Term::Bop(Minus, @ast.Term::Int(10), @ast.Term::Int(3))
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VInt(7))")
 }
 
@@ -58,7 +58,7 @@ test "eval: nested arithmetic" {
     @ast.Term::Bop(Plus, @ast.Term::Int(2), @ast.Term::Int(3)),
     @ast.Term::Int(1),
   )
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VInt(4))")
 }
 
@@ -69,7 +69,7 @@ test "eval: add non-integer is type error" {
     @ast.Term::Lam("x", @ast.Term::Var("x")),
     @ast.Term::Int(1),
   )
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Err(TypeMismatch(\"add: expected integer\"))")
 }
 
@@ -80,7 +80,7 @@ test "eval: if truthy (non-zero)" {
     @ast.Term::Int(2),
     @ast.Term::Int(3),
   )
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VInt(2))")
 }
 
@@ -91,7 +91,7 @@ test "eval: if falsy (zero)" {
     @ast.Term::Int(2),
     @ast.Term::Int(3),
   )
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VInt(3))")
 }
 
@@ -102,7 +102,7 @@ test "eval: if with negative is truthy" {
     @ast.Term::Int(10),
     @ast.Term::Int(20),
   )
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VInt(10))")
 }
 
@@ -113,7 +113,7 @@ test "eval: if non-integer condition is type error" {
     @ast.Term::Int(1),
     @ast.Term::Int(2),
   )
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(
     result,
     content="Err(TypeMismatch(\"if: expected integer condition\"))",
@@ -123,7 +123,7 @@ test "eval: if non-integer condition is type error" {
 ///|
 test "eval: lambda creates closure" {
   let term = @ast.Term::Lam("x", @ast.Term::Var("x"))
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   // Just check it's a VClosure — exact content may vary
   inspect(result is Ok(_), content="true")
 }
@@ -138,7 +138,7 @@ test "eval: simple application" {
     ),
     @ast.Term::Int(5),
   )
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VInt(6))")
 }
 
@@ -158,14 +158,14 @@ test "eval: curried application" {
     ),
     @ast.Term::Int(3),
   )
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VInt(5))")
 }
 
 ///|
 test "eval: apply non-function is type error" {
   let term = @ast.Term::App(@ast.Term::Int(5), @ast.Term::Int(3))
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Err(TypeMismatch(\"app: expected function\"))")
 }
 
@@ -176,7 +176,7 @@ test "eval: simple let binding" {
     [("x", @ast.Term::Int(2))],
     @ast.Term::Bop(Plus, @ast.Term::Var("x"), @ast.Term::Var("x")),
   )
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VInt(4))")
 }
 
@@ -187,7 +187,7 @@ test "eval: nested let bindings" {
     [("x", @ast.Term::Int(1)), ("y", @ast.Term::Int(2))],
     @ast.Term::Bop(Plus, @ast.Term::Var("x"), @ast.Term::Var("y")),
   )
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VInt(3))")
 }
 
@@ -198,7 +198,7 @@ test "eval: let shadowing" {
     [("x", @ast.Term::Int(1)), ("x", @ast.Term::Int(2))],
     @ast.Term::Var("x"),
   )
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VInt(2))")
 }
 
@@ -220,6 +220,6 @@ test "eval: closure captures environment" {
     ],
     @ast.Term::App(@ast.Term::Var("add_five"), @ast.Term::Int(1)),
   )
-  let result = eval_to_result(Env::empty(), term)
+  let result = eval_to_result(@eval.Env::empty(), term)
   debug_inspect(result, content="Ok(VInt(6))")
 }

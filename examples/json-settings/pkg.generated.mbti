@@ -18,6 +18,9 @@ pub struct Setting {
   value : Double
 } derive(Eq, @debug.Debug)
 pub fn Setting::Setting(id~ : String, key~ : String, value~ : Double) -> Self
+pub fn Setting::equal(Self, Self) -> Bool
+pub fn Setting::not_equal(Self, Self) -> Bool
+pub fn Setting::to_repr(Self) -> @debug.Repr
 
 pub struct SettingsAttachment {
   // private fields
@@ -35,7 +38,10 @@ pub struct SettingsDoc {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn SettingsDoc::SettingsDoc(Array[Setting]) -> Self
+pub fn SettingsDoc::equal(Self, Self) -> Bool
+pub fn SettingsDoc::not_equal(Self, Self) -> Bool
 pub fn SettingsDoc::settings(Self) -> Array[Setting]
+pub fn SettingsDoc::to_repr(Self) -> @debug.Repr
 
 pub enum SettingsState {
   Current
@@ -44,6 +50,10 @@ pub enum SettingsState {
   CandidateBlocked
   GraphBlocked
 } derive(Eq)
+pub fn SettingsState::equal(Self, Self) -> Bool
+pub fn SettingsState::not_equal(Self, Self) -> Bool
+pub fn SettingsState::output(Self, &Logger) -> Unit
+pub fn SettingsState::to_string(Self) -> String
 pub impl Show for SettingsState
 
 // Type aliases

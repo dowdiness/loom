@@ -148,7 +148,7 @@ pub fn run_oracle_fixture(
   a_tracker.commit_success(initial, a_stable0)
   b_tracker.commit_success(initial, b_stable0)
 
-  let results : Array[OracleStepResult] = Array::new()
+  let results : Array[OracleStepResult] = Array(capacity=0)
   // Assert seed parity: initial A and B IDs must match. Both parse the same
   // initial source through normalized_syntax_grammar, so any divergence here
   // indicates a fundamental oracle setup problem. Record as a failing D2b step
@@ -419,3 +419,18 @@ pub fn run_reified_ir_oracle(
     divergence: classify_run(results),
   }
 }
+
+///|
+pub extend EditStep with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend NewlineAppProbeResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend OracleStepResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend OracleStepResult with Eq::{equal, not_equal}
+
+///|
+pub extend ReifiedIrOracleResult with @moonbitlang/core/debug.Debug::{to_repr}

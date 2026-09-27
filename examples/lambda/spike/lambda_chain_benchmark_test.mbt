@@ -20,7 +20,7 @@ test "lambda chain: B parses N=20 workload cleanly with structural parity to A" 
   let source = make_lambda_let_chain(20)
   let (a_cst, a_diag) = @lambda.parse_cst(lambda_chain_source_id(), source)
   inspect(a_diag.is_empty(), content="true")
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(lambda_chain_source_id(), source)
   inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)
@@ -33,7 +33,7 @@ test "lambda chain: B parses single let with arrow lambda cleanly" {
   let source = "let x0 = ((f, x) => f (f x)) ((g) => g)\nx0"
   let (a_cst, a_diag) = @lambda.parse_cst(lambda_chain_source_id(), source)
   inspect(a_diag.is_empty(), content="true")
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(lambda_chain_source_id(), source)
   inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)
@@ -46,7 +46,7 @@ test "lambda chain: B parses simple arrow lambda cleanly" {
   let source = "let x0 = ((g) => g)\nx0"
   let (a_cst, a_diag) = @lambda.parse_cst(lambda_chain_source_id(), source)
   inspect(a_diag.is_empty(), content="true")
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(lambda_chain_source_id(), source)
   inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)
@@ -59,7 +59,7 @@ test "lambda chain: B handles soft newline before FatArrow" {
   let source = "(x)\n=> x"
   let (a_cst, a_diag) = @lambda.parse_cst(lambda_chain_source_id(), source)
   inspect(a_diag.is_empty(), content="true")
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(lambda_chain_source_id(), source)
   inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)
@@ -72,7 +72,7 @@ test "lambda chain: B handles soft newline before lambda body" {
   let source = "(x) =>\nx"
   let (a_cst, a_diag) = @lambda.parse_cst(lambda_chain_source_id(), source)
   inspect(a_diag.is_empty(), content="true")
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(lambda_chain_source_id(), source)
   inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)
@@ -84,7 +84,7 @@ test "lambda chain: B handles soft newline before lambda body" {
 test "lambda chain: B rejects empty param list with same diagnostic" {
   let source = "() => 1"
   let (a_cst, a_diag) = @lambda.parse_cst(lambda_chain_source_id(), source)
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(lambda_chain_source_id(), source)
   let diff = @core.tree_diff(a_cst, b_cst)
   inspect(diff.length() == 0, content="true")
@@ -99,7 +99,7 @@ test "lambda chain: B rejects empty param list with same diagnostic" {
 test "lambda chain: B recovers from malformed arrow params like A" {
   let source = "(x y) => z"
   let (_, a_diag) = @lambda.parse_cst(lambda_chain_source_id(), source)
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (_, b_diag) = b.parse_cst(lambda_chain_source_id(), source)
   inspect(a_diag.is_empty(), content="false")
   inspect(b_diag.is_empty(), content="false")
@@ -112,7 +112,7 @@ test "lambda chain: B parses block-bodied lambda cleanly" {
   let source = "(x) => { x }"
   let (a_cst, a_diag) = @lambda.parse_cst(lambda_chain_source_id(), source)
   inspect(a_diag.is_empty(), content="true")
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(lambda_chain_source_id(), source)
   inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)
@@ -125,7 +125,7 @@ test "lambda chain: B handles newline before closing paren" {
   let source = "(x\n) => x"
   let (a_cst, a_diag) = @lambda.parse_cst(lambda_chain_source_id(), source)
   inspect(a_diag.is_empty(), content="true")
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (b_cst, b_diag) = b.parse_cst(lambda_chain_source_id(), source)
   inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)
@@ -137,7 +137,7 @@ test "lambda chain: B handles newline before closing paren" {
 test "lambda chain: B rejects non-identifier first param" {
   let source = "(,) => x"
   let (_, a_diag) = @lambda.parse_cst(lambda_chain_source_id(), source)
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (_, b_diag) = b.parse_cst(lambda_chain_source_id(), source)
   inspect(a_diag.is_empty(), content="false")
   inspect(b_diag.is_empty(), content="false")
@@ -148,7 +148,7 @@ test "lambda chain: B rejects non-identifier first param" {
 test "lambda chain: B rejects colon-first param" {
   let source = "(: Int) => x"
   let (_, a_diag) = @lambda.parse_cst(lambda_chain_source_id(), source)
-  let b = build_b_syntax_grammar()
+  let b = @spike.build_b_syntax_grammar()
   let (_, b_diag) = b.parse_cst(lambda_chain_source_id(), source)
   inspect(a_diag.is_empty(), content="false")
   inspect(b_diag.is_empty(), content="false")

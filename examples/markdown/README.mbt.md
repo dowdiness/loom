@@ -405,7 +405,7 @@ workflow must use an exact version pin.
 test "grammar example: imperative parser returns a Block" {
   let source_id = @core.SourceId("markdown-readme-imperative")
   let imp = @loom.new_imperative_parser(
-    source_id, "# Hello\n", markdown_grammar,
+    source_id, "# Hello\n", @markdown.markdown_grammar,
   )
   let doc = imp.parse().ast
   // The top-level Block is always a Document containing the parsed blocks.
@@ -418,9 +418,11 @@ test "grammar example: imperative parser returns a Block" {
 ///|
 test "grammar example: reactive parser + set_source" {
   let source_id = @core.SourceId("markdown-readme-reactive")
-  let parser = @loom.new_parser(source_id, "# Hello\n", markdown_grammar)
+  let parser = @loom.new_parser(
+    source_id, "# Hello\n", @markdown.markdown_grammar,
+  )
   parser.set_source("## World\n")
-  let doc : Block = parser.ast().read_or_abort()
+  let doc : @markdown.Block = parser.ast().read_or_abort()
   match doc {
     Document(_) => ()
     _ => abort("expected Document at top level")
@@ -468,14 +470,14 @@ test "quick start: parser-backed Markdown role spans" {
   let parser = @loom.new_syntax_parser(
     source_id,
     "[text](page_(C).html)\n",
-    markdown_grammar.to_syntax_grammar(),
+    @markdown.markdown_grammar.to_syntax_grammar(),
   )
-  let attachment = attach_markdown_role_spans(parser)
+  let attachment = @markdown.attach_markdown_role_spans(parser)
   let spans = attachment.spans()
   inspect(spans.length() > 0, content="true")
   inspect(spans[0].role() == Punctuation, content="true")
   inspect(
-    export_markdown_role_spans(spans).stringify().contains("\"role\""),
+    @markdown.export_markdown_role_spans(spans).stringify().contains("\"role\""),
     content="true",
   )
   attachment.dispose()

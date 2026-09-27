@@ -16,6 +16,9 @@ pub(all) suberror DiagnosticPrettyError {
   Diagnostic(@diagnostic.DiagnosticRenderError)
   DisplayWidth(@moji.DisplayWidthError)
 } derive(Eq, @debug.Debug)
+pub fn DiagnosticPrettyError::equal(Self, Self) -> Bool
+pub fn DiagnosticPrettyError::not_equal(Self, Self) -> Bool
+pub fn DiagnosticPrettyError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub struct DiagnosticPrettyOptions {
@@ -32,6 +35,9 @@ pub(all) enum DiagnosticStyle {
   Secondary
   Note
 } derive(Eq, @debug.Debug)
+pub fn DiagnosticStyle::equal(Self, Self) -> Bool
+pub fn DiagnosticStyle::not_equal(Self, Self) -> Bool
+pub fn DiagnosticStyle::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

@@ -43,3 +43,9 @@ pub(all) enum Token {
 pub fn print_token(token : Token) -> String {
   token.to_string()
 }
+
+///|
+pub extend Token with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Token with Eq::{equal, not_equal}

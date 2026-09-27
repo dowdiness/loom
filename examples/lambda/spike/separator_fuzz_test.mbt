@@ -110,7 +110,7 @@ test "separator fuzz: A-vs-B parity over delimiter/whitespace variations" {
   guard programs.length() > 0 else {
     fail("separator fuzzer produced no programs")
   }
-  let b_grammar = build_b_syntax_grammar()
+  let b_grammar = @spike.build_b_syntax_grammar()
   for source in programs {
     let (a_cst, a_diag) = @lambda.parse_cst(separator_fuzz_source_id(), source)
     let (b_cst, b_diag) = b_grammar.parse_cst(
@@ -123,7 +123,7 @@ test "separator fuzz: A-vs-B parity over delimiter/whitespace variations" {
         "A-vs-B CST divergence (\{cst_diff.length()} diffs) on source [\{show_source(source)}]",
       )
     }
-    guard diagnostics_structurally_equal(a_diag, b_diag) else {
+    guard @spike.diagnostics_structurally_equal(a_diag, b_diag) else {
       fail("A-vs-B diagnostic divergence on source [\{show_source(source)}]")
     }
   }

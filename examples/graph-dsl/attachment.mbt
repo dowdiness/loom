@@ -260,3 +260,12 @@ pub fn GraphAttachment::dispose(self : GraphAttachment) -> Unit {
   self.listeners = []
   self.scope.dispose()
 }
+
+///|
+pub extend GraphAttachmentState with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GraphAttachmentState with Eq::{equal, not_equal}
+
+///|
+pub extend GraphAttachmentState with Show::{output, to_string}

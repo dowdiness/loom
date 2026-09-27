@@ -27,6 +27,11 @@ pub struct Call {
   start : Int
   end : Int
 } derive(Eq, @debug.Debug)
+pub fn Call::equal(Self, Self) -> Bool
+pub fn Call::not_equal(Self, Self) -> Bool
+pub fn Call::output(Self, &Logger) -> Unit
+pub fn Call::to_repr(Self) -> @debug.Repr
+pub fn Call::to_string(Self) -> String
 pub impl Show for Call
 
 pub struct CallersPipeline {
@@ -48,12 +53,24 @@ pub struct Def {
   name_start : Int
   name_end : Int
 } derive(Eq, @debug.Debug)
+pub fn Def::equal(Self, Self) -> Bool
+pub fn Def::not_equal(Self, Self) -> Bool
+pub fn Def::output(Self, &Logger) -> Unit
+pub fn Def::to_repr(Self) -> @debug.Repr
+pub fn Def::to_string(Self) -> String
 pub impl Show for Def
 
 pub(all) enum ScopeId {
   TopScope
   LambdaScope(Int, Int)
 } derive(Eq, Hash, @debug.Debug)
+pub fn ScopeId::equal(Self, Self) -> Bool
+pub fn ScopeId::hash(Self) -> Int
+pub fn ScopeId::hash_combine(Self, Hasher) -> Unit
+pub fn ScopeId::not_equal(Self, Self) -> Bool
+pub fn ScopeId::output(Self, &Logger) -> Unit
+pub fn ScopeId::to_repr(Self) -> @debug.Repr
+pub fn ScopeId::to_string(Self) -> String
 pub impl Show for ScopeId
 
 // Type aliases

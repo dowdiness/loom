@@ -79,7 +79,7 @@ It is distinct from both source text and diagnostic-producer identity.
 ///|
 test "valid settings object is Current" {
   let source_id = @core.SourceId("json-settings-readme-valid")
-  let settings = SettingsAttachment::SettingsAttachment(
+  let settings = @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, "{\"gain\":1,\"cutoff\":2}",
   )
   inspect(settings.state(), content="Current")
@@ -97,7 +97,7 @@ test "valid settings object is Current" {
 ///|
 test "malformed input retains the last good document" {
   let source_id = @core.SourceId("json-settings-readme-parser-retention")
-  let settings = SettingsAttachment::SettingsAttachment(
+  let settings = @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, "{\"gain\":1}",
   )
   settings.set_source("{\"gain\":}") // syntactically broken
@@ -113,7 +113,7 @@ test "malformed input retains the last good document" {
 ///|
 test "projection-invalid input retains the last good document" {
   let source_id = @core.SourceId("json-settings-readme-projection-retention")
-  let settings = SettingsAttachment::SettingsAttachment(
+  let settings = @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, "{\"gain\":1}",
   )
   settings.set_source("{\"gain\":\"loud\"}") // parses, but value is not a number
@@ -128,7 +128,7 @@ test "projection-invalid input retains the last good document" {
 ///|
 test "recovery after a failure returns to Current" {
   let source_id = @core.SourceId("json-settings-readme-recovery")
-  let settings = SettingsAttachment::SettingsAttachment(
+  let settings = @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, "{\"gain\":1}",
   )
   settings.set_source("{\"gain\":}") // fail

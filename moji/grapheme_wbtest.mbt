@@ -9,7 +9,7 @@
 /// string for use with `inspect`.
 fn boundaries_str(text : String) -> String {
   let bs = grapheme_boundaries(text)
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for i, b in bs {
     if i > 0 {
       buf.write_string(",")

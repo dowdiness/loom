@@ -23,11 +23,17 @@ pub suberror GrammarBindError {
   UnexpectedGuard(String)
   CapabilityRejected(String)
 } derive(Eq, @debug.Debug)
+pub fn GrammarBindError::equal(Self, Self) -> Bool
+pub fn GrammarBindError::not_equal(Self, Self) -> Bool
+pub fn GrammarBindError::to_repr(Self) -> @debug.Repr
 
 pub suberror GrammarBuildError {
   Compile(GrammarCompileError)
   Bind(GrammarBindError)
 } derive(Eq, @debug.Debug)
+pub fn GrammarBuildError::equal(Self, Self) -> Bool
+pub fn GrammarBuildError::not_equal(Self, Self) -> Bool
+pub fn GrammarBuildError::to_repr(Self) -> @debug.Repr
 
 pub suberror GrammarCompileError {
   MissingRoot(String)
@@ -43,17 +49,26 @@ pub suberror GrammarCompileError {
   LeftRecursiveRule(String)
   ZeroProgressRepeat(String)
 } derive(Eq, @debug.Debug)
+pub fn GrammarCompileError::equal(Self, Self) -> Bool
+pub fn GrammarCompileError::not_equal(Self, Self) -> Bool
+pub fn GrammarCompileError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub(all) struct Alt[T, K] {
   starts : Pred[T]
   body : Expr[T, K]
 } derive(Eq, @debug.Debug)
+pub fn[T : Eq, K : Eq] Alt::equal(Self[T, K], Self[T, K]) -> Bool
+pub fn[T : Eq, K : Eq] Alt::not_equal(Self[T, K], Self[T, K]) -> Bool
+pub fn[T : @debug.Debug, K : @debug.Debug] Alt::to_repr(Self[T, K]) -> @debug.Repr
 
 pub struct CompiledAlt[T, K] {
   starts : CompiledPred[T]
   body : CompiledExpr[T, K]
 } derive(Eq, @debug.Debug)
+pub fn[T : Eq, K : Eq] CompiledAlt::equal(Self[T, K], Self[T, K]) -> Bool
+pub fn[T : Eq, K : Eq] CompiledAlt::not_equal(Self[T, K], Self[T, K]) -> Bool
+pub fn[T : @debug.Debug, K : @debug.Debug] CompiledAlt::to_repr(Self[T, K]) -> @debug.Repr
 
 pub enum CompiledExpr[T, K] {
   Node(K, CompiledExpr[T, K])
@@ -80,6 +95,9 @@ pub enum CompiledExpr[T, K] {
   ManualNewlineAppExpr
   Empty
 } derive(Eq, @debug.Debug)
+pub fn[T : Eq, K : Eq] CompiledExpr::equal(Self[T, K], Self[T, K]) -> Bool
+pub fn[T : Eq, K : Eq] CompiledExpr::not_equal(Self[T, K], Self[T, K]) -> Bool
+pub fn[T : @debug.Debug, K : @debug.Debug] CompiledExpr::to_repr(Self[T, K]) -> @debug.Repr
 
 pub struct CompiledGrammar[T, K] {
   // private fields
@@ -100,6 +118,9 @@ pub enum CompiledPred[T] {
   All(CompiledPred[T], CompiledPred[T])
   HostGuardSlot(GuardSlot)
 } derive(Eq, @debug.Debug)
+pub fn[T : Eq] CompiledPred::equal(Self[T], Self[T]) -> Bool
+pub fn[T : Eq] CompiledPred::not_equal(Self[T], Self[T]) -> Bool
+pub fn[T : @debug.Debug] CompiledPred::to_repr(Self[T]) -> @debug.Repr
 
 pub struct ExecutableGrammar[T, K] {
   // private fields
@@ -131,16 +152,30 @@ pub(all) enum Expr[T, K] {
   ManualNewlineAppExpr
   Empty
 } derive(Eq, @debug.Debug)
+pub fn[T : Eq, K : Eq] Expr::equal(Self[T, K], Self[T, K]) -> Bool
+pub fn[T : Eq, K : Eq] Expr::not_equal(Self[T, K], Self[T, K]) -> Bool
+pub fn[T : @debug.Debug, K : @debug.Debug] Expr::to_repr(Self[T, K]) -> @debug.Repr
 
 pub(all) struct GrammarIr[T, K] {
   rules : Map[String, Expr[T, K]]
   root : String
 } derive(Eq, @debug.Debug)
 pub fn[T, K] GrammarIr::GrammarIr(Map[String, Expr[T, K]], root~ : String) -> Self[T, K]
+pub fn[T : Eq, K : Eq] GrammarIr::equal(Self[T, K], Self[T, K]) -> Bool
+pub fn[T : Eq, K : Eq] GrammarIr::not_equal(Self[T, K], Self[T, K]) -> Bool
+pub fn[T : @debug.Debug, K : @debug.Debug] GrammarIr::to_repr(Self[T, K]) -> @debug.Repr
 
 pub struct GuardSlot {
   // private fields
 } derive(Compare, Eq, @debug.Debug)
+pub fn GuardSlot::compare(Self, Self) -> Int
+pub fn GuardSlot::equal(Self, Self) -> Bool
+pub fn GuardSlot::not_equal(Self, Self) -> Bool
+pub fn GuardSlot::op_ge(Self, Self) -> Bool
+pub fn GuardSlot::op_gt(Self, Self) -> Bool
+pub fn GuardSlot::op_le(Self, Self) -> Bool
+pub fn GuardSlot::op_lt(Self, Self) -> Bool
+pub fn GuardSlot::to_repr(Self) -> @debug.Repr
 
 pub struct NativeCapabilities[T, K] {
   // private fields
@@ -155,6 +190,14 @@ pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam
 pub struct NativeSlot {
   // private fields
 } derive(@debug.Debug)
+pub fn NativeSlot::compare(Self, Self) -> Int
+pub fn NativeSlot::equal(Self, Self) -> Bool
+pub fn NativeSlot::not_equal(Self, Self) -> Bool
+pub fn NativeSlot::op_ge(Self, Self) -> Bool
+pub fn NativeSlot::op_gt(Self, Self) -> Bool
+pub fn NativeSlot::op_le(Self, Self) -> Bool
+pub fn NativeSlot::op_lt(Self, Self) -> Bool
+pub fn NativeSlot::to_repr(Self) -> @debug.Repr
 pub impl Compare for NativeSlot
 pub impl Eq for NativeSlot
 
@@ -166,7 +209,10 @@ pub(all) enum Pred[T] {
   HostGuard(String)
   All(Pred[T], Pred[T])
 } derive(Eq, @debug.Debug)
+pub fn[T : Eq] Pred::equal(Self[T], Self[T]) -> Bool
 pub fn[T : Eq] Pred::matches(Self[T], T) -> Bool
+pub fn[T : Eq] Pred::not_equal(Self[T], Self[T]) -> Bool
+pub fn[T : @debug.Debug] Pred::to_repr(Self[T]) -> @debug.Repr
 
 pub struct RuleCapability[T, K] {
   // private fields
@@ -175,6 +221,14 @@ pub struct RuleCapability[T, K] {
 pub struct RuleSlot {
   // private fields
 } derive(@debug.Debug)
+pub fn RuleSlot::compare(Self, Self) -> Int
+pub fn RuleSlot::equal(Self, Self) -> Bool
+pub fn RuleSlot::not_equal(Self, Self) -> Bool
+pub fn RuleSlot::op_ge(Self, Self) -> Bool
+pub fn RuleSlot::op_gt(Self, Self) -> Bool
+pub fn RuleSlot::op_le(Self, Self) -> Bool
+pub fn RuleSlot::op_lt(Self, Self) -> Bool
+pub fn RuleSlot::to_repr(Self) -> @debug.Repr
 pub impl Compare for RuleSlot
 pub impl Eq for RuleSlot
 

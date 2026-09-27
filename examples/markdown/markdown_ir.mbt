@@ -970,3 +970,55 @@ fn source_slice_between(source : String, start : Int, end : Int) -> String {
 fn source_slice(source : String, origin : MarkdownIROrigin) -> String {
   source_slice_between(source, origin.start(), origin.end())
 }
+
+///|
+pub extend MarkdownIR with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownIR with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownIRAutolinkKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownIRAutolinkKind with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownIRHardBreakSurface with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend MarkdownIRHardBreakSurface with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownIRLinkReferenceForm with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend MarkdownIRLinkReferenceForm with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownIRLinkSurface with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownIRLinkSurface with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownIROrigin with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownIROrigin with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownIRTask with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownIRTask with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownIRView with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownIRView with Eq::{equal, not_equal}

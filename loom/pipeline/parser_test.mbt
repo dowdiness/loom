@@ -57,7 +57,7 @@ fn test_imperative_language(
 ///|
 test "Parser::new publishes initial source / ast / diagnostics" {
   let source_id = @core.SourceId("pipeline-parser-initial-source")
-  let parser = Parser::new(source_id, "hello", test_imperative_language())
+  let parser = @pipeline.Parser::new(source_id, "hello", test_imperative_language())
   inspect(parser.source().read_or_abort(), content="hello")
   inspect(parser.ast().read_or_abort(), content="5")
   debug_inspect(parser.diagnostics().read_or_abort().format(), content="[]")
@@ -68,7 +68,7 @@ test "Parser::new publishes initial source / ast / diagnostics" {
 ///|
 test "Parser::set_source updates all four views atomically" {
   let source_id = @core.SourceId("pipeline-parser-atomic-source")
-  let parser = Parser::new(source_id, "hi", test_imperative_language())
+  let parser = @pipeline.Parser::new(source_id, "hi", test_imperative_language())
   inspect(parser.ast().read_or_abort(), content="2")
   parser.set_source("world!")
   inspect(parser.source().read_or_abort(), content="world!")
@@ -79,7 +79,7 @@ test "Parser::set_source updates all four views atomically" {
 ///|
 test "Parser::set_source publishes lexer diagnostics with recovered syntax" {
   let source_id = @core.SourceId("pipeline-parser-diagnostic-source")
-  let parser = Parser::new(source_id, "ok", test_imperative_language())
+  let parser = @pipeline.Parser::new(source_id, "ok", test_imperative_language())
   parser.set_source("@bad")
   inspect(parser.source().read_or_abort(), content="@bad")
   inspect(parser.ast().read_or_abort(), content="4")
@@ -95,7 +95,7 @@ test "Parser::set_source publishes lexer diagnostics with recovered syntax" {
 ///|
 test "Parser recovers diagnostics on subsequent set_source" {
   let source_id = @core.SourceId("pipeline-parser-recovery-source")
-  let parser = Parser::new(source_id, "ok", test_imperative_language())
+  let parser = @pipeline.Parser::new(source_id, "ok", test_imperative_language())
   parser.set_source("@bad")
   debug_inspect(
     parser.diagnostics().read_or_abort().format(),
@@ -112,7 +112,7 @@ test "Parser recovers diagnostics on subsequent set_source" {
 ///|
 test "Parser::apply_edit advances source and ast" {
   let source_id = @core.SourceId("pipeline-parser-edit-source")
-  let parser = Parser::new(source_id, "abc", test_imperative_language())
+  let parser = @pipeline.Parser::new(source_id, "abc", test_imperative_language())
   inspect(parser.ast().read_or_abort(), content="3")
   // Replace the whole document via an Edit covering the full range.
   parser.apply_edit(@core.Edit::new(0, 3, 6), "abcdef")
@@ -123,7 +123,7 @@ test "Parser::apply_edit advances source and ast" {
 ///|
 test "Parser::diagnostics is isolated from snapshot diagnostic mutation" {
   let source_id = @core.SourceId("pipeline-parser-defensive-source")
-  let parser = Parser::new(source_id, "abc", test_imperative_language())
+  let parser = @pipeline.Parser::new(source_id, "abc", test_imperative_language())
   let snapshot = parser.snapshot().read_or_abort()
   snapshot.diagnostics.push(@core.lexer_diagnostic("external mutation"))
   inspect(parser.diagnostics().read_or_abort().length(), content="0")
@@ -132,7 +132,7 @@ test "Parser::diagnostics is isolated from snapshot diagnostic mutation" {
 ///|
 test "Parser exposes its runtime for downstream derived cells" {
   let source_id = @core.SourceId("pipeline-parser-runtime-source")
-  let parser = Parser::new(source_id, "xy", test_imperative_language())
+  let parser = @pipeline.Parser::new(source_id, "xy", test_imperative_language())
   let rt = parser.runtime()
   // A downstream derived cell reads parser.source() inside its closure and
   // establishes a dependency edge through the pass-through Derived view.
@@ -248,7 +248,7 @@ fn test_atomic_language(
 test "Parser keeps accepted state after atomic parse failure" {
   let atomic_count : Ref[Int] = Ref(0)
   let fail_atomic : Ref[Bool] = Ref(true)
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("pipeline-parser-atomic-failure"),
     "abc",
     test_atomic_language(atomic_count, fail_atomic),
@@ -272,7 +272,7 @@ test "Parser keeps accepted state after atomic parse failure" {
 
 ///|
 test "Parser keeps the accepted transition after full parse failure" {
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("pipeline-parser-transactional-failure"),
     "abc",
     test_failing_full_parse_language(),
@@ -294,7 +294,7 @@ test "Parser keeps the accepted transition after full parse failure" {
 ///|
 test "Parser::apply_changes accepts one validated multi-range transition" {
   let parse_count : Ref[Int] = Ref(0)
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("pipeline-parser-multi-range"),
     "abcdef",
     test_imperative_language_with_counter(parse_count),
@@ -310,7 +310,7 @@ test "Parser::apply_changes accepts one validated multi-range transition" {
 
 ///|
 test "Parser::apply_changes preserves same-position order and UTF-16 boundaries" {
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("pipeline-parser-utf16"),
     "😀x",
     test_imperative_language(),
@@ -329,7 +329,7 @@ test "Parser::apply_changes preserves same-position order and UTF-16 boundaries"
   ) catch {
     error => Err(error)
   }
-  assert_true(result is Err(ParserUpdateError::ChangeSetMismatch))
+  assert_true(result is Err(@pipeline.ParserUpdateError::ChangeSetMismatch))
   inspect(parser.source().read_or_abort(), content="😀ABx")
 }
 
@@ -337,7 +337,7 @@ test "Parser::apply_changes preserves same-position order and UTF-16 boundaries"
 test "Parser::apply_changes fast path makes one final reactive observation" {
   let atomic_count : Ref[Int] = Ref(0)
   let fail_atomic : Ref[Bool] = Ref(false)
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("pipeline-parser-one-observation"),
     "abcd",
     test_atomic_language(atomic_count, fail_atomic),
@@ -365,7 +365,7 @@ test "Parser::apply_changes fast path makes one final reactive observation" {
 ///|
 test "Parser::apply_changes rejects mismatched evidence before mutation" {
   let parse_count : Ref[Int] = Ref(0)
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("pipeline-parser-mismatch"),
     "abc",
     test_imperative_language_with_counter(parse_count),
@@ -377,7 +377,7 @@ test "Parser::apply_changes rejects mismatched evidence before mutation" {
     error => Err(error)
   }
   match result {
-    Err(ParserUpdateError::ChangeSetMismatch) => ()
+    Err(@pipeline.ParserUpdateError::ChangeSetMismatch) => ()
     _ => fail("expected ChangeSetMismatch")
   }
   inspect(parser.source().read_or_abort(), content="abc")
@@ -388,7 +388,7 @@ test "Parser::apply_changes rejects mismatched evidence before mutation" {
 ///|
 test "Parser::apply_changes validates a semantic no-op without parsing" {
   let parse_count : Ref[Int] = Ref(0)
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("pipeline-parser-change-noop"),
     "abc",
     test_imperative_language_with_counter(parse_count),
@@ -408,7 +408,7 @@ test "Parser::set_source is a no-op when source is unchanged" {
   // text burns CPU and throws away incremental state for no gain.
   let parse_count : Ref[Int] = Ref(0)
   let source_id = @core.SourceId("pipeline-parser-noop-source")
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     source_id,
     "abc",
     test_imperative_language_with_counter(parse_count),

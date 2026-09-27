@@ -4,7 +4,7 @@
 
 ///|
 /// Look up the stable id of a key in a settings document, if present.
-fn doc_id_of(doc : SettingsDoc, key : String) -> String? {
+fn doc_id_of(doc : @json-settings.SettingsDoc, key : String) -> String? {
   for s in doc.settings() {
     if s.key == key {
       return Some(s.id)
@@ -15,7 +15,9 @@ fn doc_id_of(doc : SettingsDoc, key : String) -> String? {
 
 ///|
 /// Unwrap a `current_result` that is expected to be `Ok`.
-fn ok_doc(result : Result[SettingsDoc, String]) -> SettingsDoc {
+fn ok_doc(
+  result : Result[@json-settings.SettingsDoc, String],
+) -> @json-settings.SettingsDoc {
   match result {
     Ok(doc) => doc
     Err(msg) => abort("expected Ok settings doc, got Err: " + msg)
@@ -25,7 +27,7 @@ fn ok_doc(result : Result[SettingsDoc, String]) -> SettingsDoc {
 ///|
 test "initial valid object projects to Current with two settings" {
   let source_id = @core.SourceId("json-settings-initial-valid")
-  let a = SettingsAttachment::SettingsAttachment(
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, "{\"gain\":1,\"cutoff\":2}",
   )
   inspect(a.state(), content="Current")
@@ -42,7 +44,7 @@ test "initial valid object projects to Current with two settings" {
 ///|
 test "malformed source blocks at parser, retains last good" {
   let source_id = @core.SourceId("json-settings-parser-blocked-last-good")
-  let a = SettingsAttachment::SettingsAttachment(
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, "{\"gain\":1,\"cutoff\":2}",
   )
   let good = ok_doc(a.current_result())
@@ -56,7 +58,9 @@ test "malformed source blocks at parser, retains last good" {
 ///|
 test "projection-invalid value blocks at projection, retains last good" {
   let source_id = @core.SourceId("json-settings-projection-blocked-last-good")
-  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"gain\":1}")
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
+    source_id, "{\"gain\":1}",
+  )
   let good = ok_doc(a.current_result())
   a.set_source("{\"gain\":\"loud\"}")
   inspect(a.state(), content="ProjectionBlocked")
@@ -67,7 +71,9 @@ test "projection-invalid value blocks at projection, retains last good" {
 ///|
 test "recovery after failure returns Current and keeps unchanged-key id" {
   let source_id = @core.SourceId("json-settings-recovery")
-  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"gain\":1}")
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
+    source_id, "{\"gain\":1}",
+  )
   let id_before = doc_id_of(ok_doc(a.current_result()), "gain")
   a.set_source("{\"gain\":}") // malformed — retains baseline
   inspect(a.state(), content="ParserBlocked")
@@ -82,7 +88,7 @@ test "recovery after failure returns Current and keeps unchanged-key id" {
 ///|
 test "apply_edit preserves ids through the edited value" {
   let source_id = @core.SourceId("json-settings-apply-edit-value")
-  let a = SettingsAttachment::SettingsAttachment(
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, "{\"gain\":1,\"cutoff\":2}",
   )
   let before = ok_doc(a.current_result())
@@ -102,7 +108,9 @@ test "apply_edit insertion preserves trailing settings' ids" {
   // The biting identity test: inserting a member shifts the existing ones, so
   // freshly recomputed ids would renumber them. Stable identity must keep them.
   let source_id = @core.SourceId("json-settings-apply-edit-insertion")
-  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"a\":1,\"b\":2}")
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
+    source_id, "{\"a\":1,\"b\":2}",
+  )
   let before = ok_doc(a.current_result())
   let a_id = doc_id_of(before, "a")
   let b_id = doc_id_of(before, "b")
@@ -121,7 +129,7 @@ test "apply_edit insertion preserves trailing settings' ids" {
 ///|
 test "set_source full replace preserves unchanged-key ids" {
   let source_id = @core.SourceId("json-settings-set-source-replace")
-  let a = SettingsAttachment::SettingsAttachment(
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, "{\"gain\":1,\"cutoff\":2}",
   )
   let before = ok_doc(a.current_result())
@@ -137,7 +145,7 @@ test "set_source full replace preserves unchanged-key ids" {
 ///|
 test "first snapshot malformed has no last good and blocks at parser" {
   let source_id = @core.SourceId("json-settings-initial-malformed")
-  let a = SettingsAttachment::SettingsAttachment(source_id, "{")
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(source_id, "{")
   inspect(a.state(), content="ParserBlocked")
   assert_true(a.last_good() is None)
   assert_true(a.current_result() is Err(_))
@@ -146,21 +154,25 @@ test "first snapshot malformed has no last good and blocks at parser" {
 ///|
 test "non-object root blocks at projection" {
   let source_id = @core.SourceId("json-settings-non-object")
-  let a = SettingsAttachment::SettingsAttachment(source_id, "[1, 2]")
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
+    source_id, "[1, 2]",
+  )
   inspect(a.state(), content="ProjectionBlocked")
 }
 
 ///|
 test "non-number value blocks at projection" {
   let source_id = @core.SourceId("json-settings-non-number")
-  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"gain\":true}")
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
+    source_id, "{\"gain\":true}",
+  )
   inspect(a.state(), content="ProjectionBlocked")
 }
 
 ///|
 test "duplicate key blocks at projection" {
   let source_id = @core.SourceId("json-settings-duplicate-key")
-  let a = SettingsAttachment::SettingsAttachment(
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
     source_id, "{\"gain\":1,\"gain\":2}",
   )
   inspect(a.state(), content="ProjectionBlocked")
@@ -169,7 +181,9 @@ test "duplicate key blocks at projection" {
 ///|
 test "dispose is idempotent and leaves cached state readable" {
   let source_id = @core.SourceId("json-settings-dispose")
-  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"gain\":1}")
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
+    source_id, "{\"gain\":1}",
+  )
   inspect(a.state(), content="Current")
   a.dispose()
   a.dispose() // second dispose must not crash
@@ -180,7 +194,9 @@ test "dispose is idempotent and leaves cached state readable" {
 ///|
 test "successive renames eagerly settle a through b through c" {
   let source_id = @core.SourceId("json-settings-eager-sequence")
-  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"a\":1}")
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
+    source_id, "{\"a\":1}",
+  )
   let first = ok_doc(a.current_result())
   a.apply_edit(@core.Edit::new(2, 1, 1), "{\"b\":1}")
   let second = ok_doc(a.current_result())
@@ -199,7 +215,9 @@ test "successive renames eagerly settle a through b through c" {
 test "same-text explicit key replacement still settles semantic intent" {
   let source_id = @core.SourceId("json-settings-same-text-key-edit")
   let source = "{\"gain\":1,\"cutoff\":2}"
-  let a = SettingsAttachment::SettingsAttachment(source_id, source)
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
+    source_id, source,
+  )
   let before = ok_doc(a.current_result())
   let id_before = doc_id_of(before, "gain")
   // Replace the key token with the identical text. The source is unchanged,
@@ -215,11 +233,19 @@ test "same-text explicit key replacement still settles semantic intent" {
 ///|
 test "returned documents and settings arrays cannot mutate accepted state" {
   let source_id = @core.SourceId("json-settings-defensive-copies")
-  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"gain\":1}")
+  let a = @json-settings.SettingsAttachment::SettingsAttachment(
+    source_id, "{\"gain\":1}",
+  )
   let doc = ok_doc(a.current_result())
   let leaked = doc.settings()
-  leaked[0] = Setting::Setting(id="spoof", key="spoof", value=99.0)
-  leaked.push(Setting::Setting(id="extra", key="extra", value=100.0))
+  leaked[0] = @json-settings.Setting::Setting(
+    id="spoof",
+    key="spoof",
+    value=99.0,
+  )
+  leaked.push(
+    @json-settings.Setting::Setting(id="extra", key="extra", value=100.0),
+  )
   let observed = ok_doc(a.current_result())
   inspect(observed.settings().length(), content="1")
   inspect(observed.settings()[0].key, content="gain")
@@ -229,13 +255,17 @@ test "returned documents and settings arrays cannot mutate accepted state" {
     None => abort("expected an accepted last-good document")
   }
   let retained_leaked = retained.settings()
-  retained_leaked[0] = Setting::Setting(
+  retained_leaked[0] = @json-settings.Setting::Setting(
     id="retained-spoof",
     key="bad",
     value=101.0,
   )
   retained_leaked.push(
-    Setting::Setting(id="retained-extra", key="extra", value=102.0),
+    @json-settings.Setting::Setting(
+      id="retained-extra",
+      key="extra",
+      value=102.0,
+    ),
   )
   let retained_again = match a.last_good() {
     Some(last) => last

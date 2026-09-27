@@ -23,3 +23,9 @@ pub fn MarkdownExtensions::task_list() -> MarkdownExtensions {
 fn MarkdownExtensions::has_task_list(self : MarkdownExtensions) -> Bool {
   self.task_list
 }
+
+///|
+pub extend MarkdownExtensions with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownExtensions with Eq::{equal, not_equal}

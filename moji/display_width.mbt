@@ -224,3 +224,21 @@ pub fn display_width(
     None => 0
   }
 }
+
+///|
+pub extend AmbiguousWidth with Eq::{not_equal, equal}
+
+///|
+pub extend AmbiguousWidth with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DisplayWidthError with Eq::{not_equal, equal}
+
+///|
+pub extend DisplayWidthError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DisplayUnit with Eq::{not_equal, equal}
+
+///|
+pub extend DisplayUnit with @moonbitlang/core/debug.Debug::{to_repr}

@@ -122,3 +122,6 @@ fn[Ast] CstFold::fold_node(self : CstFold[Ast], node : @seam.SyntaxNode) -> Ast 
 pub fn[Ast] CstFold::get_stats(self : CstFold[Ast]) -> FoldStats {
   self.stats
 }
+
+///|
+pub extend FoldStats with @moonbitlang/core/debug.Debug::{to_repr}

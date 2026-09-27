@@ -184,6 +184,31 @@ fn emit_syntax_kind(
   }
   b.write_string("}\n")
 
+  b.write_string("\n///|\n")
+  b.write_string(
+    "pub extend SyntaxKind with @dowdiness/seam.FromRawKind::{from_raw}\n\n",
+  )
+  b.write_string("///|\n")
+  b.write_string(
+    "pub extend SyntaxKind with @dowdiness/seam.IsError::{is_error}\n\n",
+  )
+  b.write_string("///|\n")
+  b.write_string(
+    "pub extend SyntaxKind with @dowdiness/seam.IsTrivia::{is_trivia}\n\n",
+  )
+  b.write_string("///|\n")
+  b.write_string(
+    "pub extend SyntaxKind with @dowdiness/seam.ToRawKind::{to_raw}\n\n",
+  )
+  b.write_string("///|\n")
+  b.write_string(
+    "pub extend SyntaxKind with @moonbitlang/core/debug.Debug::{to_repr}\n\n",
+  )
+  b.write_string("///|\n")
+  b.write_string("pub extend SyntaxKind with Eq::{equal, not_equal}\n\n")
+  b.write_string("///|\n")
+  b.write_string("pub extend SyntaxKind with Show::{output, to_string}\n")
+
   // Tombstoned raw numbers — persisted so future --seed runs can block reuse.
   if retired_rawns.length() > 0 {
     b.write_string("// #loom.retired: ")

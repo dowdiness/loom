@@ -558,3 +558,15 @@ pub fn[R : @diagnostic.SourceResolver] layout(
     report + @pretty.hardline() + note_layout(note, options)
   })
 }
+
+///|
+pub extend DiagnosticPrettyError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DiagnosticPrettyError with Eq::{equal, not_equal}
+
+///|
+pub extend DiagnosticStyle with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DiagnosticStyle with Eq::{equal, not_equal}

@@ -65,3 +65,30 @@ test "print_term - error variant" {
   )
   inspect(print_term(Term::Error("")), content="<error: >")
 }
+
+///|
+pub extend Bop with Eq::{not_equal, equal}
+
+///|
+pub extend Bop with @moonbitlang/core/json.FromJson::{from_json}
+
+///|
+pub extend Bop with ToJson::{to_json}
+
+///|
+pub extend Bop with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Bop with Show::{to_string, output}
+
+///|
+pub extend Term with Eq::{not_equal, equal}
+
+///|
+pub extend Term with ToJson::{to_json}
+
+///|
+pub extend Term with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Term with Show::{to_string, output}

@@ -18,3 +18,9 @@ pub let graph_grammar : @loom.Grammar[Token, SyntaxKind, GraphAst] = @loom.Gramm
   fold_node=graph_fold_node,
   incremental_relex_enabled=false,
 )
+
+///|
+pub extend GraphAst with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GraphAst with Eq::{equal, not_equal}

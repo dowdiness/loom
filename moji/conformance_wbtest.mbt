@@ -54,7 +54,7 @@ fn format_failure(
   expected : Array[Int],
   actual : Array[Int],
 ) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string("\n  text codeunits: [")
   for i in 0..<text.length() {
     if i > 0 {
@@ -72,7 +72,7 @@ fn format_failure(
 
 ///|
 fn format_array(a : Array[Int]) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string("[")
   for i, v in a {
     if i > 0 {

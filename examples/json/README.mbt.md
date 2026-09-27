@@ -86,8 +86,8 @@ Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).
 ///|
 test "quick start: reactive parser on a JSON object" {
   let source_id = @core.SourceId("json-readme-reactive-object")
-  let parser = @loom.new_parser(source_id, "{\"x\": 1}", json_grammar)
-  let value : JsonValue = parser.ast().read_or_abort()
+  let parser = @loom.new_parser(source_id, "{\"x\": 1}", @json.json_grammar)
+  let value : @json.JsonValue = parser.ast().read_or_abort()
   inspect(
     value,
     content=(
@@ -99,7 +99,7 @@ test "quick start: reactive parser on a JSON object" {
 ///|
 test "quick start: set_source re-runs the reactive graph" {
   let source_id = @core.SourceId("json-readme-reactive-update")
-  let parser = @loom.new_parser(source_id, "[1]", json_grammar)
+  let parser = @loom.new_parser(source_id, "[1]", @json.json_grammar)
   parser.set_source("[2, 3]")
   inspect(
     parser.ast().read_or_abort(),
@@ -112,10 +112,10 @@ test "quick start: set_source re-runs the reactive graph" {
 ///|
 test "quick start: strict parse raises nothing for valid JSON" {
   let source_id = @core.SourceId("json-readme-strict-parse")
-  inspect(try! parse(source_id, "null"), content="Null")
-  inspect(try! parse(source_id, "true"), content="Bool(true)")
+  inspect(try! @json.parse(source_id, "null"), content="Null")
+  inspect(try! @json.parse(source_id, "true"), content="Bool(true)")
   inspect(
-    try! parse(source_id, "42"),
+    try! @json.parse(source_id, "42"),
     content=(
       #|Number(42)
     ),
@@ -202,9 +202,9 @@ test "quick start: parser-backed JSON role spans" {
   let parser = @loom.new_syntax_parser(
     source_id,
     "{\"x\": 1}",
-    json_grammar.to_syntax_grammar(),
+    @json.json_grammar.to_syntax_grammar(),
   )
-  let roles = attach_json_role_spans(parser)
+  let roles = @json.attach_json_role_spans(parser)
   inspect(roles.spans().length() > 0, content="true")
   let exported = roles.export_spans()
   inspect(exported[0].role(), content="punctuation")

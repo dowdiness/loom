@@ -2,12 +2,12 @@
 fn link_delimiter_boundary_ir(
   source_id : @core.SourceId,
   source : String,
-) -> MarkdownIR raise {
-  let (cst, diagnostics) = parse_cst(source_id, source) catch {
+) -> @markdown.MarkdownIR raise {
+  let (cst, diagnostics) = @markdown.parse_cst(source_id, source) catch {
     _ => abort("link delimiter boundary parse failed: " + source)
   }
   assert_eq(diagnostics.length(), 0)
-  experimental_markdown_ir_from_syntax_with_diagnostics(
+  @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
@@ -15,9 +15,9 @@ fn link_delimiter_boundary_ir(
 }
 
 ///|
-fn link_delimiter_boundary_commonmark_html(ir : MarkdownIR) -> String {
+fn link_delimiter_boundary_commonmark_html(ir : @markdown.MarkdownIR) -> String {
   match
-    experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+    @markdown.experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
       ir,
       Passthrough,
     ) {
@@ -28,7 +28,7 @@ fn link_delimiter_boundary_commonmark_html(ir : MarkdownIR) -> String {
 
 ///|
 fn assert_link_delimiter_boundary_has_no_raw_or_recovered(
-  node : MarkdownIR,
+  node : @markdown.MarkdownIR,
 ) -> Unit raise {
   assert_false(node.is_raw())
   assert_false(node.is_recovered())
@@ -134,9 +134,11 @@ fn assert_link_delimiter_boundary_incremental_parity(
       source_id, label, source, edit, updated,
     ),
   )
-  let incremental = @loom.new_parser(source_id, source, markdown_grammar)
+  let incremental = @loom.new_parser(
+    source_id, source, @markdown.markdown_grammar,
+  )
   incremental.apply_edit(edit, updated)
-  let fresh = @loom.new_parser(source_id, updated, markdown_grammar)
+  let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
   let incremental_diagnostics = incremental.diagnostics().read_or_abort()
@@ -144,10 +146,10 @@ fn assert_link_delimiter_boundary_incremental_parity(
   assert_eq(incremental_diagnostics, fresh_diagnostics)
   assert_eq(incremental_diagnostics.length(), 0)
   assert_eq(incremental.ast().read_or_abort(), fresh.ast().read_or_abort())
-  let incremental_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let incremental_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, incremental_syntax, incremental_diagnostics,
   )
-  let fresh_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let fresh_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, fresh_syntax, fresh_diagnostics,
   )
   // MarkdownIR equality includes every node origin, so this checks source
@@ -155,12 +157,12 @@ fn assert_link_delimiter_boundary_incremental_parity(
   assert_eq(incremental_ir, fresh_ir)
   assert_link_delimiter_boundary_has_no_raw_or_recovered(incremental_ir)
   assert_eq(
-    project_markdown_roles(incremental_syntax),
-    project_markdown_roles(fresh_syntax),
+    @markdown.project_markdown_roles(incremental_syntax),
+    @markdown.project_markdown_roles(fresh_syntax),
   )
   assert_eq(
-    experimental_markdown_ir_to_mdast_json(incremental_ir),
-    experimental_markdown_ir_to_mdast_json(fresh_ir),
+    @markdown.experimental_markdown_ir_to_mdast_json(incremental_ir),
+    @markdown.experimental_markdown_ir_to_mdast_json(fresh_ir),
   )
   assert_eq(
     link_delimiter_boundary_commonmark_html(incremental_ir),

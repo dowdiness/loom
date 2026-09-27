@@ -57,6 +57,7 @@ pub fn tree_diff(@seam.CstNode, @seam.CstNode) -> Array[Edit]
 pub(all) suberror LexError {
   LexError(String)
 }
+pub fn LexError::to_diagnostic(Self) -> @diagnostic.Diagnostic
 pub impl @diagnostic.ToDiagnostic for LexError
 
 pub(all) suberror LexResultError {
@@ -67,6 +68,9 @@ pub(all) suberror LexResultError {
   OverlappingToken(Int, Int, Int)
   NegativeConvergence(Int)
 } derive(Eq, @debug.Debug)
+pub fn LexResultError::equal(Self, Self) -> Bool
+pub fn LexResultError::not_equal(Self, Self) -> Bool
+pub fn LexResultError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub struct BlockReparseSpec[T, K] {
@@ -96,16 +100,19 @@ pub fn DiagnosticSet::add_all(Self, Self) -> Unit
 pub fn DiagnosticSet::after_relex(Self, SourceEdit, failure_context~ : String) -> Self
 pub fn DiagnosticSet::copy(Self) -> Self
 pub fn DiagnosticSet::empty() -> Self
+pub fn DiagnosticSet::equal(Self, Self) -> Bool
 pub fn DiagnosticSet::format(Self) -> Array[String]
 pub fn DiagnosticSet::format_with_line_col(Self, @diagnostic.LineIndex) -> Array[String]
 pub fn DiagnosticSet::is_empty(Self) -> Bool
 pub fn DiagnosticSet::items(Self) -> Array[@diagnostic.Diagnostic]
 pub fn DiagnosticSet::length(Self) -> Int
 pub fn[A] DiagnosticSet::map(Self, (@diagnostic.Diagnostic) -> A) -> Array[A]
+pub fn DiagnosticSet::not_equal(Self, Self) -> Bool
 pub fn DiagnosticSet::offset_by(Self, @diagnostic.SourceId, Int, @diagnostic.TextOffset) -> Self raise @diagnostic.DiagnosticBuildError
 pub fn DiagnosticSet::push(Self, @diagnostic.Diagnostic) -> Unit
 pub fn[R : @diagnostic.SourceResolver] DiagnosticSet::render_plain(Self, R) -> String raise @diagnostic.DiagnosticRenderError
 pub fn DiagnosticSet::single(@diagnostic.Diagnostic) -> Self
+pub fn DiagnosticSet::to_repr(Self) -> @debug.Repr
 pub fn DiagnosticSet::truncate(Self, Int) -> Unit
 
 pub(all) struct Edit {
@@ -118,13 +125,19 @@ pub fn Edit::apply_to_position(Self, Int) -> Int
 pub fn Edit::delete(Int, Int) -> Self
 pub fn Edit::deleted_length(Self) -> Int
 pub fn Edit::delta(Self) -> Int
+pub fn Edit::equal(Self, Self) -> Bool
 pub fn Edit::insert(Int, Int) -> Self
 pub fn Edit::inserted_length(Self) -> Int
 pub fn Edit::new(Int, Int, Int) -> Self
 pub fn Edit::new_end(Self) -> Int
+pub fn Edit::new_len(Self) -> Int
+pub fn Edit::not_equal(Self, Self) -> Bool
 pub fn Edit::old_end(Self) -> Int
+pub fn Edit::old_len(Self) -> Int
 pub fn Edit::overlaps_range(Self, Int, Int) -> Bool
 pub fn Edit::replace(Int, Int, Int) -> Self
+pub fn Edit::start(Self) -> Int
+pub fn Edit::to_repr(Self) -> @debug.Repr
 pub fn Edit::to_string(Self) -> String
 pub impl Editable for Edit
 
@@ -133,6 +146,7 @@ pub struct FoldStats {
   mut recomputed : Int
   mut unvisited : Int
 } derive(@debug.Debug)
+pub fn FoldStats::to_repr(Self) -> @debug.Repr
 pub fn FoldStats::zero() -> Self
 
 pub(all) struct GoalCache[T] {
@@ -183,8 +197,11 @@ pub struct LexResult[T] {
 } derive(Eq, @debug.Debug)
 pub fn[T] LexResult::LexResult(Array[TokenInfo[T]], diagnostics? : DiagnosticSet) -> Self[T]
 pub fn[T] LexResult::diagnostics(Self[T]) -> DiagnosticSet
+pub fn[T : Eq] LexResult::equal(Self[T], Self[T]) -> Bool
 pub fn[T] LexResult::from_located_tokens(@diagnostic.SourceId, String, Array[LocatedToken[T]], gap_token? : (StringView, Int, Int) -> T, gap_error_token? : (StringView, Int, Int) -> T, diagnostics? : DiagnosticSet, gap_error_code? : String, diagnose_nonblank_gaps? : Bool) -> Self[T]
+pub fn[T : Eq] LexResult::not_equal(Self[T], Self[T]) -> Bool
 pub fn[T] LexResult::starts(Self[T]) -> Array[Int]
+pub fn[T : @debug.Debug] LexResult::to_repr(Self[T]) -> @debug.Repr
 pub fn[T] LexResult::tokens(Self[T]) -> Array[TokenInfo[T]]
 pub fn[T] LexResult::with_starts(Array[TokenInfo[T]], Array[Int], diagnostics~ : DiagnosticSet) -> Self[T]
 
@@ -199,6 +216,9 @@ pub struct LocatedToken[T] {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn[T] LocatedToken::LocatedToken(T, start~ : Int, end~ : Int) -> Self[T]
+pub fn[T : Eq] LocatedToken::equal(Self[T], Self[T]) -> Bool
+pub fn[T : Eq] LocatedToken::not_equal(Self[T], Self[T]) -> Bool
+pub fn[T : @debug.Debug] LocatedToken::to_repr(Self[T]) -> @debug.Repr
 
 pub(all) struct ModeLexer[T, M] {
   lex_step : (String, Int, M) -> (LexStep[T], M)
@@ -229,6 +249,14 @@ pub fn[T] ModeRelexState::relex_from(Self[T], String, Int, Int, Int, OldTokenSta
 pub fn[T] ModeRelexState::tokenize(Self[T], String) -> LexResult[T]
 
 type OldToken derive(Compare, Eq, @debug.Debug)
+pub fn OldToken::compare(Self, Self) -> Int
+pub fn OldToken::equal(Self, Self) -> Bool
+pub fn OldToken::not_equal(Self, Self) -> Bool
+pub fn OldToken::op_ge(Self, Self) -> Bool
+pub fn OldToken::op_gt(Self, Self) -> Bool
+pub fn OldToken::op_le(Self, Self) -> Bool
+pub fn OldToken::op_lt(Self, Self) -> Bool
+pub fn OldToken::to_repr(Self) -> @debug.Repr
 
 pub struct OldTokenCache {
   mut tokens : Array[OldToken]?
@@ -318,12 +346,24 @@ pub(all) struct Range {
   start : Int
   end : Int
 } derive(Compare, Eq, Hash, @debug.Debug)
+pub fn Range::compare(Self, Self) -> Int
 pub fn Range::contains(Self, Int) -> Bool
+pub fn Range::equal(Self, Self) -> Bool
+pub fn Range::hash(Self) -> Int
+pub fn Range::hash_combine(Self, Hasher) -> Unit
 pub fn Range::length(Self) -> Int
 pub fn Range::merge(Self, Self) -> Self
 pub fn Range::minimum_by_length(Self, Self) -> Self
 pub fn Range::new(Int, Int) -> Self
+pub fn Range::not_equal(Self, Self) -> Bool
+pub fn Range::op_ge(Self, Self) -> Bool
+pub fn Range::op_gt(Self, Self) -> Bool
+pub fn Range::op_le(Self, Self) -> Bool
+pub fn Range::op_lt(Self, Self) -> Bool
+pub fn Range::output(Self, &Logger) -> Unit
 pub fn Range::overlaps(Self, Self) -> Bool
+pub fn Range::to_repr(Self) -> @debug.Repr
+pub fn Range::to_string(Self) -> String
 pub impl Show for Range
 
 pub struct ReuseCursor[T, K] {
@@ -358,19 +398,30 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse_repeat_group(Self[T, K], Int, Int) -> @seam.CstNode?
 
 type ReuseRejectionReason derive(Eq, @debug.Debug)
+pub fn ReuseRejectionReason::equal(Self, Self) -> Bool
+pub fn ReuseRejectionReason::not_equal(Self, Self) -> Bool
+pub fn ReuseRejectionReason::to_repr(Self) -> @debug.Repr
 
 pub struct SourceEdit {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn SourceEdit::SourceEdit(@diagnostic.SourceId, Edit) -> Self
 pub fn SourceEdit::edit(Self) -> Edit
+pub fn SourceEdit::equal(Self, Self) -> Bool
+pub fn SourceEdit::not_equal(Self, Self) -> Bool
 pub fn SourceEdit::source_id(Self) -> @diagnostic.SourceId
+pub fn SourceEdit::to_repr(Self) -> @debug.Repr
 
 pub(all) enum TextDelta {
   Retain(Int)
   Insert(String)
   Delete(Int)
 } derive(Eq, @debug.Debug)
+pub fn TextDelta::equal(Self, Self) -> Bool
+pub fn TextDelta::not_equal(Self, Self) -> Bool
+pub fn TextDelta::output(Self, &Logger) -> Unit
+pub fn TextDelta::to_repr(Self) -> @debug.Repr
+pub fn TextDelta::to_string(Self) -> String
 pub impl Show for TextDelta
 
 pub struct TokenBuffer[T] {
@@ -404,7 +455,10 @@ pub struct TokenInfo[T] {
   token : T
   len : Int
 } derive(Eq, @debug.Debug)
+pub fn[T : Eq] TokenInfo::equal(Self[T], Self[T]) -> Bool
 pub fn[T] TokenInfo::new(T, Int) -> Self[T]
+pub fn[T : Eq] TokenInfo::not_equal(Self[T], Self[T]) -> Bool
+pub fn[T : @debug.Debug] TokenInfo::to_repr(Self[T]) -> @debug.Repr
 
 // Type aliases
 pub using @diagnostic {type Diagnostic}

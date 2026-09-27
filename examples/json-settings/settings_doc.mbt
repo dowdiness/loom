@@ -51,3 +51,15 @@ pub fn SettingsDoc::SettingsDoc(settings : Array[Setting]) -> SettingsDoc {
 pub fn SettingsDoc::settings(self : SettingsDoc) -> Array[Setting] {
   self.settings.copy()
 }
+
+///|
+pub extend Setting with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Setting with Eq::{equal, not_equal}
+
+///|
+pub extend SettingsDoc with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SettingsDoc with Eq::{equal, not_equal}

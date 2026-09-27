@@ -8,5 +8,5 @@ import {
 }
 
 import {
-  "dowdiness/diagnostic",
+  "moonbitlang/core/debug",
 } for "test"

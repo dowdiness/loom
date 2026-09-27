@@ -6,8 +6,8 @@ struct SemanticTestValue {
 
 ///|
 fn semantic_test_value(
-  previous : SemanticAccepted[SemanticTestValue]?,
-  snapshot : SemanticSnapshot,
+  previous : @pipeline.SemanticAccepted[SemanticTestValue]?,
+  snapshot : @pipeline.SemanticSnapshot,
 ) -> SemanticTestValue {
   let history = match previous {
     None => snapshot.source()
@@ -18,14 +18,14 @@ fn semantic_test_value(
 
 ///|
 test "semantic faults preserve one accepted frame and do not block siblings or edits" {
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("siblings"),
     "a",
     test_imperative_language(),
   )
   let fault = Ref(false)
   let calls = Ref(0)
-  let first : SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic(fn(
+  let first : @pipeline.SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic(fn(
       previous,
       snapshot,
       _change,
@@ -38,7 +38,7 @@ test "semantic faults preserve one accepted frame and do not block siblings or e
       Accept(candidate)
     },
   )
-  let second : SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
+  let second : @pipeline.SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
       previous,
       snapshot,
       _change,
@@ -70,13 +70,13 @@ test "semantic faults preserve one accepted frame and do not block siblings or e
 
 ///|
 test "explicit semantic retry uses latest snapshot without another parser update" {
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("retry"),
     "a",
     test_imperative_language(),
   )
   let fault = Ref(false)
-  let analysis : SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic(fn(
+  let analysis : @pipeline.SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic(fn(
       previous,
       snapshot,
       _change,
@@ -105,9 +105,9 @@ test "explicit semantic retry uses latest snapshot without another parser update
 ///|
 test "semantic rejection retains baseline and isolates snapshot diagnostics" {
   let source_id = @core.SourceId("rejected-source")
-  let parser = Parser::new(source_id, "ok", test_imperative_language())
+  let parser = @pipeline.Parser::new(source_id, "ok", test_imperative_language())
   let calls = Ref(0)
-  let analysis : SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
+  let analysis : @pipeline.SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
       previous,
       snapshot,
       _change,
@@ -142,12 +142,12 @@ test "semantic rejection retains baseline and isolates snapshot diagnostics" {
 
 ///|
 test "semantic intent survives equal snapshots and explicit equal-text batches" {
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("same-text"),
     "abc",
     test_imperative_language(),
   )
-  let analysis : SemanticAnalysis[String, String] = parser.attach_semantic((
+  let analysis : @pipeline.SemanticAnalysis[String, String] = parser.attach_semantic((
     previous,
     _snapshot,
     change,
@@ -173,12 +173,12 @@ test "semantic intent survives equal snapshots and explicit equal-text batches" 
 
 ///|
 test "semantic graph anchors survive gc and disposal preserves returned observations" {
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("lifetime"),
     "a",
     test_imperative_language(),
   )
-  let analysis : SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
+  let analysis : @pipeline.SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
       previous,
       snapshot,
       _change,
@@ -210,13 +210,13 @@ test "semantic graph anchors survive gc and disposal preserves returned observat
 
 ///|
 test "candidate reentrant parser mutation is faulted before changing the parser" {
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("reentrant"),
     "a",
     test_imperative_language(),
   )
   let reenter = Ref(false)
-  let analysis : SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic(fn(
+  let analysis : @pipeline.SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic(fn(
       previous,
       snapshot,
       _change,
@@ -243,14 +243,14 @@ test "candidate reentrant parser mutation is faulted before changing the parser"
 
 ///|
 test "disposing during candidate construction cancels acceptance" {
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("cancel-candidate"),
     "a",
     test_imperative_language(),
   )
   let close = Ref(false)
-  let handle : Ref[SemanticAnalysis[SemanticTestValue, String]?] = Ref(None)
-  let analysis : SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
+  let handle : Ref[@pipeline.SemanticAnalysis[SemanticTestValue, String]?] = Ref(None)
+  let analysis : @pipeline.SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
       previous,
       snapshot,
       _change,
@@ -280,12 +280,12 @@ test "disposing during candidate construction cancels acceptance" {
 
 ///|
 test "failed parser updates do not advance semantic evidence or accepted state" {
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("parser-failure"),
     "ok",
     test_imperative_language(fail_on="fault"),
   )
-  let analysis : SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
+  let analysis : @pipeline.SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
       previous,
       snapshot,
       _change,
@@ -309,7 +309,7 @@ test "failed parser updates do not advance semantic evidence or accepted state" 
   parser.set_source("ok")
   assert_eq(analysis.read().revision(), original.revision())
   try parser.apply_changes(@text_change.ChangeSet::empty(2), "wrong") catch {
-    ParserUpdateError::ChangeSetMismatch => ()
+    @pipeline.ParserUpdateError::ChangeSetMismatch => ()
     _ => fail("expected change-set mismatch")
   } noraise {
     _ => fail("expected invalid evidence to be rejected")
@@ -322,12 +322,12 @@ test "failed parser updates do not advance semantic evidence or accepted state" 
 
 ///|
 test "actual graph read failure remains distinct from candidate failure" {
-  let parser = Parser::new(
+  let parser = @pipeline.Parser::new(
     @core.SourceId("disposed-parser-cell"),
     "a",
     test_imperative_language(),
   )
-  let analysis : SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
+  let analysis : @pipeline.SemanticAnalysis[SemanticTestValue, String] = parser.attach_semantic((
       previous,
       snapshot,
       _change,
@@ -388,7 +388,7 @@ test "semantic edit evidence matches UTF-16 code units at every boundary" {
               expected = false
             }
           }
-          let change = SemanticChange::SemanticChange(old_source).advance(
+          let change = @pipeline.SemanticChange::SemanticChange(old_source).advance(
             new_source,
             edit=@core.Edit::new(start, deleted, inserted),
           )

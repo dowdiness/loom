@@ -137,3 +137,12 @@ pub fn[A] resolve(width : Int, layout : Layout[A]) -> Array[Cmd[A]] {
   let _ = go(0, Break, 0, layout, 0)
   cmds
 }
+
+///|
+pub extend Cmd with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Cmd with Eq::{not_equal, equal}
+
+///|
+pub extend Cmd with Show::{to_string, output}

@@ -178,3 +178,27 @@ fn markdown_node_view_from_ir(view : MarkdownIRView) -> MarkdownNodeView {
     Recovered(value~) => MarkdownNodeView::Recovered(value~)
   }
 }
+
+///|
+pub extend MarkdownAutolinkKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownAutolinkKind with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownHardBreakForm with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownHardBreakForm with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownNodeView with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownNodeView with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownReferenceForm with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownReferenceForm with Eq::{equal, not_equal}

@@ -193,3 +193,24 @@ pub fn eval(
     }
   }
 }
+
+///|
+pub extend Env with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Env with Eq::{equal, not_equal}
+
+///|
+pub extend StuckReason with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend StuckReason with Show::{output, to_string}
+
+///|
+pub extend Value with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Value with Eq::{equal, not_equal}
+
+///|
+pub extend Value with Show::{output, to_string}

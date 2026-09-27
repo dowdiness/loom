@@ -14,45 +14,49 @@ fn assert_link_reference_incremental_parity(
       source,
       edit,
       updated,
-      markdown_grammar.to_syntax_grammar(),
+      @markdown.markdown_grammar.to_syntax_grammar(),
     ),
   )
-  let incremental = @loom.new_parser(source_id, source, markdown_grammar)
+  let incremental = @loom.new_parser(
+    source_id, source, @markdown.markdown_grammar,
+  )
   incremental.apply_edit(edit, updated)
-  let fresh = @loom.new_parser(source_id, updated, markdown_grammar)
+  let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
   let incremental_diagnostics = incremental.diagnostics().read_or_abort()
   let fresh_diagnostics = fresh.diagnostics().read_or_abort()
   assert_eq(incremental_diagnostics, fresh_diagnostics)
   assert_eq(incremental.ast().read_or_abort(), fresh.ast().read_or_abort())
-  let incremental_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let incremental_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, incremental_syntax, incremental_diagnostics,
   )
-  let fresh_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let fresh_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, fresh_syntax, fresh_diagnostics,
   )
   assert_eq(incremental_ir, fresh_ir)
   assert_eq(
-    project_markdown_roles(incremental_syntax),
-    project_markdown_roles(fresh_syntax),
+    @markdown.project_markdown_roles(incremental_syntax),
+    @markdown.project_markdown_roles(fresh_syntax),
   )
   assert_eq(
-    experimental_markdown_ir_to_mdast_json(incremental_ir),
-    experimental_markdown_ir_to_mdast_json(fresh_ir),
+    @markdown.experimental_markdown_ir_to_mdast_json(incremental_ir),
+    @markdown.experimental_markdown_ir_to_mdast_json(fresh_ir),
   )
-  let incremental_html = experimental_markdown_ir_to_commonmark_html(
+  let incremental_html = @markdown.experimental_markdown_ir_to_commonmark_html(
     incremental_ir,
   )
   assert_eq(
     incremental_html,
-    experimental_markdown_ir_to_commonmark_html(fresh_ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(fresh_ir),
   )
   inspect(incremental_html, content=expected_html)
 }
 
 ///|
-fn assert_image_incremental_completion_grade(node : MarkdownIR) -> Unit raise {
+fn assert_image_incremental_completion_grade(
+  node : @markdown.MarkdownIR,
+) -> Unit raise {
   assert_false(node.is_raw())
   assert_false(node.is_recovered())
   assert_false(node.is_unsupported())
@@ -73,11 +77,11 @@ fn assert_image_incremental_completion_parity(
     label, source, edit, updated, expected_html,
   )
   let source_id = @core.SourceId("markdown-image-incremental-" + label)
-  let (cst, diagnostics) = parse_cst(source_id, updated) catch {
+  let (cst, diagnostics) = @markdown.parse_cst(source_id, updated) catch {
     _ => abort("Markdown image incremental completion parse failed")
   }
   assert_eq(diagnostics.length(), 0)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
@@ -242,10 +246,10 @@ test "incremental link URI serialization edits match fresh CommonMark projection
 test "link and image mdast adapters render only typed MarkdownIR data" {
   let source = "[foo][ref] ![bar][ref]\n\n[ref]: /url \"title\"\n"
   let source_id = @core.SourceId("markdown-link-image-mdast")
-  let (cst, diagnostics) = parse_cst(source_id, source) catch {
+  let (cst, diagnostics) = @markdown.parse_cst(source_id, source) catch {
     _ => abort("Markdown link/image mdast parse failed")
   }
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
@@ -253,7 +257,7 @@ test "link and image mdast adapters render only typed MarkdownIR data" {
   let expected_mdast =
     #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"link","url":"/url","title":"title","children":[{"type":"text","value":"foo"}]},{"type":"text","value":" "},{"type":"image","url":"/url","title":"title","alt":"bar"}]}]}
   inspect(
-    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    @markdown.experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=expected_mdast,
   )
 }
@@ -262,10 +266,10 @@ test "link and image mdast adapters render only typed MarkdownIR data" {
 test "unresolved shortcut and invalid direct link remain literal text" {
   let source = "[shortcut] [link](/my uri)\n"
   let source_id = @core.SourceId("markdown-unresolved-links-stay-literal")
-  let (cst, diagnostics) = parse_cst(source_id, source) catch {
+  let (cst, diagnostics) = @markdown.parse_cst(source_id, source) catch {
     _ => abort("Markdown unresolved-link parse failed")
   }
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
@@ -273,11 +277,11 @@ test "unresolved shortcut and invalid direct link remain literal text" {
   let expected_mdast =
     #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"text","value":"[shortcut] [link](/my uri)"}]}]}
   inspect(
-    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    @markdown.experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=expected_mdast,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content="<p>[shortcut] [link](/my uri)</p>\n",
   )
 }
@@ -286,10 +290,10 @@ test "unresolved shortcut and invalid direct link remain literal text" {
 test "malformed nested reference delimiters remain literal without recovery" {
   let source = "[foo][ref[]\n\n[ref[]: /uri\n"
   let source_id = @core.SourceId("markdown-invalid-reference-stays-literal")
-  let (cst, diagnostics) = parse_cst(source_id, source) catch {
+  let (cst, diagnostics) = @markdown.parse_cst(source_id, source) catch {
     _ => abort("Markdown invalid-reference parse failed")
   }
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
@@ -297,11 +301,11 @@ test "malformed nested reference delimiters remain literal without recovery" {
   let expected_mdast =
     #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"text","value":"[foo][ref[]"}]},{"type":"paragraph","children":[{"type":"text","value":"[ref[]: /uri"}]}]}
   inspect(
-    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    @markdown.experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=expected_mdast,
   )
   inspect(
-    experimental_markdown_ir_to_commonmark_html(ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(ir),
     content="<p>[foo][ref[]</p>\n<p>[ref[]: /uri</p>\n",
   )
 }
@@ -317,14 +321,17 @@ test "link indexing preserves an immediately following emphasis opener" {
   for item in cases {
     let (source, expected) = item
     let source_id = @core.SourceId("markdown-link-followed-by-emphasis")
-    let (cst, diagnostics) = parse_cst(source_id, source) catch {
+    let (cst, diagnostics) = @markdown.parse_cst(source_id, source) catch {
       _ => abort("Markdown adjacent link/emphasis parse failed")
     }
-    let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
       source_id,
       @seam.SyntaxNode::from_cst(cst),
       diagnostics,
     )
-    inspect(experimental_markdown_ir_to_commonmark_html(ir), content=expected)
+    inspect(
+      @markdown.experimental_markdown_ir_to_commonmark_html(ir),
+      content=expected,
+    )
   }
 }

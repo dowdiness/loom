@@ -1,10 +1,10 @@
 ///|
-fn markdown_ir_view_test_document(source : String) -> MarkdownIR {
+fn markdown_ir_view_test_document(source : String) -> @markdown.MarkdownIR {
   let source_id = @core.SourceId("markdown-ir-public-view")
-  let (cst, diagnostics) = parse_cst(source_id, source) catch {
+  let (cst, diagnostics) = @markdown.parse_cst(source_id, source) catch {
     _ => abort("MarkdownIR public-view fixture failed to parse")
   }
-  experimental_markdown_ir_from_syntax_with_diagnostics(
+  @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
@@ -12,7 +12,7 @@ fn markdown_ir_view_test_document(source : String) -> MarkdownIR {
 }
 
 ///|
-fn markdown_ir_view_test_single_inline(source : String) -> MarkdownIR {
+fn markdown_ir_view_test_single_inline(source : String) -> @markdown.MarkdownIR {
   let document = markdown_ir_view_test_document(source)
   match document.children() {
     [paragraph] =>
@@ -26,7 +26,7 @@ fn markdown_ir_view_test_single_inline(source : String) -> MarkdownIR {
 
 ///|
 fn markdown_ir_view_test_link_form_name(
-  form : MarkdownIRLinkReferenceForm,
+  form : @markdown.MarkdownIRLinkReferenceForm,
 ) -> String {
   match form {
     InlineLinkForm => "inline"
@@ -43,7 +43,7 @@ fn[T] markdown_ir_view_test_is_some(value : T?) -> Bool {
 
 ///|
 fn markdown_ir_view_test_collect_external_tags(
-  node : MarkdownIR,
+  node : @markdown.MarkdownIR,
   tags : Array[String],
 ) -> Unit {
   ignore(node.origin())
@@ -141,7 +141,9 @@ fn markdown_ir_view_test_has_tag(
 }
 
 ///|
-fn markdown_ir_view_test_first_recovered(node : MarkdownIR) -> MarkdownIR? {
+fn markdown_ir_view_test_first_recovered(
+  node : @markdown.MarkdownIR,
+) -> @markdown.MarkdownIR? {
   if node.view() is Recovered(_) {
     return Some(node)
   }
@@ -228,7 +230,7 @@ test "MarkdownIR public view supports an exhaustive external adapter" {
 
 ///|
 test "MarkdownIR public view exposes link and image reference surfaces" {
-  let fixtures : Array[(String, MarkdownIRLinkReferenceForm)] = [
+  let fixtures : Array[(String, @markdown.MarkdownIRLinkReferenceForm)] = [
     ("[foo](/url \"title\")\n", InlineLinkForm),
     ("[foo][ref]\n\n[ref]: /url \"title\"\n", FullReferenceLinkForm),
     ("[foo][]\n\n[foo]: /url \"title\"\n", CollapsedReferenceLinkForm),

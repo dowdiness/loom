@@ -9,12 +9,16 @@ fn assert_block_container_incremental_parity(
   updated : String,
 ) -> Int raise {
   let source_id = @core.SourceId("markdown-block-container-decision-core")
-  let incremental = @loom.new_parser(source_id, source, markdown_grammar)
+  let incremental = @loom.new_parser(
+    source_id, source, @markdown.markdown_grammar,
+  )
   incremental.apply_edit(edit, updated)
-  let fresh = @loom.new_parser(source_id, updated, markdown_grammar)
+  let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
-  let (direct_cst, direct_diagnostics) = try! parse_cst(source_id, updated)
+  let (direct_cst, direct_diagnostics) = try! @markdown.parse_cst(
+    source_id, updated,
+  )
   let direct_syntax = @seam.SyntaxNode::from_cst(direct_cst)
   assert_eq(
     @core.tree_diff(incremental_syntax.cst_node(), direct_cst).is_empty(),
@@ -25,12 +29,12 @@ fn assert_block_container_incremental_parity(
     true,
   )
   assert_eq(
-    project_markdown_roles(incremental_syntax),
-    project_markdown_roles(fresh_syntax),
+    @markdown.project_markdown_roles(incremental_syntax),
+    @markdown.project_markdown_roles(fresh_syntax),
   )
   assert_eq(
-    project_markdown_roles(fresh_syntax),
-    project_markdown_roles(direct_syntax),
+    @markdown.project_markdown_roles(fresh_syntax),
+    @markdown.project_markdown_roles(direct_syntax),
   )
   assert_eq(
     incremental.diagnostics().read_or_abort(),
@@ -38,28 +42,28 @@ fn assert_block_container_incremental_parity(
   )
   assert_eq(fresh.diagnostics().read_or_abort(), direct_diagnostics)
   assert_eq(incremental.ast().read_or_abort(), fresh.ast().read_or_abort())
-  let incremental_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let incremental_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     incremental_syntax,
     incremental.diagnostics().read_or_abort(),
   )
-  let fresh_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let fresh_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     fresh_syntax,
     fresh.diagnostics().read_or_abort(),
   )
-  let direct_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let direct_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id, direct_syntax, direct_diagnostics,
   )
   assert_eq(incremental_ir, fresh_ir)
   assert_eq(fresh_ir, direct_ir)
   assert_eq(
-    experimental_markdown_ir_to_commonmark_html(incremental_ir),
-    experimental_markdown_ir_to_commonmark_html(fresh_ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(incremental_ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(fresh_ir),
   )
   assert_eq(
-    experimental_markdown_ir_to_commonmark_html(fresh_ir),
-    experimental_markdown_ir_to_commonmark_html(direct_ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(fresh_ir),
+    @markdown.experimental_markdown_ir_to_commonmark_html(direct_ir),
   )
   markdown_incremental_edit_reuse_count(source_id, label, source, edit, updated)
 }
@@ -80,13 +84,13 @@ fn direct_commonmark_html(
   source_id : @core.SourceId,
   source : String,
 ) -> String {
-  let (cst, diagnostics) = try! parse_cst(source_id, source)
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+  let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+  let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
-  experimental_markdown_ir_to_commonmark_html(ir)
+  @markdown.experimental_markdown_ir_to_commonmark_html(ir)
 }
 
 ///|
@@ -177,16 +181,20 @@ test "block container core: indentation boundary edits preserve fresh parser and
     if case.assert_nonlocal_reparse {
       inspect(reuse_count != 1, content="true")
     }
-    let parser = @loom.new_parser(source_id, case.source, markdown_grammar)
+    let parser = @loom.new_parser(
+      source_id,
+      case.source,
+      @markdown.markdown_grammar,
+    )
     parser.apply_edit(case.edit, case.updated)
     let syntax = parser.syntax_tree().read_or_abort()
-    let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
       source_id,
       syntax,
       parser.diagnostics().read_or_abort(),
     )
     assert_eq(
-      experimental_markdown_ir_to_commonmark_html(ir),
+      @markdown.experimental_markdown_ir_to_commonmark_html(ir),
       case.expected_html,
     )
   }

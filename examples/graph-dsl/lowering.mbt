@@ -504,3 +504,15 @@ pub fn GraphDoc::lower_insert_node_binding(
     ),
   ])
 }
+
+///|
+pub extend LoweredGraphEdit with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LoweredGraphEdit with Eq::{equal, not_equal}
+
+///|
+pub extend SourceReplacement with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SourceReplacement with Eq::{equal, not_equal}

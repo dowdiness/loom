@@ -39,3 +39,6 @@ pub impl @loomcore.Canonical for Term with fn canonical(self) {
     Hole(_) => Hole(0)
   }
 }
+
+///|
+pub extend Term with @dowdiness/loom/core.Canonical::{canonical}

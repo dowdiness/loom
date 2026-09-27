@@ -42,3 +42,21 @@ pub(all) enum JsxAttrValue {
   ExprSpan(raw~ : String)
   Bare
 } derive(Eq, Debug)
+
+///|
+pub extend JsxAttr with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend JsxAttr with Eq::{equal, not_equal}
+
+///|
+pub extend JsxAttrValue with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend JsxAttrValue with Eq::{equal, not_equal}
+
+///|
+pub extend JsxNode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend JsxNode with Eq::{equal, not_equal}

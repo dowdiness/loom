@@ -426,3 +426,9 @@ pub fn[R : SourceResolver, D : TextDisplay] render_diagnostics_plain_with_displa
   .map(diagnostic => diagnostic.render_plain_with_context(context, display))
   .join("\n\n")
 }
+
+///|
+pub extend DiagnosticRenderError with Eq::{not_equal, equal}
+
+///|
+pub extend DiagnosticRenderError with @moonbitlang/core/debug.Debug::{to_repr}

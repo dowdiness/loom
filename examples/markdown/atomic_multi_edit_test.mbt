@@ -20,10 +20,10 @@ test "atomic multi-edit matches a fresh Markdown parse" {
     ],
   )
   let updated = changes.apply(source).unwrap()
-  let parser = @loom.new_parser(source_id, source, markdown_grammar)
+  let parser = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
   parser.apply_changes(changes, updated)
   let actual = parser.snapshot().read_or_abort()
-  let fresh = @loom.new_parser(source_id, updated, markdown_grammar)
+  let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let expected = fresh.snapshot().read_or_abort()
   assert_eq(actual.source, expected.source)
   assert_eq(actual.syntax, expected.syntax)
@@ -53,10 +53,12 @@ test "atomic multi-edit uses a bounded reparse forest for safe paragraphs" {
     ],
   )
   let updated = changes.apply(source).unwrap()
-  let parser = @loom.new_parser(source_id, source, markdown_grammar)
+  let parser = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
   parser.apply_changes(changes, updated)
   let actual = parser.snapshot().read_or_abort()
-  let expected = @loom.new_parser(source_id, updated, markdown_grammar)
+  let expected = @loom.new_parser(
+    source_id, updated, @markdown.markdown_grammar,
+  )
   assert_eq(actual.syntax, expected.syntax_tree().read_or_abort())
   assert_eq(actual.ast, expected.ast().read_or_abort())
   assert_eq(actual.diagnostics, expected.diagnostics().read_or_abort())
@@ -72,7 +74,7 @@ test "atomic multi-edit uses a bounded reparse forest for safe paragraphs" {
   parser.apply_edit(@core.Edit::new(edit_start, 1, 1), next_source)
   let after_edit = parser.snapshot().read_or_abort()
   let fresh_after_edit = @loom.new_parser(
-    source_id, next_source, markdown_grammar,
+    source_id, next_source, @markdown.markdown_grammar,
   )
   assert_eq(after_edit.syntax, fresh_after_edit.syntax_tree().read_or_abort())
   assert_eq(after_edit.ast, fresh_after_edit.ast().read_or_abort())
@@ -106,10 +108,12 @@ test "atomic multi-edit forest matches fresh parse across line terminators" {
     )
     let updated = changes.apply(source).unwrap()
     let source_id = @core.SourceId("markdown-atomic-terminator-\{name}")
-    let parser = @loom.new_parser(source_id, source, markdown_grammar)
+    let parser = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
     parser.apply_changes(changes, updated)
     let actual = parser.snapshot().read_or_abort()
-    let expected = @loom.new_parser(source_id, updated, markdown_grammar)
+    let expected = @loom.new_parser(
+      source_id, updated, @markdown.markdown_grammar,
+    )
     assert_eq(actual.syntax, expected.syntax_tree().read_or_abort())
     assert_eq(actual.ast, expected.ast().read_or_abort())
     assert_eq(actual.diagnostics, expected.diagnostics().read_or_abort())
@@ -134,10 +138,12 @@ test "atomic multi-edit falls back for a structural same-length change" {
     ],
   )
   let updated = changes.apply(source).unwrap()
-  let parser = @loom.new_parser(source_id, source, markdown_grammar)
+  let parser = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
   parser.apply_changes(changes, updated)
   let actual = parser.snapshot().read_or_abort()
-  let expected = @loom.new_parser(source_id, updated, markdown_grammar)
+  let expected = @loom.new_parser(
+    source_id, updated, @markdown.markdown_grammar,
+  )
   assert_eq(actual.syntax, expected.syntax_tree().read_or_abort())
   assert_eq(actual.ast, expected.ast().read_or_abort())
   assert_eq(actual.diagnostics, expected.diagnostics().read_or_abort())
@@ -156,10 +162,12 @@ test "atomic multi-edit falls back for length-changing edits" {
     ],
   )
   let updated = changes.apply(source).unwrap()
-  let parser = @loom.new_parser(source_id, source, markdown_grammar)
+  let parser = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
   parser.apply_changes(changes, updated)
   let actual = parser.snapshot().read_or_abort()
-  let expected = @loom.new_parser(source_id, updated, markdown_grammar)
+  let expected = @loom.new_parser(
+    source_id, updated, @markdown.markdown_grammar,
+  )
   assert_eq(actual.syntax, expected.syntax_tree().read_or_abort())
   assert_eq(actual.ast, expected.ast().read_or_abort())
   assert_eq(actual.diagnostics, expected.diagnostics().read_or_abort())
@@ -190,10 +198,12 @@ test "atomic multi-edit falls back above the forest cutoff" {
     changes~,
   )
   let updated = evidence.apply(source).unwrap()
-  let parser = @loom.new_parser(source_id, source, markdown_grammar)
+  let parser = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
   parser.apply_changes(evidence, updated)
   let actual = parser.snapshot().read_or_abort()
-  let expected = @loom.new_parser(source_id, updated, markdown_grammar)
+  let expected = @loom.new_parser(
+    source_id, updated, @markdown.markdown_grammar,
+  )
   assert_eq(actual.syntax, expected.syntax_tree().read_or_abort())
   assert_eq(actual.ast, expected.ast().read_or_abort())
   assert_eq(actual.diagnostics, expected.diagnostics().read_or_abort())
@@ -222,10 +232,10 @@ test "atomic multi-edit preserves Markdown recovery parity" {
     ],
   )
   let updated = changes.apply(source).unwrap()
-  let parser = @loom.new_parser(source_id, source, markdown_grammar)
+  let parser = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
   parser.apply_changes(changes, updated)
   let actual = parser.snapshot().read_or_abort()
-  let fresh = @loom.new_parser(source_id, updated, markdown_grammar)
+  let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let expected = fresh.snapshot().read_or_abort()
   assert_eq(actual.syntax, expected.syntax)
   assert_eq(actual.ast, expected.ast)

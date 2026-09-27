@@ -126,7 +126,7 @@ fn json_unparse(value : JsonValue, depth : Int) -> String {
 
 ///|
 fn json_escape_string(s : String) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for ch in s {
     match ch {
       '"' => buf.write_string("\\\"")
@@ -139,3 +139,14 @@ fn json_escape_string(s : String) -> String {
   }
   buf.to_string()
 }
+
+///|
+pub extend JsonValue with @dowdiness/loom/core.Renderable::{
+  kind_tag,
+  label,
+  placeholder,
+  unparse,
+}
+
+///|
+pub extend JsonValue with @dowdiness/loom/core.TreeNode::{children, same_kind}

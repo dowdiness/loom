@@ -1,7 +1,7 @@
 ///|
 fn count_lambda_diagnostics(
-  diagnostics : Array[LambdaDiagnostic],
-  phase : LambdaDiagnosticPhase,
+  diagnostics : Array[@lambda.LambdaDiagnostic],
+  phase : @lambda.LambdaDiagnosticPhase,
 ) -> Int {
   let mut count = 0
   for diagnostic in diagnostics {
@@ -14,8 +14,8 @@ fn count_lambda_diagnostics(
 
 ///|
 fn first_lambda_message(
-  diagnostics : Array[LambdaDiagnostic],
-  phase : LambdaDiagnosticPhase,
+  diagnostics : Array[@lambda.LambdaDiagnostic],
+  phase : @lambda.LambdaDiagnosticPhase,
 ) -> String {
   for diagnostic in diagnostics {
     if diagnostic.phase() == phase {
@@ -32,7 +32,7 @@ fn lambda_analysis_test_source_id() -> @core.SourceId {
 
 ///|
 test "LambdaAnalysis: clean source has no diagnostics" {
-  let analysis = LambdaAnalysis::LambdaAnalysis(
+  let analysis = @lambda.LambdaAnalysis::LambdaAnalysis(
     lambda_analysis_test_source_id(),
     "1 + 2",
   )
@@ -41,7 +41,7 @@ test "LambdaAnalysis: clean source has no diagnostics" {
 
 ///|
 test "LambdaAnalysis: parse error includes parser diagnostic" {
-  let analysis = LambdaAnalysis::LambdaAnalysis(
+  let analysis = @lambda.LambdaAnalysis::LambdaAnalysis(
     lambda_analysis_test_source_id(),
     "(x) =>",
   )
@@ -51,7 +51,7 @@ test "LambdaAnalysis: parse error includes parser diagnostic" {
 
 ///|
 test "LambdaAnalysis: parse diagnostic preserves structured payload" {
-  let analysis = LambdaAnalysis::LambdaAnalysis(
+  let analysis = @lambda.LambdaAnalysis::LambdaAnalysis(
     lambda_analysis_test_source_id(),
     "(x) =>",
   )
@@ -69,7 +69,7 @@ test "LambdaAnalysis: parse diagnostic preserves structured payload" {
 
 ///|
 test "LambdaAnalysis: type error includes typecheck diagnostic" {
-  let analysis = LambdaAnalysis::LambdaAnalysis(
+  let analysis = @lambda.LambdaAnalysis::LambdaAnalysis(
     lambda_analysis_test_source_id(),
     "x + 1",
   )
@@ -83,7 +83,7 @@ test "LambdaAnalysis: type error includes typecheck diagnostic" {
 
 ///|
 test "LambdaAnalysis: edit-to-clean recomputes diagnostics" {
-  let analysis = LambdaAnalysis::LambdaAnalysis(
+  let analysis = @lambda.LambdaAnalysis::LambdaAnalysis(
     lambda_analysis_test_source_id(),
     "x + 1",
   )
@@ -94,7 +94,7 @@ test "LambdaAnalysis: edit-to-clean recomputes diagnostics" {
 
 ///|
 test "LambdaAnalysis: apply_edit recomputes diagnostics" {
-  let analysis = LambdaAnalysis::LambdaAnalysis(
+  let analysis = @lambda.LambdaAnalysis::LambdaAnalysis(
     lambda_analysis_test_source_id(),
     "x + 1",
   )
@@ -105,7 +105,7 @@ test "LambdaAnalysis: apply_edit recomputes diagnostics" {
 
 ///|
 test "LambdaAnalysis: diagnostics survive Runtime::gc" {
-  let analysis = LambdaAnalysis::LambdaAnalysis(
+  let analysis = @lambda.LambdaAnalysis::LambdaAnalysis(
     lambda_analysis_test_source_id(),
     "(x) =>",
   )
@@ -123,9 +123,9 @@ test "LambdaAnalysis: dispose does not dispose parser" {
   let parser = @loom.new_parser(
     lambda_analysis_test_source_id(),
     "1 + 2",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
-  let analysis = attach_lambda_analysis(parser)
+  let analysis = @lambda.attach_lambda_analysis(parser)
   ignore(analysis.diagnostics())
   analysis.dispose()
   parser.set_source("42")

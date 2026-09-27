@@ -36,7 +36,7 @@ test "phase4: correctness on 50+ token input - localized edit" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -45,7 +45,7 @@ test "phase4: correctness on 50+ token input - localized edit" {
   let edit = @core.Edit::replace(len - 1, len, len)
   let new_source = source[0:len - 1].to_owned() + "1"
   let incr_tree = parser.edit(edit, new_source).ast
-  let full_tree = parse(phase4_correctness_source_id(), new_source) catch {
+  let full_tree = @lambda.parse(phase4_correctness_source_id(), new_source) catch {
     _ => abort("parse failed")
   }
 
@@ -60,14 +60,14 @@ test "phase4: reuse on application chain" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Edit only the last identifier "e" -> "x"
   let edit = @core.Edit::replace(10, 11, 11)
   let incr_tree = parser.edit(edit, "f a b c d x").ast
-  let full_tree = parse(phase4_correctness_source_id(), "f a b c d x") catch {
+  let full_tree = @lambda.parse(phase4_correctness_source_id(), "f a b c d x") catch {
     _ => abort("parse failed")
   }
 
@@ -82,7 +82,7 @@ test "phase4: reuse on nested lambdas" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -90,7 +90,10 @@ test "phase4: reuse on nested lambdas" {
   let len = source.length()
   let edit = @core.Edit::replace(len - 1, len, len)
   let incr_tree = parser.edit(edit, "(a, b, c, d) => y").ast
-  let full_tree = parse(phase4_correctness_source_id(), "(a, b, c, d) => y") catch {
+  let full_tree = @lambda.parse(
+    phase4_correctness_source_id(),
+    "(a, b, c, d) => y",
+  ) catch {
     _ => abort("parse failed")
   }
 
@@ -104,7 +107,7 @@ test "phase4: reuse preserves correctness on complex expression" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -114,7 +117,7 @@ test "phase4: reuse preserves correctness on complex expression" {
   let edit = @core.Edit::replace(22, 23, 23)
   let new_source = "(f, x) => if f x then x + 2 else x - 1"
   let incr_tree = parser.edit(edit, new_source).ast
-  let full_tree = parse(phase4_correctness_source_id(), new_source) catch {
+  let full_tree = @lambda.parse(phase4_correctness_source_id(), new_source) catch {
     _ => abort("parse failed")
   }
 
@@ -132,14 +135,14 @@ test "phase4: edit at binary operator boundary" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Change "-" to "+"
   let edit = @core.Edit::replace(6, 7, 7)
   let incr_tree = parser.edit(edit, "a + b + c").ast
-  let full_tree = parse(phase4_correctness_source_id(), "a + b + c") catch {
+  let full_tree = @lambda.parse(phase4_correctness_source_id(), "a + b + c") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -152,7 +155,7 @@ test "phase4: edit changes structure - app to binary" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -160,7 +163,7 @@ test "phase4: edit changes structure - app to binary" {
   // This changes the structure entirely
   let edit = @core.Edit::replace(5, 6, 8)
   let incr_tree = parser.edit(edit, "x + y - z").ast
-  let full_tree = parse(phase4_correctness_source_id(), "x + y - z") catch {
+  let full_tree = @lambda.parse(phase4_correctness_source_id(), "x + y - z") catch {
     _ => abort("parse failed")
   }
 
@@ -174,14 +177,14 @@ test "phase4: edit changes app to standalone var" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Delete " x" making it just "f"
   let edit = @core.Edit::delete(1, 3)
   let incr_tree = parser.edit(edit, "f").ast
-  let full_tree = parse(phase4_correctness_source_id(), "f") catch {
+  let full_tree = @lambda.parse(phase4_correctness_source_id(), "f") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -193,14 +196,14 @@ test "phase4: edit extends expression" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Append " y" making it "x y"
   let edit = @core.Edit::insert(1, 2)
   let incr_tree = parser.edit(edit, "x y").ast
-  let full_tree = parse(phase4_correctness_source_id(), "x y") catch {
+  let full_tree = @lambda.parse(phase4_correctness_source_id(), "x y") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -215,14 +218,14 @@ test "phase4: multiple sequential edits maintain correctness" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     "a + b + c",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Edit 1: change "a" to "1"
   let edit1 = @core.Edit::replace(0, 1, 1)
   let tree1 = parser.edit(edit1, "1 + b + c").ast
-  let full1 = parse(phase4_correctness_source_id(), "1 + b + c") catch {
+  let full1 = @lambda.parse(phase4_correctness_source_id(), "1 + b + c") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(tree1), content=@ast.print_term(full1))
@@ -230,7 +233,7 @@ test "phase4: multiple sequential edits maintain correctness" {
   // Edit 2: change "b" to "2"
   let edit2 = @core.Edit::replace(4, 5, 5)
   let tree2 = parser.edit(edit2, "1 + 2 + c").ast
-  let full2 = parse(phase4_correctness_source_id(), "1 + 2 + c") catch {
+  let full2 = @lambda.parse(phase4_correctness_source_id(), "1 + 2 + c") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(tree2), content=@ast.print_term(full2))
@@ -238,7 +241,7 @@ test "phase4: multiple sequential edits maintain correctness" {
   // Edit 3: change "c" to "3"
   let edit3 = @core.Edit::replace(8, 9, 9)
   let tree3 = parser.edit(edit3, "1 + 2 + 3").ast
-  let full3 = parse(phase4_correctness_source_id(), "1 + 2 + 3") catch {
+  let full3 = @lambda.parse(phase4_correctness_source_id(), "1 + 2 + 3") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(tree3), content=@ast.print_term(full3))
@@ -251,7 +254,7 @@ test "phase4: typing simulation - building expression char by char" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     "1",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
@@ -264,7 +267,7 @@ test "phase4: typing simulation - building expression char by char" {
   // Type " 2"
   let edit2 = @core.Edit::insert(3, 2)
   let tree2 = parser.edit(edit2, "1 + 2").ast
-  let full = parse(phase4_correctness_source_id(), "1 + 2") catch {
+  let full = @lambda.parse(phase4_correctness_source_id(), "1 + 2") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(tree2), content=@ast.print_term(full))
@@ -280,14 +283,17 @@ test "phase4: empty to non-empty" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     "x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Replace with completely different expression
   let edit = @core.Edit::replace(0, 1, 13)
   let incr_tree = parser.edit(edit, "(f, x) => f (f x)").ast
-  let full_tree = parse(phase4_correctness_source_id(), "(f, x) => f (f x)") catch {
+  let full_tree = @lambda.parse(
+    phase4_correctness_source_id(),
+    "(f, x) => f (f x)",
+  ) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -299,14 +305,14 @@ test "phase4: whitespace-only changes" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Add spaces: "x + y"
   let edit = @core.Edit::replace(0, 3, 5)
   let incr_tree = parser.edit(edit, "x + y").ast
-  let full_tree = parse(phase4_correctness_source_id(), "x + y") catch {
+  let full_tree = @lambda.parse(phase4_correctness_source_id(), "x + y") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -318,14 +324,14 @@ test "phase4: parentheses changes" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Wrap in parens: "(x + y)"
   let edit = @core.Edit::replace(0, 5, 7)
   let incr_tree = parser.edit(edit, "(x + y)").ast
-  let full_tree = parse(phase4_correctness_source_id(), "(x + y)") catch {
+  let full_tree = @lambda.parse(phase4_correctness_source_id(), "(x + y)") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -337,14 +343,17 @@ test "phase4: if-then-else edit in condition" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Change condition "x" to "y"
   let edit = @core.Edit::replace(3, 4, 4)
   let incr_tree = parser.edit(edit, "if y then 1 else 2").ast
-  let full_tree = parse(phase4_correctness_source_id(), "if y then 1 else 2") catch {
+  let full_tree = @lambda.parse(
+    phase4_correctness_source_id(),
+    "if y then 1 else 2",
+  ) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -356,14 +365,17 @@ test "phase4: if-then-else edit in else branch" {
   let parser = @loom.new_imperative_parser(
     phase4_correctness_source_id(),
     source,
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let _ = parser.parse().ast
 
   // Change else branch "2" to "3"
   let edit = @core.Edit::replace(17, 18, 18)
   let incr_tree = parser.edit(edit, "if x then 1 else 3").ast
-  let full_tree = parse(phase4_correctness_source_id(), "if x then 1 else 3") catch {
+  let full_tree = @lambda.parse(
+    phase4_correctness_source_id(),
+    "if x then 1 else 3",
+  ) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))

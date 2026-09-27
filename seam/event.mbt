@@ -972,3 +972,15 @@ fn build_balanced_group(
   let group = CstNode::new_owned(repeat_group_kind, group_children, policy~)
   out.push(CstElement::Node(group))
 }
+
+///|
+pub extend ParseEvent with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ParseEvent with Eq::{not_equal, equal}
+
+///|
+pub extend BufferedEvent with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend BufferedEvent with Eq::{not_equal, equal}

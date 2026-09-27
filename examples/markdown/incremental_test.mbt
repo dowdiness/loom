@@ -12,7 +12,7 @@ fn markdown_incremental_edit_reuse_count(
     source,
     edit,
     new_source,
-    markdown_grammar.to_syntax_grammar(),
+    @markdown.markdown_grammar.to_syntax_grammar(),
   )
 }
 
@@ -145,7 +145,7 @@ test "incremental: escaped emphasis recovery handles non-BMP flanking text" {
   let source_id = @core.SourceId("markdown-incremental-non-bmp-emphasis")
   let source = "\\*a*\n"
   let updated = "\\*😈*\n"
-  let parser = @loom.new_parser(source_id, source, markdown_grammar)
+  let parser = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
   parser.apply_edit(@core.Edit::new(2, "a".length(), "😈".length()), updated)
   inspect(
     parser.ast().read_or_abort(),
@@ -390,16 +390,16 @@ test "incremental: ordered marker delimiter relex matches detached tokenize" {
   let new_source = "1. one\n2) two\n"
   let edit = @core.Edit::new("1. one\n2".length(), ".".length(), ")".length())
   let factory = @core.erase_mode_lexer(
-    markdown_mode_lexer,
-    Token::EOF,
-    error_token=Token::Error("lex error"),
-    error_token_from_message=Some(msg => Token::Error(msg)),
+    @markdown.markdown_mode_lexer,
+    @markdown.Token::EOF,
+    error_token=@markdown.Token::Error("lex error"),
+    error_token_from_message=Some(msg => @markdown.Token::Error(msg)),
   )
   let buffer = @core.TokenBuffer::new_from_mode_relex(
     source_id,
     source,
     factory~,
-    eof_token=Token::EOF,
+    eof_token=@markdown.Token::EOF,
   )
   buffer.update(edit, new_source)
   let full = factory.tokenize(source_id, new_source)

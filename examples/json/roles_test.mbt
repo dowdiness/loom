@@ -5,10 +5,10 @@ test "json roles distinguish property key strings from string values" {
   let parser = @loom.new_syntax_parser(
     source_id,
     source,
-    json_grammar.to_syntax_grammar(),
+    @json.json_grammar.to_syntax_grammar(),
   )
-  let roles = project_json_roles(parser.syntax_tree().read_or_abort())
-  let expected : Array[JsonRoleSpan] = [
+  let roles = @json.project_json_roles(parser.syntax_tree().read_or_abort())
+  let expected : Array[@json.JsonRoleSpan] = [
     JsonRoleSpan(role=Punctuation, start=0, end=1),
     JsonRoleSpan(role=PropertyKey, start=2, end=8),
     JsonRoleSpan(role=Punctuation, start=8, end=9),
@@ -22,7 +22,7 @@ test "json roles distinguish property key strings from string values" {
 
 ///|
 test "json role export names are stable" {
-  let roles : Array[JsonRole] = [
+  let roles : Array[@json.JsonRole] = [
     PropertyKey,
     StringValue,
     NumberLiteral,
@@ -48,10 +48,10 @@ test "json role spans export editor-neutral JSON shape" {
   let parser = @loom.new_syntax_parser(
     source_id,
     source,
-    json_grammar.to_syntax_grammar(),
+    @json.json_grammar.to_syntax_grammar(),
   )
-  let exported = export_json_role_spans(
-    project_json_roles(parser.syntax_tree().read_or_abort()),
+  let exported = @json.export_json_role_spans(
+    @json.project_json_roles(parser.syntax_tree().read_or_abort()),
   )
   inspect(exported.length(), content="13")
   inspect(exported[0].start(), content="0")
@@ -71,9 +71,9 @@ test "json roles expose recovered syntax errors and diagnostics" {
   let parser = @loom.new_syntax_parser(
     source_id,
     "]",
-    json_grammar.to_syntax_grammar(),
+    @json.json_grammar.to_syntax_grammar(),
   )
-  let roles = project_json_roles(parser.syntax_tree().read_or_abort())
+  let roles = @json.project_json_roles(parser.syntax_tree().read_or_abort())
   let diagnostics = parser.diagnostics().read_or_abort()
   guard diagnostics.length() > 0 else {
     fail("expected malformed JSON to keep parser diagnostics")
@@ -90,9 +90,9 @@ test "json roles surface diagnostic-only recoveries as error spans" {
     let parser = @loom.new_syntax_parser(
       source_id,
       source,
-      json_grammar.to_syntax_grammar(),
+      @json.json_grammar.to_syntax_grammar(),
     )
-    let roles = project_json_roles(parser.syntax_tree().read_or_abort())
+    let roles = @json.project_json_roles(parser.syntax_tree().read_or_abort())
     let diagnostics = parser.diagnostics().read_or_abort()
     guard diagnostics.length() > 0 else {
       fail("expected diagnostics for \{source}")
@@ -111,21 +111,21 @@ test "json roles after syntax parser edit match fresh parse" {
   let parser = @loom.new_syntax_parser(
     source_id,
     source,
-    json_grammar.to_syntax_grammar(),
+    @json.json_grammar.to_syntax_grammar(),
   )
   parser.apply_edit(@core.Edit::new(11, 5, 3), updated)
-  let incremental_roles = project_json_roles(
+  let incremental_roles = @json.project_json_roles(
     parser.syntax_tree().read_or_abort(),
   )
   let fresh_parser = @loom.new_syntax_parser(
     source_id,
     updated,
-    json_grammar.to_syntax_grammar(),
+    @json.json_grammar.to_syntax_grammar(),
   )
-  let fresh_roles = project_json_roles(
+  let fresh_roles = @json.project_json_roles(
     fresh_parser.syntax_tree().read_or_abort(),
   )
-  let expected : Array[JsonRoleSpan] = [
+  let expected : Array[@json.JsonRoleSpan] = [
     JsonRoleSpan(role=Punctuation, start=0, end=1),
     JsonRoleSpan(role=PropertyKey, start=2, end=8),
     JsonRoleSpan(role=Punctuation, start=8, end=9),

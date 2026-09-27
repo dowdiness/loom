@@ -8,7 +8,7 @@ fn parser_test_source_id() -> @core.SourceId {
 
 ///|
 fn parse_or_fail(source : String) -> @ast.Term raise {
-  parse(parser_test_source_id(), source) catch {
+  @lambda.parse(parser_test_source_id(), source) catch {
     _ => fail("parse failed: " + source)
   }
 }
@@ -17,7 +17,7 @@ fn parse_or_fail(source : String) -> @ast.Term raise {
 fn parse_cst_or_fail_parser(
   source : String,
 ) -> (@seam.CstNode, @core.DiagnosticSet) raise {
-  parse_cst(parser_test_source_id(), source) catch {
+  @lambda.parse_cst(parser_test_source_id(), source) catch {
     _ => fail("lex error on " + source)
   }
 }
@@ -26,28 +26,28 @@ fn parse_cst_or_fail_parser(
 
 ///|
 test "parse simple integer" {
-  let expr = parse(parser_test_source_id(), "42")
+  let expr = @lambda.parse(parser_test_source_id(), "42")
   let printed = @ast.print_term(expr)
   inspect(printed, content="42")
 }
 
 ///|
 test "parse simple variable" {
-  let expr = parse(parser_test_source_id(), "x")
+  let expr = @lambda.parse(parser_test_source_id(), "x")
   let printed = @ast.print_term(expr)
   inspect(printed, content="x")
 }
 
 ///|
 test "parse identity function" {
-  let expr = parse(parser_test_source_id(), "(x) => x")
+  let expr = @lambda.parse(parser_test_source_id(), "(x) => x")
   let printed = @ast.print_term(expr)
   inspect(printed, content="(x) => x")
 }
 
 ///|
 test "parse plus binary operator" {
-  let expr = parse(parser_test_source_id(), "1 + 2")
+  let expr = @lambda.parse(parser_test_source_id(), "1 + 2")
   let printed = @ast.print_term(expr)
   inspect(
     printed,
@@ -59,7 +59,7 @@ test "parse plus binary operator" {
 
 ///|
 test "parse minus binary operator" {
-  let expr = parse(parser_test_source_id(), "5 - 2")
+  let expr = @lambda.parse(parser_test_source_id(), "5 - 2")
   let printed = @ast.print_term(expr)
   inspect(
     printed,
@@ -71,7 +71,7 @@ test "parse minus binary operator" {
 
 ///|
 test "parse complex binary operators" {
-  let expr = parse(parser_test_source_id(), "10 - 5 + 2")
+  let expr = @lambda.parse(parser_test_source_id(), "10 - 5 + 2")
   let printed = @ast.print_term(expr)
   inspect(
     printed,
@@ -83,14 +83,14 @@ test "parse complex binary operators" {
 
 ///|
 test "parse parenthesized expression" {
-  let expr = parse(parser_test_source_id(), "(x)")
+  let expr = @lambda.parse(parser_test_source_id(), "(x)")
   let printed = @ast.print_term(expr)
   inspect(printed, content="x")
 }
 
 ///|
 test "parse multi-parameter lambda" {
-  let expr = parse(parser_test_source_id(), "(f, x) => x")
+  let expr = @lambda.parse(parser_test_source_id(), "(f, x) => x")
   let printed = @ast.print_term(expr)
   inspect(
     printed,
@@ -102,7 +102,7 @@ test "parse multi-parameter lambda" {
 
 ///|
 test "parse simple application" {
-  let expr = parse(parser_test_source_id(), "f x")
+  let expr = @lambda.parse(parser_test_source_id(), "f x")
   let printed = @ast.print_term(expr)
   inspect(
     printed,
@@ -114,7 +114,7 @@ test "parse simple application" {
 
 ///|
 test "parse multiple applications" {
-  let expr = parse(parser_test_source_id(), "f x y")
+  let expr = @lambda.parse(parser_test_source_id(), "f x y")
   let printed = @ast.print_term(expr)
   inspect(
     printed,
@@ -126,14 +126,14 @@ test "parse multiple applications" {
 
 ///|
 test "parse if-then-else" {
-  let expr = parse(parser_test_source_id(), "if x then y else z")
+  let expr = @lambda.parse(parser_test_source_id(), "if x then y else z")
   let printed = @ast.print_term(expr)
   inspect(printed, content="if x then y else z")
 }
 
 ///|
 test "parse complex if expression" {
-  let expr = parse(parser_test_source_id(), "if 1 + 2 then 3 else 4")
+  let expr = @lambda.parse(parser_test_source_id(), "if 1 + 2 then 3 else 4")
   let printed = @ast.print_term(expr)
   inspect(printed.contains("if"), content="true")
   inspect(printed.contains("then"), content="true")
@@ -142,7 +142,7 @@ test "parse complex if expression" {
 
 ///|
 test "parse lambda with binary operation in body" {
-  let expr = parse(parser_test_source_id(), "(x) => x + 1")
+  let expr = @lambda.parse(parser_test_source_id(), "(x) => x + 1")
   let printed = @ast.print_term(expr)
   inspect(printed.contains("(x) =>"), content="true")
   inspect(printed.contains("+"), content="true")
@@ -150,7 +150,7 @@ test "parse lambda with binary operation in body" {
 
 ///|
 test "parse application with lambda" {
-  let expr = parse(parser_test_source_id(), "((x) => x) y")
+  let expr = @lambda.parse(parser_test_source_id(), "((x) => x) y")
   let printed = @ast.print_term(expr)
   inspect(printed.contains("(x) =>"), content="true")
   inspect(printed.contains("y"), content="true")
@@ -158,14 +158,14 @@ test "parse application with lambda" {
 
 ///|
 test "parse nested parentheses" {
-  let expr = parse(parser_test_source_id(), "((x))")
+  let expr = @lambda.parse(parser_test_source_id(), "((x))")
   let printed = @ast.print_term(expr)
   inspect(printed, content="x")
 }
 
 ///|
 test "parse complex nested expression" {
-  let expr = parse(parser_test_source_id(), "((f, x) => f (f x))")
+  let expr = @lambda.parse(parser_test_source_id(), "((f, x) => f (f x))")
   let printed = @ast.print_term(expr)
   inspect(
     printed,
@@ -180,7 +180,7 @@ test "parse complex nested expression" {
 ///|
 test "parse error - missing parameter after lambda" {
   let should_error = try {
-    let _expr = parse(parser_test_source_id(), "(,) => x")
+    let _expr = @lambda.parse(parser_test_source_id(), "(,) => x")
     false
   } catch {
     _ => true
@@ -196,7 +196,7 @@ test "parse error - missing parameter after lambda" {
 ///|
 test "parse error - missing body after lambda arrow" {
   let should_error = try {
-    let _expr = parse(parser_test_source_id(), "(x) =>")
+    let _expr = @lambda.parse(parser_test_source_id(), "(x) =>")
     false
   } catch {
     _ => true
@@ -212,7 +212,7 @@ test "parse error - missing body after lambda arrow" {
 ///|
 test "parse error - unmatched left paren" {
   let should_error = try {
-    let _expr = parse(parser_test_source_id(), "(x")
+    let _expr = @lambda.parse(parser_test_source_id(), "(x")
     false
   } catch {
     _ => true
@@ -228,7 +228,7 @@ test "parse error - unmatched left paren" {
 ///|
 test "parse error - unmatched right paren" {
   let should_error = try {
-    let _expr = parse(parser_test_source_id(), "x)")
+    let _expr = @lambda.parse(parser_test_source_id(), "x)")
     false
   } catch {
     _ => true
@@ -243,8 +243,8 @@ test "parse error - unmatched right paren" {
 
 ///|
 test "parse error reports formatted parser diagnostic" {
-  try parse(parser_test_source_id(), "x)") catch {
-    ParseError::ParseError(message) =>
+  try @lambda.parse(parser_test_source_id(), "x)") catch {
+    @lambda.ParseError::ParseError(message) =>
       inspect(message, content="Unexpected tokens after expression [1,2]")
     _ => fail("expected ParseError")
   } noraise {
@@ -254,8 +254,8 @@ test "parse error reports formatted parser diagnostic" {
 
 ///|
 test "parse error reports formatted lexer diagnostic" {
-  try parse(parser_test_source_id(), "@") catch {
-    ParseError::ParseError(message) =>
+  try @lambda.parse(parser_test_source_id(), "@") catch {
+    @lambda.ParseError::ParseError(message) =>
       inspect(message, content="unexpected character: @ at position 0 [0,1]")
     _ => fail("expected ParseError")
   } noraise {
@@ -266,7 +266,7 @@ test "parse error reports formatted lexer diagnostic" {
 ///|
 test "parser diagnostic preserves caller source and parser producer" {
   let source_id = @core.SourceId::SourceId("lambda-parser-malformed")
-  let (_, diagnostic_set) = parse_cst(source_id, "x)")
+  let (_, diagnostic_set) = @lambda.parse_cst(source_id, "x)")
   let diagnostics = diagnostic_set.items()
   inspect(diagnostics.length(), content="1")
   let diagnostic = diagnostics[0]
@@ -282,7 +282,7 @@ test "parser diagnostic preserves caller source and parser producer" {
 ///|
 test "parse error - missing then in if" {
   let should_error = try {
-    let _expr = parse(parser_test_source_id(), "if x else y")
+    let _expr = @lambda.parse(parser_test_source_id(), "if x else y")
     false
   } catch {
     _ => true
@@ -298,7 +298,7 @@ test "parse error - missing then in if" {
 ///|
 test "parse error - missing else in if" {
   let should_error = try {
-    let _expr = parse(parser_test_source_id(), "if x then y")
+    let _expr = @lambda.parse(parser_test_source_id(), "if x then y")
     false
   } catch {
     _ => true
@@ -315,42 +315,42 @@ test "parse error - missing else in if" {
 
 ///|
 test "parse single character identifier" {
-  let expr = parse(parser_test_source_id(), "a")
+  let expr = @lambda.parse(parser_test_source_id(), "a")
   let printed = @ast.print_term(expr)
   inspect(printed, content="a")
 }
 
 ///|
 test "parse long identifier" {
-  let expr = parse(parser_test_source_id(), "variableName123")
+  let expr = @lambda.parse(parser_test_source_id(), "variableName123")
   let printed = @ast.print_term(expr)
   inspect(printed, content="variableName123")
 }
 
 ///|
 test "parse zero" {
-  let expr = parse(parser_test_source_id(), "0")
+  let expr = @lambda.parse(parser_test_source_id(), "0")
   let printed = @ast.print_term(expr)
   inspect(printed, content="0")
 }
 
 ///|
 test "parse large integer" {
-  let expr = parse(parser_test_source_id(), "999999")
+  let expr = @lambda.parse(parser_test_source_id(), "999999")
   let printed = @ast.print_term(expr)
   inspect(printed, content="999999")
 }
 
 ///|
 test "parse arrow lambda" {
-  let expr = parse(parser_test_source_id(), "(x) => x")
+  let expr = @lambda.parse(parser_test_source_id(), "(x) => x")
   let printed = @ast.print_term(expr)
   inspect(printed, content="(x) => x")
 }
 
 ///|
 test "parse application chain" {
-  let expr = parse(parser_test_source_id(), "a b c d")
+  let expr = @lambda.parse(parser_test_source_id(), "a b c d")
   let printed = @ast.print_term(expr)
   inspect(
     printed,
@@ -362,7 +362,7 @@ test "parse application chain" {
 
 ///|
 test "parse mixed operators and applications" {
-  let expr = parse(parser_test_source_id(), "f x + g y")
+  let expr = @lambda.parse(parser_test_source_id(), "f x + g y")
   let printed = @ast.print_term(expr)
   inspect(printed.contains("f"), content="true")
   inspect(printed.contains("x"), content="true")
@@ -373,7 +373,7 @@ test "parse mixed operators and applications" {
 
 ///|
 test "parse complex expression with all features" {
-  let expr = parse(
+  let expr = @lambda.parse(
     parser_test_source_id(),
     "((f, x) => if f x then x + 1 else x - 1)",
   )
@@ -437,7 +437,7 @@ test "parse let with lambda" {
 
 ///|
 test "parse_term: two defs produce Module with Unit body" {
-  let (term, diagnostics) = parse_term(
+  let (term, diagnostics) = @lambda.parse_term(
     parser_test_source_id(),
     "let id = 1\nlet const = 2",
   )
@@ -454,7 +454,7 @@ test "parse_term: two defs produce Module with Unit body" {
 
 ///|
 test "parse_term: def + final expression" {
-  let (term, diagnostics) = parse_term(
+  let (term, diagnostics) = @lambda.parse_term(
     parser_test_source_id(),
     "let id = 1\nid",
   )
@@ -470,7 +470,7 @@ test "parse_term: def + final expression" {
 
 ///|
 test "parse_term: leading newline before def + final expression" {
-  let (term, diagnostics) = parse_term(
+  let (term, diagnostics) = @lambda.parse_term(
     parser_test_source_id(),
     "\nlet id = 1\nid",
   )
@@ -486,14 +486,17 @@ test "parse_term: leading newline before def + final expression" {
 
 ///|
 test "parse_term: single expression (no defs)" {
-  let (term, diagnostics) = parse_term(parser_test_source_id(), "42")
+  let (term, diagnostics) = @lambda.parse_term(parser_test_source_id(), "42")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="42")
 }
 
 ///|
 test "parse_term: single let definition with body" {
-  let (term, diagnostics) = parse_term(parser_test_source_id(), "let x = 1\nx")
+  let (term, diagnostics) = @lambda.parse_term(
+    parser_test_source_id(),
+    "let x = 1\nx",
+  )
   inspect(diagnostics.length(), content="0")
   inspect(
     @ast.print_term(term),
@@ -506,7 +509,7 @@ test "parse_term: single let definition with body" {
 
 ///|
 test "parse_term: multiple let definitions with body" {
-  let (term, diagnostics) = parse_term(
+  let (term, diagnostics) = @lambda.parse_term(
     parser_test_source_id(),
     "let x = 1\nlet y = 2\nx + y",
   )
@@ -523,7 +526,7 @@ test "parse_term: multiple let definitions with body" {
 
 ///|
 test "parse_term: multiline binary expression (no defs)" {
-  let (term, diagnostics) = parse_term(parser_test_source_id(), "1\n+2")
+  let (term, diagnostics) = @lambda.parse_term(parser_test_source_id(), "1\n+2")
   inspect(diagnostics.length(), content="0")
   inspect(
     @ast.print_term(term),
@@ -535,7 +538,7 @@ test "parse_term: multiline binary expression (no defs)" {
 
 ///|
 test "parse_term: multiline application (no defs)" {
-  let (term, diagnostics) = parse_term(parser_test_source_id(), "f\nx")
+  let (term, diagnostics) = @lambda.parse_term(parser_test_source_id(), "f\nx")
   inspect(diagnostics.length(), content="0")
   inspect(
     @ast.print_term(term),
@@ -547,7 +550,7 @@ test "parse_term: multiline application (no defs)" {
 
 ///|
 test "parse_term: missing newline between defs reports diagnostic" {
-  let (_, diagnostics) = parse_term(
+  let (_, diagnostics) = @lambda.parse_term(
     parser_test_source_id(),
     "let a = 1 let b = 2",
   )
@@ -560,7 +563,7 @@ test "parse_term: missing newline between defs reports diagnostic" {
 
 ///|
 test "parse_term: empty file" {
-  let (term, diagnostics) = parse_term(parser_test_source_id(), "")
+  let (term, diagnostics) = @lambda.parse_term(parser_test_source_id(), "")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="()")
 }
@@ -571,7 +574,7 @@ test "parse_term: empty file" {
 test "desugar fn with params to nested Lam" {
   let (cst, _) = parse_cst_or_fail_parser("fn f(x, y) { x + y }\nf 1 2")
   let tree = @seam.SyntaxNode::from_cst(cst)
-  let term = syntax_node_to_term(tree)
+  let term = @lambda.syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
   inspect(printed.contains("let f = (x) => (y) =>"), content="true")
 }
@@ -580,7 +583,7 @@ test "desugar fn with params to nested Lam" {
 test "desugar let without params unchanged" {
   let (cst, _) = parse_cst_or_fail_parser("let x = 42\nx")
   let tree = @seam.SyntaxNode::from_cst(cst)
-  let term = syntax_node_to_term(tree)
+  let term = @lambda.syntax_node_to_term(tree)
   inspect(term, content="Module([(\"x\", Int(42))], Var(\"x\"))")
 }
 
@@ -590,7 +593,7 @@ test "desugar let without params unchanged" {
 test "desugar block expr" {
   let (cst, _) = parse_cst_or_fail_parser("{ let a = 1; a + 1 }")
   let tree = @seam.SyntaxNode::from_cst(cst)
-  let term = syntax_node_to_term(tree)
+  let term = @lambda.syntax_node_to_term(tree)
   inspect(
     term,
     content="Module([(\"a\", Int(1))], Bop(Plus, Var(\"a\"), Int(1)))",
@@ -601,7 +604,7 @@ test "desugar block expr" {
 test "desugar block expr only" {
   let (cst, _) = parse_cst_or_fail_parser("{ 42 }")
   let tree = @seam.SyntaxNode::from_cst(cst)
-  let term = syntax_node_to_term(tree)
+  let term = @lambda.syntax_node_to_term(tree)
   inspect(term, content="Module([], Int(42))")
 }
 
@@ -609,7 +612,7 @@ test "desugar block expr only" {
 test "desugar defs-only block" {
   let (cst, _) = parse_cst_or_fail_parser("{ let a = 1 }")
   let tree = @seam.SyntaxNode::from_cst(cst)
-  let term = syntax_node_to_term(tree)
+  let term = @lambda.syntax_node_to_term(tree)
   inspect(term, content="Module([(\"a\", Int(1))], Unit)")
 }
 
@@ -617,7 +620,7 @@ test "desugar defs-only block" {
 test "desugar params plus block" {
   let (cst, _) = parse_cst_or_fail_parser("fn f(x) { let y = x + 1; y }")
   let tree = @seam.SyntaxNode::from_cst(cst)
-  let term = syntax_node_to_term(tree)
+  let term = @lambda.syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
   inspect(printed.contains("let f = (x) =>"), content="true")
 }
@@ -628,7 +631,7 @@ test "desugar params plus block" {
 test "parse nested blocks" {
   let (cst, _) = parse_cst_or_fail_parser("{ { 1 } }")
   let tree = @seam.SyntaxNode::from_cst(cst)
-  let term = syntax_node_to_term(tree)
+  let term = @lambda.syntax_node_to_term(tree)
   inspect(term, content="Module([], Module([], Int(1)))")
 }
 
@@ -638,7 +641,7 @@ test "parse blocks in if-then-else" {
     "if x then { let a = 1; a } else { 0 }",
   )
   let tree = @seam.SyntaxNode::from_cst(cst)
-  let term = syntax_node_to_term(tree)
+  let term = @lambda.syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
   inspect(printed.contains("if"), content="true")
 }
@@ -649,7 +652,7 @@ test "parse param list with block body" {
     "fn compute(x, y) {\n  let sum = x + y\n  sum\n}",
   )
   let tree = @seam.SyntaxNode::from_cst(cst)
-  let term = syntax_node_to_term(tree)
+  let term = @lambda.syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
   inspect(printed.contains("let compute = (x) => (y) =>"), content="true")
 }
@@ -658,7 +661,7 @@ test "parse param list with block body" {
 test "block as application argument" {
   let (cst, _) = parse_cst_or_fail_parser("double { let x = 3; x + 1 }")
   let tree = @seam.SyntaxNode::from_cst(cst)
-  let term = syntax_node_to_term(tree)
+  let term = @lambda.syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
   inspect(printed.contains("double"), content="true")
 }
@@ -676,7 +679,7 @@ test "roundtrip: param list preserves structure" {
 
 ///|
 test "parse underscore as Hole" {
-  let result = parse(parser_test_source_id(), "_") catch {
+  let result = @lambda.parse(parser_test_source_id(), "_") catch {
     _ => @ast.Term::Error("parse failed")
   }
   inspect(result, content="Hole(0)")
@@ -684,7 +687,7 @@ test "parse underscore as Hole" {
 
 ///|
 test "parse hole in expression" {
-  let result = parse(parser_test_source_id(), "((x) => _)") catch {
+  let result = @lambda.parse(parser_test_source_id(), "((x) => _)") catch {
     _ => @ast.Term::Error("parse failed")
   }
   inspect(result, content="Lam(\"x\", Hole(0))")
@@ -692,7 +695,7 @@ test "parse hole in expression" {
 
 ///|
 test "parse hole as application argument" {
-  let result = parse(parser_test_source_id(), "f _") catch {
+  let result = @lambda.parse(parser_test_source_id(), "f _") catch {
     _ => @ast.Term::Error("parse failed")
   }
   inspect(result, content="App(Var(\"f\"), Hole(0))")
@@ -700,7 +703,7 @@ test "parse hole as application argument" {
 
 ///|
 test "parse hole as application function" {
-  let result = parse(parser_test_source_id(), "_ 1") catch {
+  let result = @lambda.parse(parser_test_source_id(), "_ 1") catch {
     _ => @ast.Term::Error("parse failed")
   }
   inspect(result, content="App(Hole(0), Int(1))")

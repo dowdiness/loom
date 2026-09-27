@@ -5,9 +5,8 @@ import {
   "dowdiness/json",
   "moonbitlang/core/debug",
   "moonbitlang/core/string",
-  "moonbitlang/core/bench",
 }
 
 import {
-  "dowdiness/diagnostic",
-} for "wbtest"
+  "moonbitlang/core/bench",
+} for "test"

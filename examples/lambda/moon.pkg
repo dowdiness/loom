@@ -1,5 +1,4 @@
 import {
-  "dowdiness/diagnostic",
   "dowdiness/lambda/lexer",
   "dowdiness/lambda/ast",
   "dowdiness/lambda/token",
@@ -10,7 +9,6 @@ import {
   "dowdiness/loom/viz",
   "dowdiness/loom/grammar",
   "moonbitlang/core/debug",
-  "moonbitlang/core/quickcheck",
   "dowdiness/seam",
   "moonbitlang/core/string",
   "dowdiness/loom",
@@ -26,4 +24,5 @@ import {
 
 import {
   "dowdiness/pretty",
+  "moonbitlang/core/quickcheck",
 } for "wbtest"

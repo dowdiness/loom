@@ -15,13 +15,13 @@ fn newline_app_reification_source_id() -> @core.SourceId {
 /// recursive-mode mechanism" — exactly the §5/§8 signal that informs whether the
 /// migration is a target-(i) drop-in or a target-(ii) re-baseline.
 test "newline application reification attempt is evidence gated" {
-  let result = run_newline_application_reification_probe(
+  let result = @spike.run_newline_application_reification_probe(
     newline_app_reification_source_id(),
   )
   match result.divergence {
-    DivergenceClass::NoDivergence => ()
-    DivergenceClass::ReplicationResidual(_) => ()
-    DivergenceClass::WrongModelStop(message) => fail(message)
+    @spike.DivergenceClass::NoDivergence => ()
+    @spike.DivergenceClass::ReplicationResidual(_) => ()
+    @spike.DivergenceClass::WrongModelStop(message) => fail(message)
   }
 }
 
@@ -30,7 +30,7 @@ test "newline application reification attempt is evidence gated" {
 /// newline-application parity (e.g. dropping the probe's `parse_newline_app`)
 /// surfaces here rather than hiding behind the permissive match above.
 test "newline application residue holds A-vs-B parity via the spike probe" {
-  let result = run_newline_application_reification_probe(
+  let result = @spike.run_newline_application_reification_probe(
     newline_app_reification_source_id(),
   )
   inspect(result.divergence, content="NoDivergence")

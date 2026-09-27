@@ -203,3 +203,19 @@ pub fn[T : TermSym] interpret(term : Term) -> T {
     Hole(n) => T::hole(n)
   }
 }
+
+///|
+pub extend Term with TermSym::{
+  bop,
+  if_then_else,
+  mod,
+  unit,
+  let_def,
+  variable,
+  hole,
+  int_lit,
+  unbound,
+  app,
+  lam,
+  error_term,
+}

@@ -2,7 +2,7 @@
 
 ///|
 test "tokenize simple integer" {
-  let tokens = tokenize("42")
+  let tokens = @lexer.tokenize("42")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("<int>"), content="true")
   inspect(token_str.contains("EOF"), content="true")
@@ -10,7 +10,7 @@ test "tokenize simple integer" {
 
 ///|
 test "tokenize simple variable" {
-  let tokens = tokenize("x")
+  let tokens = @lexer.tokenize("x")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("<ident>"), content="true")
   inspect(token_str.contains("EOF"), content="true")
@@ -18,7 +18,7 @@ test "tokenize simple variable" {
 
 ///|
 test "tokenize arrow lambda expression" {
-  let tokens = tokenize("(x) => x")
+  let tokens = @lexer.tokenize("(x) => x")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("("), content="true")
   inspect(token_str.contains("<ident>"), content="true")
@@ -27,7 +27,7 @@ test "tokenize arrow lambda expression" {
 
 ///|
 test "tokenize fn definition" {
-  let tokens = tokenize("fn id(x) { x }")
+  let tokens = @lexer.tokenize("fn id(x) { x }")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("fn"), content="true")
   inspect(token_str.contains("=>"), content="false")
@@ -35,7 +35,7 @@ test "tokenize fn definition" {
 
 ///|
 test "tokenize plus binary operator" {
-  let tokens = tokenize("1 + 2")
+  let tokens = @lexer.tokenize("1 + 2")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("<int>"), content="true")
   inspect(token_str.contains("+"), content="true")
@@ -43,7 +43,7 @@ test "tokenize plus binary operator" {
 
 ///|
 test "tokenize minus binary operator" {
-  let tokens = tokenize("5 - 2")
+  let tokens = @lexer.tokenize("5 - 2")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("<int>"), content="true")
   inspect(token_str.contains("-"), content="true")
@@ -51,7 +51,7 @@ test "tokenize minus binary operator" {
 
 ///|
 test "tokenize if-then-else" {
-  let tokens = tokenize("if x then y else z")
+  let tokens = @lexer.tokenize("if x then y else z")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("if"), content="true")
   inspect(token_str.contains("then"), content="true")
@@ -60,7 +60,7 @@ test "tokenize if-then-else" {
 
 ///|
 test "tokenize parentheses" {
-  let tokens = tokenize("(x)")
+  let tokens = @lexer.tokenize("(x)")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("("), content="true")
   inspect(token_str.contains("<ident>"), content="true")
@@ -68,21 +68,21 @@ test "tokenize parentheses" {
 
 ///|
 test "tokenize multi-digit integer" {
-  let tokens = tokenize("12345")
+  let tokens = @lexer.tokenize("12345")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("<int>"), content="true")
 }
 
 ///|
 test "tokenize identifier with numbers" {
-  let tokens = tokenize("x1y2")
+  let tokens = @lexer.tokenize("x1y2")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("<ident>"), content="true")
 }
 
 ///|
 test "tokenize whitespace handling" {
-  let tokens = tokenize("  x   y  ")
+  let tokens = @lexer.tokenize("  x   y  ")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("<ident>"), content="true")
   inspect(token_str.contains("whitespace"), content="true")
@@ -90,14 +90,14 @@ test "tokenize whitespace handling" {
 
 ///|
 test "tokenize complex expression" {
-  let tokens = tokenize("(f, x) => (f (f x))")
+  let tokens = @lexer.tokenize("(f, x) => (f (f x))")
   inspect(tokens.length() > 0, content="true")
 }
 
 ///|
 test "tokenize error - invalid character" {
   let should_error = try {
-    let _tokens = tokenize("@")
+    let _tokens = @lexer.tokenize("@")
     false
   } catch {
     @core.LexError(_) => true
@@ -108,7 +108,7 @@ test "tokenize error - invalid character" {
 ///|
 test "structured lex error preserves caller source and lexer producer" {
   let source_id = @core.SourceId::SourceId("lambda-lexer-test")
-  let diagnostics = lex(source_id, "@").diagnostics().items()
+  let diagnostics = @lexer.lex(source_id, "@").diagnostics().items()
   inspect(diagnostics.length(), content="1")
   let diagnostic = diagnostics[0]
   inspect(diagnostic.origin().name(), content="lexer")
@@ -128,12 +128,12 @@ test "token_buffer update insertion matches full tokenize" {
   let buffer = @core.TokenBuffer::new(
     @core.SourceId::SourceId("lambda-lexer-test"),
     source,
-    tokenize_fn=tokenize,
+    tokenize_fn=@lexer.tokenize,
     eof_token=@token.EOF,
   )
   buffer.update(edit, new_source)
   let updated = buffer.get_tokens()
-  let full = tokenize(new_source)
+  let full = @lexer.tokenize(new_source)
   inspect(
     @token.print_token_infos(updated),
     content=@token.print_token_infos(full),
@@ -148,12 +148,12 @@ test "token_buffer update deletion merges identifiers" {
   let buffer = @core.TokenBuffer::new(
     @core.SourceId::SourceId("lambda-lexer-test"),
     source,
-    tokenize_fn=tokenize,
+    tokenize_fn=@lexer.tokenize,
     eof_token=@token.EOF,
   )
   buffer.update(edit, new_source)
   let updated = buffer.get_tokens()
-  let full = tokenize(new_source)
+  let full = @lexer.tokenize(new_source)
   inspect(
     @token.print_token_infos(updated),
     content=@token.print_token_infos(full),
@@ -168,12 +168,12 @@ test "token_buffer update replacement matches full tokenize" {
   let buffer = @core.TokenBuffer::new(
     @core.SourceId::SourceId("lambda-lexer-test"),
     source,
-    tokenize_fn=tokenize,
+    tokenize_fn=@lexer.tokenize,
     eof_token=@token.EOF,
   )
   buffer.update(edit, new_source)
   let updated = buffer.get_tokens()
-  let full = tokenize(new_source)
+  let full = @lexer.tokenize(new_source)
   inspect(
     @token.print_token_infos(updated),
     content=@token.print_token_infos(full),
@@ -188,12 +188,12 @@ test "token_buffer update insertion creates keyword" {
   let buffer = @core.TokenBuffer::new(
     @core.SourceId::SourceId("lambda-lexer-test"),
     source,
-    tokenize_fn=tokenize,
+    tokenize_fn=@lexer.tokenize,
     eof_token=@token.EOF,
   )
   buffer.update(edit, new_source)
   let updated = buffer.get_tokens()
-  let full = tokenize(new_source)
+  let full = @lexer.tokenize(new_source)
   inspect(
     @token.print_token_infos(updated),
     content=@token.print_token_infos(full),
@@ -203,7 +203,7 @@ test "token_buffer update insertion creates keyword" {
 ///|
 test "tokenize includes whitespace tokens" {
   // "x + 1" has whitespace runs between syntactic tokens
-  let tokens = tokenize("x + 1")
+  let tokens = @lexer.tokenize("x + 1")
   let has_whitespace = tokens.iter().any(fn(t) { t.token == @token.Whitespace })
   inspect(has_whitespace, content="true")
 }
@@ -211,7 +211,7 @@ test "tokenize includes whitespace tokens" {
 ///|
 test "tokenize leading whitespace produces whitespace token" {
   // "  x" has leading whitespace that must become a Whitespace token
-  let tokens = tokenize("  x")
+  let tokens = @lexer.tokenize("  x")
   let first = tokens[0]
   inspect(first.token == @token.Whitespace, content="true")
   inspect(first.len, content="2")
@@ -220,7 +220,7 @@ test "tokenize leading whitespace produces whitespace token" {
 ///|
 test "tokenize whitespace lengths are correct" {
   // "x + 1": x(1), ws(1), +(1), ws(1), 1(1), EOF(0)
-  let tokens = tokenize("x + 1")
+  let tokens = @lexer.tokenize("x + 1")
   let ws_tokens = tokens.filter(fn(t) { t.token == @token.Whitespace })
   inspect(ws_tokens.length(), content="2")
   let ws0 = ws_tokens[0]
@@ -232,7 +232,7 @@ test "tokenize whitespace lengths are correct" {
 ///|
 test "tokenize whitespace-only input" {
   // "   " should produce a single Whitespace token covering the whole input, then EOF
-  let tokens = tokenize("   ")
+  let tokens = @lexer.tokenize("   ")
   let ws_tokens = tokens.filter(fn(t) { t.token == @token.Whitespace })
   inspect(ws_tokens.length(), content="1")
   let ws0 = ws_tokens[0]
@@ -244,7 +244,7 @@ test "tokenize whitespace-only input" {
 ///|
 test "tokenize mixed whitespace characters fold into one token" {
   // " \t\n" should produce a single Whitespace token, not three separate ones
-  let tokens = tokenize(" \t\n")
+  let tokens = @lexer.tokenize(" \t\n")
   let ws_tokens = tokens.filter(fn(t) { t.token == @token.Whitespace })
   inspect(ws_tokens.length(), content="1")
 }
@@ -252,7 +252,7 @@ test "tokenize mixed whitespace characters fold into one token" {
 ///|
 test "tokenize trailing whitespace produces whitespace token before EOF" {
   // "x  " should include a Whitespace token after the identifier and before EOF
-  let tokens = tokenize("x  ")
+  let tokens = @lexer.tokenize("x  ")
   let ws_tokens = tokens.filter(fn(t) { t.token == @token.Whitespace })
   inspect(ws_tokens.length() > 0, content="true")
   let last_ws = ws_tokens[ws_tokens.length() - 1]
@@ -261,7 +261,7 @@ test "tokenize trailing whitespace produces whitespace token before EOF" {
 
 ///|
 test "tokenize let keyword" {
-  let tokens = tokenize("let") catch { _ => abort("tokenize failed") }
+  let tokens = @lexer.tokenize("let") catch { _ => abort("tokenize failed") }
   let s = @token.print_token_infos(tokens)
   inspect(s.contains("let"), content="true")
   inspect(s.contains("EOF"), content="true")
@@ -269,7 +269,7 @@ test "tokenize let keyword" {
 
 ///|
 test "tokenize in as identifier (not a keyword)" {
-  let tokens = tokenize("in") catch { _ => abort("tokenize failed") }
+  let tokens = @lexer.tokenize("in") catch { _ => abort("tokenize failed") }
   let s = @token.print_token_infos(tokens)
   // "in" is no longer a keyword — lexes as an identifier
   inspect(s.contains("<ident>"), content="true")
@@ -277,14 +277,14 @@ test "tokenize in as identifier (not a keyword)" {
 
 ///|
 test "tokenize eq" {
-  let tokens = tokenize("=") catch { _ => abort("tokenize failed") }
+  let tokens = @lexer.tokenize("=") catch { _ => abort("tokenize failed") }
   let s = @token.print_token_infos(tokens)
   inspect(s.contains("="), content="true")
 }
 
 ///|
 test "tokenize let definition" {
-  let tokens = tokenize("let x = 1") catch { _ => abort("tokenize failed") }
+  let tokens = @lexer.tokenize("let x = 1") catch { _ => abort("tokenize failed") }
   let s = @token.print_token_infos(tokens)
   inspect(s.contains("let"), content="true")
   inspect(s.contains("<ident>"), content="true")
@@ -294,7 +294,7 @@ test "tokenize let definition" {
 
 ///|
 test "tokenize braces" {
-  let tokens = tokenize("{}")
+  let tokens = @lexer.tokenize("{}")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("{"), content="true")
   inspect(token_str.contains("}"), content="true")
@@ -302,7 +302,7 @@ test "tokenize braces" {
 
 ///|
 test "tokenize comma" {
-  let tokens = tokenize("x,y")
+  let tokens = @lexer.tokenize("x,y")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains(","), content="true")
   inspect(token_str.contains("<ident>"), content="true")
@@ -310,14 +310,14 @@ test "tokenize comma" {
 
 ///|
 test "tokenize semicolon" {
-  let tokens = tokenize("a;b")
+  let tokens = @lexer.tokenize("a;b")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains(";"), content="true")
 }
 
 ///|
 test "tokenize block with semicolons" {
-  let tokens = tokenize("{ let a = 1; a }")
+  let tokens = @lexer.tokenize("{ let a = 1; a }")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("{"), content="true")
   inspect(token_str.contains(";"), content="true")
@@ -326,7 +326,7 @@ test "tokenize block with semicolons" {
 
 ///|
 test "lex colon" {
-  let tokens = tokenize("x : Int")
+  let tokens = @lexer.tokenize("x : Int")
   let non_ws = tokens.filter(fn(t) {
     t.token != @token.Whitespace && t.token != @token.Newline
   })
@@ -337,7 +337,7 @@ test "lex colon" {
 
 ///|
 test "lex arrow" {
-  let tokens = tokenize("Int -> Int")
+  let tokens = @lexer.tokenize("Int -> Int")
   let non_ws = tokens.filter(fn(t) {
     t.token != @token.Whitespace && t.token != @token.Newline
   })
@@ -346,7 +346,7 @@ test "lex arrow" {
 
 ///|
 test "lex minus still works" {
-  let tokens = tokenize("1 - 2")
+  let tokens = @lexer.tokenize("1 - 2")
   let non_ws = tokens.filter(fn(t) {
     t.token != @token.Whitespace && t.token != @token.Newline
   })
@@ -355,7 +355,7 @@ test "lex minus still works" {
 
 ///|
 test "lex arrow vs minus" {
-  let tokens = tokenize("1 - 2 -> 3")
+  let tokens = @lexer.tokenize("1 - 2 -> 3")
   let non_ws = tokens.filter(fn(t) {
     t.token != @token.Whitespace && t.token != @token.Newline
   })

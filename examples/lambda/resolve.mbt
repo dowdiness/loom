@@ -115,3 +115,18 @@ fn resolve_walk(
     | @ast.Term::Hole(_) => term
   }
 }
+
+///|
+pub extend Resolution with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Resolution with Eq::{equal, not_equal}
+
+///|
+pub extend VarStatus with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend VarStatus with Eq::{equal, not_equal}
+
+///|
+pub extend VarStatus with Show::{output, to_string}

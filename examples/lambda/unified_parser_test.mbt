@@ -235,7 +235,7 @@ test "Parser: parity with parse" {
   for source in sources {
     let source_id = unified_parser_test_source_id()
     let parser = @loom.new_parser(source_id, source, @lambda.lambda_grammar)
-    let direct = parse(source_id, source) catch {
+    let direct = @lambda.parse(source_id, source) catch {
       _ => abort("unexpected parse error in valid source: " + source)
     }
     inspect(
@@ -255,7 +255,7 @@ test "Parser: Term Eq holds after round-trip source change" {
   let parser = @loom.new_parser(
     unified_parser_test_source_id(),
     "(x) => x",
-    lambda_grammar,
+    @lambda.lambda_grammar,
   )
   let t1 = parser.ast().read_or_abort()
   parser.set_source("y") // change — triggers recomputation
