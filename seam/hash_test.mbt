@@ -1,6 +1,9 @@
 ///|
 test "string_hash is deterministic" {
-  inspect(@seam.string_hash("hello") == @seam.string_hash("hello"), content="true")
+  inspect(
+    @seam.string_hash("hello") == @seam.string_hash("hello"),
+    content="true",
+  )
 }
 
 ///|

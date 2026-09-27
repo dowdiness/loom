@@ -22,7 +22,9 @@ test "block reparse: edit inside block matches full reparse" {
   //  a = 6, ' ' = 7, = = 8, ' ' = 9, 1 = 10, ; = 11,
   //  ' ' = 12, a = 13, ' ' = 14, } = 15
   let source = "{ let a = 1; a }"
-  let parser = @loom.new_imperative_parser(source_id, source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    source_id, source, @lambda.lambda_grammar,
+  )
   let _ = parser.parse().ast
 
   // Replace "1" (pos 10) with "2"  →  "{ let a = 2; a }"
@@ -47,7 +49,9 @@ test "block reparse: edit touching closing brace falls through" {
   let source_id = block_reparse_test_source_id()
   // Source: "{ let a = 1; a }"
   let source = "{ let a = 1; a }"
-  let parser = @loom.new_imperative_parser(source_id, source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    source_id, source, @lambda.lambda_grammar,
+  )
   let _ = parser.parse().ast
 
   // Delete closing "}" at position 15 → "{ let a = 1; a "
@@ -84,7 +88,9 @@ test "block reparse: nested blocks reparses inner" {
   //  ' ' = 19, 1 = 20, ; = 21, ' ' = 22, a = 23, ' ' = 24,
   //  } = 25, ; = 26, ' ' = 27, x = 28, ' ' = 29, } = 30
   let source = "{ let x = { let a = 1; a }; x }"
-  let parser = @loom.new_imperative_parser(source_id, source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    source_id, source, @lambda.lambda_grammar,
+  )
   let _ = parser.parse().ast
 
   // Replace "1" (pos 20) with "9" → "{ let x = { let a = 9; a }; x }"
@@ -109,7 +115,9 @@ test "block reparse: no block falls through to normal incremental" {
   let source_id = block_reparse_test_source_id()
   // Source without blocks: "let x = 1\nx"
   let source = "let x = 1\nx"
-  let parser = @loom.new_imperative_parser(source_id, source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    source_id, source, @lambda.lambda_grammar,
+  )
   let _ = parser.parse().ast
 
   // Replace "1" with "2" at position 8
@@ -146,7 +154,9 @@ test "block reparse: block with errors preserves diagnostics" {
   //  ' ' = 19, 2 = 20, ; = 21, ' ' = 22, a = 23, ' ' = 24,
   //  } = 25
   let source = "{ let a = 1 let b = 2; a }"
-  let parser = @loom.new_imperative_parser(source_id, source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    source_id, source, @lambda.lambda_grammar,
+  )
   let _ = parser.parse().ast
   let initial_diags = parser.diagnostics()
 
@@ -177,7 +187,9 @@ test "block reparse: delete content leaving empty block" {
   // Source: "{ 42 }"
   //  { = 0, ' ' = 1, 4 = 2, 2 = 3, ' ' = 4, } = 5
   let source = "{ 42 }"
-  let parser = @loom.new_imperative_parser(source_id, source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    source_id, source, @lambda.lambda_grammar,
+  )
   let _ = parser.parse().ast
 
   // Delete "42" (pos 2, len 2) → "{ }"  (note: "42" removed, spaces remain)
@@ -206,14 +218,18 @@ test "block reparse: sequential edits — block then non-block" {
   //  ==16 ' '=17 1=18 ;=19 ' '=20 a=21 ' '=22 }=23
   //  \n=24 y=25
   let source = "let y = { let a = 1; a }\ny"
-  let parser = @loom.new_imperative_parser(source_id, source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    source_id, source, @lambda.lambda_grammar,
+  )
   let _ = parser.parse().ast
 
   // First edit: replace "1" (pos 18) with "9" → inside block → block reparse
   let edit1 = @core.Edit::new(18, 1, 1)
   let source2 = "let y = { let a = 9; a }\ny"
   let incr1 = parser.edit(edit1, source2).ast
-  let full1 = @lambda.parse(source_id, source2) catch { _ => abort("parse failed") }
+  let full1 = @lambda.parse(source_id, source2) catch {
+    _ => abort("parse failed")
+  }
   inspect(@ast.print_term(incr1), content=@ast.print_term(full1))
   inspect(parser.get_last_reuse_count(), content="1")
 

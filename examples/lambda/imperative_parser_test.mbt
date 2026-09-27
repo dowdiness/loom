@@ -257,7 +257,10 @@ test "multiple incremental edits preserve correctness" {
   inspect(@ast.print_term(tree3).contains("(y) => (x) =>"), content="true")
 
   // Final result should match full reparse
-  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(y, x) => x + 2") catch {
+  let full_tree = @lambda.parse(
+    imperative_parser_test_source_id(),
+    "(y, x) => x + 2",
+  ) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(tree3), content=@ast.print_term(full_tree))
@@ -277,7 +280,10 @@ test "damage tracking accuracy" {
   let new_tree = parser.edit(edit, "(a + b) + (x + d)").ast
 
   // Incremental result must match a full reparse of the edited source
-  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(a + b) + (x + d)") catch {
+  let full_tree = @lambda.parse(
+    imperative_parser_test_source_id(),
+    "(a + b) + (x + d)",
+  ) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -487,7 +493,10 @@ test "Edge case: nested lambda insertion at start" {
   // Wrap with another lambda
   let edit = @core.Edit::insert(0, 3)
   let new_tree = parser.edit(edit, "(y, x) => x + 1").ast
-  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(y, x) => x + 1") catch {
+  let full_tree = @lambda.parse(
+    imperative_parser_test_source_id(),
+    "(y, x) => x + 1",
+  ) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -614,7 +623,10 @@ test "Edge case: position boundary at node start" {
   // Insert exactly at inner lambda boundary
   let edit = @core.Edit::insert(3, 1)
   let new_tree = parser.edit(edit, "(x, y) => x").ast
-  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(x, y) => x") catch {
+  let full_tree = @lambda.parse(
+    imperative_parser_test_source_id(),
+    "(x, y) => x",
+  ) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -632,7 +644,10 @@ test "Edge case: position boundary at node end" {
   // Insert exactly at end of inner lambda
   let edit = @core.Edit::insert(7, 2)
   let new_tree = parser.edit(edit, "(x, y) => x y").ast
-  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(x, y) => x y") catch {
+  let full_tree = @lambda.parse(
+    imperative_parser_test_source_id(),
+    "(x, y) => x y",
+  ) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -867,7 +882,10 @@ test "Differential: complex nested expression" {
   // Change inner "f" to "g"
   let edit = @core.Edit::replace(9, 10, 10)
   let incremental = parser.edit(edit, "(f, x) => f (g x)").ast
-  let full = @lambda.parse(imperative_parser_test_source_id(), "(f, x) => f (g x)") catch {
+  let full = @lambda.parse(
+    imperative_parser_test_source_id(),
+    "(f, x) => f (g x)",
+  ) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incremental), content=@ast.print_term(full))
@@ -885,7 +903,10 @@ test "Differential: if-then-else modification" {
   // Change condition "x" to "y"
   let edit = @core.Edit::replace(3, 4, 4)
   let incremental = parser.edit(edit, "if y then 1 else 2").ast
-  let full = @lambda.parse(imperative_parser_test_source_id(), "if y then 1 else 2") catch {
+  let full = @lambda.parse(
+    imperative_parser_test_source_id(),
+    "if y then 1 else 2",
+  ) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incremental), content=@ast.print_term(full))
@@ -1116,7 +1137,10 @@ test "Reuse: whitespace-containing expressions parse correctly" {
   // Edit only the number at the end
   let edit = @core.Edit::replace(8, 9, 9)
   let incr_tree = parser.edit(edit, "(x) => x + 2").ast
-  let full_tree = @lambda.parse(imperative_parser_test_source_id(), "(x) => x + 2") catch {
+  let full_tree = @lambda.parse(
+    imperative_parser_test_source_id(),
+    "(x) => x + 2",
+  ) catch {
     _ => abort("parse failed")
   }
 
@@ -1279,10 +1303,17 @@ test "source file: incremental parse == full reparse after first def edit" {
     tokens2,
     Some(cursor),
   )
-  let (full_cst, _) = @lambda.parse_cst(imperative_parser_test_source_id(), source2)
+  let (full_cst, _) = @lambda.parse_cst(
+    imperative_parser_test_source_id(),
+    source2,
+  )
   // Both trees must produce the same term structure
-  let incr_term = @lambda.syntax_node_to_term(@seam.SyntaxNode::from_cst(incr_cst))
-  let full_term = @lambda.syntax_node_to_term(@seam.SyntaxNode::from_cst(full_cst))
+  let incr_term = @lambda.syntax_node_to_term(
+    @seam.SyntaxNode::from_cst(incr_cst),
+  )
+  let full_term = @lambda.syntax_node_to_term(
+    @seam.SyntaxNode::from_cst(full_cst),
+  )
   inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
 }
 

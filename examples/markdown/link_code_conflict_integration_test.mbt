@@ -98,7 +98,10 @@ test "issue 892: conflicting bracket endpoints are literal without recovery" {
     let (source, expected_html) = case
     let ir = issue_892_ir(source)
     issue_892_assert_no_recovery(ir)
-    assert_eq(@markdown.experimental_markdown_ir_to_commonmark_html(ir), expected_html)
+    assert_eq(
+      @markdown.experimental_markdown_ir_to_commonmark_html(ir),
+      expected_html,
+    )
     assert_source_fidelity(
       @core.SourceId("markdown-issue-892-fresh-fidelity-" + index.to_string()),
       source,
@@ -145,7 +148,9 @@ fn issue_892_incremental_conflict_case(
   expected_html : String,
 ) -> Unit raise {
   let source_id = @core.SourceId("markdown-issue-892-incremental-" + label)
-  let incremental = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
+  let incremental = @loom.new_parser(
+    source_id, source, @markdown.markdown_grammar,
+  )
   incremental.apply_edit(edit, updated)
   let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
@@ -187,7 +192,9 @@ fn issue_892_incremental_case(
   expected_html : String,
 ) -> Unit raise {
   let source_id = @core.SourceId("markdown-issue-892-" + label)
-  let incremental = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
+  let incremental = @loom.new_parser(
+    source_id, source, @markdown.markdown_grammar,
+  )
   incremental.apply_edit(edit, updated)
   let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()

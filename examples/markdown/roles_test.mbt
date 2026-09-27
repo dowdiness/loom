@@ -264,7 +264,9 @@ test "markdown roles leave unmatched emphasis as ordinary text" {
     "**unclosed\n",
     @markdown.markdown_grammar.to_syntax_grammar(),
   )
-  let roles = @markdown.project_markdown_roles(parser.syntax_tree().read_or_abort())
+  let roles = @markdown.project_markdown_roles(
+    parser.syntax_tree().read_or_abort(),
+  )
   let expected : Array[(@markdown.MarkdownRole, Int, Int)] = []
   guard markdown_test_observations(roles) == expected else {
     fail("expected no recovery role for literal unmatched emphasis")

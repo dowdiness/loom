@@ -399,7 +399,9 @@ test "stray close tag at root" {
 ///|
 test "empty input" {
   let source_id = @core.SourceId("jsx-parser-empty-input")
-  let result = @jsx.parse_cst(source_id, "") catch { _ => return fail("lex error") }
+  let result = @jsx.parse_cst(source_id, "") catch {
+    _ => return fail("lex error")
+  }
   let (tree, diagnostics) = result
   inspect(
     diagnostics.items().map(d => d.message()).join(" | "),

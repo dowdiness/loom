@@ -129,7 +129,9 @@ test "tokenize whitespace mixed" {
 ///|
 test "tokenize full JSON object" {
   let source_id = @core.SourceId("json-lexer-full-object")
-  let tokens = @json.tokenize(source_id, "{\"key\": 42, \"arr\": [1, true, null]}")
+  let tokens = @json.tokenize(
+    source_id, "{\"key\": 42, \"arr\": [1, true, null]}",
+  )
   let s = @json.print_token_infos(tokens)
   inspect(s.contains("{"), content="true")
   inspect(s.contains("}"), content="true")

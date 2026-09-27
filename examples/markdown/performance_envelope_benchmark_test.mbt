@@ -38,7 +38,10 @@ fn perf_middle_edit(source : String) -> (String, @core.Edit) {
 
 ///|
 fn perf_syntax(source : String) -> @seam.SyntaxNode {
-  let (cst, _) = @markdown.parse_cst(@core.SourceId("markdown-perf-envelope"), source) catch {
+  let (cst, _) = @markdown.parse_cst(
+    @core.SourceId("markdown-perf-envelope"),
+    source,
+  ) catch {
     _ => abort("parse failed")
   }
   @seam.SyntaxNode::from_cst(cst)
@@ -73,7 +76,10 @@ fn bench_perf_ast(b : @bench.T, count : Int) -> Unit {
   let source = perf_paragraph_doc(count)
   b.bench(fn() {
     b.keep(
-      try! @markdown.parse_block_ast(@core.SourceId("markdown-perf-envelope"), source),
+      try! @markdown.parse_block_ast(
+        @core.SourceId("markdown-perf-envelope"),
+        source,
+      ),
     )
   })
 }

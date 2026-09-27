@@ -54,18 +54,31 @@ test "compute_text_change appends whole non-BMP emoji cluster" {
 
 ///|
 test "compute_text_change replaces whole combining-mark cluster" {
-  assert_range(@text_change.compute_text_change("e\u{0301}", "a\u{0301}"), 0, 2, "a\u{0301}")
+  assert_range(
+    @text_change.compute_text_change("e\u{0301}", "a\u{0301}"),
+    0,
+    2,
+    "a\u{0301}",
+  )
 }
 
 ///|
 test "ReplaceRange applies one validated UTF-16 splice" {
-  let change = @text_change.TextChange::ReplaceRange(start=1, delete_len=2, inserted="😁")
+  let change = @text_change.TextChange::ReplaceRange(
+    start=1,
+    delete_len=2,
+    inserted="😁",
+  )
   debug_inspect(change.apply("a😀b"), content="Some(\"a😁b\")")
 }
 
 ///|
 test "ReplaceRange rejects an invalid UTF-16 boundary" {
-  let change = @text_change.TextChange::ReplaceRange(start=2, delete_len=1, inserted="x")
+  let change = @text_change.TextChange::ReplaceRange(
+    start=2,
+    delete_len=1,
+    inserted="x",
+  )
   debug_inspect(change.apply("a😀b"), content="None")
 }
 
@@ -159,7 +172,9 @@ test "ChangeSet rejects invalid changes" {
     _ => fail("expected unordered changes to raise")
   }
   try
-    @text_change.ChangeSet::ChangeSet(source_length=3, changes=[@text_change.TextChange::ReplaceAll("x")])
+    @text_change.ChangeSet::ChangeSet(source_length=3, changes=[
+      @text_change.TextChange::ReplaceAll("x"),
+    ])
   catch {
     e => debug_inspect(e, content="ReplaceAll(index=0)")
   } noraise {
@@ -181,7 +196,9 @@ test "ChangeSet rejects source mismatch and surrogate boundaries" {
 
 ///|
 test "ChangeSet defensively owns the changes array" {
-  let changes = [@text_change.TextChange::ReplaceRange(start=1, delete_len=1, inserted="x")]
+  let changes = [
+    @text_change.TextChange::ReplaceRange(start=1, delete_len=1, inserted="x"),
+  ]
   let set = @text_change.ChangeSet::ChangeSet(source_length=3, changes~)
   changes[0] = @text_change.TextChange::ReplaceAll("wrong")
   debug_inspect(set.apply("abc"), content="Some(\"axc\")")

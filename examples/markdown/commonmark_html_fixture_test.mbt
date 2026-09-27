@@ -26,7 +26,9 @@ fn CommonMarkHtmlFixture::label(self : CommonMarkHtmlFixture) -> String {
 }
 
 ///|
-fn CommonMarkHtmlFixture::ir(self : CommonMarkHtmlFixture) -> @markdown.MarkdownIR {
+fn CommonMarkHtmlFixture::ir(
+  self : CommonMarkHtmlFixture,
+) -> @markdown.MarkdownIR {
   let source_id = @core.SourceId(
     "markdown-commonmark-html-fixture:" + self.example.to_string(),
   )
@@ -302,7 +304,9 @@ test "experimental MarkdownIR: CommonMark HTML renderer supports setext headings
     content="<blockquote>\n<h2>Foo</h2>\n</blockquote>\n",
   )
   let list_item = "- Bar\n  ---\n"
-  let (list_cst, list_diagnostics) = try! @markdown.parse_cst(source_id, list_item)
+  let (list_cst, list_diagnostics) = try! @markdown.parse_cst(
+    source_id, list_item,
+  )
   let list_ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     source_id,
     @seam.SyntaxNode::from_cst(list_cst),

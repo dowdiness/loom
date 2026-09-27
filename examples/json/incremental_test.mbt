@@ -15,7 +15,9 @@ fn nested_array_source(depth : Int, leaf : String) -> String {
 test "incremental: edit value in object matches full reparse" {
   let source_id = @core.SourceId("json-incremental-object-value")
   let source = "{\"a\": 1}"
-  let parser = @loom.new_imperative_parser(source_id, source, @json.json_grammar)
+  let parser = @loom.new_imperative_parser(
+    source_id, source, @json.json_grammar,
+  )
   let _ = parser.parse().ast
   let new_source = "{\"a\": 2}"
   let edit = @core.Edit::new(6, 1, 1)
@@ -28,7 +30,9 @@ test "incremental: edit value in object matches full reparse" {
 test "incremental: edit value in array matches full reparse" {
   let source_id = @core.SourceId("json-incremental-array-value")
   let source = "[1, 2, 3]"
-  let parser = @loom.new_imperative_parser(source_id, source, @json.json_grammar)
+  let parser = @loom.new_imperative_parser(
+    source_id, source, @json.json_grammar,
+  )
   let _ = parser.parse().ast
   let new_source = "[1, 9, 3]"
   let edit = @core.Edit::new(4, 1, 1)
@@ -78,7 +82,9 @@ test "incremental: deletion opt-in reuses left-adjacent array element" {
 test "block reparse: edit inside object uses block reparse" {
   let source_id = @core.SourceId("json-block-reparse-object")
   let source = "{\"x\": {\"a\": 1}, \"y\": 2}"
-  let parser = @loom.new_imperative_parser(source_id, source, @json.json_grammar)
+  let parser = @loom.new_imperative_parser(
+    source_id, source, @json.json_grammar,
+  )
   let _ = parser.parse().ast
   // Edit inside inner object: change 1 to 9
   let new_source = "{\"x\": {\"a\": 9}, \"y\": 2}"
@@ -94,7 +100,9 @@ test "block reparse: edit inside object uses block reparse" {
 test "block reparse: edit inside array uses block reparse" {
   let source_id = @core.SourceId("json-block-reparse-array")
   let source = "{\"arr\": [1, 2, 3]}"
-  let parser = @loom.new_imperative_parser(source_id, source, @json.json_grammar)
+  let parser = @loom.new_imperative_parser(
+    source_id, source, @json.json_grammar,
+  )
   let _ = parser.parse().ast
   let new_source = "{\"arr\": [1, 9, 3]}"
   let edit = @core.Edit::new(12, 1, 1)
@@ -131,7 +139,9 @@ test "block reparse: carries absolute nesting depth" {
 test "block reparse: no container falls through" {
   let source_id = @core.SourceId("json-block-reparse-no-container")
   let source = "42"
-  let parser = @loom.new_imperative_parser(source_id, source, @json.json_grammar)
+  let parser = @loom.new_imperative_parser(
+    source_id, source, @json.json_grammar,
+  )
   let _ = parser.parse().ast
   let new_source = "99"
   let edit = @core.Edit::new(0, 2, 2)

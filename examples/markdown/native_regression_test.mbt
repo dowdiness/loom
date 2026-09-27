@@ -12,11 +12,15 @@ test "native regression: CommonMark 254 list-relative quote makes progress" {
   inspect(diagnostics.is_empty(), content="true")
   match syntax.children() {
     [list] => {
-      let list_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(list.kind())
+      let list_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+        list.kind(),
+      )
       inspect(list_kind, content="OrderedListNode")
       match list.children() {
         [item] => {
-          let item_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(item.kind())
+          let item_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+            item.kind(),
+          )
           inspect(item_kind, content="ListItemNode")
           match item.children() {
             [quote] => {

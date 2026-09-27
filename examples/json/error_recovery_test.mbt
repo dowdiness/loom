@@ -79,11 +79,20 @@ test "error recovery: missing comma array CST shape stays wrapper-free" {
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [array_node] => {
-      inspect(@json.SyntaxKind::from_raw(array_node.kind()), content="ArrayNode")
+      inspect(
+        @json.SyntaxKind::from_raw(array_node.kind()),
+        content="ArrayNode",
+      )
       match array_node.children() {
         [first, second] => {
-          inspect(@json.SyntaxKind::from_raw(first.kind()), content="NumberValue")
-          inspect(@json.SyntaxKind::from_raw(second.kind()), content="NumberValue")
+          inspect(
+            @json.SyntaxKind::from_raw(first.kind()),
+            content="NumberValue",
+          )
+          inspect(
+            @json.SyntaxKind::from_raw(second.kind()),
+            content="NumberValue",
+          )
         }
         _ => fail("expected two array values")
       }
@@ -105,7 +114,10 @@ test "error recovery: trailing comma array CST shape stays wrapper-free" {
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [array_node] => {
-      inspect(@json.SyntaxKind::from_raw(array_node.kind()), content="ArrayNode")
+      inspect(
+        @json.SyntaxKind::from_raw(array_node.kind()),
+        content="ArrayNode",
+      )
       match array_node.children() {
         [_] => ()
         _ => fail("expected one array value")
@@ -130,7 +142,10 @@ test "error recovery: non-sync array element stays an error child" {
     [array_node] =>
       match array_node.children() {
         [_, middle, _] =>
-          inspect(@json.SyntaxKind::from_raw(middle.kind()), content="ErrorToken")
+          inspect(
+            @json.SyntaxKind::from_raw(middle.kind()),
+            content="ErrorToken",
+          )
         _ => fail("expected three array values")
       }
     _ => fail("expected single array root child")
@@ -142,7 +157,9 @@ test "error recovery: non-sync array element stays an error child" {
 // omits the separator between members; the second member must be recovered.
 test "error recovery: missing comma between object members" {
   let source_id = @core.SourceId("json-error-missing-object-comma")
-  let (value, diagnostics) = try! @json.parse_json(source_id, "{\"a\":1 \"b\":2}")
+  let (value, diagnostics) = try! @json.parse_json(
+    source_id, "{\"a\":1 \"b\":2}",
+  )
   inspect(diagnostics.length() > 0, content="true")
   match value {
     Object(members) => {
@@ -163,9 +180,14 @@ test "error recovery: missing comma object CST shape stays wrapper-free" {
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [object_node] => {
-      inspect(@json.SyntaxKind::from_raw(object_node.kind()), content="ObjectNode")
+      inspect(
+        @json.SyntaxKind::from_raw(object_node.kind()),
+        content="ObjectNode",
+      )
       match
-        object_node.direct_children_of_kind(@json.SyntaxKind::MemberNode.to_raw()) {
+        object_node.direct_children_of_kind(
+          @json.SyntaxKind::MemberNode.to_raw(),
+        ) {
         [_, _] => ()
         _ => fail("expected two object members")
       }
@@ -187,9 +209,14 @@ test "error recovery: trailing comma object CST shape stays wrapper-free" {
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [object_node] => {
-      inspect(@json.SyntaxKind::from_raw(object_node.kind()), content="ObjectNode")
+      inspect(
+        @json.SyntaxKind::from_raw(object_node.kind()),
+        content="ObjectNode",
+      )
       match
-        object_node.direct_children_of_kind(@json.SyntaxKind::MemberNode.to_raw()) {
+        object_node.direct_children_of_kind(
+          @json.SyntaxKind::MemberNode.to_raw(),
+        ) {
         [_] => ()
         _ => fail("expected one object member")
       }

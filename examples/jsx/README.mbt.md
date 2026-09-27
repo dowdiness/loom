@@ -73,7 +73,9 @@ test "a truncated streaming prefix keeps its children" {
     ast,
     @jsx.JsxNode::Root(children=[
       @jsx.JsxNode::Element(tag="div", attrs=[], children=[
-        @jsx.JsxNode::Element(tag="span", attrs=[], children=[@jsx.JsxNode::Text("text")]),
+        @jsx.JsxNode::Element(tag="span", attrs=[], children=[
+          @jsx.JsxNode::Text("text"),
+        ]),
       ]),
     ]),
   )

@@ -32,7 +32,9 @@ test "json role spans attachment updates after syntax parser edit" {
     updated,
     @json.json_grammar.to_syntax_grammar(),
   )
-  let expected = @json.project_json_roles(fresh_parser.syntax_tree().read_or_abort())
+  let expected = @json.project_json_roles(
+    fresh_parser.syntax_tree().read_or_abort(),
+  )
   guard attachment.spans() == expected else {
     fail("expected attached role spans to update after SyntaxParser.apply_edit")
   }
@@ -55,7 +57,9 @@ test "json role spans attachment survives parser runtime gc" {
     source,
     @json.json_grammar.to_syntax_grammar(),
   )
-  let expected = @json.project_json_roles(fresh_parser.syntax_tree().read_or_abort())
+  let expected = @json.project_json_roles(
+    fresh_parser.syntax_tree().read_or_abort(),
+  )
   guard attachment.spans() == expected else {
     fail("expected attached role spans to remain reachable after runtime gc")
   }

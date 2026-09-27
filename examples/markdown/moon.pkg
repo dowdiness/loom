@@ -12,6 +12,7 @@ import {
   "moonbitlang/core/immut/hashmap",
   "moonbit-community/casefold",
 }
+
 import {
   "moonbitlang/core/json",
   "moonbitlang/core/quickcheck",

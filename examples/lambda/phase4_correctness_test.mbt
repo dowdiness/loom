@@ -90,7 +90,10 @@ test "phase4: reuse on nested lambdas" {
   let len = source.length()
   let edit = @core.Edit::replace(len - 1, len, len)
   let incr_tree = parser.edit(edit, "(a, b, c, d) => y").ast
-  let full_tree = @lambda.parse(phase4_correctness_source_id(), "(a, b, c, d) => y") catch {
+  let full_tree = @lambda.parse(
+    phase4_correctness_source_id(),
+    "(a, b, c, d) => y",
+  ) catch {
     _ => abort("parse failed")
   }
 
@@ -287,7 +290,10 @@ test "phase4: empty to non-empty" {
   // Replace with completely different expression
   let edit = @core.Edit::replace(0, 1, 13)
   let incr_tree = parser.edit(edit, "(f, x) => f (f x)").ast
-  let full_tree = @lambda.parse(phase4_correctness_source_id(), "(f, x) => f (f x)") catch {
+  let full_tree = @lambda.parse(
+    phase4_correctness_source_id(),
+    "(f, x) => f (f x)",
+  ) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -344,7 +350,10 @@ test "phase4: if-then-else edit in condition" {
   // Change condition "x" to "y"
   let edit = @core.Edit::replace(3, 4, 4)
   let incr_tree = parser.edit(edit, "if y then 1 else 2").ast
-  let full_tree = @lambda.parse(phase4_correctness_source_id(), "if y then 1 else 2") catch {
+  let full_tree = @lambda.parse(
+    phase4_correctness_source_id(),
+    "if y then 1 else 2",
+  ) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -363,7 +372,10 @@ test "phase4: if-then-else edit in else branch" {
   // Change else branch "2" to "3"
   let edit = @core.Edit::replace(17, 18, 18)
   let incr_tree = parser.edit(edit, "if x then 1 else 3").ast
-  let full_tree = @lambda.parse(phase4_correctness_source_id(), "if x then 1 else 3") catch {
+  let full_tree = @lambda.parse(
+    phase4_correctness_source_id(),
+    "if x then 1 else 3",
+  ) catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))

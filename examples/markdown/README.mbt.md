@@ -418,7 +418,9 @@ test "grammar example: imperative parser returns a Block" {
 ///|
 test "grammar example: reactive parser + set_source" {
   let source_id = @core.SourceId("markdown-readme-reactive")
-  let parser = @loom.new_parser(source_id, "# Hello\n", @markdown.markdown_grammar)
+  let parser = @loom.new_parser(
+    source_id, "# Hello\n", @markdown.markdown_grammar,
+  )
   parser.set_source("## World\n")
   let doc : @markdown.Block = parser.ast().read_or_abort()
   match doc {

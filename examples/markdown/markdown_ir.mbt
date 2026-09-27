@@ -984,13 +984,17 @@ pub extend MarkdownIRAutolinkKind with @moonbitlang/core/debug.Debug::{to_repr}
 pub extend MarkdownIRAutolinkKind with Eq::{equal, not_equal}
 
 ///|
-pub extend MarkdownIRHardBreakSurface with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend MarkdownIRHardBreakSurface with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
 
 ///|
 pub extend MarkdownIRHardBreakSurface with Eq::{equal, not_equal}
 
 ///|
-pub extend MarkdownIRLinkReferenceForm with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend MarkdownIRLinkReferenceForm with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
 
 ///|
 pub extend MarkdownIRLinkReferenceForm with Eq::{equal, not_equal}

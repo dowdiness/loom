@@ -271,7 +271,10 @@ test "inline: bold in heading" {
 ///|
 test "inline: equal-length code span preserves unequal interior delimiter run" {
   inspect(
-    @markdown.parse_block_ast(@core.SourceId("markdown-inline-test-document"), "`a``b`\n"),
+    @markdown.parse_block_ast(
+      @core.SourceId("markdown-inline-test-document"),
+      "`a``b`\n",
+    ),
     content="Document([Paragraph([InlineCode(\"a``b\")])])",
   )
 }
@@ -341,7 +344,10 @@ test "inline: even backslash parity permits a code span" {
 ///|
 test "inline: backslash before code-span closer remains raw content" {
   match
-    @markdown.parse_block_ast(@core.SourceId("markdown-inline-test-document"), "`a\\`\n") {
+    @markdown.parse_block_ast(
+      @core.SourceId("markdown-inline-test-document"),
+      "`a\\`\n",
+    ) {
     Document([Paragraph([InlineCode(value)])]) => inspect(value, content="a\\")
     _ => inspect(false, content="backslash before closer remains code content")
   }

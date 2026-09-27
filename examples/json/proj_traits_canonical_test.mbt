@@ -179,7 +179,9 @@ test "canonical: Array normalized to empty" {
 ///|
 test "canonical: Object normalized to empty" {
   inspect(
-    @core.Canonical::canonical(@json.JsonValue::Object([("k", @json.JsonValue::Null)])),
+    @core.Canonical::canonical(
+      @json.JsonValue::Object([("k", @json.JsonValue::Null)]),
+    ),
     content=(
       #|Object([])
     ),

@@ -247,13 +247,23 @@ pub impl @core.Renderable for Inline with fn unparse(self) {
 }
 
 ///|
-pub extend Block with @dowdiness/loom/core.Renderable::{kind_tag, label, placeholder, unparse}
+pub extend Block with @dowdiness/loom/core.Renderable::{
+  kind_tag,
+  label,
+  placeholder,
+  unparse,
+}
 
 ///|
 pub extend Block with @dowdiness/loom/core.TreeNode::{children, same_kind}
 
 ///|
-pub extend Inline with @dowdiness/loom/core.Renderable::{kind_tag, label, placeholder, unparse}
+pub extend Inline with @dowdiness/loom/core.Renderable::{
+  kind_tag,
+  label,
+  placeholder,
+  unparse,
+}
 
 ///|
 pub extend Inline with @dowdiness/loom/core.TreeNode::{children, same_kind}

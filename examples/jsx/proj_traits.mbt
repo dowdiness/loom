@@ -143,7 +143,12 @@ pub impl @core.Renderable for JsxNode with fn unparse(self) {
 }
 
 ///|
-pub extend JsxNode with @dowdiness/loom/core.Renderable::{kind_tag, label, placeholder, unparse}
+pub extend JsxNode with @dowdiness/loom/core.Renderable::{
+  kind_tag,
+  label,
+  placeholder,
+  unparse,
+}
 
 ///|
 pub extend JsxNode with @dowdiness/loom/core.TreeNode::{children, same_kind}

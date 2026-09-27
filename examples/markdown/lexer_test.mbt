@@ -264,7 +264,11 @@ test "lexer: blockquote fence produces QuotedCodeBlock mode" {
   let tokens = @markdown.tokenize(source)
   let fence_token = tokens[1]
   inspect(@debug.to_string(fence_token.token), content="CodeFenceOpen(3, \"\")")
-  let (_, mode) = @markdown.markdown_lex_step(source, "> ".length(), BlockQuoteLineStart)
+  let (_, mode) = @markdown.markdown_lex_step(
+    source,
+    "> ".length(),
+    BlockQuoteLineStart,
+  )
   match mode {
     QuotedCodeBlock(length, '`') => inspect(length, content="3")
     _ => fail("expected QuotedCodeBlock mode, got " + @debug.to_string(mode))
@@ -282,7 +286,9 @@ test "lexer: unquoted fence produces CodeBlock not QuotedCodeBlock" {
 
 ///|
 test "lexer: deeply nested list fence closes beyond column four" {
-  let tokens = @markdown.tokenize("- a\n  - b\n      ~~~~\n      code\n      ~~~~\n")
+  let tokens = @markdown.tokenize(
+    "- a\n  - b\n      ~~~~\n      code\n      ~~~~\n",
+  )
   inspect(
     tokens.map(token => @debug.to_string(token.token)).join("|"),
     content="ListMarker|Text(\"a\")|Newline|Indentation(\"  \")|ListMarker|Text(\"b\")|Newline|Indentation(\"      \")|CodeFenceOpen(4, \"\")|Newline|CodeText(\"      code\")|Newline|CodeFenceClose|EOF",
@@ -292,7 +298,11 @@ test "lexer: deeply nested list fence closes beyond column four" {
 ///|
 test "lexer: public mode recovers deeply nested fence indentation" {
   let source = "- a\n  - b\n      ~~~~\n      code\n      ~~~~\n"
-  let (tokens, _) = @core.tokenize_with_modes(@markdown.markdown_mode_lexer, source, EOF)
+  let (tokens, _) = @core.tokenize_with_modes(
+    @markdown.markdown_mode_lexer,
+    source,
+    EOF,
+  )
   inspect(
     tokens.map(token => @debug.to_string(token.token)).join("|"),
     content="ListMarker|Text(\"a\")|Newline|Indentation(\"  \")|ListMarker|Text(\"b\")|Newline|Indentation(\"      \")|CodeFenceOpen(4, \"\")|Newline|CodeText(\"      code\")|Newline|CodeFenceClose|EOF",
@@ -304,7 +314,11 @@ test "lexer: detached mode recovers list-owned opening indent" {
   let source = "- a\n    ~~~~\n    code\n    ~~~~\n"
   let content_pos = "- a\n    ~~~~\n".length()
   let close_pos = content_pos + "    code\n".length()
-  let (_, mode) = @markdown.markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (_, mode) = @markdown.markdown_lex_step(
+    source,
+    content_pos,
+    CodeBlock(4, '~'),
+  )
   let (step, _) = @markdown.markdown_lex_step(source, close_pos, mode)
   match step {
     @core.LexStep::Produced(info, next_offset~) => {
@@ -320,7 +334,11 @@ test "lexer: detached mode ignores root indented code before nested fence" {
   let source = "    ~~~~\n- a\n    ~~~~\n    code\n    ~~~~\n"
   let content_pos = "    ~~~~\n- a\n    ~~~~\n".length()
   let close_pos = content_pos + "    code\n".length()
-  let (_, mode) = @markdown.markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (_, mode) = @markdown.markdown_lex_step(
+    source,
+    content_pos,
+    CodeBlock(4, '~'),
+  )
   let (step, _) = @markdown.markdown_lex_step(source, close_pos, mode)
   match step {
     @core.LexStep::Produced(info, next_offset~) => {
@@ -336,7 +354,11 @@ test "lexer: detached mode rejects root code after wide ordered marker" {
   let source = "1234. a\n    ~~~~\n    code\n    ~~~~\n"
   let content_pos = "1234. a\n    ~~~~\n".length()
   let close_pos = content_pos + "    code\n".length()
-  let (_, mode) = @markdown.markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (_, mode) = @markdown.markdown_lex_step(
+    source,
+    content_pos,
+    CodeBlock(4, '~'),
+  )
   let (step, _) = @markdown.markdown_lex_step(source, close_pos, mode)
   match step {
     @core.LexStep::Produced(info, next_offset~) => {
@@ -352,7 +374,11 @@ test "lexer: detached mode rejects malformed ordered marker ownership" {
   let source = "1234.foo\n      ~~~~\n      code\n      ~~~~\n"
   let content_pos = "1234.foo\n      ~~~~\n".length()
   let close_pos = content_pos + "      code\n".length()
-  let (_, mode) = @markdown.markdown_lex_step(source, content_pos, CodeBlock(4, '~'))
+  let (_, mode) = @markdown.markdown_lex_step(
+    source,
+    content_pos,
+    CodeBlock(4, '~'),
+  )
   let (step, _) = @markdown.markdown_lex_step(source, close_pos, mode)
   match step {
     @core.LexStep::Produced(info, next_offset~) => {

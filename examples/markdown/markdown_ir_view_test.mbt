@@ -141,7 +141,9 @@ fn markdown_ir_view_test_has_tag(
 }
 
 ///|
-fn markdown_ir_view_test_first_recovered(node : @markdown.MarkdownIR) -> @markdown.MarkdownIR? {
+fn markdown_ir_view_test_first_recovered(
+  node : @markdown.MarkdownIR,
+) -> @markdown.MarkdownIR? {
   if node.view() is Recovered(_) {
     return Some(node)
   }

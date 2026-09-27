@@ -183,7 +183,10 @@ test "LambdaExprView::to_json preserves all parameters" {
 
 ///|
 test "LetDefView with params" {
-  let (cst, _) = @lambda.parse_cst(views_test_source_id(), "fn f(x, y) { x + y }") catch {
+  let (cst, _) = @lambda.parse_cst(
+    views_test_source_id(),
+    "fn f(x, y) { x + y }",
+  ) catch {
     _ => abort("lex error")
   }
   let tree = @seam.SyntaxNode::from_cst(cst)
@@ -269,7 +272,10 @@ test "HoleLiteralView::cast returns Some for hole literals" {
     _ => abort("lex error")
   }
   let tree = @seam.SyntaxNode::from_cst(cst)
-  inspect(@lambda.HoleLiteralView::cast(tree.children()[0]) is Some(_), content="true")
+  inspect(
+    @lambda.HoleLiteralView::cast(tree.children()[0]) is Some(_),
+    content="true",
+  )
 }
 
 ///|
@@ -278,7 +284,10 @@ test "HoleLiteralView::cast returns None for non-hole nodes" {
     _ => abort("lex error")
   }
   let tree = @seam.SyntaxNode::from_cst(cst)
-  inspect(@lambda.HoleLiteralView::cast(tree.children()[0]) is None, content="true")
+  inspect(
+    @lambda.HoleLiteralView::cast(tree.children()[0]) is None,
+    content="true",
+  )
 }
 
 ///|

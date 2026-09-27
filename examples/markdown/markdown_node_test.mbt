@@ -14,9 +14,18 @@ fn markdown_node_test_first_inline(
 test "MarkdownNode preserves link reference forms" {
   let cases = [
     ("[foo](/url)\n", @markdown.MarkdownReferenceForm::Inline),
-    ("[foo][bar]\n\n[bar]: /url\n", @markdown.MarkdownReferenceForm::FullReference),
-    ("[foo][]\n\n[foo]: /url\n", @markdown.MarkdownReferenceForm::CollapsedReference),
-    ("[foo]\n\n[foo]: /url\n", @markdown.MarkdownReferenceForm::ShortcutReference),
+    (
+      "[foo][bar]\n\n[bar]: /url\n",
+      @markdown.MarkdownReferenceForm::FullReference,
+    ),
+    (
+      "[foo][]\n\n[foo]: /url\n",
+      @markdown.MarkdownReferenceForm::CollapsedReference,
+    ),
+    (
+      "[foo]\n\n[foo]: /url\n",
+      @markdown.MarkdownReferenceForm::ShortcutReference,
+    ),
   ]
   cases.each(case => {
     let (source, expected) = case
@@ -32,9 +41,18 @@ test "MarkdownNode preserves link reference forms" {
 test "MarkdownNode preserves image reference forms" {
   let cases = [
     ("![foo](/image)\n", @markdown.MarkdownReferenceForm::Inline),
-    ("![foo][bar]\n\n[bar]: /image\n", @markdown.MarkdownReferenceForm::FullReference),
-    ("![foo][]\n\n[foo]: /image\n", @markdown.MarkdownReferenceForm::CollapsedReference),
-    ("![foo]\n\n[foo]: /image\n", @markdown.MarkdownReferenceForm::ShortcutReference),
+    (
+      "![foo][bar]\n\n[bar]: /image\n",
+      @markdown.MarkdownReferenceForm::FullReference,
+    ),
+    (
+      "![foo][]\n\n[foo]: /image\n",
+      @markdown.MarkdownReferenceForm::CollapsedReference,
+    ),
+    (
+      "![foo]\n\n[foo]: /image\n",
+      @markdown.MarkdownReferenceForm::ShortcutReference,
+    ),
   ]
   cases.each(case => {
     let (source, expected) = case
@@ -62,7 +80,10 @@ test "MarkdownNode preserves autolink hard-break and task metadata" {
       }
     })
   assert_eq(forms, [TrailingSpaces(2), Backslash])
-  let item = @markdown.parse("- [x] task\n", extensions=@markdown.MarkdownExtensions::task_list())
+  let item = @markdown.parse(
+      "- [x] task\n",
+      extensions=@markdown.MarkdownExtensions::task_list(),
+    )
     .root()
     .children()[0].children()[0]
   match item.view() {

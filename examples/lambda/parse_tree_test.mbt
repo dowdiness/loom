@@ -36,7 +36,10 @@ test "parse_cstidentity function" {
   }
   let root = @seam.SyntaxNode::from_cst(cst)
   let node = root.nth_child(0).unwrap()
-  inspect(@ast.print_term(@lambda.syntax_node_to_term(root)), content="(x) => x")
+  inspect(
+    @ast.print_term(@lambda.syntax_node_to_term(root)),
+    content="(x) => x",
+  )
   inspect(node.start(), content="0")
   inspect(node.end() >= 3, content="true")
 }
@@ -76,7 +79,10 @@ test "parse_cstapplication" {
 
 ///|
 test "parse_cstif-then-else" {
-  let (cst, _) = @lambda.parse_cst(parse_tree_test_source_id(), "if x then y else z") catch {
+  let (cst, _) = @lambda.parse_cst(
+    parse_tree_test_source_id(),
+    "if x then y else z",
+  ) catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)

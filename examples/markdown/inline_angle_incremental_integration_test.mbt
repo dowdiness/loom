@@ -57,7 +57,9 @@ fn assert_inline_angle_incremental_parity(
       source_id, label, source, edit, updated,
     ),
   )
-  let incremental = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
+  let incremental = @loom.new_parser(
+    source_id, source, @markdown.markdown_grammar,
+  )
   incremental.apply_edit(edit, updated)
   assert_inline_angle_parser_matches_fresh(
     source_id, incremental, updated, expected_html,
@@ -221,11 +223,15 @@ test "inline angle index invalidation is isolated across parser sessions" {
   let source_id_a = @core.SourceId("markdown-inline-angle-session-a")
   let source_a = "x <!--open\n"
   let updated_a = "x <!--open-->\n"
-  let parser_a = @loom.new_parser(source_id_a, source_a, @markdown.markdown_grammar)
+  let parser_a = @loom.new_parser(
+    source_id_a, source_a, @markdown.markdown_grammar,
+  )
   let source_id_b = @core.SourceId("markdown-inline-angle-session-b")
   let source_b = "x <?pi?>\n"
   let updated_b = "x <?pi\n"
-  let parser_b = @loom.new_parser(source_id_b, source_b, @markdown.markdown_grammar)
+  let parser_b = @loom.new_parser(
+    source_id_b, source_b, @markdown.markdown_grammar,
+  )
   parser_a.apply_edit(
     @core.Edit::insert("x <!--open".length(), "-->".length()),
     updated_a,
@@ -234,8 +240,12 @@ test "inline angle index invalidation is isolated across parser sessions" {
     @core.Edit::delete("x <?pi".length(), "?>".length()),
     updated_b,
   )
-  let fresh_a = @loom.new_parser(source_id_a, updated_a, @markdown.markdown_grammar)
-  let fresh_b = @loom.new_parser(source_id_b, updated_b, @markdown.markdown_grammar)
+  let fresh_a = @loom.new_parser(
+    source_id_a, updated_a, @markdown.markdown_grammar,
+  )
+  let fresh_b = @loom.new_parser(
+    source_id_b, updated_b, @markdown.markdown_grammar,
+  )
   assert_eq(
     parser_a.syntax_tree().read_or_abort(),
     fresh_a.syntax_tree().read_or_abort(),

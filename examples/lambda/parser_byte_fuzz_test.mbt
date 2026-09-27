@@ -109,7 +109,10 @@ test "fuzz: parse_term handles raw byte streams" {
     let len = seed.abs() % 50 + 1
     let (input, _) = bf_make_raw_string(seed, len)
     try {
-      let (_term, _diags) = @lambda.parse_term(parser_byte_fuzz_source_id(), input)
+      let (_term, _diags) = @lambda.parse_term(
+        parser_byte_fuzz_source_id(),
+        input,
+      )
     } catch {
       _ => ()
     }

@@ -7,7 +7,9 @@ fn markdown_document_test_parser(
 }
 
 ///|
-fn markdown_document_test_find_heading(node : @markdown.MarkdownNode) -> @markdown.MarkdownNode? {
+fn markdown_document_test_find_heading(
+  node : @markdown.MarkdownNode,
+) -> @markdown.MarkdownNode? {
   match node.view() {
     Heading(..) => Some(node)
     _ => {
@@ -23,7 +25,9 @@ fn markdown_document_test_find_heading(node : @markdown.MarkdownNode) -> @markdo
 }
 
 ///|
-fn markdown_document_test_find_link(node : @markdown.MarkdownNode) -> @markdown.MarkdownNode? {
+fn markdown_document_test_find_link(
+  node : @markdown.MarkdownNode,
+) -> @markdown.MarkdownNode? {
   match node.view() {
     Link(..) => Some(node)
     _ => {
@@ -39,7 +43,9 @@ fn markdown_document_test_find_link(node : @markdown.MarkdownNode) -> @markdown.
 }
 
 ///|
-fn markdown_document_test_find_image(node : @markdown.MarkdownNode) -> @markdown.MarkdownNode? {
+fn markdown_document_test_find_image(
+  node : @markdown.MarkdownNode,
+) -> @markdown.MarkdownNode? {
   match node.view() {
     Image(..) => Some(node)
     _ => {
@@ -55,7 +61,9 @@ fn markdown_document_test_find_image(node : @markdown.MarkdownNode) -> @markdown
 }
 
 ///|
-fn markdown_document_test_find_autolink(node : @markdown.MarkdownNode) -> @markdown.MarkdownNode? {
+fn markdown_document_test_find_autolink(
+  node : @markdown.MarkdownNode,
+) -> @markdown.MarkdownNode? {
   match node.view() {
     Autolink(..) => Some(node)
     _ => {
@@ -188,7 +196,9 @@ test "direct MarkdownIR lowering opts in to task-list semantics" {
     .contains("\"checked\":"),
   )
   assert_true(
-    @markdown.experimental_markdown_ir_to_mdast_json(task_list_without_diagnostics)
+    @markdown.experimental_markdown_ir_to_mdast_json(
+      task_list_without_diagnostics,
+    )
     .stringify()
     .contains("\"checked\":true"),
   )
@@ -198,7 +208,9 @@ test "direct MarkdownIR lowering opts in to task-list semantics" {
     .contains("\"checked\":true"),
   )
   assert_eq(
-    @markdown.experimental_markdown_ir_canonical_format_checked(source_id, task_list),
+    @markdown.experimental_markdown_ir_canonical_format_checked(
+      source_id, task_list,
+    ),
     Ok("- [x] done"),
   )
 }
@@ -246,7 +258,10 @@ test "MarkdownSemanticRead exposes an unchecked GFM task list item" {
     "- [ ] todo",
   )
   assert_eq(
-    @markdown.experimental_markdown_ir_canonical_format_checked(source_id, read.ir()),
+    @markdown.experimental_markdown_ir_canonical_format_checked(
+      source_id,
+      read.ir(),
+    ),
     Ok("- [ ] todo"),
   )
 }
@@ -414,7 +429,9 @@ test "MarkdownSemanticRead keeps an unresolved bracket as ordinary text" {
   )
   assert_eq(document.diagnostics().length(), 0)
   let read = document.semantic_read()
-  let mdast = @markdown.markdown_semantic_read_to_mdast_json_with_positions(read).stringify()
+  let mdast = @markdown.markdown_semantic_read_to_mdast_json_with_positions(
+    read,
+  ).stringify()
   assert_false(mdast.contains("mdastRecovered"))
   match read.ir().children() {
     [paragraph] =>
@@ -444,7 +461,10 @@ test "MarkdownSemanticRead adapters reuse captured source" {
   assert_eq(@markdown.markdown_semantic_read_preserve_rewrite(read), source)
   assert_eq(
     @markdown.markdown_semantic_read_to_mdast_json_with_positions(read).stringify(),
-    @markdown.experimental_markdown_ir_to_mdast_json_with_positions(read.ir(), source).stringify(),
+    @markdown.experimental_markdown_ir_to_mdast_json_with_positions(
+      read.ir(),
+      source,
+    ).stringify(),
   )
   let direct = @markdown.parse_block_ast(source_id, source)
   assert_eq(@markdown.markdown_semantic_read_to_block(read), direct)
@@ -469,11 +489,17 @@ test "MarkdownSemanticRead selections rewrite only their read snapshot" {
     "expected autolink",
   )
   let heading_selection = markdown_document_test_expect_selection(
-    read.selection(heading, kind=@markdown.MarkdownSemanticSelectionKind::Content),
+    read.selection(
+      heading,
+      kind=@markdown.MarkdownSemanticSelectionKind::Content,
+    ),
     "expected heading content selection",
   )
   let destination_selection = markdown_document_test_expect_selection(
-    read.selection(link, kind=@markdown.MarkdownSemanticSelectionKind::Destination),
+    read.selection(
+      link,
+      kind=@markdown.MarkdownSemanticSelectionKind::Destination,
+    ),
     "expected link destination selection",
   )
   let title_selection = markdown_document_test_expect_selection(
@@ -525,7 +551,10 @@ test "MarkdownSemanticRead selections cover whole nodes and missing targets" {
   ).semantic_read()
   let root = read.root()
   assert_true(
-    read.selection(root, kind=@markdown.MarkdownSemanticSelectionKind::WholeNode)
+    read.selection(
+      root,
+      kind=@markdown.MarkdownSemanticSelectionKind::WholeNode,
+    )
     is Some(_),
   )
   let heading = markdown_document_test_expect_node(
@@ -537,25 +566,39 @@ test "MarkdownSemanticRead selections cover whole nodes and missing targets" {
     "expected link",
   )
   assert_true(
-    read.selection(link, kind=@markdown.MarkdownSemanticSelectionKind::WholeNode)
+    read.selection(
+      link,
+      kind=@markdown.MarkdownSemanticSelectionKind::WholeNode,
+    )
     is Some(_),
   )
   assert_true(
-    read.selection(heading, kind=@markdown.MarkdownSemanticSelectionKind::Destination)
+    read.selection(
+      heading,
+      kind=@markdown.MarkdownSemanticSelectionKind::Destination,
+    )
     is None,
   )
   assert_true(
-    read.selection(heading, kind=@markdown.MarkdownSemanticSelectionKind::Title) is None,
-  )
-  assert_true(
-    read.selection(heading, kind=@markdown.MarkdownSemanticSelectionKind::AutolinkDisplay)
+    read.selection(heading, kind=@markdown.MarkdownSemanticSelectionKind::Title)
     is None,
   )
   assert_true(
-    read.selection(link, kind=@markdown.MarkdownSemanticSelectionKind::Content) is Some(_),
+    read.selection(
+      heading,
+      kind=@markdown.MarkdownSemanticSelectionKind::AutolinkDisplay,
+    )
+    is None,
   )
   assert_true(
-    read.selection(link, kind=@markdown.MarkdownSemanticSelectionKind::AutolinkDisplay)
+    read.selection(link, kind=@markdown.MarkdownSemanticSelectionKind::Content)
+    is Some(_),
+  )
+  assert_true(
+    read.selection(
+      link,
+      kind=@markdown.MarkdownSemanticSelectionKind::AutolinkDisplay,
+    )
     is None,
   )
 }
@@ -607,7 +650,10 @@ test "MarkdownSemanticRead survives its source document" {
     let document = @markdown.parse("detached\n", source_id~)
     document.semantic_read()
   }
-  assert_eq(@markdown.markdown_semantic_read_preserve_rewrite(read), "detached\n")
+  assert_eq(
+    @markdown.markdown_semantic_read_preserve_rewrite(read),
+    "detached\n",
+  )
 }
 
 ///|
@@ -625,7 +671,10 @@ test "MarkdownSemanticAttachment source_document tracks parser snapshots" {
   assert_eq(first.source(), "first\n")
   let first_read = first.semantic_read()
   attachment.dispose()
-  assert_eq(@markdown.markdown_semantic_read_preserve_rewrite(first_read), "first\n")
+  assert_eq(
+    @markdown.markdown_semantic_read_preserve_rewrite(first_read),
+    "first\n",
+  )
 }
 
 ///|

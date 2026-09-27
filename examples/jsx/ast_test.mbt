@@ -8,7 +8,9 @@ test "fold simple element" {
   inspect(diagnostics.length(), content="0")
   @debug.assert_eq(
     ast,
-    @jsx.JsxNode::Root(children=[@jsx.JsxNode::Element(tag="div", attrs=[], children=[])]),
+    @jsx.JsxNode::Root(children=[
+      @jsx.JsxNode::Element(tag="div", attrs=[], children=[]),
+    ]),
   )
 }
 
@@ -24,7 +26,9 @@ test "fold nested elements with text" {
     ast,
     @jsx.JsxNode::Root(children=[
       @jsx.JsxNode::Element(tag="div", attrs=[], children=[
-        @jsx.JsxNode::Element(tag="span", attrs=[], children=[@jsx.JsxNode::Text("hi")]),
+        @jsx.JsxNode::Element(tag="span", attrs=[], children=[
+          @jsx.JsxNode::Text("hi"),
+        ]),
       ]),
     ]),
   )
@@ -42,7 +46,9 @@ test "fold fragment" {
     ast,
     @jsx.JsxNode::Root(children=[
       @jsx.JsxNode::Fragment(children=[
-        @jsx.JsxNode::Element(tag="p", attrs=[], children=[@jsx.JsxNode::Text("x")]),
+        @jsx.JsxNode::Element(tag="p", attrs=[], children=[
+          @jsx.JsxNode::Text("x"),
+        ]),
       ]),
     ]),
   )
@@ -58,7 +64,9 @@ test "fold self-closing element" {
   inspect(diagnostics.length(), content="0")
   @debug.assert_eq(
     ast,
-    @jsx.JsxNode::Root(children=[@jsx.JsxNode::Element(tag="br", attrs=[], children=[])]),
+    @jsx.JsxNode::Root(children=[
+      @jsx.JsxNode::Element(tag="br", attrs=[], children=[]),
+    ]),
   )
 }
 
@@ -76,7 +84,10 @@ test "fold string attribute strips quotes" {
       @jsx.JsxNode::Element(
         tag="div",
         attrs=[
-          @jsx.JsxAttr::JsxAttr(name="class", value=@jsx.JsxAttrValue::StringLit("foo")),
+          @jsx.JsxAttr::JsxAttr(
+            name="class",
+            value=@jsx.JsxAttrValue::StringLit("foo"),
+          ),
         ],
         children=[],
       ),
@@ -98,7 +109,10 @@ test "fold expression attribute" {
       @jsx.JsxNode::Element(
         tag="div",
         attrs=[
-          @jsx.JsxAttr::JsxAttr(name="id", value=@jsx.JsxAttrValue::ExprSpan(raw="x")),
+          @jsx.JsxAttr::JsxAttr(
+            name="id",
+            value=@jsx.JsxAttrValue::ExprSpan(raw="x"),
+          ),
         ],
         children=[],
       ),
@@ -119,7 +133,9 @@ test "fold bare attribute" {
     @jsx.JsxNode::Root(children=[
       @jsx.JsxNode::Element(
         tag="div",
-        attrs=[@jsx.JsxAttr::JsxAttr(name="hidden", value=@jsx.JsxAttrValue::Bare)],
+        attrs=[
+          @jsx.JsxAttr::JsxAttr(name="hidden", value=@jsx.JsxAttrValue::Bare),
+        ],
         children=[],
       ),
     ]),
@@ -191,7 +207,9 @@ test "fold unclosed element identically to closed shape" {
     ast,
     @jsx.JsxNode::Root(children=[
       @jsx.JsxNode::Element(tag="div", attrs=[], children=[
-        @jsx.JsxNode::Element(tag="span", attrs=[], children=[@jsx.JsxNode::Text("text")]),
+        @jsx.JsxNode::Element(tag="span", attrs=[], children=[
+          @jsx.JsxNode::Text("text"),
+        ]),
       ]),
     ]),
   )
@@ -211,7 +229,10 @@ test "fold truncated attribute string keeps scanned content" {
       @jsx.JsxNode::Element(
         tag="div",
         attrs=[
-          @jsx.JsxAttr::JsxAttr(name="class", value=@jsx.JsxAttrValue::StringLit("fo")),
+          @jsx.JsxAttr::JsxAttr(
+            name="class",
+            value=@jsx.JsxAttrValue::StringLit("fo"),
+          ),
         ],
         children=[],
       ),
@@ -275,7 +296,12 @@ test "fold minimum-length attribute strings" {
     @jsx.JsxNode::Root(children=[
       @jsx.JsxNode::Element(
         tag="div",
-        attrs=[@jsx.JsxAttr::JsxAttr(name="a", value=@jsx.JsxAttrValue::StringLit(""))],
+        attrs=[
+          @jsx.JsxAttr::JsxAttr(
+            name="a",
+            value=@jsx.JsxAttrValue::StringLit(""),
+          ),
+        ],
         children=[],
       ),
     ]),
@@ -290,7 +316,12 @@ test "fold minimum-length attribute strings" {
     @jsx.JsxNode::Root(children=[
       @jsx.JsxNode::Element(
         tag="div",
-        attrs=[@jsx.JsxAttr::JsxAttr(name="a", value=@jsx.JsxAttrValue::StringLit(""))],
+        attrs=[
+          @jsx.JsxAttr::JsxAttr(
+            name="a",
+            value=@jsx.JsxAttrValue::StringLit(""),
+          ),
+        ],
         children=[],
       ),
     ]),
@@ -305,5 +336,8 @@ test "fold error recovery artifacts" {
   }
   let (ast, diagnostics) = result
   inspect(diagnostics.length(), content="1")
-  @debug.assert_eq(ast, @jsx.JsxNode::Root(children=[@jsx.JsxNode::Error("</span>")]))
+  @debug.assert_eq(
+    ast,
+    @jsx.JsxNode::Root(children=[@jsx.JsxNode::Error("</span>")]),
+  )
 }

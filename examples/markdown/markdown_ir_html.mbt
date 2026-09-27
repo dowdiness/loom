@@ -480,7 +480,9 @@ pub fn experimental_markdown_ir_to_commonmark_html(ir : MarkdownIR) -> String {
 }
 
 ///|
-pub extend MarkdownIRHtmlRenderError with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend MarkdownIRHtmlRenderError with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
 
 ///|
 pub extend MarkdownIRHtmlRenderError with Eq::{equal, not_equal}

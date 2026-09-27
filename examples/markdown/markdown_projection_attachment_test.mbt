@@ -11,7 +11,9 @@ fn projection_attachment_test_parser(
 }
 
 ///|
-fn direct_block_from_syntax_parser(parser : @loom.SyntaxParser) -> @markdown.Block {
+fn direct_block_from_syntax_parser(
+  parser : @loom.SyntaxParser,
+) -> @markdown.Block {
   let snapshot = parser.snapshot().read_or_abort()
   @markdown.experimental_markdown_ir_to_block(
     @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
@@ -23,7 +25,10 @@ fn direct_block_from_syntax_parser(parser : @loom.SyntaxParser) -> @markdown.Blo
 }
 
 ///|
-fn fresh_direct_block(source_id : @core.SourceId, source : String) -> @markdown.Block {
+fn fresh_direct_block(
+  source_id : @core.SourceId,
+  source : String,
+) -> @markdown.Block {
   direct_block_from_syntax_parser(
     projection_attachment_test_parser(source_id, source),
   )

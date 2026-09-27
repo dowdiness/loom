@@ -1,7 +1,10 @@
 ///|
 fn list_incremental_html(ir : @markdown.MarkdownIR) -> String raise {
   match
-    @markdown.experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(ir, Escape) {
+    @markdown.experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+      ir,
+      Escape,
+    ) {
     Ok(html) => html
     Err(error) => fail(@debug.to_string(error))
   }
@@ -15,7 +18,9 @@ fn assert_list_incremental_parity(
   updated : String,
 ) -> Unit raise {
   let source_id = @core.SourceId("markdown-list-incremental-" + label)
-  let incremental = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
+  let incremental = @loom.new_parser(
+    source_id, source, @markdown.markdown_grammar,
+  )
   assert_true(edit.start >= 0 && edit.old_len >= 0 && edit.new_len >= 0)
   assert_true(edit.old_end() <= source.length())
   assert_true(edit.new_end() <= updated.length())
@@ -28,7 +33,9 @@ fn assert_list_incremental_parity(
   let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
-  let (direct_cst, direct_diagnostics) = try! @markdown.parse_cst(source_id, updated)
+  let (direct_cst, direct_diagnostics) = try! @markdown.parse_cst(
+    source_id, updated,
+  )
   let direct_syntax = @seam.SyntaxNode::from_cst(direct_cst)
   let incremental_diff = @core.tree_diff(
     incremental_syntax.cst_node(),

@@ -7,7 +7,6 @@ import {
   "moonbitlang/core/string",
 }
 
-
 import {
   "moonbitlang/core/bench",
 } for "test"

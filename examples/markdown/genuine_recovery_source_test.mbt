@@ -59,7 +59,10 @@ test "genuine parser recovery preserves exact source and separates diagnostics" 
   let mdast = @markdown.experimental_markdown_ir_to_mdast_json(ir).stringify()
   assert_true(mdast.contains("mdastRecovered"))
   assert_true(mdast.contains("\"value\":\"𐐀<unexpected>\""))
-  assert_eq(@markdown.experimental_markdown_ir_preserve_rewrite(ir, source), source)
+  assert_eq(
+    @markdown.experimental_markdown_ir_preserve_rewrite(ir, source),
+    source,
+  )
   assert_eq(
     @markdown.experimental_markdown_ir_local_transform_rewrite(
       ir,
@@ -69,8 +72,12 @@ test "genuine parser recovery preserves exact source and separates diagnostics" 
     ),
     "replacement",
   )
-  assert_eq(@markdown.experimental_markdown_ir_canonical_format(source_id, ir), source)
-  match @markdown.experimental_markdown_ir_canonical_format_checked(source_id, ir) {
+  assert_eq(
+    @markdown.experimental_markdown_ir_canonical_format(source_id, ir),
+    source,
+  )
+  match
+    @markdown.experimental_markdown_ir_canonical_format_checked(source_id, ir) {
     Err(OpaqueNode(Recovered, Some(_))) => ()
     _ => fail("checked formatting must reject genuine recovery")
   }

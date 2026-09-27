@@ -6,7 +6,9 @@ fn heading_form_token_kinds(source : String) -> String {
   )
   let kinds : Array[String] = []
   fn walk(node : @seam.SyntaxNode) -> Unit {
-    let node_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+    let node_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+      node.kind(),
+    )
     if node_kind is HeadingNode {
       let atx_kind : @markdown.SyntaxKind = AtxHeadingMarkerToken
       let setext_kind : @markdown.SyntaxKind = SetextHeadingUnderlineToken
@@ -62,7 +64,9 @@ fn markdown_leaf_kind_signature(source : String) -> Array[String] {
       match element {
         @seam.SyntaxElement::Node(child) => walk(child)
         @seam.SyntaxElement::Token(token) => {
-          let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+          let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+            token.kind(),
+          )
           signature.push(
             @debug.to_string(kind) + ":" + @debug.to_string(token.text()),
           )
@@ -217,7 +221,9 @@ test "syntax kind: heading marker raw kinds remain stable and distinct" {
   inspect(atx_kind.to_raw().0, content="0")
   inspect(setext_kind.to_raw().0, content="38")
   let atx : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(@seam.RawKind(0))
-  let setext : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(@seam.RawKind(38))
+  let setext : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+    @seam.RawKind(38),
+  )
   inspect(atx, content="AtxHeadingMarkerToken")
   inspect(setext, content="SetextHeadingUnderlineToken")
 }
@@ -232,7 +238,10 @@ test "syntax kind: emphasis CST shape uses append-only raw kinds" {
   inspect(star_star.to_raw().0, content="6")
   inspect(underscore.to_raw().0, content="39")
   inspect(delimiter.to_raw().0, content="40")
-  inspect(@markdown.SyntaxKind::from_raw(@seam.RawKind(39)), content="UnderscoreToken")
+  inspect(
+    @markdown.SyntaxKind::from_raw(@seam.RawKind(39)),
+    content="UnderscoreToken",
+  )
   inspect(
     @markdown.SyntaxKind::from_raw(@seam.RawKind(40)),
     content="EmphasisDelimiterToken",
@@ -421,7 +430,9 @@ test "parse: prefixed non-one ordered marker remains paragraph" {
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [paragraph] => {
-      let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(paragraph.kind())
+      let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+        paragraph.kind(),
+      )
       inspect(kind, content="ParagraphNode")
     }
     _ => inspect(syntax.children().length(), content="one paragraph")
@@ -437,7 +448,9 @@ test "parse: prefixed lone list marker preserves setext heading" {
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [heading] => {
-      let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(heading.kind())
+      let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+        heading.kind(),
+      )
       inspect(kind, content="HeadingNode")
     }
     _ => inspect(syntax.children().length(), content="one heading")
@@ -453,7 +466,9 @@ test "parse: three-space-prefixed quote is block quote" {
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [quote] => {
-      let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+      let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+        quote.kind(),
+      )
       inspect(kind, content="BlockQuoteNode")
     }
     _ => inspect(syntax.children().length(), content="one blockquote")
@@ -493,7 +508,9 @@ test "parse: indented blockquote fence remains quoted CST child" {
     [quote] =>
       match quote.children() {
         [code] => {
-          let code_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(code.kind())
+          let code_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+            code.kind(),
+          )
           inspect(code_kind, content="CodeBlockNode")
         }
         _ => inspect(quote.children().length(), content="one code block")
@@ -513,7 +530,9 @@ test "parse: indented blockquote HTML remains quoted CST child" {
     [quote] =>
       match quote.children() {
         [html] => {
-          let html_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(html.kind())
+          let html_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+            html.kind(),
+          )
           inspect(html_kind, content="HtmlBlockNode")
         }
         _ => inspect(quote.children().length(), content="one HTML block")
@@ -533,7 +552,9 @@ test "parse: blockquote indented continuation remains one paragraph" {
     [quote] =>
       match quote.children() {
         [paragraph] => {
-          let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(paragraph.kind())
+          let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+            paragraph.kind(),
+          )
           inspect(kind, content="ParagraphNode")
         }
         _ => inspect(quote.children().length(), content="one paragraph")
@@ -553,7 +574,9 @@ test "parse: blank-line blockquote indented code remains quoted child" {
     [quote] => {
       let mut has_code = false
       for child in quote.children() {
-        let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
+        let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+          child.kind(),
+        )
         if kind is CodeBlockNode {
           has_code = true
         }
@@ -582,7 +605,9 @@ test "parse: blockquote lazy continuation stays in quoted paragraph CST" {
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [quote] => {
-      let quote_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+      let quote_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+        quote.kind(),
+      )
       inspect(quote_kind, content="BlockQuoteNode")
       match quote.children() {
         [paragraph] => {
@@ -616,7 +641,9 @@ test "parse: blockquote lazy continuation rejects thematic break line" {
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [quote, separator] => {
-      let quote_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+      let quote_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+        quote.kind(),
+      )
       let separator_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
         separator.kind(),
       )
@@ -679,7 +706,9 @@ fn assert_list_item_prefixed_block_child(
         [item] => {
           let mut found = false
           for child in item.children() {
-            let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
+            let kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+              child.kind(),
+            )
             if kind == expected_kind {
               found = true
             }
@@ -871,7 +900,9 @@ test "parse: blockquote lazy continuation accepts indented thematic text" {
     let syntax = @seam.SyntaxNode::from_cst(cst)
     match syntax.children() {
       [quote] => {
-        let quote_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+        let quote_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+          quote.kind(),
+        )
         inspect(quote_kind, content="BlockQuoteNode")
         match quote.children() {
           [paragraph] => {
@@ -897,7 +928,9 @@ test "parse: blockquote setext heading has heading CST child" {
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [quote] => {
-      let quote_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+      let quote_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+        quote.kind(),
+      )
       inspect(quote_kind, content="BlockQuoteNode")
       match quote.children() {
         [heading] => {
@@ -1007,7 +1040,9 @@ fn assert_nested_list_cst_shape(
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [list] => {
-      let list_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(list.kind())
+      let list_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+        list.kind(),
+      )
       inspect(list_kind, content="UnorderedListNode")
       inspect(
         list.children().length(),
@@ -1015,7 +1050,9 @@ fn assert_nested_list_cst_shape(
       )
       match list.children() {
         [item, ..] => {
-          let item_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(item.kind())
+          let item_kind : @markdown.SyntaxKind = @seam.FromRawKind::from_raw(
+            item.kind(),
+          )
           inspect(item_kind, content="ListItemNode")
           match item.children() {
             [nested] => {
@@ -1170,7 +1207,10 @@ test "parse: empty list item does not start lazy continuation paragraph" {
 ///|
 test "parse: list item preserves whitespace-only inline syntax" {
   inspect(
-    @markdown.parse_block_ast(@core.SourceId("markdown-parser-test-document"), "- ` `\n"),
+    @markdown.parse_block_ast(
+      @core.SourceId("markdown-parser-test-document"),
+      "- ` `\n",
+    ),
     content="Document([UnorderedList([UnorderedListItem([InlineCode(\" \")])])])",
   )
   inspect(

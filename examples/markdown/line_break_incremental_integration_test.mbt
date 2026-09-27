@@ -12,7 +12,9 @@ fn assert_line_break_incremental_projection_parity(
       source_id, label, source, edit, updated,
     ),
   )
-  let incremental = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
+  let incremental = @loom.new_parser(
+    source_id, source, @markdown.markdown_grammar,
+  )
   incremental.apply_edit(edit, updated)
   let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()

@@ -7,7 +7,10 @@ test "children of containers" {
   inspect(@core.TreeNode::children(el).length(), content="2")
   let root = @jsx.JsxNode::Root(children=[@jsx.JsxNode::Text("a")])
   inspect(@core.TreeNode::children(root).length(), content="1")
-  inspect(@core.TreeNode::children(@jsx.JsxNode::Text("x")).length(), content="0")
+  inspect(
+    @core.TreeNode::children(@jsx.JsxNode::Text("x")).length(),
+    content="0",
+  )
   inspect(
     @core.TreeNode::children(@jsx.JsxNode::ExprSpan(raw="x")).length(),
     content="0",
@@ -17,7 +20,9 @@ test "children of containers" {
 ///|
 test "same_kind requires equal element tag" {
   let div1 = @jsx.JsxNode::Element(tag="div", attrs=[], children=[])
-  let div2 = @jsx.JsxNode::Element(tag="div", attrs=[], children=[@jsx.JsxNode::Text("x")])
+  let div2 = @jsx.JsxNode::Element(tag="div", attrs=[], children=[
+    @jsx.JsxNode::Text("x"),
+  ])
   let span = @jsx.JsxNode::Element(tag="span", attrs=[], children=[])
   inspect(@core.TreeNode::same_kind(div1, div2), content="true")
   inspect(@core.TreeNode::same_kind(div1, span), content="false")
@@ -99,17 +104,28 @@ test "kind_tag is the plain variant name" {
 ///|
 test "label shapes" {
   inspect(
-    @core.Renderable::label(@jsx.JsxNode::Element(tag="div", attrs=[], children=[])),
+    @core.Renderable::label(
+      @jsx.JsxNode::Element(tag="div", attrs=[], children=[]),
+    ),
     content="<div>",
   )
-  inspect(@core.Renderable::label(@jsx.JsxNode::Fragment(children=[])), content="<>")
+  inspect(
+    @core.Renderable::label(@jsx.JsxNode::Fragment(children=[])),
+    content="<>",
+  )
   inspect(
     @core.Renderable::label(
-      @jsx.JsxNode::Root(children=[@jsx.JsxNode::Text("a"), @jsx.JsxNode::Text("b")]),
+      @jsx.JsxNode::Root(children=[
+        @jsx.JsxNode::Text("a"),
+        @jsx.JsxNode::Text("b"),
+      ]),
     ),
     content="[2 children]",
   )
-  inspect(@core.Renderable::label(@jsx.JsxNode::ExprSpan(raw="x")), content="{x}")
+  inspect(
+    @core.Renderable::label(@jsx.JsxNode::ExprSpan(raw="x")),
+    content="{x}",
+  )
 }
 
 ///|
@@ -137,7 +153,12 @@ test "placeholder is constant" {
 test "unparse closed element with attrs and children" {
   let node = @jsx.JsxNode::Element(
     tag="div",
-    attrs=[@jsx.JsxAttr::JsxAttr(name="class", value=@jsx.JsxAttrValue::StringLit("foo"))],
+    attrs=[
+      @jsx.JsxAttr::JsxAttr(
+        name="class",
+        value=@jsx.JsxAttrValue::StringLit("foo"),
+      ),
+    ],
     children=[
       @jsx.JsxNode::Element(tag="p", attrs=[], children=[
         @jsx.JsxNode::Text("hi"),
@@ -156,7 +177,10 @@ test "unparse attr value forms" {
   let node = @jsx.JsxNode::Element(
     tag="a",
     attrs=[
-      @jsx.JsxAttr::JsxAttr(name="id", value=@jsx.JsxAttrValue::ExprSpan(raw="f()")),
+      @jsx.JsxAttr::JsxAttr(
+        name="id",
+        value=@jsx.JsxAttrValue::ExprSpan(raw="f()"),
+      ),
       @jsx.JsxAttr::JsxAttr(name="hidden", value=@jsx.JsxAttrValue::Bare),
     ],
     children=[],
@@ -189,7 +213,12 @@ test "unparse picks a safe quote for attribute strings" {
   // char unconditionally).
   let both = @jsx.JsxNode::Element(
     tag="a",
-    attrs=[@jsx.JsxAttr::JsxAttr(name="b", value=@jsx.JsxAttrValue::StringLit("x\"y'z"))],
+    attrs=[
+      @jsx.JsxAttr::JsxAttr(
+        name="b",
+        value=@jsx.JsxAttrValue::StringLit("x\"y'z"),
+      ),
+    ],
     children=[],
   )
   inspect(@core.Renderable::unparse(both), content="<a b=\"x\\\"y'z\"/>")

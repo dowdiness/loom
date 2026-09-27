@@ -50,7 +50,10 @@ test "reference candidates become ordinary literal Markdown when unresolved" {
       extensions=@markdown.MarkdownExtensions::task_list(),
     )
     reference_candidate_semantics_assert_no_recovered(ir)
-    assert_eq(@markdown.experimental_markdown_ir_to_commonmark_html(ir), expected_html)
+    assert_eq(
+      @markdown.experimental_markdown_ir_to_commonmark_html(ir),
+      expected_html,
+    )
   }
 }
 
@@ -75,7 +78,10 @@ test "reference candidates still resolve every supported reference form" {
     let (source, expected_html) = case
     let ir = reference_candidate_semantics_ir(source)
     reference_candidate_semantics_assert_no_recovered(ir)
-    assert_eq(@markdown.experimental_markdown_ir_to_commonmark_html(ir), expected_html)
+    assert_eq(
+      @markdown.experimental_markdown_ir_to_commonmark_html(ir),
+      expected_html,
+    )
   }
 }
 
@@ -89,6 +95,9 @@ test "code-owned and escaped brackets never become reference candidates" {
     let (source, expected_html) = case
     let ir = reference_candidate_semantics_ir(source)
     reference_candidate_semantics_assert_no_recovered(ir)
-    assert_eq(@markdown.experimental_markdown_ir_to_commonmark_html(ir), expected_html)
+    assert_eq(
+      @markdown.experimental_markdown_ir_to_commonmark_html(ir),
+      expected_html,
+    )
   }
 }

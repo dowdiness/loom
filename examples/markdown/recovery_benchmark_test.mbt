@@ -50,7 +50,9 @@ fn recovery_benchmark_parse_to_syntax(
 }
 
 ///|
-fn recovery_benchmark_direct_block(syntax : @seam.SyntaxNode) -> @markdown.Block {
+fn recovery_benchmark_direct_block(
+  syntax : @seam.SyntaxNode,
+) -> @markdown.Block {
   let fold = @core.CstFold::new(@markdown.markdown_fold_node)
   fold.fold(syntax)
 }

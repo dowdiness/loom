@@ -8,7 +8,9 @@ test "markdown role attachment matches pure initial projection" {
     @markdown.markdown_grammar.to_syntax_grammar(),
   )
   let attachment = @markdown.attach_markdown_role_spans(parser)
-  let expected = @markdown.project_markdown_roles(parser.syntax_tree().read_or_abort())
+  let expected = @markdown.project_markdown_roles(
+    parser.syntax_tree().read_or_abort(),
+  )
   guard attachment.spans() == expected else {
     fail("expected attached spans to match pure projection")
   }
@@ -52,7 +54,9 @@ test "markdown role attachment survives parser runtime gc" {
   )
   let attachment = @markdown.attach_markdown_role_spans(parser)
   parser.runtime().gc()
-  let expected = @markdown.project_markdown_roles(parser.syntax_tree().read_or_abort())
+  let expected = @markdown.project_markdown_roles(
+    parser.syntax_tree().read_or_abort(),
+  )
   guard attachment.spans() == expected else {
     fail("expected attached spans to remain reachable after runtime gc")
   }
@@ -139,7 +143,9 @@ test "markdown role attachment returns defensive span copies" {
   let attachment = @markdown.attach_markdown_role_spans(parser)
   let copy = attachment.spans()
   ignore(copy.pop())
-  let expected = @markdown.project_markdown_roles(parser.syntax_tree().read_or_abort())
+  let expected = @markdown.project_markdown_roles(
+    parser.syntax_tree().read_or_abort(),
+  )
   guard attachment.spans() == expected else {
     fail("expected attachment spans to be defensive copies")
   }

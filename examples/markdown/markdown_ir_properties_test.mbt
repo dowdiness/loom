@@ -62,7 +62,10 @@ fn assert_markdown_property_heading_case(depth : Int, seed : Int) -> Unit raise 
     @core.SourceId("markdown-ir-property-document"),
     source,
   )
-  inspect(@markdown.experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
+  inspect(
+    @markdown.experimental_markdown_ir_preserve_rewrite(ir, source),
+    content=source,
+  )
   inspect(
     @markdown.experimental_markdown_ir_canonical_format(
       @core.SourceId("markdown-ir-property-document"),
@@ -113,7 +116,10 @@ fn assert_markdown_property_list_case(
     @core.SourceId("markdown-ir-property-document"),
     source,
   )
-  inspect(@markdown.experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
+  inspect(
+    @markdown.experimental_markdown_ir_preserve_rewrite(ir, source),
+    content=source,
+  )
   let canonical = @markdown.experimental_markdown_ir_canonical_format(
     @core.SourceId("markdown-ir-property-document"),
     ir,

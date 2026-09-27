@@ -29,7 +29,10 @@ test "issue305: multi-parameter arrow lambda desugars to curried Lam" {
 
 ///|
 test "issue305: named fn definition parses and pretty-prints with params" {
-  let term = @lambda.parse(issue305_test_source_id(), "fn add(x, y) { x + y }\nadd 1 2") catch {
+  let term = @lambda.parse(
+    issue305_test_source_id(),
+    "fn add(x, y) { x + y }\nadd 1 2",
+  ) catch {
     _ => fail("parse failed")
   }
   inspect(
@@ -72,7 +75,9 @@ test "issue305: arrow block lambda with local defs roundtrips" {
   }
   let source = @ast.print_term(term)
   inspect(source, content="(x) => { let y = x\ny }")
-  let reparsed = @lambda.parse(source_id, source) catch { _ => fail("reparse failed") }
+  let reparsed = @lambda.parse(source_id, source) catch {
+    _ => fail("reparse failed")
+  }
   inspect(reparsed == term, content="true")
 
   let pretty_source = @pretty.pretty_unparse(term)

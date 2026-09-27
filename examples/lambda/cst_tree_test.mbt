@@ -512,7 +512,10 @@ test "cst: has_errors on valid lambda" {
 
 ///|
 test "cst: error recovery - missing param produces ErrorToken" {
-  let (cst, diagnostics) = @lambda.parse_cst(cst_tree_test_source_id(), "(,) => x") catch {
+  let (cst, diagnostics) = @lambda.parse_cst(
+    cst_tree_test_source_id(),
+    "(,) => x",
+  ) catch {
     _ => abort("lex error")
   }
   inspect(
@@ -550,7 +553,10 @@ test "cst: error recovery - extra tokens wrapped in ErrorNode" {
 
 ///|
 test "cst: error recovery - missing else in if" {
-  let (cst, diagnostics) = @lambda.parse_cst(cst_tree_test_source_id(), "if x then y") catch {
+  let (cst, diagnostics) = @lambda.parse_cst(
+    cst_tree_test_source_id(),
+    "if x then y",
+  ) catch {
     _ => abort("lex error")
   }
   inspect(diagnostics.length() > 0, content="true")
@@ -571,7 +577,10 @@ test "cst: error recovery - text_len preserved" {
 
 ///|
 test "cst: error recovery - multiple errors" {
-  let (cst, diagnostics) = @lambda.parse_cst(cst_tree_test_source_id(), "(,) => x + )") catch {
+  let (cst, diagnostics) = @lambda.parse_cst(
+    cst_tree_test_source_id(),
+    "(,) => x + )",
+  ) catch {
     _ => abort("lex error")
   }
   // Should have at least 2 errors: missing param, extra ")"
@@ -587,7 +596,10 @@ test "cst: error recovery preserves valid input" {
     "42", "x", "(x) => x", "f x", "1 + 2", "if x then 1 else 2", "(x)",
   ]
   for input in inputs {
-    let (recovered, diagnostics) = @lambda.parse_cst(cst_tree_test_source_id(), input) catch {
+    let (recovered, diagnostics) = @lambda.parse_cst(
+      cst_tree_test_source_id(),
+      input,
+    ) catch {
       _ => abort("lex error")
     }
     inspect(diagnostics.length(), content="0")
@@ -743,7 +755,10 @@ test "source file: trailing tokens after final expression produce error" {
 ///|
 test "source file: in is a valid identifier after deprecation" {
   // "1 in x" parses as application: (1 in) x — no errors
-  let (cst, diagnostics) = @lambda.parse_cst(cst_tree_test_source_id(), "1 in x") catch {
+  let (cst, diagnostics) = @lambda.parse_cst(
+    cst_tree_test_source_id(),
+    "1 in x",
+  ) catch {
     _ => abort("lex error")
   }
   inspect(diagnostics.length(), content="0")

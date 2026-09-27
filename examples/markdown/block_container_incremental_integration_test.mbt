@@ -9,12 +9,16 @@ fn assert_block_container_incremental_parity(
   updated : String,
 ) -> Int raise {
   let source_id = @core.SourceId("markdown-block-container-decision-core")
-  let incremental = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
+  let incremental = @loom.new_parser(
+    source_id, source, @markdown.markdown_grammar,
+  )
   incremental.apply_edit(edit, updated)
   let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
-  let (direct_cst, direct_diagnostics) = try! @markdown.parse_cst(source_id, updated)
+  let (direct_cst, direct_diagnostics) = try! @markdown.parse_cst(
+    source_id, updated,
+  )
   let direct_syntax = @seam.SyntaxNode::from_cst(direct_cst)
   assert_eq(
     @core.tree_diff(incremental_syntax.cst_node(), direct_cst).is_empty(),
@@ -177,7 +181,11 @@ test "block container core: indentation boundary edits preserve fresh parser and
     if case.assert_nonlocal_reparse {
       inspect(reuse_count != 1, content="true")
     }
-    let parser = @loom.new_parser(source_id, case.source, @markdown.markdown_grammar)
+    let parser = @loom.new_parser(
+      source_id,
+      case.source,
+      @markdown.markdown_grammar,
+    )
     parser.apply_edit(case.edit, case.updated)
     let syntax = parser.syntax_tree().read_or_abort()
     let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(

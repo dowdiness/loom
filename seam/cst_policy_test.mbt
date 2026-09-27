@@ -53,7 +53,11 @@ test "equivalent policies compose while role-swapped policies fail" {
   )
   assert_eq(parent.children().length(), 1)
   expect_policy_failure(() => {
-    let _ = @seam.CstNode::new(RawKind(1), [@seam.CstElement::Node(child)], policy=swapped)
+    let _ = @seam.CstNode::new(
+      RawKind(1),
+      [@seam.CstElement::Node(child)],
+      policy=swapped,
+    )
   })
   assert_eq(child.kind(), RawKind(2))
 }
@@ -94,7 +98,9 @@ test "replacement and map preserve the receiver metadata domain" {
     let _ = receiver.with_replaced_child(0, @seam.CstElement::Node(foreign))
   })
   expect_policy_failure(() => {
-    let _ = @seam.CstElement::Node(receiver).map(_ => @seam.CstElement::Node(foreign))
+    let _ = @seam.CstElement::Node(receiver).map(_ => {
+      @seam.CstElement::Node(foreign)
+    })
   })
   assert_eq(receiver.text_len(), 1)
 }

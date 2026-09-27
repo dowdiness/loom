@@ -493,7 +493,10 @@ test "parse_term: single expression (no defs)" {
 
 ///|
 test "parse_term: single let definition with body" {
-  let (term, diagnostics) = @lambda.parse_term(parser_test_source_id(), "let x = 1\nx")
+  let (term, diagnostics) = @lambda.parse_term(
+    parser_test_source_id(),
+    "let x = 1\nx",
+  )
   inspect(diagnostics.length(), content="0")
   inspect(
     @ast.print_term(term),

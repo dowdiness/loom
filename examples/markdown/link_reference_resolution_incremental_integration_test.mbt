@@ -17,7 +17,9 @@ fn assert_link_reference_incremental_parity(
       @markdown.markdown_grammar.to_syntax_grammar(),
     ),
   )
-  let incremental = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
+  let incremental = @loom.new_parser(
+    source_id, source, @markdown.markdown_grammar,
+  )
   incremental.apply_edit(edit, updated)
   let fresh = @loom.new_parser(source_id, updated, @markdown.markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
@@ -52,7 +54,9 @@ fn assert_link_reference_incremental_parity(
 }
 
 ///|
-fn assert_image_incremental_completion_grade(node : @markdown.MarkdownIR) -> Unit raise {
+fn assert_image_incremental_completion_grade(
+  node : @markdown.MarkdownIR,
+) -> Unit raise {
   assert_false(node.is_raw())
   assert_false(node.is_recovered())
   assert_false(node.is_unsupported())
@@ -325,6 +329,9 @@ test "link indexing preserves an immediately following emphasis opener" {
       @seam.SyntaxNode::from_cst(cst),
       diagnostics,
     )
-    inspect(@markdown.experimental_markdown_ir_to_commonmark_html(ir), content=expected)
+    inspect(
+      @markdown.experimental_markdown_ir_to_commonmark_html(ir),
+      content=expected,
+    )
   }
 }

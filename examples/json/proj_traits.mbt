@@ -141,7 +141,12 @@ fn json_escape_string(s : String) -> String {
 }
 
 ///|
-pub extend JsonValue with @dowdiness/loom/core.Renderable::{kind_tag, label, placeholder, unparse}
+pub extend JsonValue with @dowdiness/loom/core.Renderable::{
+  kind_tag,
+  label,
+  placeholder,
+  unparse,
+}
 
 ///|
 pub extend JsonValue with @dowdiness/loom/core.TreeNode::{children, same_kind}

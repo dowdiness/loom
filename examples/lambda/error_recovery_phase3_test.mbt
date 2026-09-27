@@ -75,7 +75,10 @@ test "phase3: unclosed paren produces partial ParenExpr" {
 
 ///|
 test "phase3: missing if condition" {
-  let (cst, errors) = @lambda.parse_cst(phase3_test_source_id(), "if then y else z") catch {
+  let (cst, errors) = @lambda.parse_cst(
+    phase3_test_source_id(),
+    "if then y else z",
+  ) catch {
     _ => abort("lex error")
   }
   let tree = @seam.SyntaxNode::from_cst(cst)
@@ -142,7 +145,10 @@ test "phase3: three errors - complex malformed input" {
 
 ///|
 test "phase3: error in each clause of if" {
-  let (cst, errors) = @lambda.parse_cst(phase3_test_source_id(), "if + then + else +") catch {
+  let (cst, errors) = @lambda.parse_cst(
+    phase3_test_source_id(),
+    "if + then + else +",
+  ) catch {
     _ => abort("lex error")
   }
   let tree = @seam.SyntaxNode::from_cst(cst)
@@ -157,7 +163,10 @@ test "phase3: error in each clause of if" {
 
 ///|
 test "phase3: nested errors" {
-  let (_, errors) = @lambda.parse_cst(phase3_test_source_id(), "((,) => x (+ y))") catch {
+  let (_, errors) = @lambda.parse_cst(
+    phase3_test_source_id(),
+    "((,) => x (+ y))",
+  ) catch {
     _ => abort("lex error")
   }
   // Missing param in lambda, unexpected + in inner paren
@@ -318,7 +327,9 @@ test "phase3: valid inputs unchanged - comprehensive" {
 
     // Terms must match
     let direct_str = @ast.print_term(direct_term)
-    let recovered_str = @ast.print_term(@lambda.syntax_node_to_term(recovered_tree))
+    let recovered_str = @ast.print_term(
+      @lambda.syntax_node_to_term(recovered_tree),
+    )
     if direct_str != recovered_str {
       abort("Mismatch on valid input: \{input}")
     }
@@ -358,7 +369,10 @@ test "phase3: recovery at lambda" {
 ///|
 test "phase3: recovery at if" {
   // Error (leading +) then if should work
-  let (cst, errors) = @lambda.parse_cst(phase3_test_source_id(), "+ if x then y else z") catch {
+  let (cst, errors) = @lambda.parse_cst(
+    phase3_test_source_id(),
+    "+ if x then y else z",
+  ) catch {
     _ => abort("lex error")
   }
   let tree = @seam.SyntaxNode::from_cst(cst)
