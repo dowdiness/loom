@@ -39,6 +39,10 @@ Notable user-facing changes to Loom and its sibling modules.
 
 - CI and scheduled benchmarks now use MoonBit `0.10.14+7d59c7ec9`.
   Source formatting and strict-warning compatibility follow that toolchain.
+  Existing trait implementations use explicit `pub extend` declarations where
+  MoonBit 0.10.14 requires public method visibility; the generated interfaces
+  gain callable methods without removing existing types or methods. Loomgen
+  emits these declarations for generated syntax kinds and tokens.
 
 - `examples/markdown` now passes all 652 CommonMark 0.31.2 examples through the
   clean CST-to-MarkdownIR-to-HTML pipeline. Type 6 HTML blocks that begin after

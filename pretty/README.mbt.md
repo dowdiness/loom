@@ -68,7 +68,8 @@ using @pretty {
 }
 ```
 
-All examples below use bare names assuming this `using` declaration.
+The examples below use `@pretty.`-qualified names; the `using` declaration
+above is optional when writing your own code.
 
 ## Core Concepts
 

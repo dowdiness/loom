@@ -229,5 +229,28 @@ fn emit_token_impls(
   b.write_string("  @seam.RawKind(n)\n")
   b.write_string("}\n")
 
+  b.write_string("\n///|\n")
+  b.write_string(
+    "pub extend " +
+    token_enum.name +
+    " with @dowdiness/seam.IsEof::{is_eof}\n\n",
+  )
+  b.write_string("///|\n")
+  b.write_string(
+    "pub extend " +
+    token_enum.name +
+    " with @dowdiness/seam.IsTrivia::{is_trivia}\n\n",
+  )
+  b.write_string("///|\n")
+  b.write_string(
+    "pub extend " +
+    token_enum.name +
+    " with @dowdiness/seam.ToRawKind::{to_raw}\n\n",
+  )
+  b.write_string("///|\n")
+  b.write_string(
+    "pub extend " + token_enum.name + " with Show::{output, to_string}\n",
+  )
+
   b.to_string()
 }

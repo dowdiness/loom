@@ -92,7 +92,7 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
   let normalized = normalize_anno_lines(source)
   let (impls, diagnostics) = @parser.parse_string(normalized)
   if diagnostics.length() > 0 {
-    let msgs = diagnostics.map(fn(r) { r.loc.to_string() + ": " + r.msg })
+    let msgs = diagnostics.map(fn(r) { Show::to_string(r.loc) + ": " + r.msg })
     return Err(msgs.join("; "))
   }
   let mut token_enum : EnumDecl? = None

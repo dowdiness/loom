@@ -5,7 +5,6 @@ import {
   "moonbitlang/parser/syntax",
   "dowdiness/loom/core",
   "moonbitlang/core/argparse",
-  "moonbitlang/core/debug",
   "moonbitlang/core/list",
   "moonbitlang/core/hashset",
   "moonbitlang/core/env",
@@ -16,6 +15,7 @@ import {
 import {
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/core/debug",
 } for "wbtest"
 
 supported_targets = "+native"
