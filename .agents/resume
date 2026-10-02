@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# No per-thread authentication or persistent services are required by this workspace.

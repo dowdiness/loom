@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+moon_version='0.10.14+7d59c7ec9'
+moon_bin="$HOME/.moon/bin"
+
+echo '[orb setup] MoonBit toolchain'
+if [[ ! -x "$moon_bin/moon" ]] || ! "$moon_bin/moon" version --all | grep -Fq "$moon_version"; then
+  # The upstream installer also updates shell rc files when SHELL is bash.
+  curl -fsSL https://cli.moonbitlang.com/install/unix.sh | SHELL=/bin/false bash -s -- "$moon_version"
+fi
+
+profile_marker='# loom MoonBit toolchain'
+if ! grep -Fqx "$profile_marker" "$HOME/.bash_profile" 2>/dev/null; then
+  printf '\n%s\n%s\n' "$profile_marker" 'export PATH="$HOME/.moon/bin:$PATH"' >> "$HOME/.bash_profile"
+fi
+export PATH="$moon_bin:$PATH"
+
+echo '[orb setup] Git submodules'
+git submodule update --init --recursive
+
+echo '[orb setup] MoonBit package registry and dependencies'
+moon update
+moon check

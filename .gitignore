@@ -12,3 +12,4 @@ _build
 .slopless/
 graphify-out/
 loom.registry.g.txt
+.amp/portals/*
