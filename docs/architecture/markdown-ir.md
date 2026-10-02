@@ -91,6 +91,21 @@ plans retain per-label dependencies, relative block-owned origins, and the
 established nested-link/image precedence. Do not force contextual fallback to
 mask direct/local differences. CST shape and public APIs are unchanged.
 
+### Quoted list item continuation
+
+A list item inside a blockquote owns its continuation lines. The item's own
+inline paragraph consumes the following quoted lines under the quote's line
+rule: the quote marker run is structural prefix, the remaining content decides
+continuation, and an unquoted line is a lazy continuation. Quoted list items
+are parsed with the enclosing quote's prefix ownership and marker depth, so a
+nested quote consumes its own marker run and a quote that a list item owns
+stops at a line whose marker indent the item does not accept.
+
+Continuation-line blocks other than paragraph continuation (nested lists,
+headings, indented or fenced code, and a second paragraph after a blank line
+inside the same quoted item) remain separate work; they are unchanged by this
+rule and still resolve as quote-level siblings.
+
 ### Projection identity boundary
 
 MarkdownIR owns a private, typed identity adapter for semantic leaves. It uses

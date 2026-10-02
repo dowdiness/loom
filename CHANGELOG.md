@@ -14,6 +14,11 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Fixed
 
+- Markdown list items inside blockquotes now keep their continuation lines.
+  A quoted line that continues the item's paragraph stays in the same list item
+  instead of lowering as a sibling paragraph of the quote, including lazy
+  (unquoted) continuation, ordered items, hard breaks, and nested blockquotes.
+
 - Markdown list-item inline sequences now resolve shortcut references,
   emphasis-boundary references, and images through a shared collector.
   Paragraphs inside blockquotes and lists normalize whitespace before deferred
