@@ -426,218 +426,14 @@ fn lower_inline_children_skip_with_diags(
   newline_text : String?,
   context : MarkdownIRLoweringContext,
 ) -> Array[MarkdownIR] {
-  let children : Array[MarkdownIR] = []
-  let mut pending_newline : MarkdownIROrigin? = None
-  let mut preceding_text_ends_escaped = false
-  let mut previous_was_escaped_backtick = false
-  let mut previous_was_literal_emphasis_marker = false
-  fn push_child(child : MarkdownIR) -> Unit {
-    let child = match pending_newline {
-      Some(origin) => {
-        flush_pending_inline_newline(
-          children,
-          origin,
-          newline_text,
-          context.source,
-        )
-        pending_newline = None
-        trim_inline_text_start_after_newline(child)
-      }
-      None => child
-    }
-    children.push(child)
-  }
-  for element in node.all_children() {
-    match element {
-      @seam.SyntaxElement::Token(token) => {
-        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
-        if skip_kind is Some(kind) && token_kind == kind {
-          match pending_newline {
-            Some(origin) => {
-              flush_pending_inline_newline(
-                children,
-                origin,
-                newline_text,
-                context.source,
-              )
-              pending_newline = None
-            }
-            None => ()
-          }
-          preceding_text_ends_escaped = false
-          previous_was_escaped_backtick = false
-          previous_was_literal_emphasis_marker = false
-          continue
-        }
-        match token_kind {
-          TextToken => {
-            if token.text() == ">" && preceding_text_ends_escaped {
-              append_escaped_inline_delimiter_ir(
-                children,
-                token.text(),
-                origin_from_token(token),
-                true,
-              )
-              preceding_text_ends_escaped = false
-              previous_was_escaped_backtick = false
-              previous_was_literal_emphasis_marker = false
-              continue
-            }
-            let origin = origin_from_token(token)
-            let text = strip_backslash_escapes(token.text())
-            let literal_marker = is_literal_emphasis_marker_text(token.text())
-            if pending_newline is None &&
-              (
-                previous_was_escaped_backtick ||
-                previous_was_literal_emphasis_marker ||
-                literal_marker
-              ) {
-              append_inline_text_ir(children, text, origin)
-            } else {
-              push_child(MarkdownIR::text(text, origin))
-            }
-            previous_was_literal_emphasis_marker = literal_marker
-            preceding_text_ends_escaped = text_ends_with_odd_backslashes(
-              token.text(),
-            )
-            previous_was_escaped_backtick = false
-          }
-          BacktickToken => {
-            let origin = origin_from_token(token)
-            let escaped = preceding_text_ends_escaped
-            if escaped {
-              append_escaped_inline_delimiter_ir(
-                children,
-                token.text(),
-                origin,
-                true,
-              )
-            } else {
-              push_child(MarkdownIR::text(token.text(), origin))
-            }
-            preceding_text_ends_escaped = false
-            previous_was_escaped_backtick = escaped
-            previous_was_literal_emphasis_marker = false
-          }
-          ErrorToken | ErrorNode => {
-            let origin = origin_from_token(token)
-            push_child(
-              MarkdownIR::raw(
-                context.source_id,
-                token.text(),
-                origin,
-                (context.diagnostics_in_origin)(origin),
-              ),
-            )
-            preceding_text_ends_escaped = false
-            previous_was_escaped_backtick = false
-            previous_was_literal_emphasis_marker = false
-          }
-          NewlineToken => {
-            pending_newline = Some(origin_from_token(token))
-            preceding_text_ends_escaped = false
-            previous_was_escaped_backtick = false
-            previous_was_literal_emphasis_marker = false
-          }
-          AtxHeadingMarkerToken
-          | SetextHeadingUnderlineToken
-          | ListMarkerToken
-          | OrderedListMarkerToken
-          | BlockQuoteMarkerToken
-          | ThematicBreakToken
-          | BlankLineToken
-          | EofToken
-          | CodeFenceOpenToken
-          | CodeFenceCloseToken
-          | CodeTextToken => {
-            preceding_text_ends_escaped = false
-            previous_was_escaped_backtick = false
-            previous_was_literal_emphasis_marker = false
-          }
-          _ => {
-            match delimiter_text(token_kind) {
-              Some(text) =>
-                push_child(MarkdownIR::text(text, origin_from_token(token)))
-              None => ()
-            }
-            preceding_text_ends_escaped = false
-            previous_was_escaped_backtick = false
-            previous_was_literal_emphasis_marker = false
-          }
-        }
-      }
-      @seam.SyntaxElement::Node(child_node) => {
-        preceding_text_ends_escaped = false
-        previous_was_escaped_backtick = false
-        previous_was_literal_emphasis_marker = false
-        let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(
-          child_node.kind(),
-        )
-        if child_kind == LinkNode {
-          for
-            atom in lower_link_node_atoms_with_diags(
-              child_node, newline_text, context,
-            ) {
-            push_child(atom)
-          }
-        } else {
-          push_child(
-            lower_inline_node_with_diags(child_node, newline_text, context),
-          )
-        }
-      }
-    }
-  }
-  finalize_inline_reference_children(children, context)
-}
-
-///|
-fn lower_inline_children_with_newline_and_diags(
-  node : @seam.SyntaxNode,
-  newline_text : String,
-  context : MarkdownIRLoweringContext,
-) -> Array[MarkdownIR] {
-  lower_inline_children_skip_with_diags(node, None, Some(newline_text), context)
-}
-
-///|
-fn lower_direct_inline_token_with_diags(
-  token : @seam.SyntaxToken,
-  context : MarkdownIRLoweringContext,
-) -> MarkdownIR? {
-  let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
-  match token_kind {
-    TextToken => Some(lower_inline_text_token(token))
-    BacktickToken =>
-      Some(MarkdownIR::text(token.text(), origin_from_token(token)))
-    ErrorToken | ErrorNode => {
-      let origin = origin_from_token(token)
-      Some(
-        MarkdownIR::raw(
-          context.source_id,
-          token.text(),
-          origin,
-          (context.diagnostics_in_origin)(origin),
-        ),
-      )
-    }
-    AtxHeadingMarkerToken
-    | SetextHeadingUnderlineToken
-    | ListMarkerToken
-    | OrderedListMarkerToken
-    | BlockQuoteMarkerToken
-    | ThematicBreakToken
-    | BlankLineToken
-    | NewlineToken
-    | EofToken
-    | CodeFenceOpenToken
-    | CodeFenceCloseToken
-    | CodeTextToken => None
-    _ =>
-      delimiter_text(token_kind).map(text => {
-        MarkdownIR::text(text, origin_from_token(token))
-      })
-  }
+  finalize_inline_reference_children(
+    collect_inline_children(
+      node,
+      GeneralInlineChildren(skip_kind, newline_text),
+      context,
+    ),
+    context,
+  )
 }
 
 ///|
@@ -667,140 +463,6 @@ fn lower_direct_inline_node_with_diags(
       }
     _ => Some(lower_inline_node_with_diags(node, newline_text, context))
   }
-}
-
-///|
-fn lower_direct_inline_children_with_newline_and_diags(
-  node : @seam.SyntaxNode,
-  newline_text : String,
-  context : MarkdownIRLoweringContext,
-) -> Array[MarkdownIR] {
-  let children : Array[MarkdownIR] = []
-  let mut pending_newline : MarkdownIROrigin? = None
-  let mut preceding_text_ends_escaped = false
-  let mut previous_was_escaped_backtick = false
-  let mut previous_was_literal_emphasis_marker = false
-  fn push_child(child : MarkdownIR) -> Unit {
-    let child = match pending_newline {
-      Some(origin) => {
-        flush_pending_inline_newline(
-          children,
-          origin,
-          Some(newline_text),
-          context.source,
-        )
-        pending_newline = None
-        trim_inline_text_start_after_newline(child)
-      }
-      None => child
-    }
-    children.push(child)
-  }
-  for element in node.direct_elements_iter() {
-    match element {
-      @seam.SyntaxElement::Token(token) => {
-        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
-        if token_kind == NewlineToken {
-          pending_newline = Some(origin_from_token(token))
-          preceding_text_ends_escaped = false
-          previous_was_escaped_backtick = false
-          previous_was_literal_emphasis_marker = false
-        } else {
-          match token_kind {
-            TextToken => {
-              if token.text() == ">" && preceding_text_ends_escaped {
-                append_escaped_inline_delimiter_ir(
-                  children,
-                  token.text(),
-                  origin_from_token(token),
-                  true,
-                )
-                preceding_text_ends_escaped = false
-                previous_was_escaped_backtick = false
-                previous_was_literal_emphasis_marker = false
-                continue
-              }
-              let origin = origin_from_token(token)
-              let text = strip_backslash_escapes(token.text())
-              let literal_marker = is_literal_emphasis_marker_text(token.text())
-              if pending_newline is None &&
-                (
-                  previous_was_escaped_backtick ||
-                  previous_was_literal_emphasis_marker ||
-                  literal_marker
-                ) {
-                append_inline_text_ir(children, text, origin)
-              } else {
-                push_child(MarkdownIR::text(text, origin))
-              }
-              previous_was_literal_emphasis_marker = literal_marker
-              preceding_text_ends_escaped = text_ends_with_odd_backslashes(
-                token.text(),
-              )
-              previous_was_escaped_backtick = false
-            }
-            BacktickToken => {
-              let origin = origin_from_token(token)
-              let escaped = preceding_text_ends_escaped
-              if escaped {
-                append_escaped_inline_delimiter_ir(
-                  children,
-                  token.text(),
-                  origin,
-                  true,
-                )
-              } else {
-                push_child(MarkdownIR::text(token.text(), origin))
-              }
-              preceding_text_ends_escaped = false
-              previous_was_escaped_backtick = escaped
-              previous_was_literal_emphasis_marker = false
-            }
-            _ => {
-              match lower_direct_inline_token_with_diags(token, context) {
-                Some(child) => push_child(child)
-                None => ()
-              }
-              preceding_text_ends_escaped = false
-              previous_was_escaped_backtick = false
-              previous_was_literal_emphasis_marker = false
-            }
-          }
-        }
-      }
-      @seam.SyntaxElement::Node(node) => {
-        preceding_text_ends_escaped = false
-        previous_was_escaped_backtick = false
-        previous_was_literal_emphasis_marker = false
-        let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
-        if kind == LinkNode {
-          for
-            atom in lower_link_node_atoms_with_diags(
-              node,
-              Some(newline_text),
-              context,
-            ) {
-            push_child(atom)
-          }
-        } else {
-          match
-            lower_direct_inline_node_with_diags(
-              node,
-              Some(newline_text),
-              context,
-            ) {
-            Some(child) => push_child(child)
-            None => ()
-          }
-        }
-      }
-    }
-  }
-  normalize_escaped_inline_recoveries(
-    children,
-    context.source,
-    context.diagnostics_in_origin,
-  )
 }
 
 ///|
@@ -1583,18 +1245,48 @@ fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
 }
 
 ///|
+// Complete a source-normalized paragraph in one place: determine source facts
+// before finalization can prepend a private deferred-work marker.
+fn complete_paragraph(
+  node : @seam.SyntaxNode,
+  children : Array[MarkdownIR],
+  context : MarkdownIRLoweringContext,
+) -> MarkdownIR {
+  let content_origin = span_origin_of_children(children)
+  let origin = if node.kind() == ListItemNode.to_raw() {
+    list_item_paragraph_origin(node, content_origin)
+  } else {
+    origin_from_node(node)
+  }
+  MarkdownIR::paragraph(
+    finalize_inline_reference_children(children, context),
+    origin,
+    content_origin,
+  )
+}
+
+///|
 fn lower_paragraph_with_newline_and_diags(
   node : @seam.SyntaxNode,
   newline_text : String,
   context : MarkdownIRLoweringContext,
+  trim_start? : Bool = false,
 ) -> MarkdownIR {
   let children = normalize_paragraph_boundary_spaces(
-    lower_inline_children_with_newline_and_diags(node, newline_text, context),
+    collect_inline_children(
+      node,
+      GeneralInlineChildren(None, Some(newline_text)),
+      context,
+    ),
   )
-  MarkdownIR::paragraph(
-    children,
-    origin_from_node(node),
-    span_origin_of_children(children),
+  complete_paragraph(
+    node,
+    if trim_start {
+      trim_container_inline_start(children)
+    } else {
+      children
+    },
+    context,
   )
 }
 
@@ -1604,13 +1296,17 @@ fn lower_container_child_with_diags(
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
   paragraph_newline_text : String,
   context : MarkdownIRLoweringContext,
+  trim_paragraph_start? : Bool = false,
 ) -> MarkdownIR? {
   let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
   match child_kind {
     ParagraphNode =>
       Some(
         lower_paragraph_with_newline_and_diags(
-          child, paragraph_newline_text, context,
+          child,
+          paragraph_newline_text,
+          context,
+          trim_start=trim_paragraph_start,
         ),
       )
     HeadingNode
@@ -1724,40 +1420,29 @@ fn list_item_paragraph_origin(
 }
 
 ///|
-fn trim_container_child_paragraph(ir : MarkdownIR) -> MarkdownIR {
-  match ir.node {
-    Paragraph(children, _) => {
-      let trimmed = match children {
-        [{ node: Text(value), origin, }, ..] => {
-          let trimmed_value = value.trim_start(chars=" \t".view())
-          let removed = value.length() - trimmed_value.length()
-          if removed == 0 {
-            children
+fn trim_container_inline_start(
+  children : Array[MarkdownIR],
+) -> Array[MarkdownIR] {
+  match children {
+    [{ node: Text(value), origin, }, ..] => {
+      let trimmed_value = value.trim_start(chars=" \t".view())
+      let removed = value.length() - trimmed_value.length()
+      if removed == 0 {
+        children
+      } else {
+        children.mapi((index, child) => {
+          if index == 0 {
+            MarkdownIR::text(
+              trimmed_value.to_owned(),
+              MarkdownIROrigin(start=origin.start() + removed, end=origin.end()),
+            )
           } else {
-            children.mapi((index, child) => {
-              if index == 0 {
-                MarkdownIR::text(
-                  trimmed_value.to_owned(),
-                  MarkdownIROrigin(
-                    start=origin.start() + removed,
-                    end=origin.end(),
-                  ),
-                )
-              } else {
-                child
-              }
-            })
+            child
           }
-        }
-        _ => children
+        })
       }
-      MarkdownIR::paragraph(
-        trimmed,
-        ir.origin(),
-        span_origin_of_children(trimmed),
-      )
     }
-    _ => ir
+    _ => children
   }
 }
 
@@ -1766,12 +1451,20 @@ fn append_list_item_flow_block_children(
   node : @seam.SyntaxNode,
   children : Array[MarkdownIR],
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
+  context : MarkdownIRLoweringContext,
 ) -> Unit {
   for child in node.children() {
     let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
     match child_kind {
       ParagraphNode =>
-        children.push(trim_container_child_paragraph(recurse(child)))
+        children.push(
+          lower_paragraph_with_newline_and_diags(
+            child,
+            "\n",
+            context,
+            trim_start=true,
+          ),
+        )
       HeadingNode
       | UnorderedListNode
       | OrderedListNode
@@ -1827,13 +1520,11 @@ fn remove_selected_task_marker(
     match child.node {
       Paragraph([{ node: Text(_), origin, }, .. rest], _) if origin ==
         task.marker_origin() => {
-        let retained = rest.to_owned()
-        trim_container_child_paragraph(
-          MarkdownIR::paragraph(
-            retained,
-            child.origin(),
-            span_origin_of_children(retained),
-          ),
+        let retained = trim_container_inline_start(rest.to_owned())
+        MarkdownIR::paragraph(
+          retained,
+          child.origin(),
+          span_origin_of_children(retained),
         )
       }
       _ => child
@@ -1855,23 +1546,21 @@ fn lower_list_item_flow_children_with_diags(
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
   context : MarkdownIRLoweringContext,
 ) -> (Array[MarkdownIR], MarkdownIROrigin?) {
-  let lowered_inline_children = normalize_paragraph_boundary_spaces(
+  let collected_inline_children = normalize_paragraph_boundary_spaces(
     remove_task_marker_line_break(
       node,
-      lower_direct_inline_children_with_newline_and_diags(node, "\n", context),
+      collect_inline_children(node, DirectListItemChildren, context),
       context.extensions,
     ),
   )
-  let inline_children = retain_direct_list_item_inline_children(
-    lowered_inline_children, markdown_ir_has_non_blank_inline_content,
+  let inline_children = trim_container_inline_start(
+    retain_direct_list_item_inline_children(
+      collected_inline_children, markdown_ir_has_non_blank_inline_content,
+    ),
   )
-  let content_origin = span_origin_of_children(inline_children)
-  let paragraph_origin = list_item_paragraph_origin(node, content_origin)
-  let paragraph = trim_container_child_paragraph(
-    MarkdownIR::paragraph(inline_children, paragraph_origin, content_origin),
-  )
+  let paragraph = complete_paragraph(node, inline_children, context)
   let children = [paragraph]
-  append_list_item_flow_block_children(node, children, recurse)
+  append_list_item_flow_block_children(node, children, recurse, context)
   (children, paragraph.content_origin())
 }
 
@@ -2305,10 +1994,13 @@ fn lower_block_quote_children(
   .children()
   .iter()
   .filter_map(child => {
-    match lower_container_child_with_diags(child, recurse, "\n", context) {
-      Some(ir) => Some(trim_container_child_paragraph(ir))
-      None => None
-    }
+    lower_container_child_with_diags(
+      child,
+      recurse,
+      "\n",
+      context,
+      trim_paragraph_start=true,
+    )
   })
   .collect()
 }
@@ -2378,7 +2070,11 @@ fn experimental_markdown_ir_fold_node_with_diags(
     HeadingNode => {
       let setext = is_setext_heading(node)
       let children = normalize_heading_whitespace(
-        lower_inline_children_with_newline_and_diags(node, "\n", context),
+        collect_inline_children(
+          node,
+          GeneralInlineChildren(None, Some("\n")),
+          context,
+        ),
         node.text(),
         node.start(),
         trim_all_leading=!setext,
@@ -2390,13 +2086,15 @@ fn experimental_markdown_ir_fold_node_with_diags(
         children
       }
       match heading_depth_from_marker(node) {
-        Some(depth) =>
+        Some(depth) => {
+          let content_origin = span_origin_of_children(content_children)
           MarkdownIR::heading(
             depth,
-            content_children,
+            finalize_inline_reference_children(content_children, context),
             origin_from_node(node),
-            span_origin_of_children(content_children),
+            content_origin,
           )
+        }
         None =>
           MarkdownIR::unsupported(
             "invalid heading marker",
