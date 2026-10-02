@@ -67,6 +67,30 @@ Current public surfaces separate common and structural consumers:
 contracts. MarkdownIR lowering may reuse existing parser and fold APIs, but M0
 does not add parser-core API surface.
 
+### Inline container completion
+
+Ordinary inline containers and direct list-item inline content share one private
+raw collector over source-ordered CST elements. Collection owns newline and
+escaped-delimiter state; its policies select structural exclusions and newline
+representation, not separate reference-resolution implementations.
+
+Paragraph lowering first applies source whitespace rules. Blockquote paragraphs
+and list-item block paragraphs request leading trim while their children are
+still raw, rather than trimming an already completed paragraph. Direct list-item
+content also removes task-line-break syntax and filters blank content.
+
+One private paragraph completion operation computes content/full origins, runs
+the inline finalizer, and constructs the paragraph. Heading lowering likewise
+normalizes its source whitespace and computes content origins before completion.
+The finalizer either resolves the sequence immediately or records deferred work.
+Its private markers must never count as source content or hide the first text
+node from container whitespace handling.
+
+Definition collection remains document-owned and first-wins. Local unresolved
+plans retain per-label dependencies, relative block-owned origins, and the
+established nested-link/image precedence. Do not force contextual fallback to
+mask direct/local differences. CST shape and public APIs are unchanged.
+
 ### Projection identity boundary
 
 MarkdownIR owns a private, typed identity adapter for semantic leaves. It uses

@@ -14,6 +14,12 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Fixed
 
+- Markdown list-item inline sequences now resolve shortcut references,
+  emphasis-boundary references, and images through a shared collector.
+  Paragraphs inside blockquotes and lists normalize whitespace before deferred
+  reference completion, keeping fresh and keyed IR text and source origins in
+  agreement. Definition-only list paragraphs retain their empty source anchors.
+
 - Repeated identical single-token CST nodes now share a bounded, build-local
   reference, reducing GC pressure on adversarial Markdown opener runs without
   changing syntax, token provenance, or performance-gate thresholds.
