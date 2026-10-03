@@ -112,7 +112,8 @@ test "quoted list continuation keeps CST ownership and lossless text" {
       }
     }
     assert_eq(continuation_text, "next")
-    assert_true(paragraph.origin().end() >= item.origin().end())
+    assert_true(item.origin().start() <= paragraph.origin().start())
+    assert_true(paragraph.origin().end() <= item.origin().end())
   }
 }
 
