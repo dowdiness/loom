@@ -117,8 +117,8 @@ test "quoted list continuation keeps CST ownership and lossless text" {
 }
 
 ///|
-/// Fresh parsing, the keyed semantic attachment, and prefix insertion agree for
-/// quoted list continuations, before and after an indentation edit.
+/// Fresh parsing and the keyed semantic attachment agree before and after
+/// prefix insertion for quoted list continuations.
 test "quoted list continuation agrees across fresh and keyed lowering" {
   let sources = [
     "> - [label]\n>   next\n\n[label]: /url\n", "> - plain\n>   next\n", "> - plain\n> next\n",
@@ -194,6 +194,40 @@ test "quoted list continuation tracks indentation edits" {
   let restored = restore.apply(narrower).unwrap()
   assert_eq(restored, source)
   parser.apply_changes(restore, restored)
+  assert_eq(attachment.document(), @markdown.parse(source).semantic_read().ir())
+  attachment.dispose()
+}
+
+///|
+/// Exercise the incremental edit API separately from validated atomic changes.
+test "quoted list continuation tracks apply_edit indentation changes" {
+  let source = "> - plain\n>   next\n"
+  let parser = @loom.new_parser(
+    @core.SourceId("markdown"),
+    source,
+    @markdown.markdown_grammar,
+  )
+  let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+    parser,
+  )
+  assert_eq(attachment.document(), @markdown.parse(source).semantic_read().ir())
+  // Insert one space at 12: continuation indent 2 -> 3 columns.
+  let wider = source[:12].to_owned() + " " + source[12:].to_owned()
+  assert_eq(wider, "> - plain\n>    next\n")
+  parser.apply_edit(@core.Edit::new(12, 0, 1), wider)
+  assert_eq(attachment.document(), @markdown.parse(wider).semantic_read().ir())
+  // Delete two spaces at 12: continuation indent 3 -> 1 columns.
+  let narrower = wider[:12].to_owned() + wider[14:].to_owned()
+  assert_eq(narrower, "> - plain\n>  next\n")
+  parser.apply_edit(@core.Edit::new(12, 2, 0), narrower)
+  assert_eq(
+    attachment.document(),
+    @markdown.parse(narrower).semantic_read().ir(),
+  )
+  // Insert one space at 12: continuation indent 1 -> 2 columns.
+  let restored = narrower[:12].to_owned() + " " + narrower[12:].to_owned()
+  assert_eq(restored, source)
+  parser.apply_edit(@core.Edit::new(12, 0, 1), restored)
   assert_eq(attachment.document(), @markdown.parse(source).semantic_read().ir())
   attachment.dispose()
 }
