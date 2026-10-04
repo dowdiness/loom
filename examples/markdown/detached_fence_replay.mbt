@@ -10,7 +10,7 @@ priv struct SourceFenceReplayState {
   fence_length : Int
   fence_character : Char
   scan_pos : Int
-  active : (Int, Char, Int)?
+  active : (Int, Char, Int, Int)?
 }
 
 ///|
@@ -34,12 +34,41 @@ fn source_fence_active(
   line_start : Int,
   fence_character : Char,
   candidate : SourceFenceCandidate,
-) -> (Int, Char, Int) {
+) -> (Int, Char, Int, Int) {
+  let quote_depth = quote_marker_count(input[line_start:candidate.marker_start])
   (
     candidate.run_len,
     fence_character,
     count_indent_columns(input, line_start, candidate.marker_start),
+    quote_depth,
   )
+}
+
+///|
+fn source_fence_open_on_line(
+  state : SourceFenceReplayState,
+  line_start : Int,
+  line_end : Int,
+) -> (Int, Char, Int, Int)? {
+  match
+    source_fence_candidate(
+      state.source,
+      line_start,
+      line_end,
+      state.fence_length,
+      state.fence_character,
+    ) {
+    Some(candidate) =>
+      Some(
+        source_fence_active(
+          state.source,
+          line_start,
+          state.fence_character,
+          candidate,
+        ),
+      )
+    None => None
+  }
 }
 
 ///|
@@ -47,40 +76,32 @@ fn source_fence_replay_advance_line(
   state : SourceFenceReplayState,
   line_start : Int,
   line_end : Int,
-) -> (Int, Char, Int)? {
+) -> (Int, Char, Int, Int)? {
   match state.active {
-    None =>
-      match
-        source_fence_candidate(
-          state.source,
-          line_start,
-          line_end,
-          state.fence_length,
-          state.fence_character,
-        ) {
-        Some(candidate) =>
-          Some(
-            source_fence_active(
-              state.source,
-              line_start,
-              state.fence_character,
-              candidate,
-            ),
-          )
-        None => None
-      }
-    Some((open_len, open_character, opening_indent)) =>
-      if source_code_block_close_candidate(
-          state.source,
-          line_start,
-          open_len,
-          open_character,
-          opening_indent,
-        ) {
-        None
+    None => source_fence_open_on_line(state, line_start, line_end)
+    Some((open_len, open_character, opening_indent, quote_depth)) => {
+      let body_start = if quote_depth > 0 {
+        quoted_code_prefix_end(state.source, line_start, quote_depth)
       } else {
-        state.active
+        Some(line_start)
       }
+      match body_start {
+        // An unowned line closes the old quoted fence and may open a new one.
+        None => source_fence_open_on_line(state, line_start, line_end)
+        Some(start) =>
+          if source_code_block_close_candidate(
+              state.source,
+              start,
+              open_len,
+              open_character,
+              opening_indent,
+            ) {
+            None
+          } else {
+            state.active
+          }
+      }
+    }
   }
 }
 
@@ -91,7 +112,7 @@ fn source_fence_replay_advance_line(
 fn source_fence_replay_until(
   state : SourceFenceReplayState,
   pos : Int,
-) -> (SourceFenceReplayState, Int?) {
+) -> (SourceFenceReplayState, Int?, Int) {
   let current_line_start = line_start_offset(state.source, pos)
   let base = if state.scan_pos > current_line_start {
     source_fence_replay_initial(
@@ -125,6 +146,12 @@ fn source_fence_replay_until(
     scan = next
   }
   let line_end = find_line_end(base.source, current_line_start)
+  if current_line_start < base.source.length() &&
+    active is Some((_, _, _, depth)) &&
+    depth > 0 &&
+    quoted_code_prefix_end(base.source, current_line_start, depth) is None {
+    active = None
+  }
   let opening_active = match active {
     Some(_) => active
     None =>
@@ -149,10 +176,14 @@ fn source_fence_replay_until(
       }
   }
   let opening_indent = match opening_active {
-    Some((open_len, open_character, opening_indent)) if open_len ==
+    Some((open_len, open_character, opening_indent, _)) if open_len ==
       base.fence_length &&
       open_character == base.fence_character => Some(opening_indent)
     _ => None
+  }
+  let quote_depth = match opening_active {
+    Some((_, _, _, depth)) => depth
+    None => 0
   }
   let next_active = source_fence_replay_advance_line(
     SourceFenceReplayState::{
@@ -177,7 +208,7 @@ fn source_fence_replay_until(
     },
     active: next_active,
   }
-  (next_state, opening_indent)
+  (next_state, opening_indent, quote_depth)
 }
 
 ///|
@@ -199,6 +230,7 @@ priv struct DetachedCodeBlockIndentCache {
   fence_length : Int
   fence_character : Char
   opening_indent : Int
+  quote_depth : Int
   next_pos : Int
   replay : SourceFenceReplayState
 }

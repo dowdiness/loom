@@ -183,6 +183,34 @@ fn source_fence_candidate(
 }
 
 ///|
+fn quote_marker_count(prefix : StringView) -> Int {
+  let mut depth = 0
+  for offset = 0; offset < prefix.length(); offset = offset + 1 {
+    if prefix.get_char(offset) is Some('>') {
+      depth += 1
+    }
+  }
+  depth
+}
+
+///|
+/// End of an exact physical quote prefix; following markers are code content.
+fn quoted_code_prefix_end(input : String, start : Int, depth : Int) -> Int? {
+  let mut end = start
+  for index = 0; index < depth; index = index + 1 {
+    let (marker, indent) = leading_indent_end_offset_and_column(input, end, 0)
+    guard indent <= 3 && char_at(input, marker) is Some('>') else {
+      return None
+    }
+    end = marker + 1
+    if char_at(input, end) is Some(' ' | '\t') {
+      end += 1
+    }
+  }
+  Some(end)
+}
+
+///|
 /// The closing fence may be preceded by up to three literal spaces, or by
 /// the opening indentation when that indentation is deeper.
 fn code_block_max_leading_spaces(opening_indent : Int?) -> Int {

@@ -14,6 +14,12 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Fixed
 
+- Markdown quoted list items retain nested lists, headings, fenced code, and
+  paragraphs after quoted blank lines inside the owning item. List-owned quotes
+  stop before root-level quote markers; nested fence prefixes preserve literal
+  quote characters in code. Fresh, keyed, and document-update IR agree across
+  prefix and indentation edits through both incremental edit APIs (#966).
+
 - Markdown list items inside blockquotes now keep their continuation lines.
   A quoted line that continues the item's paragraph stays in the same list item
   instead of lowering as a sibling paragraph of the quote, including lazy

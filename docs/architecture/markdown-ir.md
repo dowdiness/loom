@@ -91,28 +91,37 @@ plans retain per-label dependencies, relative block-owned origins, and the
 established nested-link/image precedence. Do not force contextual fallback to
 mask direct/local differences. CST shape and public APIs are unchanged.
 
-### Quoted list item continuation
+### Quoted list item ownership
 
-Paragraph continuation lines in a blockquote can remain inside their list item.
-The item's inline parser reuses the quote continuation rule, treating quote
-markers as structural prefixes and accepting lazy continuation text. The private
-context carries the enclosing quote's prefix ownership and marker depth so
-nested marker runs can be consumed; it does not enforce every container-exit
-boundary. In particular, a quote owned by a list item can still consume a
-following root-level quote marker that should start a separate blockquote.
+Quoted list items separate the enclosing quote's physical prefix from the item's
+content indentation. The private quote context carries prefix ownership and
+marker depth. Paragraph continuation consumes that prefix as syntax, including
+lazy continuation, but yields before a following block opener.
 
-Quoted-item block continuation remains incomplete: nested lists, headings,
-fenced code, and additional paragraphs after a blank line are not all assigned
-to the correct item. Reusing paragraph continuation changes some of these
-already nonconforming outputs: nested list and heading markers can become
-literal item text, and fenced-code block placement can change. These cases are
-not behavior-preserving and must not be described as unchanged quote-level
-siblings. The 37-case comparison for PR #965 improved from 9 to 29 CommonMark
-matches; its eight remaining mismatches were also baseline mismatches. That
-observation is limited to those cases, not a general no-regression guarantee.
+The item's block flow then consumes the enclosing prefix and checks item-relative
+indentation before dispatching nested lists, headings, fenced code, or another
+paragraph. Quoted blank separators are provisional: they remain inside the item
+only when the following block belongs there. Sibling-list matching uses the
+columns of the next item's marker, not those of a preceding blank quote line.
 
-[Issue #966](https://github.com/dowdiness/loom/issues/966) records all eight
-inputs with expected, baseline, and PR HTML: six outputs changed and two did not.
+A list-owned quote accepts continuation markers in its own indentation band.
+It does not acquire a root-level marker merely because that marker is valid at
+the document root. When an outer quote exists, its prefix is consumed separately;
+an inner quote's paragraph may still continue lazily after that explicit outer
+prefix. Opening markers on the item's own line do not require continuation indent.
+
+The lexer preserves quote mode across indentation before a fence. Its private
+session and detached-replay context retain the opening fence's quote depth along
+with its source column. Code-body quote prefixes remain structural CST tokens;
+additional quote characters remain literal code content. No public lexer mode,
+MarkdownIR lowering fallback, or renderer special case is needed.
+
+The eight cases recorded in [issue #966](https://github.com/dowdiness/loom/issues/966)
+have exact HTML, lossless CST, block-ancestry, and source-origin regressions.
+Fresh, keyed attachment, and `MarkdownDocumentUpdates` results are compared across
+prefix and indentation edits using both `apply_edit` and validated `apply_changes`.
+These cases and the official CommonMark corpus are bounded coverage, not a claim
+of conformance for every combination of containers.
 
 ### Projection identity boundary
 

@@ -58,6 +58,7 @@ test "list-item indented-flow decision matrix" {
     content_indent: 4,
     marker_end_column: 4,
     allow_ordered_marker: true,
+    quote_context: None,
   }
   // Non-indentation and below-content indentation stop before token dispatch.
   assert_list_item_flow_decision(

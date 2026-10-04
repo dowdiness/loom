@@ -433,19 +433,25 @@ fn parse_code_block_if_still_code_block(
       _ => ()
     }
   } else {
-    let blockquote_owned = match node.parent() {
-      Some(parent) => {
-        let kind : SyntaxKind = @seam.FromRawKind::from_raw(parent.kind())
-        kind is BlockQuoteNode
+    let mut ancestor = node.parent()
+    let mut quote_depth = 0
+    while ancestor is Some(parent) {
+      let kind : SyntaxKind = @seam.FromRawKind::from_raw(parent.kind())
+      if kind is BlockQuoteNode {
+        quote_depth += 1
       }
-      None => false
+      ancestor = parent.parent()
     }
-    match (ctx.peek(), blockquote_owned) {
+    match (ctx.peek(), quote_depth > 0) {
       (CodeFenceOpen(_, _), true) =>
-        parse_quoted_code_block_with_prefix(ctx, None)
+        parse_quoted_code_block_with_prefix(ctx, None, quote_depth~)
       (CodeFenceOpen(_, _), false) => parse_code_block_with_prefix(ctx, None)
       (Indentation(_), true) if ctx.peek_nth(1) is CodeFenceOpen(_, _) =>
-        parse_quoted_code_block_with_prefix(ctx, Some(PresentLinePrefix))
+        parse_quoted_code_block_with_prefix(
+          ctx,
+          Some(PresentLinePrefix),
+          quote_depth~,
+        )
       (Indentation(_), false) if ctx.peek_nth(1) is CodeFenceOpen(_, _) =>
         parse_code_block_with_prefix(ctx, Some(PresentLinePrefix))
       _ => ()

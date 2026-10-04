@@ -7,6 +7,21 @@ fn consume_current_block_quote_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
 ) -> (Int, Int)? {
+  if ownership is QuotedListOwned(quote, indent) {
+    let checkpoint = ctx.checkpoint()
+    if consume_block_quote_marker_count(ctx, quote.ownership, quote.depth)
+      is Some(_) {
+      if consume_current_block_quote_marker(ctx, ListOwned(indent))
+        is Some(columns) {
+        return Some(columns)
+      }
+    }
+    ctx.restore(checkpoint)
+    return None
+  }
+  if ctx.peek() is BlockQuoteMarker && !ownership.accepts_marker_indent(0) {
+    return None
+  }
   if prefixed_block_quote_marker(ctx, ownership) {
     ctx.emit_token(IndentationToken)
   }
@@ -25,7 +40,8 @@ fn consume_block_quote_marker_count(
   let mut content_column = 0
   let mut marker_end_column = 0
   for index = 0; index < count; index = index + 1 {
-    match consume_current_block_quote_marker(ctx, ownership) {
+    let owner = if index == 0 { ownership } else { Root }
+    match consume_current_block_quote_marker(ctx, owner) {
       Some((next_content_column, next_marker_end_column)) => {
         content_column = next_content_column
         marker_end_column = next_marker_end_column
@@ -68,7 +84,15 @@ fn next_repeated_nested_block_quote_depth(
       _ => ()
     }
     let mut depth = 0
-    while consume_current_block_quote_marker(ctx, ownership) is Some(_) {
+    while consume_current_block_quote_marker(
+            ctx,
+            if depth == 0 {
+              ownership
+            } else {
+              Root
+            },
+          )
+          is Some(_) {
       depth += 1
     }
     depth
@@ -78,7 +102,6 @@ fn next_repeated_nested_block_quote_depth(
 ///|
 fn repeated_nested_block_quote_depth(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  ownership : BlockQuotePrefixOwnership,
   prefix : LinePrefix?,
 ) -> Int? {
   ctx.lookahead(() => {
@@ -87,7 +110,7 @@ fn repeated_nested_block_quote_depth(
       None => ()
     }
     let mut depth = 0
-    while consume_current_block_quote_marker(ctx, ownership) is Some(_) {
+    while consume_current_block_quote_marker(ctx, Root) is Some(_) {
       depth += 1
     }
     if depth > 1 {
@@ -110,21 +133,51 @@ fn repeated_nested_block_quote_paragraph_continuation(
   ownership : BlockQuotePrefixOwnership,
   depth : Int,
 ) -> ContinuationDecision[RepeatedNestedBlockQuoteContinuation] {
+  // An enclosing quote can be explicit while the item's inner quote is lazy.
+  // Its marker belongs to the outer container, not to a new root quote.
+  if ownership is QuotedListOwned(quote, _) &&
+    ctx.lookahead(() => {
+      guard ctx.peek() is Newline else { return false }
+      ctx.emit_token(NewlineToken)
+      guard consume_block_quote_marker_count(ctx, quote.ownership, quote.depth)
+        is Some(_) else {
+        return false
+      }
+      if ctx.peek() is Indentation(_) {
+        ctx.emit_token(IndentationToken)
+      }
+      token_continues_paragraph_after_softbreak(ctx.peek())
+    }) {
+    return Continue(ContinueNestedMarkers(quote.ownership, quote.depth))
+  }
   let nested_marker_count = ctx.lookahead(() => {
     guard ctx.peek() is Newline else { return None }
     ctx.emit_token(NewlineToken)
+    let marked = ctx.peek() is BlockQuoteMarker ||
+      (ctx.peek() is Indentation(_) && ctx.peek_nth(1) is BlockQuoteMarker)
     let mut count = 0
     while count < depth &&
-          consume_current_block_quote_marker(ctx, ownership) is Some(_) {
+          consume_current_block_quote_marker(
+            ctx,
+            if count == 0 {
+              ownership
+            } else {
+              Root
+            },
+          )
+          is Some(_) {
       count += 1
     }
-    if count > 1 && token_continues_paragraph_after_softbreak(ctx.peek()) {
+    if count == 0 && marked {
+      Some(0)
+    } else if count > 0 && token_continues_paragraph_after_softbreak(ctx.peek()) {
       Some(count)
     } else {
       None
     }
   })
   match nested_marker_count {
+    Some(0) => Stop
     Some(count) => Continue(ContinueNestedMarkers(ownership, count))
     None =>
       match decide_block_quote_paragraph_continuation(ctx) {
@@ -281,7 +334,7 @@ fn parse_repeated_nested_block_quote(
       Some(_) => ctx.emit_token(IndentationToken)
       None => ()
     }
-    guard consume_current_block_quote_marker(ctx, ownership)
+    guard consume_current_block_quote_marker(ctx, Root)
       is Some((first_content_column, first_marker_end_column)) else {
       abort("nested blockquote parser requires an opening marker")
     }
@@ -289,7 +342,7 @@ fn parse_repeated_nested_block_quote(
     let mut marker_end_column = first_marker_end_column
     for index = 1; index < depth; index = index + 1 {
       ctx.start_node(BlockQuoteNode)
-      match consume_current_block_quote_marker(ctx, ownership) {
+      match consume_current_block_quote_marker(ctx, Root) {
         Some((next_content_column, next_marker_end_column)) => {
           content_column = next_content_column
           marker_end_column = next_marker_end_column
@@ -323,7 +376,15 @@ fn parse_repeated_nested_block_quote(
           ctx.start_node(BlockQuoteNode)
           open_depth += 1
         }
-        match consume_current_block_quote_marker(ctx, ownership) {
+        match
+          consume_current_block_quote_marker(
+            ctx,
+            if marker_index == 0 {
+              ownership
+            } else {
+              Root
+            },
+          ) {
           Some((line_content_column, line_marker_end_column)) => {
             next_content_column = line_content_column
             next_marker_end_column = line_marker_end_column
@@ -348,7 +409,7 @@ fn try_parse_repeated_nested_block_quote(
   prefix : LinePrefix?,
   ownership : BlockQuotePrefixOwnership,
 ) -> Bool {
-  match repeated_nested_block_quote_depth(ctx, ownership, prefix) {
+  match repeated_nested_block_quote_depth(ctx, prefix) {
     Some(depth) => {
       parse_repeated_nested_block_quote(ctx, ownership, depth, prefix)
       true

@@ -693,7 +693,17 @@ fn lex_block_quote_line_start(
         None => lex_line_start(input, pos, Some(line_end), same_line_cache)
       }
     }
-    _ => lex_line_start(input, pos, line_end_hint, same_line_cache)
+    _ => {
+      let (step, mode) = lex_line_start(
+        input, pos, line_end_hint, same_line_cache,
+      )
+      let next_mode = match step {
+        Produced(info, next_offset=_) if info.token is Indentation(_) =>
+          BlockQuoteLineStart
+        _ => mode
+      }
+      (step, next_mode)
+    }
   }
 }
 
@@ -862,6 +872,7 @@ fn lex_quoted_code_block_line_prefix(
   input : String,
   pos : Int,
   mode : MarkdownLexMode,
+  quote_depth : Int,
 ) -> (@core.LexStep[Token], MarkdownLexMode)? {
   let line_start = line_start_offset(input, pos)
   guard input[line_start:pos].is_blank() else { return None }
@@ -870,7 +881,10 @@ fn lex_quoted_code_block_line_prefix(
       let (end, col) = leading_indent_end_offset_and_column(
         input, line_start, 0,
       )
-      guard col <= 3 && char_at(input, end) is Some('>') && end > pos else {
+      guard col <= 3 &&
+        char_at(input, end) is Some('>') &&
+        end > pos &&
+        quoted_code_prefix_end(input, end, quote_depth.max(1)) is Some(_) else {
         return None
       }
       Some(
@@ -886,9 +900,20 @@ fn lex_quoted_code_block_line_prefix(
         ),
       )
     }
-    ['>', ' ' | '\t', .. rest] =>
-      Some(produced_until(BlockQuoteMarker, pos, rest, mode))
-    ['>', ..] => Some(produce_token_from(BlockQuoteMarker, pos, 1, mode))
+    ['>', ..] => {
+      guard quoted_code_prefix_end(input, pos, quote_depth.max(1)) is Some(end) else {
+        return None
+      }
+      Some(
+        (
+          Produced(
+            @core.TokenInfo::new(BlockQuoteMarker, end - pos),
+            next_offset=end,
+          ),
+          mode,
+        ),
+      )
+    }
     _ => None
   }
 }
@@ -899,11 +924,13 @@ fn lex_code_block_newline(
   pos : Int,
   rest : StringView,
   mode : MarkdownLexMode,
+  quote_depth : Int,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let after_newline = rest.start_offset()
   let next_mode = match mode {
     QuotedCodeBlock(_, _) =>
-      if !line_starts_with_block_quote_marker(input, after_newline) {
+      if quoted_code_prefix_end(input, after_newline, quote_depth.max(1))
+        is None {
         LineStart
       } else {
         mode
@@ -971,6 +998,7 @@ fn lex_code_block_body(
   fence_character : Char,
   opening_indent : Int?,
   mode : MarkdownLexMode,
+  quote_depth? : Int = 0,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, mode)
@@ -990,7 +1018,7 @@ fn lex_code_block_body(
     None =>
       match input.view(start_offset=pos) {
         ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
-          lex_code_block_newline(input, pos, rest, mode)
+          lex_code_block_newline(input, pos, rest, mode, quote_depth)
         _ => emit_code_text_line(input, pos, mode)
       }
   }
@@ -1004,20 +1032,28 @@ fn lex_quoted_code_block(
   fence_character : Char,
   opening_indent : Int?,
   mode : MarkdownLexMode,
+  quote_depth : Int,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, mode)
   }
-  match lex_quoted_code_block_line_prefix(input, pos, mode) {
+  match lex_quoted_code_block_line_prefix(input, pos, mode, quote_depth) {
     Some(step) => return step
     None => ()
   }
-  if line_start_offset(input, pos) == pos &&
-    !line_starts_with_block_quote_marker(input, pos) {
-    return (Done, LineStart)
+  // A failed prefix at the physical line's start exits this quoted fence.
+  let line_start = line_start_offset(input, pos)
+  if input[line_start:pos].is_blank() {
+    return lex_line_start(input, pos, None, None)
   }
   lex_code_block_body(
-    input, pos, fence_len, fence_character, opening_indent, mode,
+    input,
+    pos,
+    fence_len,
+    fence_character,
+    opening_indent,
+    mode,
+    quote_depth~,
   )
 }
 
@@ -1135,6 +1171,7 @@ fn markdown_lex_step_inner_with_context(
   line_end_hint : Int?,
   opening_indent : Int?,
   same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
+  quote_depth? : Int? = None,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, mode)
@@ -1157,19 +1194,19 @@ fn markdown_lex_step_inner_with_context(
         },
         mode,
       )
-    QuotedCodeBlock(n, fence_character) =>
-      lex_quoted_code_block(
-        input,
-        pos,
-        n,
-        fence_character,
-        match opening_indent {
-          Some(_) => opening_indent
-          None =>
-            source_derived_code_block_indent(input, pos, n, fence_character)
-        },
-        mode,
-      )
+    QuotedCodeBlock(n, fence_character) => {
+      let (indent, depth) = match (opening_indent, quote_depth) {
+        (Some(indent), Some(depth)) => (Some(indent), depth)
+        _ => {
+          let (_, indent, depth) = source_fence_replay_until(
+            source_fence_replay_initial(input, n, fence_character),
+            pos,
+          )
+          (indent, depth)
+        }
+      }
+      lex_quoted_code_block(input, pos, n, fence_character, indent, mode, depth)
+    }
     HtmlBlockRaw => lex_html_block_raw(input, pos)
     HtmlBlockUntil(delimiter) => lex_html_block_until(input, pos, delimiter)
     HtmlBlockEndLine => lex_html_block_end_line(input, pos)
