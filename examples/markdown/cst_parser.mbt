@@ -47,6 +47,15 @@ fn BlockQuotePrefixOwnership::accepts_marker_indent(
 }
 
 ///|
+/// Quote context an inner list item needs to consume its own continuation
+/// lines: which indent band the enclosing quote accepts and how many markers
+/// each continuation line carries.
+priv struct BlockQuoteLineContext {
+  ownership : BlockQuotePrefixOwnership
+  depth : Int
+}
+
+///|
 /// Root ≤3 always; list-owned containers also accept their `[min, min+4)` band.
 fn BlockQuotePrefixOwnership::accepts_container_marker_indent(
   self : BlockQuotePrefixOwnership,
@@ -665,6 +674,27 @@ fn decide_block_quote_paragraph_continuation(
 }
 
 ///|
+/// A list item inside a blockquote keeps the quote's line structure: a
+/// following quoted line that continues a paragraph belongs to the item's
+/// open paragraph, and an unquoted line is a lazy continuation. The item only
+/// declines continuation while it has no paragraph content to continue.
+fn decide_block_quote_list_item_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  quote_context : BlockQuoteLineContext,
+  has_paragraph_content : Bool,
+) -> ContinuationDecision[RepeatedNestedBlockQuoteContinuation] {
+  if has_paragraph_content {
+    repeated_nested_block_quote_paragraph_continuation(
+      ctx,
+      quote_context.ownership,
+      quote_context.depth,
+    )
+  } else {
+    Stop
+  }
+}
+
+///|
 fn parse_block_quote_paragraph(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
@@ -871,6 +901,8 @@ fn parse_block_quote_list_at_min_indent(
   min_indent : Int,
   content_column : Int,
   marker_end_column : Int,
+  ownership : BlockQuotePrefixOwnership,
+  quote_depth : Int,
 ) -> Unit {
   match current_unordered_list_marker(ctx) {
     Some(opening_marker) =>
@@ -884,7 +916,7 @@ fn parse_block_quote_list_at_min_indent(
             ctx, opening_marker, min_indent, content_column, marker_end_column,
           )
         },
-        parse_list_item,
+        ctx => parse_block_quote_list_item(ctx, ownership, quote_depth),
       )
     None => ()
   }
@@ -895,9 +927,11 @@ fn parse_block_quote_list(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_column : Int,
   marker_end_column : Int,
+  ownership : BlockQuotePrefixOwnership,
+  quote_depth : Int,
 ) -> Unit {
   parse_block_quote_list_at_min_indent(
-    ctx, 0, content_column, marker_end_column,
+    ctx, 0, content_column, marker_end_column, ownership, quote_depth,
   )
 }
 
@@ -907,6 +941,8 @@ fn parse_block_quote_ordered_list_at_min_indent(
   min_indent : Int,
   content_column : Int,
   marker_end_column : Int,
+  ownership : BlockQuotePrefixOwnership,
+  quote_depth : Int,
 ) -> Unit {
   match current_ordered_list_marker(ctx) {
     Some(opening_marker) =>
@@ -920,7 +956,7 @@ fn parse_block_quote_ordered_list_at_min_indent(
             ctx, opening_marker, min_indent, content_column, marker_end_column,
           )
         },
-        parse_ordered_list_item,
+        ctx => parse_block_quote_ordered_list_item(ctx, ownership, quote_depth),
       )
     None => ()
   }
@@ -931,9 +967,39 @@ fn parse_block_quote_ordered_list(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_column : Int,
   marker_end_column : Int,
+  ownership : BlockQuotePrefixOwnership,
+  quote_depth : Int,
 ) -> Unit {
   parse_block_quote_ordered_list_at_min_indent(
-    ctx, 0, content_column, marker_end_column,
+    ctx, 0, content_column, marker_end_column, ownership, quote_depth,
+  )
+}
+
+///|
+/// A list item inside a blockquote: its own line is parsed like any other
+/// item, but its paragraph continuation follows the quote's line rule.
+fn parse_block_quote_list_item(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  ownership : BlockQuotePrefixOwnership,
+  quote_depth : Int,
+) -> Unit {
+  parse_list_item_with_marker_start_column(
+    ctx,
+    None,
+    quote_context=Some({ ownership, depth: quote_depth, }),
+  )
+}
+
+///|
+fn parse_block_quote_ordered_list_item(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  ownership : BlockQuotePrefixOwnership,
+  quote_depth : Int,
+) -> Unit {
+  parse_ordered_list_item_with_marker_start_column(
+    ctx,
+    None,
+    quote_context=Some({ ownership, depth: quote_depth, }),
   )
 }
 
@@ -954,6 +1020,7 @@ fn parse_block_quote_after_marker(
   content_column : Int,
   marker_end_column : Int,
   ownership : BlockQuotePrefixOwnership,
+  quote_depth : Int,
 ) -> Unit {
   match ctx.peek() {
     _ if current_line_is_link_reference_definition(ctx) =>
@@ -963,7 +1030,9 @@ fn parse_block_quote_after_marker(
     ListMarker if current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent <= 3) =>
-      parse_block_quote_list(ctx, content_column, marker_end_column)
+      parse_block_quote_list(
+        ctx, content_column, marker_end_column, ownership, quote_depth,
+      )
     ListMarker if current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent >= 4) =>
@@ -979,7 +1048,9 @@ fn parse_block_quote_after_marker(
     OrderedListMarker(_) if current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent <= 3) =>
-      parse_block_quote_ordered_list(ctx, content_column, marker_end_column)
+      parse_block_quote_ordered_list(
+        ctx, content_column, marker_end_column, ownership, quote_depth,
+      )
     OrderedListMarker(_) if current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent >= 4) =>
@@ -998,12 +1069,16 @@ fn parse_block_quote_after_marker(
       current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent <= 3) =>
-      parse_block_quote_list(ctx, content_column, marker_end_column)
+      parse_block_quote_list(
+        ctx, content_column, marker_end_column, ownership, quote_depth,
+      )
     Indentation(_) if ctx.peek_nth(1) is OrderedListMarker(_) &&
       current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent <= 3) =>
-      parse_block_quote_ordered_list(ctx, content_column, marker_end_column)
+      parse_block_quote_ordered_list(
+        ctx, content_column, marker_end_column, ownership, quote_depth,
+      )
     Indentation(_) if current_indented_text_reaches_column(
         ctx,
         marker_end_column,
@@ -1114,7 +1189,7 @@ fn parse_block_quote_with_prefix(
       )
       ctx.emit_token(BlockQuoteMarkerToken)
       parse_block_quote_after_marker(
-        ctx, content_column, marker_end_column, ownership,
+        ctx, content_column, marker_end_column, ownership, 1,
       )
       consume_block_quote_child_separator(ctx, ownership)
     }
@@ -1800,21 +1875,35 @@ fn parse_list_item_inline_content(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_indent : Int,
   allow_ordered_marker~ : Bool,
+  quote_context? : BlockQuoteLineContext? = None,
 ) -> Unit {
   let has_paragraph_content = list_item_line_starts_paragraph(ctx)
   ignore(try_parse_gfm_task_list_marker(ctx))
-  parse_indexed_inline_container(
-    ctx,
-    InlineParsePolicy::list_item(allow_ordered_marker~),
-    () => {
-      decide_list_item_continuation(
+  match quote_context {
+    Some(context) =>
+      parse_indexed_inline_container(
         ctx,
-        content_indent,
-        allow_ordered_marker~,
-        has_paragraph_content~,
+        InlineParsePolicy::list_item(allow_ordered_marker~),
+        () => {
+          decide_block_quote_list_item_continuation(
+            ctx, context, has_paragraph_content,
+          )
+        },
       )
-    },
-  )
+    None =>
+      parse_indexed_inline_container(
+        ctx,
+        InlineParsePolicy::list_item(allow_ordered_marker~),
+        () => {
+          decide_list_item_continuation(
+            ctx,
+            content_indent,
+            allow_ordered_marker~,
+            has_paragraph_content~,
+          )
+        },
+      )
+  }
 }
 
 ///|
@@ -2429,6 +2518,7 @@ fn parse_list_item_body(
   content_indent : Int,
   marker_end_column : Int,
   allow_ordered_marker~ : Bool,
+  quote_context? : BlockQuoteLineContext? = None,
 ) -> Unit {
   let context = ListItemFlowContext::{
     content_indent,
@@ -2499,7 +2589,12 @@ fn parse_list_item_body(
       content_indent,
       allow_ordered_marker~,
     ) {
-    parse_list_item_inline_content(ctx, content_indent, allow_ordered_marker~)
+    parse_list_item_inline_content(
+      ctx,
+      content_indent,
+      allow_ordered_marker~,
+      quote_context~,
+    )
   }
   if !has_paragraph_content {
     ignore(try_continue_empty_list_item_after_newline(ctx, context))
@@ -2517,6 +2612,7 @@ fn parse_list_item_body(
 fn parse_list_item_with_marker_start_column(
   ctx : @core.ParserContext[Token, SyntaxKind],
   marker_start_column : Int?,
+  quote_context? : BlockQuoteLineContext? = None,
 ) -> Unit {
   ctx.node(ListItemNode, fn() {
     let marker_start_column = match marker_start_column {
@@ -2536,6 +2632,7 @@ fn parse_list_item_with_marker_start_column(
       content_indent,
       marker_end_column,
       allow_ordered_marker=true,
+      quote_context~,
     )
   })
 }
@@ -2586,6 +2683,7 @@ fn parse_ordered_list_at_min_indent(
 fn parse_ordered_list_item_with_marker_start_column(
   ctx : @core.ParserContext[Token, SyntaxKind],
   marker_start_column : Int?,
+  quote_context? : BlockQuoteLineContext? = None,
 ) -> Unit {
   ctx.node(ListItemNode, fn() {
     let marker_start_column = match marker_start_column {
@@ -2605,15 +2703,9 @@ fn parse_ordered_list_item_with_marker_start_column(
       content_indent,
       marker_end_column,
       allow_ordered_marker=false,
+      quote_context~,
     )
   })
-}
-
-///|
-fn parse_ordered_list_item(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-) -> Unit {
-  parse_ordered_list_item_with_marker_start_column(ctx, None)
 }
 
 ///|

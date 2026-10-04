@@ -91,6 +91,29 @@ plans retain per-label dependencies, relative block-owned origins, and the
 established nested-link/image precedence. Do not force contextual fallback to
 mask direct/local differences. CST shape and public APIs are unchanged.
 
+### Quoted list item continuation
+
+Paragraph continuation lines in a blockquote can remain inside their list item.
+The item's inline parser reuses the quote continuation rule, treating quote
+markers as structural prefixes and accepting lazy continuation text. The private
+context carries the enclosing quote's prefix ownership and marker depth so
+nested marker runs can be consumed; it does not enforce every container-exit
+boundary. In particular, a quote owned by a list item can still consume a
+following root-level quote marker that should start a separate blockquote.
+
+Quoted-item block continuation remains incomplete: nested lists, headings,
+fenced code, and additional paragraphs after a blank line are not all assigned
+to the correct item. Reusing paragraph continuation changes some of these
+already nonconforming outputs: nested list and heading markers can become
+literal item text, and fenced-code block placement can change. These cases are
+not behavior-preserving and must not be described as unchanged quote-level
+siblings. The 37-case comparison for PR #965 improved from 9 to 29 CommonMark
+matches; its eight remaining mismatches were also baseline mismatches. That
+observation is limited to those cases, not a general no-regression guarantee.
+
+[Issue #966](https://github.com/dowdiness/loom/issues/966) records all eight
+inputs with expected, baseline, and PR HTML: six outputs changed and two did not.
+
 ### Projection identity boundary
 
 MarkdownIR owns a private, typed identity adapter for semantic leaves. It uses
