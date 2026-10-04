@@ -92,7 +92,7 @@ fn markdown_fold_node_with_code_value(
       }
       Block::CodeBlock(info, code_value(node))
     }
-    HtmlBlockNode => Block::HtmlBlock(html_block_value(node))
+    HtmlBlockNode => Block::HtmlBlock(html_block_value(node, None))
     ThematicBreakNode =>
       Block::Paragraph([Inline::Text(trim_trailing_line_ending(node.text()))])
     ErrorNode => Block::Error(RECOVERED_PARSE_ERROR)

@@ -98,11 +98,29 @@ content indentation. The private quote context carries prefix ownership and
 marker depth. Paragraph continuation consumes that prefix as syntax, including
 lazy continuation, but yields before a following block opener.
 
-The item's block flow then consumes the enclosing prefix and checks item-relative
-indentation before dispatching nested lists, headings, fenced code, or another
-paragraph. Quoted blank separators are provisional: they remain inside the item
-only when the following block belongs there. Sibling-list matching uses the
-columns of the next item's marker, not those of a preceding blank quote line.
+The item's block flow consumes the enclosing prefix and checks item-relative
+indentation before dispatching nested lists, headings, fenced or indented code,
+HTML, or another paragraph. The prefix retains physical content and marker-end
+columns so tabs use their actual starting column, including partial quote padding.
+Quoted blank separators are provisional: they remain inside the item only when
+the following block belongs there. Sibling-list matching uses the columns of the
+next item's marker, not those of a preceding blank quote line.
+
+Indented-code continuation consumes the complete quote context. Marked blank
+lines stay in the code block only when another owned indented line follows;
+losing an enclosing quote ends the block. Indented code still cannot interrupt
+a paragraph without a blank line. At a nested quote's block start, ordered
+markers need not start at one; that restriction belongs to paragraph interruption.
+
+Type 6 HTML continuation requires both the complete quote prefix and the item's
+relative indentation. HTML lowering removes the item-owned prefix from each line,
+rebasing against that line's quote position while preserving extra HTML whitespace.
+The default raw-HTML escaping policy is unchanged.
+
+Quote-owned lists, their items, and indented code do not reuse a context-free CST
+node at their entry point: an indentation edit just beyond the old node span can
+change ownership of the following line. Ordinary list-item entry points retain
+their existing reuse path; semantic attachment equality remains incremental.
 
 A list-owned quote accepts continuation markers in its own indentation band.
 It does not acquire a root-level marker merely because that marker is valid at
@@ -124,15 +142,17 @@ special case is needed.
 The eight cases recorded in [issue #966](https://github.com/dowdiness/loom/issues/966)
 have exact HTML, lossless CST, block-ancestry, and source-origin regressions.
 Fresh, keyed attachment, and `MarkdownDocumentUpdates` results are compared across
-prefix and indentation edits using both `apply_edit` and validated `apply_changes`.
+prefix, indentation, and body edits using both `apply_edit` and validated
+`apply_changes`, including ownership changes and their reversal.
 These cases and the official CommonMark corpus are bounded coverage, not a claim
 of conformance for every combination of containers.
 
 Adjacent combinations still differ from CommonMark: padded bullet markers before
-a nested quote, stacked list markers before a quote, multiple outer quotes before
-a list-owned quote, and under-indented or tab-shortened quote exits. These also
-fail on the original #967 head; the fence-prefix fix does not claim to complete
-those container-parser paths.
+a nested quote, stacked list markers before a quote, and under-indented or
+tab-shortened quote exits. These also fail on the original #967 head. The
+multiple-outer-quote fence case now passes with block-start ordered-list dispatch.
+An unquoted list's multiline Type 6 HTML continuation remains a separate,
+pre-existing failure; the quote-owned continuation rule does not cover that path.
 
 ### Projection identity boundary
 

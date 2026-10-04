@@ -67,7 +67,20 @@ fn consume_repeated_nested_block_quote_line_prefix(
 ///|
 fn repeated_nested_block_quote_paragraph_starts(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  columns : (Int, Int),
 ) -> Bool {
+  // At a block start, every ordered marker can open a list; the paragraph
+  // interruption rule (start=1) does not apply. Indented code is also a block.
+  if ctx.peek() is OrderedListMarker(_) ||
+    (
+      ctx.peek() is Indentation(_) &&
+      (
+        current_quoted_content_indent(ctx, columns) >= 4 ||
+        is_block_boundary(ctx.peek_nth(1))
+      )
+    ) {
+    return false
+  }
   !current_line_is_link_reference_definition(ctx) &&
   !token_is_inline_end(ctx.peek(), InlineParsePolicy::paragraph())
 }
@@ -308,7 +321,10 @@ fn parse_repeated_nested_block_quote_block(
   content_column : Int,
   marker_end_column : Int,
 ) -> Unit {
-  if repeated_nested_block_quote_paragraph_starts(ctx) {
+  if repeated_nested_block_quote_paragraph_starts(
+      ctx,
+      (content_column, marker_end_column),
+    ) {
     if !repeated_nested_block_quote_starts_setext_heading(ctx, ownership, depth) ||
       !try_parse_repeated_nested_block_quote_setext_heading(
         ctx, ownership, depth,

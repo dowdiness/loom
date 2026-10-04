@@ -1828,17 +1828,72 @@ fn normalize_heading_whitespace(
 }
 
 ///|
-/// Extract concatenated HTML content from an `HtmlBlockNode`, including the
-/// opening line, text lines, and interleaved newlines. HTML blocks preserve
-/// exact source formatting, so this does not trim leading or trailing newlines.
-fn html_block_value(node : @seam.SyntaxNode) -> String {
+/// The offset is a structural prefix token, before any HTML content.
+fn html_quote_content_column_before(source : String, offset : Int) -> Int {
+  let line_start = line_start_offset_before(source, offset)
+  match source[line_start:offset].rev_find(">") {
+    Some(relative) => {
+      let after_marker = line_start + relative + 1
+      let column = visual_column_at_offset(source, after_marker)
+      match source.get_char(after_marker) {
+        Some(' ' | '\t') => column + 1
+        _ => column
+      }
+    }
+    None => 0
+  }
+}
+
+///|
+/// Extract HTML content while removing list-owned physical indentation.
+/// Relative HTML indentation and line endings remain content.
+fn html_block_value(node : @seam.SyntaxNode, source : String?) -> String {
+  let list_owned = node
+    .parent()
+    .map_or(false, parent => parent.kind() == ListItemNode.to_raw())
+  let source = if list_owned {
+    match source {
+      Some(source) => source
+      None => syntax_root(node).text()
+    }
+  } else {
+    ""
+  }
+  let container_indent = if list_owned {
+    let quote_column = node
+      .parent()
+      .bind(list_item_marker_token)
+      .map_or(0, marker => {
+        html_quote_content_column_before(source, marker.start())
+      })
+    nearest_container_content_column(node, source) - quote_column
+  } else {
+    0
+  }
   let buf = StringBuilder::StringBuilder()
   let mut in_html = false
-  for element in node.all_children() {
+  let elements = node.all_children()
+  for index, element in elements {
     match element {
       @seam.SyntaxElement::Token(token) => {
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
         match token_kind {
+          IndentationToken if list_owned => {
+            if elements.get(index + 1) is Some(@seam.SyntaxElement::Token(next)) &&
+              next.kind() == BlockQuoteMarkerToken.to_raw() {
+              continue
+            }
+            let container_column = container_indent +
+              html_quote_content_column_before(source, token.start())
+            let column = visual_column_at_offset(source, token.start())
+            buf.write_string(
+              strip_visual_columns(
+                token.text(),
+                column,
+                (container_column - column).max(0),
+              ),
+            )
+          }
           IndentationToken if !in_html => buf.write_string(token.text())
           IndentationToken => ()
           HtmlBlockOpenToken => {
@@ -2184,7 +2239,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
       )
     HtmlBlockNode =>
       MarkdownIR::html_block(
-        html_block_value(node),
+        html_block_value(node, Some(context.source)),
         origin_from_node(node),
         html_block_content_origin(node),
       )

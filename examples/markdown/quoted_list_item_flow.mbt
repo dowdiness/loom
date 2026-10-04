@@ -27,23 +27,27 @@ fn consume_quoted_list_item_block_prefix(
   ctx : @core.ParserContext[Token, SyntaxKind],
   quote : BlockQuoteLineContext,
   content_indent : Int,
-) -> Bool {
+) -> (Int, Int)? {
   if ctx.peek() is Newline {
     ctx.emit_token(NewlineToken)
   }
   while true {
     guard consume_block_quote_marker_count(ctx, quote.ownership, quote.depth)
-      is Some(_) else {
-      return false
+      is Some(columns) else {
+      return None
     }
     if ctx.peek() is BlankLine {
       ctx.emit_token(BlankLineToken)
       continue
     }
-    return ctx.peek() is Indentation(_) &&
-      current_token_leading_indent(ctx) >= content_indent
+    return if ctx.peek() is Indentation(_) &&
+      current_quoted_content_indent(ctx, columns) >= content_indent {
+      Some(columns)
+    } else {
+      None
+    }
   }
-  false
+  None
 }
 
 ///|
@@ -54,16 +58,19 @@ fn parse_quoted_list_item_flow(
 ) -> Unit {
   while ctx.lookahead(() => {
           consume_quoted_list_item_block_prefix(ctx, quote, item.content_indent)
+          is Some(_)
         }) {
-    ignore(
-      consume_quoted_list_item_block_prefix(ctx, quote, item.content_indent),
-    )
-    let indent = current_token_leading_indent(ctx)
+    let columns = consume_quoted_list_item_block_prefix(
+      ctx,
+      quote,
+      item.content_indent,
+    ).unwrap()
+    let indent = current_quoted_content_indent(ctx, columns)
     if indent >= item.content_indent + 4 {
       parse_quoted_indented_code_block_at_min_indent(
         ctx,
         item.content_indent + 4,
-        quote.ownership,
+        quote,
       )
       continue
     }
@@ -72,8 +79,8 @@ fn parse_quoted_list_item_flow(
         parse_block_quote_list_at_min_indent(
           ctx,
           item.content_indent,
-          0,
-          0,
+          columns.0,
+          columns.1,
           quote.ownership,
           quote.depth,
         )
@@ -81,8 +88,8 @@ fn parse_quoted_list_item_flow(
         parse_block_quote_ordered_list_at_min_indent(
           ctx,
           item.content_indent,
-          0,
-          0,
+          columns.0,
+          columns.1,
           quote.ownership,
           quote.depth,
         )
@@ -103,7 +110,11 @@ fn parse_quoted_list_item_flow(
           QuotedListOwned(quote, item.content_indent),
         )
       HtmlBlockOpen(_) =>
-        parse_html_block(ctx, Some(PresentLinePrefix), HtmlBlockQuote)
+        parse_html_block(
+          ctx,
+          Some(PresentLinePrefix),
+          HtmlQuotedListItem(quote, item.content_indent),
+        )
       _ if current_line_is_link_reference_definition(ctx) =>
         parse_link_reference_definition(ctx)
       _ =>

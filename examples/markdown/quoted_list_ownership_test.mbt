@@ -288,6 +288,13 @@ fn quoted_ownership_assert_incremental_parity(
   expected_html : String,
   widen_continuation? : Bool = true,
 ) -> Unit raise {
+  // These controlled fixtures compare with the CommonMark reference renderer.
+  let render = (ir : @markdown.MarkdownIR) => {
+    @markdown.experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+      ir,
+      Passthrough,
+    ).unwrap()
+  }
   let parser = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
   // Semantic attachment collection only retains observed parser views.
   let diagnostics_watch = parser.diagnostics().watch()
@@ -310,10 +317,7 @@ fn quoted_ownership_assert_incremental_parity(
     updates.document_update().document().semantic_read().ir(),
     initial_ir,
   )
-  assert_eq(
-    @markdown.experimental_markdown_ir_to_commonmark_html(initial_ir),
-    expected_html,
-  )
+  assert_eq(render(initial_ir), expected_html)
 
   // Insert a blank physical prefix; it does not alter the expected rendered blocks.
   let prefixed = "\n" + source
@@ -341,10 +345,7 @@ fn quoted_ownership_assert_incremental_parity(
   assert_eq(attachment.document(), fresh_prefixed)
   let update = updates.document_update()
   assert_eq(update.document().semantic_read().ir(), fresh_prefixed)
-  assert_eq(
-    @markdown.experimental_markdown_ir_to_commonmark_html(fresh_prefixed),
-    expected_html,
-  )
+  assert_eq(render(fresh_prefixed), expected_html)
 
   // A leading list-indent change transfers the second quote from the root
   // into the list item for #26/#27. Deleting the same prefix restores exit.
@@ -384,10 +385,7 @@ fn quoted_ownership_assert_incremental_parity(
       updates.document_update().document().semantic_read().ir(),
       fresh_owned,
     )
-    assert_eq(
-      @markdown.experimental_markdown_ir_to_commonmark_html(fresh_owned),
-      expected_owned_html,
-    )
+    assert_eq(render(fresh_owned), expected_owned_html)
     let restored_source = owned_source[:ownership_start].to_owned() +
       owned_source[ownership_start + 2:].to_owned()
     parser.apply_edit(
@@ -416,10 +414,7 @@ fn quoted_ownership_assert_incremental_parity(
       updates.document_update().document().semantic_read().ir(),
       fresh_restored,
     )
-    assert_eq(
-      @markdown.experimental_markdown_ir_to_commonmark_html(fresh_restored),
-      expected_html,
-    )
+    assert_eq(render(fresh_restored), expected_html)
   }
 
   // Widen quoted continuation indentation while keeping block ownership.
@@ -451,10 +446,7 @@ fn quoted_ownership_assert_incremental_parity(
         updates.document_update().document().semantic_read().ir(),
         fresh_wider,
       )
-      assert_eq(
-        @markdown.experimental_markdown_ir_to_commonmark_html(fresh_wider),
-        expected_html,
-      )
+      assert_eq(render(fresh_wider), expected_html)
 
       // On a nested bullet, reducing the two-column item indent to one column
       // makes the marker a sibling item; restoring it re-nests the list.
@@ -489,7 +481,7 @@ fn quoted_ownership_assert_incremental_parity(
           fresh_narrower,
         )
         assert_eq(
-          @markdown.experimental_markdown_ir_to_commonmark_html(fresh_narrower),
+          render(fresh_narrower),
           "<blockquote>\n<ul>\n<li>plain</li>\n<li>nested</li>\n</ul>\n</blockquote>\n",
         )
         let restored = narrower[:narrow_start].to_owned() +
@@ -518,10 +510,7 @@ fn quoted_ownership_assert_incremental_parity(
           updates.document_update().document().semantic_read().ir(),
           fresh_restored,
         )
-        assert_eq(
-          @markdown.experimental_markdown_ir_to_commonmark_html(fresh_restored),
-          expected_html,
-        )
+        assert_eq(render(fresh_restored), expected_html)
       }
     }
     _ => ()
@@ -716,6 +705,10 @@ test "quoted fence prefixes retain list-owned indentation between markers" {
       "later-optional-opening", "> 10. text\n>        > ```\n>     > code\n>     > ```\n",
       "<blockquote>\n<ol start=\"10\">\n<li>text\n<blockquote>\n<pre><code>code\n</code></pre>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n",
     ),
+    (
+      "multiple-outer-quotes", "> > 10. > ```\n> >     > code\n> >     > ```\n",
+      "<blockquote>\n<blockquote>\n<ol start=\"10\">\n<li>\n<blockquote>\n<pre><code>code\n</code></pre>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n</blockquote>\n",
+    ),
   ]
   for (label, source, expected) in cases {
     let source_id = @core.SourceId("list-owned-fence-" + label)
@@ -857,5 +850,205 @@ test "quoted fence ownership bands agree in cold and session stepping" {
       assert_eq(next_offset, source.length() + 8)
     }
     _ => fail("expected retained list indentation after EOF append")
+  }
+}
+
+///|
+test "review 967 quoted list tabs use physical columns" {
+  for
+    (source, expected) in [
+      (
+        "> 10. foo\n> \t# bar\n", "<blockquote>\n<ol start=\"10\">\n<li>foo</li>\n</ol>\n<h1>bar</h1>\n</blockquote>\n",
+      ),
+      (
+        "> 10. foo\n> \t  # bar\n", "<blockquote>\n<ol start=\"10\">\n<li>foo\n<h1>bar</h1>\n</li>\n</ol>\n</blockquote>\n",
+      ),
+      (
+        "> > 10. foo\n> > \t# bar\n", "<blockquote>\n<blockquote>\n<ol start=\"10\">\n<li>foo\n<h1>bar</h1>\n</li>\n</ol>\n</blockquote>\n</blockquote>\n",
+      ),
+      (
+        "> > > 10. foo\n> > > \t# bar\n", "<blockquote>\n<blockquote>\n<blockquote>\n<ol start=\"10\">\n<li>foo</li>\n</ol>\n<h1>bar</h1>\n</blockquote>\n</blockquote>\n</blockquote>\n",
+      ),
+    ] {
+    quoted_ownership_assert_incremental_parity(
+      "physical-tab-columns",
+      @core.SourceId("physical-tab-columns"),
+      source,
+      expected,
+      widen_continuation=false,
+    )
+  }
+}
+
+///|
+test "review 967 indented code consumes every enclosing quote" {
+  for
+    (source, expected) in [
+      (
+        "> > - foo\n> >       one\n> >       two\n", "<blockquote>\n<blockquote>\n<ul>\n<li>foo\none\ntwo</li>\n</ul>\n</blockquote>\n</blockquote>\n",
+      ),
+      (
+        "> > - foo\n> >\n> >       one\n> >       two\n", "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>foo</p>\n<pre><code>one\ntwo\n</code></pre>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n",
+      ),
+      (
+        "> > - foo\n> >\n> >       one\n> >\n> >       two\n", "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>foo</p>\n<pre><code>one\n\ntwo\n</code></pre>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n",
+      ),
+      (
+        "> > - foo\n> >\n> >       one\n>       two\n", "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>foo</p>\n<pre><code>one\n</code></pre>\n</li>\n</ul>\n</blockquote>\n<pre><code>  two\n</code></pre>\n</blockquote>\n",
+      ),
+    ] {
+    quoted_ownership_assert_incremental_parity(
+      "indented-quote-depth",
+      @core.SourceId("indented-quote-depth"),
+      source,
+      expected,
+      widen_continuation=false,
+    )
+  }
+}
+
+///|
+test "review 967 quoted HTML preserves list ownership" {
+  for
+    (source, expected) in [
+      (
+        "> - foo\n>   <div>\n> outside\n", "<blockquote>\n<ul>\n<li>foo\n<div>\n</li>\n</ul>\n<p>outside</p>\n</blockquote>\n",
+      ),
+      (
+        "> - foo\n>   <div>\n>   inside\n> outside\n", "<blockquote>\n<ul>\n<li>foo\n<div>\ninside\n</li>\n</ul>\n<p>outside</p>\n</blockquote>\n",
+      ),
+      (
+        "> > - foo\n> >   <div>\n> >   inside\n> > outside\n", "<blockquote>\n<blockquote>\n<ul>\n<li>foo\n<div>\ninside\n</li>\n</ul>\n<p>outside</p>\n</blockquote>\n</blockquote>\n",
+      ),
+      (
+        "> - <div>\n>   inside\n> outside\n", "<blockquote>\n<ul>\n<li>\n<div>\ninside\n</li>\n</ul>\n<p>outside</p>\n</blockquote>\n",
+      ),
+      (
+        "> 10. foo\n>     <div>\n> \t  inside\n> \toutside\n", "<blockquote>\n<ol start=\"10\">\n<li>foo\n<div>\ninside\n</li>\n</ol>\n<p>outside</p>\n</blockquote>\n",
+      ),
+      (
+        "> - foo\n>    <div>\n>     inside\n> outside\n", "<blockquote>\n<ul>\n<li>foo\n <div>\n  inside\n</li>\n</ul>\n<p>outside</p>\n</blockquote>\n",
+      ),
+      (
+        "> - foo\n >   <div>\n >   inside\n> outside\n", "<blockquote>\n<ul>\n<li>foo\n<div>\ninside\n</li>\n</ul>\n<p>outside</p>\n</blockquote>\n",
+      ),
+      (
+        "> - foo\n>   <div>\n>\n>   next\n", "<blockquote>\n<ul>\n<li>\n<p>foo</p>\n<div>\n<p>next</p>\n</li>\n</ul>\n</blockquote>\n",
+      ),
+    ] {
+    quoted_ownership_assert_incremental_parity(
+      "quoted-list-html",
+      @core.SourceId("quoted-list-html"),
+      source,
+      expected,
+      widen_continuation=false,
+    )
+  }
+}
+
+///|
+test "review 967 body and ownership edits agree across parser APIs" {
+  for
+    (label, source, changed, expected) in [
+      (
+        "tab-ownership", "> 10. foo\n> \t# bar\n", "> 10. foo\n> \t  # bar\n", "<blockquote>\n<ol start=\"10\">\n<li>foo\n<h1>bar</h1>\n</li>\n</ol>\n</blockquote>\n",
+      ),
+      (
+        "code-body", "> > - foo\n> >\n> >       one\n> >       two\n", "> > - foo\n> >\n> >       one\n> >       edited\n",
+        "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>foo</p>\n<pre><code>one\nedited\n</code></pre>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n",
+      ),
+      (
+        "code-ownership", "> > - foo\n> >\n> >       one\n> >       two\n", "> > - foo\n> >\n> >       one\n>       two\n",
+        "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>foo</p>\n<pre><code>one\n</code></pre>\n</li>\n</ul>\n</blockquote>\n<pre><code>  two\n</code></pre>\n</blockquote>\n",
+      ),
+      (
+        "html-body", "> - foo\n>   <div>\n>   inside\n> outside\n", "> - foo\n>   <div>\n>   edited\n> outside\n",
+        "<blockquote>\n<ul>\n<li>foo\n<div>\nedited\n</li>\n</ul>\n<p>outside</p>\n</blockquote>\n",
+      ),
+      (
+        "html-ownership", "> - foo\n>   <div>\n> outside\n", "> - foo\n>   <div>\n>   outside\n",
+        "<blockquote>\n<ul>\n<li>foo\n<div>\noutside\n</li>\n</ul>\n</blockquote>\n",
+      ),
+    ] {
+    let source_id = @core.SourceId(label)
+    let parser = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
+    let diagnostics = parser.diagnostics().watch()
+    defer diagnostics.dispose()
+    let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+      parser,
+    )
+    defer attachment.dispose()
+    let syntax_parser = @loom.new_syntax_parser(
+      source_id,
+      source,
+      @markdown.markdown_grammar.to_syntax_grammar(),
+    )
+    let updates = @markdown.MarkdownDocumentUpdates(syntax_parser)
+    let initial = @markdown.parse(source, source_id~).semantic_read().ir()
+    assert_eq(attachment.document(), initial)
+    assert_eq(
+      updates.document_update().document().semantic_read().ir(),
+      initial,
+    )
+    let mut start = 0
+    while start < source.length() &&
+          start < changed.length() &&
+          source.get_char(start) == changed.get_char(start) {
+      start += 1
+    }
+    let mut suffix = 0
+    while suffix < source.length() - start &&
+          suffix < changed.length() - start &&
+          source.get_char(source.length() - suffix - 1) ==
+          changed.get_char(changed.length() - suffix - 1) {
+      suffix += 1
+    }
+    let deleted = source[start:source.length() - suffix].to_owned()
+    let inserted = changed[start:changed.length() - suffix].to_owned()
+    // Apply the same minimal edit through both APIs, then reverse it on the
+    // same live attachments to expose stale container ownership.
+    for
+      (before, after, removed, added) in [
+        (source, changed, deleted, inserted),
+        (changed, source, inserted, deleted),
+      ] {
+      parser.apply_edit(
+        @core.Edit::new(start, removed.length(), added.length()),
+        after,
+      )
+      syntax_parser.apply_changes(
+        @text_change.ChangeSet::ChangeSet(source_length=before.length(), changes=[
+          @text_change.TextChange::ReplaceRange(
+            start~,
+            delete_len=removed.length(),
+            inserted=added,
+          ),
+        ]),
+        after,
+      )
+      let fresh = @markdown.parse(after, source_id~).semantic_read().ir()
+      assert_eq(attachment.document(), fresh)
+      assert_eq(
+        updates.document_update().document().semantic_read().ir(),
+        fresh,
+      )
+      assert_true(diagnostics.read_or_abort().is_empty())
+      quoted_ownership_assert_syntax_clean(syntax_parser)
+      quoted_ownership_assert_no_recovery(fresh)
+      let (cst, errors) = @markdown.parse_cst(source_id, after)
+      assert_true(errors.is_empty())
+      assert_eq(@seam.SyntaxNode::from_cst(cst).text(), after)
+      if after == changed {
+        assert_eq(
+          @markdown.experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(
+            fresh,
+            Passthrough,
+          ).unwrap(),
+          expected,
+        )
+      } else {
+        assert_eq(fresh, initial)
+      }
+    }
   }
 }

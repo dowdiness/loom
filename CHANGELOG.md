@@ -14,13 +14,15 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Fixed
 
-- Markdown quoted list items retain nested lists, headings, fenced code, and
-  paragraphs after quoted blank lines inside the owning item. List-owned quotes
-  stop before root-level quote markers; nested fence prefixes preserve literal
-  quote characters and list-owned indentation, including multi-digit ordered
-  items and tab-aligned continuation. Fresh, keyed, and document-update IR agree
-  across prefix, indentation, and code-body edits through both incremental edit
-  APIs (#966).
+- Markdown quoted list items retain nested lists, headings, fenced and indented
+  code, HTML, and paragraphs after quoted blank lines inside the owning item.
+  Continuation tabs use physical columns; indented code consumes every enclosing
+  quote marker, and HTML stops when its line leaves the list item. HTML lowering
+  removes list-owned indentation while preserving relative content indentation.
+  List-owned quotes stop before root-level quote markers; nested fence prefixes
+  preserve literal quote characters and list-owned indentation. Fresh, keyed,
+  and document-update IR agree across prefix, indentation, and body edits and
+  their reversal through both incremental edit APIs (#966, #967).
 
 - Markdown list items inside blockquotes now keep their continuation lines.
   A quoted line that continues the item's paragraph stays in the same list item
