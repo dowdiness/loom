@@ -111,10 +111,15 @@ an inner quote's paragraph may still continue lazily after that explicit outer
 prefix. Opening markers on the item's own line do not require continuation indent.
 
 The lexer preserves quote mode across indentation before a fence. Its private
-session and detached-replay context retain the opening fence's quote depth along
-with its source column. Code-body quote prefixes remain structural CST tokens;
-additional quote characters remain literal code content. No public lexer mode,
-MarkdownIR lowering fallback, or renderer special case is needed.
+session and detached-replay context retain the required list indentation before
+each physical quote marker, not just their count, along with the opening fence's
+source column. A marker accepts its owner's indentation plus up to three optional
+columns; tabs advance from the physical column, including partial quote padding.
+Fences opened on a later item-content line recover their owning list indentation.
+Stateful and stateless stepping use the same prefix rules. Code-body quote
+prefixes remain structural CST tokens; additional quote characters remain literal
+code content. No public lexer mode, MarkdownIR lowering fallback, or renderer
+special case is needed.
 
 The eight cases recorded in [issue #966](https://github.com/dowdiness/loom/issues/966)
 have exact HTML, lossless CST, block-ancestry, and source-origin regressions.
@@ -122,6 +127,12 @@ Fresh, keyed attachment, and `MarkdownDocumentUpdates` results are compared acro
 prefix and indentation edits using both `apply_edit` and validated `apply_changes`.
 These cases and the official CommonMark corpus are bounded coverage, not a claim
 of conformance for every combination of containers.
+
+Adjacent combinations still differ from CommonMark: padded bullet markers before
+a nested quote, stacked list markers before a quote, multiple outer quotes before
+a list-owned quote, and under-indented or tab-shortened quote exits. These also
+fail on the original #967 head; the fence-prefix fix does not claim to complete
+those container-parser paths.
 
 ### Projection identity boundary
 

@@ -8,6 +8,7 @@ priv struct SourceFenceCandidate {
 priv struct SourceListMarkerFacts {
   marker_indent : Int
   content_indent : Int
+  content_start : Int
 }
 
 ///|
@@ -32,9 +33,10 @@ fn source_line_list_marker_facts(
   input : String,
   line_start : Int,
   line_end : Int,
+  start_column? : Int = 0,
 ) -> SourceListMarkerFacts? {
   let (marker_start, marker_indent) = leading_indent_end_offset_and_column(
-    input, line_start, 0,
+    input, line_start, start_column,
   )
   let marker_end = match char_at(input, marker_start) {
     Some('-') | Some('*') | Some('+') =>
@@ -62,7 +64,7 @@ fn source_line_list_marker_facts(
     _ => return None
   }
   let marker_end_column = marker_indent + marker_end - marker_start
-  let (_, content_column) = leading_indent_end_offset_and_column(
+  let (content_start, content_column) = leading_indent_end_offset_and_column(
     input, marker_end, marker_end_column,
   )
   let padding = content_column - marker_end_column
@@ -71,7 +73,7 @@ fn source_line_list_marker_facts(
   } else {
     content_column
   }
-  Some(SourceListMarkerFacts::{ marker_indent, content_indent, })
+  Some(SourceListMarkerFacts::{ marker_indent, content_indent, content_start, })
 }
 
 ///|
@@ -194,17 +196,171 @@ fn quote_marker_count(prefix : StringView) -> Int {
 }
 
 ///|
+/// Recover the owning item when a quote opens on a later list-content line.
+/// Stop at an enclosing-quote exit or unindented content, not at a blank line.
+fn source_quote_marker_list_indent(
+  input : String,
+  line_start : Int,
+  outer_indents : Array[Int],
+  marker_indent : Int,
+) -> Int {
+  let mut line = line_start
+  while previous_source_line_start(input, line) is Some(previous) {
+    line = previous
+    guard quoted_code_prefix_end(input, line, Some(outer_indents))
+      is Some(start) else {
+      return 0
+    }
+    let line_end = find_line_end(input, start)
+    if line_is_blank(input, start, line_end) {
+      continue
+    }
+    let start_column = visual_column_at_offset(input, start)
+    let content_column = if start > line &&
+      char_at(input, start - 1) is Some('\t') {
+      visual_column_at_offset(input, start - 1) + 1
+    } else {
+      start_column
+    }
+    let mut cursor = start
+    let mut column = start_column
+    let mut owned_indent = 0
+    let mut has_list = false
+    while source_line_list_marker_facts(
+            input,
+            cursor,
+            line_end,
+            start_column=column,
+          )
+          is Some(facts) {
+      has_list = true
+      let required = facts.content_indent - content_column
+      if required <= marker_indent && marker_indent < required + 4 {
+        owned_indent = required
+      }
+      cursor = facts.content_start
+      column = facts.content_indent
+    }
+    if has_list {
+      return owned_indent
+    }
+    let (_, indent_column) = leading_indent_end_offset_and_column(
+      input, start, start_column,
+    )
+    if indent_column == content_column {
+      return 0
+    }
+  }
+  0
+}
+
+///|
+/// Required list indentation before each physical quote marker. Record it once
+/// at the opening fence; quote-local optional indentation remains a 0..3 band.
+fn source_fence_quote_indents(
+  input : String,
+  line_start : Int,
+  fence_start : Int,
+) -> Array[Int]? {
+  guard input[line_start:fence_start].contains(">") else { return None }
+  let indents : Array[Int] = []
+  let mut cursor = line_start
+  let mut owned_indent = 0
+  let mut column = 0
+  let mut content_column = 0
+  while cursor < fence_start {
+    let (marker, marker_column) = leading_indent_end_offset_and_column(
+      input, cursor, column,
+    )
+    let indent = marker_column - content_column
+    if char_at(input, marker) is Some('>') {
+      indents.push(
+        if owned_indent > 0 {
+          owned_indent
+        } else if indent > 0 {
+          source_quote_marker_list_indent(input, line_start, indents, indent)
+        } else {
+          0
+        },
+      )
+      cursor = marker + 1
+      column = marker_column + 1
+      content_column = column
+      match char_at(input, cursor) {
+        Some(' ' | '\t' as space) => {
+          cursor += 1
+          content_column += 1
+          column = if space == '\t' {
+            next_tab_stop(column)
+          } else {
+            column + 1
+          }
+        }
+        _ => ()
+      }
+      owned_indent = 0
+    } else {
+      match
+        source_line_list_marker_facts(
+          input,
+          cursor,
+          fence_start,
+          start_column=column,
+        ) {
+        Some(facts) => {
+          owned_indent = facts.content_indent - content_column
+          cursor = facts.content_start
+          column = facts.content_indent
+        }
+        None => break
+      }
+    }
+  }
+  if indents.is_empty() {
+    None
+  } else {
+    Some(indents)
+  }
+}
+
+///|
 /// End of an exact physical quote prefix; following markers are code content.
-fn quoted_code_prefix_end(input : String, start : Int, depth : Int) -> Int? {
+fn quoted_code_prefix_end(
+  input : String,
+  start : Int,
+  quote_indents : Array[Int]?,
+) -> Int? {
+  let depth = match quote_indents {
+    Some(indents) => indents.length()
+    None => 1
+  }
   let mut end = start
+  let mut column = 0
+  let mut content_column = 0
   for index = 0; index < depth; index = index + 1 {
-    let (marker, indent) = leading_indent_end_offset_and_column(input, end, 0)
-    guard indent <= 3 && char_at(input, marker) is Some('>') else {
+    let (marker, marker_column) = leading_indent_end_offset_and_column(
+      input, end, column,
+    )
+    let indent = marker_column - content_column
+    let required_indent = match quote_indents {
+      Some(indents) => indents[index]
+      None => 0
+    }
+    guard indent >= required_indent &&
+      indent <= required_indent + 3 &&
+      char_at(input, marker) is Some('>') else {
       return None
     }
     end = marker + 1
-    if char_at(input, end) is Some(' ' | '\t') {
-      end += 1
+    column = marker_column + 1
+    content_column = column
+    match char_at(input, end) {
+      Some(' ' | '\t' as space) => {
+        end += 1
+        content_column += 1
+        column = if space == '\t' { next_tab_stop(column) } else { column + 1 }
+      }
+      _ => ()
     }
   }
   Some(end)

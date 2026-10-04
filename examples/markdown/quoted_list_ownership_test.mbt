@@ -691,3 +691,171 @@ test "detached quoted fence EOF retains its depth for an appended line" {
     _ => fail("expected both retained quote markers after EOF append")
   }
 }
+
+///|
+test "quoted fence prefixes retain list-owned indentation between markers" {
+  let quoted = "<blockquote>\n<ol start=\"10\">\n<li>\n<blockquote>\n<pre><code>code\n</code></pre>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n"
+  let cases = [
+    ("same-line", "> 10. > ```\n>     > code\n>     > ```\n", quoted),
+    ("optional-indent", "> 10. > ```\n>        > code\n>     > ```\n", quoted),
+    ("tab-indent", "> 10. > ```\n> \t  > code\n>     > ```\n", quoted),
+    ("tab-quote-padding", "> 10. > ```\n>\t  > code\n>     > ```\n", quoted),
+    (
+      "tab-list-padding", "> 10.\t> ```\n>       > code\n>       > ```\n", quoted,
+    ),
+    (
+      "root-list", "10. > ```\n    > code\n    > ```\n", "<ol start=\"10\">\n<li>\n<blockquote>\n<pre><code>code\n</code></pre>\n</blockquote>\n</li>\n</ol>\n",
+    ),
+    (
+      "literal-marker", "> 10. > ```\n>     > > code\n>     > ```\n", "<blockquote>\n<ol start=\"10\">\n<li>\n<blockquote>\n<pre><code>&gt; code\n</code></pre>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n",
+    ),
+    (
+      "later-opening", "> 10. text\n>     > ```\n>     > code\n>     > ```\n", "<blockquote>\n<ol start=\"10\">\n<li>text\n<blockquote>\n<pre><code>code\n</code></pre>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n",
+    ),
+    (
+      "later-optional-opening", "> 10. text\n>        > ```\n>     > code\n>     > ```\n",
+      "<blockquote>\n<ol start=\"10\">\n<li>text\n<blockquote>\n<pre><code>code\n</code></pre>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n",
+    ),
+  ]
+  for (label, source, expected) in cases {
+    let source_id = @core.SourceId("list-owned-fence-" + label)
+    quoted_ownership_assert_incremental_parity(
+      label,
+      source_id,
+      source,
+      expected,
+      widen_continuation=false,
+    )
+    let parser = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
+    let diagnostics = parser.diagnostics().watch()
+    defer diagnostics.dispose()
+    assert_true(diagnostics.read_or_abort().is_empty())
+    let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+      parser,
+    )
+    defer attachment.dispose()
+    let syntax_parser = @loom.new_syntax_parser(
+      source_id,
+      source,
+      @markdown.markdown_grammar.to_syntax_grammar(),
+    )
+    let updates = @markdown.MarkdownDocumentUpdates(syntax_parser)
+    let initial = attachment.document()
+    assert_eq(
+      updates.document_update().document().semantic_read().ir(),
+      initial,
+    )
+    let start = source.find("code").unwrap()
+    let changed = source[:start].to_owned() +
+      "edited" +
+      source[start + 4:].to_owned()
+    parser.apply_edit(@core.Edit::new(start, 4, 6), changed)
+    syntax_parser.apply_changes(
+      @text_change.ChangeSet::ChangeSet(source_length=source.length(), changes=[
+        @text_change.TextChange::ReplaceRange(
+          start~,
+          delete_len=4,
+          inserted="edited",
+        ),
+      ]),
+      changed,
+    )
+    let fresh = @markdown.parse(changed, source_id~).semantic_read().ir()
+    assert_eq(attachment.document(), fresh)
+    assert_eq(updates.document_update().document().semantic_read().ir(), fresh)
+    assert_true(diagnostics.read_or_abort().is_empty())
+    quoted_ownership_assert_syntax_clean(syntax_parser)
+    quoted_ownership_assert_no_recovery(fresh)
+    let (cst, errors) = @markdown.parse_cst(source_id, changed)
+    assert_true(errors.is_empty())
+    assert_eq(@seam.SyntaxNode::from_cst(cst).text(), changed)
+    let expected_start = expected.find("code\n").unwrap()
+    assert_eq(
+      @markdown.experimental_markdown_ir_to_commonmark_html(fresh),
+      expected[:expected_start].to_owned() +
+      "edited" +
+      expected[expected_start + 4:].to_owned(),
+    )
+  }
+}
+
+///|
+test "quoted fence ownership bands agree in cold and session stepping" {
+  for
+    (prefix, owned) in [
+      (">     > ", true),
+      (">        > ", true),
+      ("> \t  > ", true),
+      (">\t  > ", true),
+      (">    > ", false),
+      (">         > ", false),
+      ("> \t> ", false),
+      ("> ", false),
+    ] {
+    let opening = "> 10. > ```\n"
+    let source = opening + prefix + "code\n>     > ```\n"
+    let session = @markdown.MarkdownLexSession::MarkdownLexSession()
+    let (_, session_mode) = session.step(
+      source,
+      opening.length() - 1,
+      QuotedCodeBlock(3, '`'),
+    )
+    let (_, cold_mode) = @markdown.markdown_lex_step(
+      source,
+      opening.length() - 1,
+      QuotedCodeBlock(3, '`'),
+    )
+    assert_eq(session_mode, cold_mode)
+    assert_eq(
+      session_mode,
+      if owned {
+        QuotedCodeBlock(3, '`')
+      } else {
+        LineStart
+      },
+    )
+    if owned {
+      let (step, mode) = session.step(source, opening.length(), session_mode)
+      let (cold_step, _) = @markdown.markdown_lex_step(
+        source,
+        opening.length(),
+        cold_mode,
+      )
+      for path, prefix_step in [step, cold_step] {
+        match prefix_step {
+          Produced(info, next_offset~) => {
+            assert_true(info.token is BlockQuoteMarker)
+            if next_offset != opening.length() + prefix.length() {
+              fail("prefix \{Repr(prefix)}, path \{path}: \{next_offset}")
+            }
+          }
+          _ => fail("expected the complete owned quote prefix")
+        }
+      }
+      let (body, _) = session.step(
+        source,
+        opening.length() + prefix.length(),
+        mode,
+      )
+      match body {
+        Produced(info, next_offset~) => {
+          assert_true(info.token is CodeText("code"))
+          assert_eq(next_offset, opening.length() + prefix.length() + 4)
+        }
+        _ => fail("expected code after the list-owned quote prefix")
+      }
+    }
+  }
+  let source = "> 10. > ```\n>     > old\n"
+  let session = @markdown.MarkdownLexSession::MarkdownLexSession()
+  let (_, mode) = session.step(source, source.length(), QuotedCodeBlock(3, '`'))
+  let appended = source + ">     > new\n>     > ```\n"
+  let (prefix, _) = session.step(appended, source.length(), mode)
+  match prefix {
+    Produced(info, next_offset~) => {
+      assert_true(info.token is BlockQuoteMarker)
+      assert_eq(next_offset, source.length() + 8)
+    }
+    _ => fail("expected retained list indentation after EOF append")
+  }
+}
