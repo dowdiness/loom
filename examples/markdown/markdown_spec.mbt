@@ -6,4 +6,5 @@ pub let markdown_spec : @core.LanguageSpec[Token, SyntaxKind] = @core.LanguageSp
   EOF, // eof_token
   parse_root~,
   reuse_size_threshold=0,
+  track_reuse_dependencies=true,
 )

@@ -29,6 +29,8 @@ pub fn[T, K] ParserContext::new(
     reuse_count: 0,
     goal_source: None,
     goal_subsumption_check: None,
+    dependency_builder: None,
+    reuse_context: None,
   }
 }
 
@@ -64,6 +66,8 @@ pub fn[T, K] ParserContext::new_indexed(
     reuse_count: 0,
     goal_source: None,
     goal_subsumption_check: None,
+    dependency_builder: None,
+    reuse_context: None,
   }
 }
 
@@ -98,11 +102,13 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::peek_nth(
     let t = (self.get_token)(pos)
     if !t.is_trivia() {
       if count == n {
+        self.observe_token(pos)
         return t
       }
       count = count + 1
     }
   }
+  self.observe_token(self.token_count)
   self.spec.eof_token
 }
 
@@ -118,6 +124,7 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::peek_while_skip(
   skip : (T) -> Bool,
 ) -> T {
   for pos in self.position..<self.token_count {
+    self.observe_token(pos)
     let t = (self.get_token)(pos)
     if t.is_trivia() {
       continue
@@ -127,6 +134,7 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::peek_while_skip(
     }
     return t
   }
+  self.observe_token(self.token_count)
   self.spec.eof_token
 }
 
@@ -176,6 +184,7 @@ pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at_adjacent(
   self : ParserContext[T, K],
   expected : T,
 ) -> Bool {
+  self.observe_token(self.position)
   guard self.position < self.token_count else { return false }
   let next = (self.get_token)(self.position)
   guard !@seam.IsTrivia::is_trivia(next) && next == expected else {
@@ -186,6 +195,9 @@ pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at_adjacent(
   // immediately before the cursor must itself be non-trivia. Its end is
   // the frontier (0 before the first token); the next token must start
   // exactly there.
+  if self.position > 0 {
+    self.observe_token(self.position - 1)
+  }
   guard self.position == 0 ||
     !@seam.IsTrivia::is_trivia((self.get_token)(self.position - 1)) else {
     return false
@@ -234,11 +246,13 @@ fn[T : @seam.IsTrivia, K] ParserContext::current_token_position(
   self : ParserContext[T, K],
 ) -> Int? {
   for pos in self.position..<self.token_count {
+    self.observe_token(pos)
     let token = (self.get_token)(pos)
     if !token.is_trivia() {
       return Some(pos)
     }
   }
+  self.observe_token(self.token_count)
   None
 }
 
@@ -286,10 +300,12 @@ pub fn[T, K] ParserContext::token_text_at(
   pos : Int,
 ) -> StringView {
   if pos < 0 || pos >= self.token_count {
+    self.observe_token(pos)
     return ""
   }
   let start = (self.get_start)(pos)
   let end = (self.get_end)(pos)
+  self.observe_source_range(start, end)
   if start < 0 || end < start || end > self.source.length() {
     return ""
   }
@@ -334,6 +350,7 @@ pub fn[T, K] ParserContext::peek_index(
   n : Int,
 ) -> T {
   let pos = if n < 0 { self.position } else { self.position + n }
+  self.observe_token(pos)
   if pos < 0 || pos >= self.token_count {
     return self.spec.eof_token
   }
@@ -375,10 +392,12 @@ pub fn[T, K] ParserContext::token_at(
   offset : Int,
   goal : Int,
 ) -> (T, Int) {
-  match self.goal_source {
+  let result = match self.goal_source {
     Some(source_fn) => source_fn(offset, goal)
     None => self.baseline_token_at(offset)
   }
+  self.observe_source_range(offset, result.1)
+  result
 }
 
 ///|

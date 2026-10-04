@@ -117,10 +117,19 @@ relative indentation. HTML lowering removes the item-owned prefix from each line
 rebasing against that line's quote position while preserving extra HTML whitespace.
 The default raw-HTML escaping policy is unchanged.
 
-Quote-owned lists, their items, and indented code do not reuse a context-free CST
-node at their entry point: an indentation edit just beyond the old node span can
-change ownership of the following line. Ordinary list-item entry points retain
-their existing reuse path; semantic attachment equality remains incremental.
+Markdown enables dependency-aware CST reuse. Quote-owned lists, items, and code
+reuse unchanged nodes only when their observed source extent is untouched and
+their complete entry context matches. Context includes inherited quote ownership,
+effective marker depth, physical columns, and list-body indentation; the repeated
+nested-quote parser carries the same information into its children.
+
+Failed termination lookahead remains part of the dependency even after rollback.
+An indentation edit beyond the consumed node, an EOF append, or a lexer-state
+change can therefore reject reuse without banning a whole node family.
+Dependencies live in a parser-owned sidecar, not CST hashes or MarkdownIR.
+Local block reparse retains its grammar-owned admissibility check; accepted
+splices conservatively invalidate sidecar ranges for the next fallback parse.
+Semantic attachment equality remains incremental.
 
 A list-owned quote accepts continuation markers in its own indentation band.
 It does not acquire a root-level marker merely because that marker is valid at

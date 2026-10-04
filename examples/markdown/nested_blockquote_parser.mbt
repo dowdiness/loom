@@ -321,21 +321,30 @@ fn parse_repeated_nested_block_quote_block(
   content_column : Int,
   marker_end_column : Int,
 ) -> Unit {
-  if repeated_nested_block_quote_paragraph_starts(
-      ctx,
-      (content_column, marker_end_column),
-    ) {
-    if !repeated_nested_block_quote_starts_setext_heading(ctx, ownership, depth) ||
-      !try_parse_repeated_nested_block_quote_setext_heading(
-        ctx, ownership, depth,
-      ) {
-      parse_repeated_nested_block_quote_paragraph(ctx, ownership, depth)
-    }
-  } else {
-    parse_block_quote_after_marker(
-      ctx, content_column, marker_end_column, ownership, depth,
-    )
-  }
+  ctx.with_reuse_context(
+    block_quote_content_reuse_context(
+      ctx, content_column, marker_end_column, depth,
+    ),
+    fn() {
+      if repeated_nested_block_quote_paragraph_starts(
+          ctx,
+          (content_column, marker_end_column),
+        ) {
+        if !repeated_nested_block_quote_starts_setext_heading(
+            ctx, ownership, depth,
+          ) ||
+          !try_parse_repeated_nested_block_quote_setext_heading(
+            ctx, ownership, depth,
+          ) {
+          parse_repeated_nested_block_quote_paragraph(ctx, ownership, depth)
+        }
+      } else {
+        parse_block_quote_after_marker(
+          ctx, content_column, marker_end_column, ownership, depth,
+        )
+      }
+    },
+  )
 }
 
 ///|

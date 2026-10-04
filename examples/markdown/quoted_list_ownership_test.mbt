@@ -1052,3 +1052,205 @@ test "review 967 body and ownership edits agree across parser APIs" {
     }
   }
 }
+
+///|
+test "quoted list body edit then ownership edit and undo stays consumer-safe" {
+  let source_id = @core.SourceId("quoted-list-body-ownership-undo")
+  let source = "> 10. foo\n> \t# bar\n"
+  let parser = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
+  let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+    parser,
+  )
+  defer attachment.dispose()
+  let syntax_parser = @loom.new_syntax_parser(
+    source_id,
+    source,
+    @markdown.markdown_grammar.to_syntax_grammar(),
+  )
+  let updates = @markdown.MarkdownDocumentUpdates(syntax_parser)
+  let check = fn(current : String, expected_html : String) raise {
+    let fresh = @markdown.parse(current, source_id~).semantic_read().ir()
+    quoted_ownership_assert_no_recovery(fresh)
+    assert_eq(attachment.document(), fresh)
+    assert_eq(updates.document_update().document().semantic_read().ir(), fresh)
+    let (cst, diagnostics) = @markdown.parse_cst(source_id, current)
+    assert_true(diagnostics.is_empty())
+    assert_eq(@seam.SyntaxNode::from_cst(cst).text(), current)
+    assert_eq(
+      @markdown.experimental_markdown_ir_to_commonmark_html(fresh),
+      expected_html,
+    )
+  }
+
+  let body_start = source.find("foo").unwrap()
+  let body_edited = source[:body_start].to_owned() +
+    "FOO" +
+    source[body_start + 3:].to_owned()
+  parser.apply_edit(@core.Edit::new(body_start, 3, 3), body_edited)
+  syntax_parser.apply_changes(
+    @text_change.ChangeSet::ChangeSet(source_length=source.length(), changes=[
+      @text_change.TextChange::ReplaceRange(
+        start=body_start,
+        delete_len=3,
+        inserted="FOO",
+      ),
+    ]),
+    body_edited,
+  )
+  check(
+    body_edited, "<blockquote>\n<ol start=\"10\">\n<li>FOO</li>\n</ol>\n<h1>bar</h1>\n</blockquote>\n",
+  )
+
+  let line_break = body_edited.find("\n> \t# bar").unwrap()
+  let ownership_start = line_break + 4
+  let owned = body_edited[:ownership_start].to_owned() +
+    "  " +
+    body_edited[ownership_start:].to_owned()
+  parser.apply_edit(@core.Edit::insert(ownership_start, 2), owned)
+  syntax_parser.apply_changes(
+    @text_change.ChangeSet::ChangeSet(source_length=body_edited.length(), changes=[
+      @text_change.TextChange::ReplaceRange(
+        start=ownership_start,
+        delete_len=0,
+        inserted="  ",
+      ),
+    ]),
+    owned,
+  )
+  check(
+    owned, "<blockquote>\n<ol start=\"10\">\n<li>FOO\n<h1>bar</h1>\n</li>\n</ol>\n</blockquote>\n",
+  )
+
+  let restored = owned[:ownership_start].to_owned() +
+    owned[ownership_start + 2:].to_owned()
+  parser.apply_edit(
+    @core.Edit::delete(ownership_start, ownership_start + 2),
+    restored,
+  )
+  syntax_parser.apply_changes(
+    @text_change.ChangeSet::ChangeSet(source_length=owned.length(), changes=[
+      @text_change.TextChange::ReplaceRange(
+        start=ownership_start,
+        delete_len=2,
+        inserted="",
+      ),
+    ]),
+    restored,
+  )
+  check(
+    restored, "<blockquote>\n<ol start=\"10\">\n<li>FOO</li>\n</ol>\n<h1>bar</h1>\n</blockquote>\n",
+  )
+}
+
+///|
+test "nested quoted list code at EOF invalidates on appended owned line" {
+  let source_id = @core.SourceId("nested-quoted-list-code-eof-append")
+  let source = "> > - foo\n> >\n> >       one"
+  let appended = source + "\n> >       two\n"
+  let parser = @loom.new_parser(source_id, source, @markdown.markdown_grammar)
+  let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+    parser,
+  )
+  defer attachment.dispose()
+  let syntax_parser = @loom.new_syntax_parser(
+    source_id,
+    source,
+    @markdown.markdown_grammar.to_syntax_grammar(),
+  )
+  let updates = @markdown.MarkdownDocumentUpdates(syntax_parser)
+  let initial = @markdown.parse(source, source_id~).semantic_read().ir()
+  assert_eq(attachment.document(), initial)
+  assert_eq(updates.document_update().document().semantic_read().ir(), initial)
+  parser.apply_edit(
+    @core.Edit::insert(source.length(), appended.length() - source.length()),
+    appended,
+  )
+  syntax_parser.apply_changes(
+    @text_change.ChangeSet::ChangeSet(source_length=source.length(), changes=[
+      @text_change.TextChange::ReplaceRange(
+        start=source.length(),
+        delete_len=0,
+        inserted=appended[source.length():].to_owned(),
+      ),
+    ]),
+    appended,
+  )
+  let fresh = @markdown.parse(appended, source_id~).semantic_read().ir()
+  quoted_ownership_assert_no_recovery(fresh)
+  assert_eq(updates.document_update().document().semantic_read().ir(), fresh)
+  assert_eq(attachment.document(), fresh)
+  assert_eq(
+    @markdown.experimental_markdown_ir_to_commonmark_html(fresh),
+    "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>foo</p>\n<pre><code>one\ntwo\n</code></pre>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n",
+  )
+  let (cst, diagnostics) = @markdown.parse_cst(source_id, appended)
+  assert_true(diagnostics.is_empty())
+  assert_eq(@seam.SyntaxNode::from_cst(cst).text(), appended)
+}
+
+///|
+test "quoted fallback preserves entry context and reuses certified items" {
+  let base = @markdown.markdown_grammar.to_syntax_grammar()
+  let grammar = @loom.SyntaxGrammar::new(
+    spec=base.spec,
+    lex=base.lex,
+    incremental_relex_enabled=base.incremental_relex_enabled,
+    mode_relex=base.mode_relex,
+    block_reparse_spec=None,
+  )
+  let rows : Array[String] = []
+  for index in 0..<20 {
+    rows.push(
+      "> - item_" +
+      index.to_string() +
+      " alpha beta gamma delta epsilon zeta eta theta\n",
+    )
+  }
+  let source = rows.join("")
+  let start = source.find("item_10").unwrap()
+  let changed = source[:start].to_owned() + "I" + source[start + 1:].to_owned()
+  let source_id = @core.SourceId("quoted-list-certified-reuse")
+  let parser = @loom.new_syntax_parser(source_id, source, grammar)
+  let snapshot = parser.snapshot().watch()
+  defer snapshot.dispose()
+  ignore(snapshot.read_or_abort())
+  parser.apply_edit(@core.Edit::new(start, 1, 1), changed)
+  let after = snapshot.read_or_abort()
+  let (fresh, diagnostics) = @markdown.parse_cst(source_id, changed)
+  assert_eq(after.syntax.cst_node(), fresh)
+  assert_eq(after.syntax.text(), changed)
+  assert_eq(after.diagnostics, diagnostics)
+  // The former quoted-list ban left this document with no reusable nodes.
+  assert_true(after.reuse_count > 0)
+  for
+    (original, updated, edit) in [
+      (
+        "> 9. lead\n>\n>      <div>\n>      body\n>    outside\n>\n",
+        "> 10. lead\n>\n>      <div>\n>      body\n>    outside\n>\n",
+        @core.Edit::new(2, 1, 2),
+      ),
+      (
+        "> > first paragraph\n> > continued\n> >\n> > second paragraph\n> > continued\n",
+        "> first paragraph\n> > continued\n> >\n> > second paragraph\n> > continued\n",
+        @core.Edit::new(0, 2, 0),
+      ),
+    ] {
+    let contextual = @loom.new_syntax_parser(source_id, original, grammar)
+    let watched = contextual.snapshot().watch()
+    defer watched.dispose()
+    let initial = watched.read_or_abort()
+    contextual.apply_edit(edit, updated)
+    let result = watched.read_or_abort()
+    let (expected, diagnostics) = @markdown.parse_cst(source_id, updated)
+    assert_eq(result.syntax.cst_node(), expected)
+    assert_eq(result.diagnostics, diagnostics)
+    assert_eq(result.syntax.text(), updated)
+    contextual.apply_edit(
+      @core.Edit::new(edit.start, edit.new_len, edit.old_len),
+      original,
+    )
+    let restored = watched.read_or_abort()
+    assert_eq(restored.syntax.cst_node(), initial.syntax.cst_node())
+    assert_eq(restored.diagnostics, initial.diagnostics)
+  }
+}

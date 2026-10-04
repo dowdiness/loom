@@ -61,7 +61,13 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] Pars
   match self.reuse_cursor {
     None => None
     Some(cursor) =>
-      match cursor.try_reuse(kind.to_raw(), byte_offset, token_pos) {
+      match
+        cursor.try_reuse_in_context(
+          kind.to_raw(),
+          byte_offset,
+          token_pos,
+          self.reuse_context,
+        ) {
         None => None
         Some(node) => {
           let old_node_end = cursor.current_offset + node.text_len()
@@ -408,6 +414,15 @@ fn[T : @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_reused(
     None => node_start
   }
   let node_end = node_start + node.text_len()
+  match (self.dependency_builder, self.reuse_cursor) {
+    (Some(builder), Some(cursor)) =>
+      match cursor.last_dependency {
+        Some(dependency) =>
+          builder.place(dependency, node_start, self.events.length())
+        None => ()
+      }
+    _ => ()
+  }
   self.events.push_parser_reuse_node_rebased_unchecked(
     node,
     self.source,

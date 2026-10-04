@@ -44,6 +44,7 @@ enum ReuseRejectionReason {
   ReuseRejectDamageOverlap
   ReuseRejectLeadingTokenMismatch
   ReuseRejectFollowTokenMismatch
+  ReuseRejectDependencyMismatch
 } derive(Debug, Eq)
 
 ///|
@@ -145,6 +146,9 @@ pub struct ReuseCursor[T, K] {
   get_start : (Int) -> Int
   get_text : (Int) -> StringView
   spec : LanguageSpec[T, K]
+  priv dependencies : ReuseDependencies?
+  priv dependency_damage : Edit?
+  priv mut last_dependency : NodeDependency?
 }
 
 ///|
@@ -214,6 +218,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   old_token_cache? : OldTokenCache = OldTokenCache::empty(),
   allow_left_adjacent_reuse? : Bool = false,
   new_damage_end? : Int = damage_end,
+  dependencies? : ReuseDependencies? = None,
 ) -> ReuseCursor[T, K] {
   let reuse_globally_disabled = damage_start <= 0 &&
     damage_end >= old_tree.text_len()
@@ -247,6 +252,17 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     get_start,
     get_text,
     spec,
+    dependencies,
+    dependency_damage: dependencies.map(deps => {
+      deps.combined_edit(
+        Edit::new(
+          damage_start,
+          damage_end - damage_start,
+          new_damage_end - damage_start,
+        ),
+      )
+    }),
+    last_dependency: None,
   }
 }
 
@@ -269,6 +285,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(
   reuse_size_threshold? : Int = 0,
   old_token_cache? : OldTokenCache = OldTokenCache::empty(),
   allow_left_adjacent_reuse? : Bool = false,
+  dependencies? : ReuseDependencies? = None,
 ) -> ReuseCursor[T, K] {
   ReuseCursor::new(
     old_tree,
@@ -283,6 +300,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(
     allow_left_adjacent_reuse~,
     reuse_size_threshold~,
     new_damage_end=edit.new_end(),
+    dependencies~,
   )
 }
 
@@ -519,8 +537,8 @@ fn[T : @seam.IsTrivia + @seam.IsEof, K] new_follow_token_with_pos(
 
 ///|
 /// True if the follow token after node_end matches between old and new streams.
-/// Option B correctness: if the first token after the node is the same in both
-/// old and new source, the node boundary is stable and reuse is safe.
+/// This is only a local boundary check. Grammars with farther observations
+/// additionally require unchanged dependency extents and entry context.
 fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] trailing_context_matches(
   cursor : ReuseCursor[T, K],
   node_end : Int,
@@ -653,7 +671,9 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse
   expected_kind : @seam.RawKind,
   byte_offset : Int,
   token_pos : Int,
+  context? : ReuseContext? = None,
 ) -> Result[@seam.CstNode, ReuseRejectionReason] {
+  self.last_dependency = None
   if self.reuse_globally_disabled {
     return Err(ReuseRejectGloballyDisabled)
   }
@@ -680,6 +700,8 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse
           self.allow_left_adjacent_reuse,
         ) {
         Err(ReuseRejectDamageOverlap)
+      } else if !self.dependencies_match(node, node_offset, context) {
+        Err(ReuseRejectDependencyMismatch)
       } else if !leading_token_matches(node, self, token_pos) {
         Err(ReuseRejectLeadingTokenMismatch)
       } else if !trailing_context_matches(self, node_end_in_new) {
@@ -737,6 +759,17 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
   byte_offset : Int,
   token_pos : Int,
 ) -> @seam.CstNode? {
+  self.try_reuse_repeat_group_in_context(byte_offset, token_pos, None)
+}
+
+///|
+fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse_repeat_group_in_context(
+  self : ReuseCursor[T, K],
+  byte_offset : Int,
+  token_pos : Int,
+  context : ReuseContext?,
+) -> @seam.CstNode? {
+  self.last_dependency = None
   if self.reuse_globally_disabled {
     return None
   }
@@ -787,7 +820,8 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
               // Found undamaged RepeatGroup — validate context
               let child_end_in_new = self.to_new_offset(child_end)
               if leading_token_matches(child_node, self, token_pos) &&
-                trailing_context_matches(self, child_end_in_new) {
+                trailing_context_matches(self, child_end_in_new) &&
+                self.dependencies_match(child_node, child_offset, context) {
                 self.current_offset = child_offset
                 return Some(child_node)
               }
@@ -904,6 +938,9 @@ pub fn[T, K] ReuseCursor::snapshot(
     get_start: self.get_start,
     get_text: self.get_text,
     spec: self.spec,
+    dependencies: self.dependencies,
+    dependency_damage: self.dependency_damage,
+    last_dependency: self.last_dependency,
   }
 }
 

@@ -328,30 +328,27 @@ test "incremental: unordered list explicit marker metadata edits match full pars
 
 ///|
 test "incremental: unordered list marker spelling boundary edits match full parse" {
-  let dash_to_star_reuse_count = markdown_incremental_edit_reuse_count(
+  assert_markdown_incremental_edit_matches_full_parse(
     @core.SourceId("markdown-incremental-test-document"),
     "markdown unordered list changes middle marker from dash to star",
     "- one\n- two\n- three\n",
     @core.Edit::new("- one\n".length(), "-".length(), "*".length()),
     "- one\n* two\n- three\n",
   )
-  inspect(dash_to_star_reuse_count != 1, content="true")
-  let star_to_plus_reuse_count = markdown_incremental_edit_reuse_count(
+  assert_markdown_incremental_edit_matches_full_parse(
     @core.SourceId("markdown-incremental-test-document"),
     "markdown unordered list changes middle marker from star to plus",
     "* one\n* two\n* three\n",
     @core.Edit::new("* one\n".length(), "*".length(), "+".length()),
     "* one\n+ two\n* three\n",
   )
-  inspect(star_to_plus_reuse_count != 1, content="true")
-  let plus_to_dash_reuse_count = markdown_incremental_edit_reuse_count(
+  assert_markdown_incremental_edit_matches_full_parse(
     @core.SourceId("markdown-incremental-test-document"),
     "markdown unordered list changes middle marker from plus to dash",
     "+ one\n+ two\n+ three\n",
     @core.Edit::new("+ one\n".length(), "+".length(), "-".length()),
     "+ one\n- two\n+ three\n",
   )
-  inspect(plus_to_dash_reuse_count != 1, content="true")
 }
 
 ///|

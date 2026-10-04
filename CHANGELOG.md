@@ -11,6 +11,10 @@ Notable user-facing changes to Loom and its sibling modules.
   and `SemanticChange` APIs. Core publishes a semantic value and matching source
   baseline together; callers choose settlement and explicit fault retry.
 - `SettingsAttachment::retry()` retries the latest source after a semantic fault.
+- Opt-in parser reuse dependencies: `LanguageSpec::new` accepts
+  `track_reuse_dependencies`; `ParserContext` exposes exact entry-context scopes
+  and explicit source observations. Indexed parses can publish an immutable
+  `ReuseDependencies` sidecar for the next reuse cursor.
 
 ### Fixed
 
@@ -23,6 +27,9 @@ Notable user-facing changes to Loom and its sibling modules.
   preserve literal quote characters and list-owned indentation. Fresh, keyed,
   and document-update IR agree across prefix, indentation, and body edits and
   their reversal through both incremental edit APIs (#966, #967).
+  Quoted lists, items, and code now reuse certified unchanged nodes rather than
+  disabling reuse by node family. Certification includes failed lookahead,
+  inherited ownership/indentation context, and the lexer's retokenized range.
 
 - Markdown list items inside blockquotes now keep their continuation lines.
   A quoted line that continues the item's paragraph stays in the same list item
