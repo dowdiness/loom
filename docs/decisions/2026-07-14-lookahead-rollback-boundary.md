@@ -19,12 +19,13 @@ The helper is public to grammar authors. Its closure can call `ParserContext`
 methods and capture state outside the parser. A broad statement that every
 mutation in a pure-lookahead body rolls back would therefore be false.
 
-A checkpoint records parser position, event length, diagnostic count, open-node
-count and stack, reuse cursor and count, and lex mode. Restore truncates
-diagnostics to the recorded count. It removes diagnostics added after a
-checkpoint but cannot undo in-place replacement of an existing diagnostic with
-the same count. It also does not restore goal sources, goal-subsumption checks,
-or reuse diagnostics.
+A checkpoint records parser position, the event rollback boundary, diagnostic
+count, open-node count and stack, reuse cursor and count, reuse entry context,
+and dependency-frame shape. Restore truncates diagnostics to the recorded count.
+It removes diagnostics
+added after a checkpoint but cannot undo in-place replacement of an existing
+diagnostic with the same count. It also does not restore goal sources,
+goal-subsumption checks, or reuse diagnostics.
 
 ## Decision
 
@@ -77,6 +78,82 @@ checkpoint when analysis proves that every inline token has its final
 `TextToken` kind. Otherwise it restores and follows the existing full parse.
 This is grammar-local conditional parsing, not a broader transaction promise or
 public `ParserContext` API.
+
+## Dependency-aware reuse amendment
+
+Quoted-list ownership can depend on a line beyond the consumed CST span. The
+following token alone does not certify reuse: a farther indentation edit can
+change whether a failed continuation probe succeeds.
+
+Opted-in parsers record observed source extents and exact grammar-entry contexts
+in an immutable, relative per-occurrence sidecar. Reused children contribute their
+stored observations to the new parent. Context keys preserve their explicit
+parent chain; they are compared exactly rather than by a structural hash.
+
+Rollback restores dependency-frame shape and entry context, but **retains source
+observations**, including observations from failed speculative nodes. These reads
+are evidence for the chosen parse, not effects to undo. This extends parser-owned
+reuse bookkeeping, not the transactional promise for captured state or parser
+configuration.
+
+The incremental factories retain sidecars with their CST baseline. Invalidation
+uses the lexer's replaced token range, which may exceed the textual edit. Missing
+certification rejects a candidate. Accepted local block splices retain their
+existing grammar-local proof and coalesce sidecar damage without walking the
+whole tree. This bounded history can reject untouched nodes between separated
+edits on a later fallback; it avoids an unbounded edit log or per-edit metadata
+rebasing. A completed fallback publishes a new sidecar.
+
+Retroactive wrappers conservatively inherit the containing frame's observed
+extent. One-shot and detached block parses do not build a sidecar unless the
+indexed driver is asked to capture one. This costs bookkeeping on captured
+parses in exchange for restoring safe quoted-node reuse.
+
+Dependency frames keep immutable parent links and the parent's child count at
+entry. Only the current frame's child list changes while a descendant is open;
+retroactive wrapping records the parent count after moving its children.
+A dependency checkpoint therefore saves the current frame, its child count,
+and a destructive-wrap journal boundary, not a copy of every open frame.
+Restore first reverses child moves made by later retroactive wrappers, then
+follows the saved links and truncates each child list to its recorded prefix,
+including ancestors closed by a speculative branch. Frame observations remain
+shared, monotonic evidence.
+
+This makes dependency checkpoint capture constant-size and removes allocation
+of a replacement dependency stack during restore. Restore still visits the
+saved ancestors. The separate `ParserContext` node-kind stack, cursor snapshot,
+and other rollback state are unchanged; this is not a constant-time claim for
+the complete public checkpoint operation.
+
+### Retroactive wrapping after a checkpoint
+
+PR #967's review exposed a missing inverse operation: `start_at` can move
+already-published children out of a checkpointed frame. A saved child count
+cannot recreate them. The original copying-stack implementation and the
+parent-linked optimization both lost this prefix. Losing nested same-kind,
+same-span occurrences could turn an ambiguous certificate into a false match.
+
+The dependency builder now records the original moved suffix when a checkpoint
+can need it. Undo entries retain original placements, not rebased wrapper
+placements, and are replayed newest-first before restoring frame lengths.
+Only destructive wrapping pays for saving the moved children; ordinary
+checkpoint capture remains constant-size.
+
+The same operation also claims an earlier event `Tombstone` in place. Event
+length truncation alone left that claim behind, producing an unbalanced event
+stream. `EventBuffer::checkpoint` and `EventBuffer::restore` now pair an opaque,
+constant-size `EventCheckpoint` with an undo journal for mark claims.
+`ParserContext` uses this boundary instead of an event count alone. Earlier
+claims remain committed; later claims are undone so a restored mark can be
+claimed by another alternative. Direct event-buffer truncation still discards
+events rather than undoing surviving claims, and discards undo entries for
+removed slots before those indices can be reused.
+
+Checkpoints belong to their originating parser/buffer and support backward
+rollback, including repeated alternatives at the same checkpoint; they are not
+forward-replay snapshots after an older checkpoint has discarded their state.
+This amendment covers retroactive event and dependency mutations, not
+diagnostic replacement, parser configuration, captured state, or external effects.
 
 ## Rationale
 

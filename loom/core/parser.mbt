@@ -79,6 +79,9 @@ pub struct LanguageSpec[T, K] {
   priv cst_metadata_policy : @seam.CstMetadataPolicy
   parse_root : (ParserContext[T, K]) -> Unit
   reuse_size_threshold : Int
+  /// Record grammar observations separately from CST structure. Reuse without
+  /// the previous snapshot's dependency information fails closed.
+  track_reuse_dependencies : Bool
 }
 
 ///|
@@ -92,6 +95,7 @@ pub fn[T, K : @seam.ToRawKind] LanguageSpec::new(
   parse_root? : (ParserContext[T, K]) -> Unit = _ => (),
   reuse_size_threshold? : Int = 64,
   trivia_kinds_spec? : Array[K] = [whitespace_kind],
+  track_reuse_dependencies? : Bool = false,
 ) -> LanguageSpec[T, K] {
   let owned_trivia_kinds = trivia_kinds_spec.copy()
   let cst_metadata_policy = @seam.CstMetadataPolicy::new(
@@ -109,6 +113,7 @@ pub fn[T, K : @seam.ToRawKind] LanguageSpec::new(
     cst_metadata_policy,
     parse_root,
     reuse_size_threshold,
+    track_reuse_dependencies,
   }
 }
 
@@ -157,6 +162,8 @@ pub struct ParserContext[T, K] {
   // exceeds the baseline token length — meaning the goal token subsumes
   // multiple baseline positions and reuse must be skipped.
   priv mut goal_subsumption_check : ((Int, Int) -> Bool)?
+  priv mut dependency_builder : DependencyBuilder?
+  priv mut reuse_context : ReuseContext?
 }
 
 ///|
@@ -164,12 +171,14 @@ pub struct ParserContext[T, K] {
 /// Create with checkpoint(), restore with restore().
 pub(all) struct Checkpoint[T, K] {
   priv position : Int
-  priv events_len : Int
+  priv events : @seam.EventCheckpoint
   priv node_stack_snapshot : Array[K]
   priv error_count : Int
   priv open_nodes : Int
   priv reuse_cursor : ReuseCursor[T, K]?
   priv reuse_count : Int
+  priv dependencies : DependencyCheckpoint?
+  priv reuse_context : ReuseContext?
 }
 
 ///|

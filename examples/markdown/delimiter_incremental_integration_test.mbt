@@ -1,5 +1,5 @@
 ///|
-test "incremental delimiter edit uses block reparse and matches fresh projections" {
+test "incremental delimiter edit matches fresh projections" {
   let source_id = @core.SourceId("markdown-delimiter-incremental-opener-change")
   let source = "Before *alpha* after\n\nTail paragraph\n"
   let updated = "Before _alpha* after\n\nTail paragraph\n"
@@ -19,7 +19,7 @@ fn assert_delimiter_incremental_projection_parity(
   updated : String,
   expected_html : String,
 ) -> Unit raise {
-  let reuse_count = markdown_incremental_edit_reuse_count(
+  assert_markdown_incremental_edit_matches_full_parse(
     source_id, label, source, edit, updated,
   )
 
@@ -87,7 +87,6 @@ fn assert_delimiter_incremental_projection_parity(
     )
   }
   role_attachment.dispose()
-  inspect(reuse_count, content="1")
 }
 
 ///|

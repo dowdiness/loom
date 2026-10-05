@@ -818,6 +818,63 @@ test "create_buffer: recovered mode lex updates incrementally" {
 }
 
 ///|
+test "dependency reuse includes lexer-state changes beyond the source edit" {
+  let spec = @core.LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    Eof,
+    reuse_size_threshold=0,
+    track_reuse_dependencies=true,
+    parse_root=ctx => {
+      ctx.emit_token(KChar)
+      ctx.emit_token(KChar)
+      ctx.node(KExpr, () => {
+        ctx.emit_token(KChar)
+        let alternate = ctx.at(Err)
+        if alternate {
+          ctx.start_node(KRoot)
+        }
+        ctx.emit_token(KChar)
+        if alternate {
+          ctx.finish_node()
+        }
+        ctx.emit_token(KChar)
+      })
+      ctx.emit_token(KChar)
+    },
+  )
+  let grammar = SyntaxGrammar::new(spec~, incremental_relex_enabled=false, lex=(
+    _source_id,
+    source,
+  ) => {
+    let tokens : Array[@core.TokenInfo[FTok]] = []
+    for i in 0..<source.length() {
+      // A header switches the lexical classification of an interior token,
+      // leaving the candidate's first and following tokens unchanged.
+      let token = if i == 3 && source[0] == 'b' { Err } else { A }
+      tokens.push(@core.TokenInfo::new(token, 1))
+    }
+    tokens.push(@core.TokenInfo::new(Eof, 0))
+    @core.LexResult(tokens)
+  })
+  let source_id = @core.SourceId("dependency-mode-source")
+  let parser = new_syntax_parser(source_id, "aaaaaa", grammar)
+  let snapshot = parser.snapshot().watch()
+  defer snapshot.dispose()
+  let before = snapshot.read_or_abort()
+  parser.apply_edit(@core.Edit::new(0, 1, 1), "baaaaa")
+  let after = snapshot.read_or_abort()
+  let (fresh, _) = grammar.parse_cst(source_id, "baaaaa")
+  assert_eq(after.syntax.cst_node(), fresh)
+  assert_eq(after.syntax.text(), "baaaaa")
+  assert_true(
+    after.syntax.cst_node().children()[2] !=
+    before.syntax.cst_node().children()[2],
+  )
+}
+
+///|
 pub extend FKind with @moonbitlang/core/debug.Debug::{to_repr}
 
 ///|

@@ -91,6 +91,7 @@ pub struct LanguageSpec[T, K] {
   root_kind          : K
   eof_token          : T
   parse_root         : (ParserContext[T, K]) -> Unit
+  track_reuse_dependencies : Bool
 }
 ```
 
@@ -99,6 +100,8 @@ pub struct LanguageSpec[T, K] {
 - `whitespace_kind`, `error_kind`, `root_kind` — fixed kinds used for trivia nodes, error recovery, and the implicit root wrapper
 - `eof_token` — sentinel token returned when the parser advances past the end of input
 - `parse_root` — entry-point grammar function, used by `parse_tokens_indexed`
+- `track_reuse_dependencies` — opt-in source-observation and entry-context
+  certification; defaults to `false` in `LanguageSpec::new`
 
 Token matching for incremental reuse is handled by the framework internally:
 `old_cst_token.kind == new_token.to_raw() && old_cst_token.text() == token_text_at(pos)`.
@@ -188,6 +191,11 @@ configuration transaction; do not use it with setters such as
 `checkpoint`/`restore` pair only when a parser must commit a successful branch
 and roll back a failed one.
 
+Rollback includes `start_at` claims on marks created before the checkpoint and
+dependency children moved into speculative wrappers. Restored marks can be
+claimed again. Checkpoints belong to the same parser and support backward
+rollback, not forward replay after restoring an older checkpoint.
+
 `ctx.node(kind, body)` is the primary building block: it attempts incremental reuse from a prior parse, falling back to `start_node → body() → finish_node` on a miss. Prefer it over bare `start_node`/`finish_node` whenever incremental parsing is needed.
 
 `ctx.separated_list(element_kind, separator, parse_element, element_start?,
@@ -231,19 +239,63 @@ zero-width lexer boundary advances position`.
 
 `mark()` / `start_at()` implement the tombstone pattern described in [seam-model.md](seam-model.md). They are essential for left-associative constructs where the outer node kind is not known until after the first child is parsed.
 
+## Dependency-aware reuse
+
+For grammars whose node extent depends on farther lookahead or inherited state,
+enable `track_reuse_dependencies`. Reuse then requires both the existing CST/token
+checks and a matching dependency certificate. Missing metadata rejects reuse;
+it does not fall back to the weaker token-only proof.
+
+The parser records token observations, including failed lookahead and EOF
+boundaries. Insertion at an observed boundary invalidates the certificate.
+`ctx.observe_source_range(start, end)` declares reads outside token views, such as
+inspection of a `StringView`'s backing source before the current token. Accessors
+must describe one immutable token stream for the duration of the parse.
+
+Use `ctx.with_reuse_context(key, body)` to scope all grammar-entry state that
+affects the node or its children. `ReuseContext::new(tag, value, parent=...)`
+constructs an exact immutable key; tags distinguish grammar-defined roles.
+Preserve `ctx.current_reuse_context()` as the explicit parent when extending
+inherited state. The scope replaces the complete key rather than implicitly
+composing it. Checkpoints restore the key and dependency-frame shape, but retain
+source observations as evidence for the eventual parse.
+
+Dependencies are stored per CST occurrence in an immutable `ReuseDependencies`
+sidecar, not in CST hashes, source-span identity, or semantic values. Reused child
+dependencies propagate to their new parent. Retroactive wrappers conservatively
+inherit their containing frame's observed extent.
+Same-kind wrappers that share a consumed span are rejected when their occurrence
+cannot be distinguished; a descendant must not borrow its ancestor's certificate.
+
+`parse_tokens_indexed` builds and publishes a sidecar only when the flag is enabled
+and `on_reuse_dependencies` is supplied. Keep the sidecar paired with that CST;
+pass it as `dependencies` to the next `ReuseCursor::new_with_edit`. Low-level
+callers must use the lexer's actual retokenized damage, not merely the textual
+edit, when lexer state can affect later token kinds. `TokenBuffer::get_relex_damage`
+exposes that range.
+
+The parser factories handle capture and publication automatically. Existing local
+block-reparse admissibility remains a grammar-owned proof. After an accepted
+splice, `ReuseDependencies::after_edit` coalesces damage in constant time instead
+of rebasing all metadata. This conservatively rejects certificates between
+separated edits until a fallback parse publishes a new sidecar. It is not a
+generic proof that an arbitrary local splice is safe.
+
 ## Entry Points
 
 ```moonbit
 // Simple: tokenize + parse in one call
 pub fn parse_with[T : IsTrivia + ToRawKind, K : ToRawKind](
+  source_id : SourceId,
   source   : String,
   spec     : LanguageSpec[T, K],
   tokenize : (String) -> Array[TokenInfo[T]],
   grammar  : (ParserContext[T, K]) -> Unit,
-) -> (@seam.CstNode, DiagnosticSet)
+) -> (@seam.CstNode, DiagnosticSet) raise Failure
 
 // Advanced: pre-tokenized, optional reuse cursor, returns reuse_count
 pub fn parse_tokens_indexed[T : IsTrivia + ToRawKind, K : ToRawKind](
+  source_id     : SourceId,
   source        : String,
   token_count   : Int,
   get_token     : (Int) -> T,
@@ -252,7 +304,8 @@ pub fn parse_tokens_indexed[T : IsTrivia + ToRawKind, K : ToRawKind](
   spec          : LanguageSpec[T, K],
   cursor?       : ReuseCursor[T, K]?,
   prev_diagnostics? : DiagnosticSet?,
-) -> (@seam.CstNode, DiagnosticSet, Int)
+  on_reuse_dependencies? : (ReuseDependencies) -> Unit,
+) -> (@seam.CstNode, DiagnosticSet, Int) raise Failure
 ```
 
 `parse_with` drives a complete fresh parse. `parse_tokens_indexed` is used by

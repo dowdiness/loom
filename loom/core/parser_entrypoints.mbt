@@ -19,12 +19,9 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(
   let ctx = ParserContext::new(source_id, tokens, source, spec)
   grammar(ctx)
   ctx.flush_trivia()
-  // node_stack intentionally NOT modified here — terminal auto-close before tree build.
-  // If a future caller reads node_stack after this loop, must pop it.
   while ctx.open_nodes > 0 {
     ctx.error("unclosed node (auto-closed)")
-    ctx.open_nodes = ctx.open_nodes - 1
-    ctx.events.push(@seam.FinishNode)
+    ctx.finish_node()
   }
   let tree = ctx.events.build_tree(
     spec.root_kind.to_raw(),
@@ -85,6 +82,9 @@ fn[T, K : @seam.ToRawKind] build_tree_generic(
 ///
 /// Returns `(CstNode, diagnostics, reuse_count)`.
 /// reuse_count is 0 for non-incremental calls (cursor=None).
+/// With track_reuse_dependencies enabled, on_reuse_dependencies captures the
+/// matching immutable sidecar. Keep it paired with the returned CST when
+/// constructing the next reuse cursor. Without the callback no sidecar is built.
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(
   source_id : SourceId,
   source : String,
@@ -95,10 +95,16 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_i
   spec : LanguageSpec[T, K],
   cursor? : ReuseCursor[T, K]? = None,
   prev_diagnostics? : DiagnosticSet? = None,
+  on_reuse_dependencies? : (ReuseDependencies) -> Unit,
 ) -> (@seam.CstNode, DiagnosticSet, Int) raise Failure {
   let ctx = ParserContext::new_indexed(
     source_id, token_count, get_token, get_start, get_end, source, spec,
   )
+  if spec.track_reuse_dependencies && on_reuse_dependencies is Some(_) {
+    ctx.dependency_builder = Some(
+      DependencyBuilder::new(spec.root_kind.to_raw()),
+    )
+  }
   match cursor {
     Some(c) => {
       ctx.set_reuse_cursor(c)
@@ -111,12 +117,9 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_i
   }
   (spec.parse_root)(ctx)
   ctx.flush_trivia()
-  // node_stack intentionally NOT modified here — terminal auto-close before tree build.
-  // If a future caller reads node_stack after this loop, must pop it.
   while ctx.open_nodes > 0 {
     ctx.error("unclosed node (auto-closed)")
-    ctx.open_nodes = ctx.open_nodes - 1
-    ctx.events.push(@seam.FinishNode)
+    ctx.finish_node()
   }
   let tree = build_tree_generic(ctx.events, spec) catch {
     Failure::Failure(_) as failure => raise failure
@@ -124,6 +127,15 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_i
       ctx.error("internal: malformed event stream: " + @debug.to_string(e))
       make_error_tree(spec)
     }
+  }
+  match (ctx.dependency_builder, on_reuse_dependencies) {
+    (Some(builder), Some(publish)) => {
+      builder.flush_tokens(ctx.get_start, ctx.get_end)
+      let dependencies = builder.finish(tree.kind(), tree.text_len())
+      ctx.dependency_builder = None
+      publish(dependencies)
+    }
+    _ => ()
   }
   (tree, ctx.diagnostics, ctx.reuse_count)
 }

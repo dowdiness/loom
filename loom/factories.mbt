@@ -81,6 +81,15 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
   let old_token_cache : Ref[@core.OldTokenCache] = Ref(
     @core.OldTokenCache::empty(),
   )
+  let reuse_dependencies : Ref[@core.ReuseDependencies?]? = if spec.track_reuse_dependencies {
+    Some(Ref(None))
+  } else {
+    None
+  }
+  let on_reuse_dependencies : ((@core.ReuseDependencies) -> Unit)? = reuse_dependencies.map(slot => {
+      dependencies => slot.val = Some(dependencies)
+    },
+  )
   @incremental.ImperativeLanguage::new(
     full_parse=(source_id, source) => {
       let buffer = create_buffer(
@@ -99,6 +108,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
         i => buffer.get_start(i),
         i => buffer.get_end(i),
         spec,
+        on_reuse_dependencies?,
       )
       let lex_diagnostics = buffer.get_diagnostics()
       let all_diagnostics = lex_diagnostics.copy()
@@ -121,6 +131,9 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       let mut edit_count = 0
       let mut candidate_root = old_syntax.cst_node()
       let mut candidate_diagnostics = last_parse_diags.val
+      let mut candidate_dependencies = reuse_dependencies.map_or(None, slot => {
+        slot.val
+      })
       changes.each(change => {
         if applicable {
           edit_count += 1
@@ -149,6 +162,9 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
                   Some((next_root, next_diagnostics)) => {
                     candidate_root = next_root
                     candidate_diagnostics = next_diagnostics
+                    candidate_dependencies = candidate_dependencies.map(deps => {
+                      deps.after_edit(edit)
+                    })
                   }
                   None => applicable = false
                 }
@@ -163,6 +179,10 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       token_buf.val = None
       last_parse_diags.val = candidate_diagnostics
       old_token_cache.val = @core.OldTokenCache::empty()
+      match reuse_dependencies {
+        Some(slot) => slot.val = candidate_dependencies
+        None => ()
+      }
       Some(
         (
           @seam.SyntaxNode::from_cst(candidate_root),
@@ -225,6 +245,21 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
               let all_diagnostics = lex_diagnostics.copy()
               all_diagnostics.add_all(new_diagnostics)
               last_parse_diags.val = new_diagnostics
+              match reuse_dependencies {
+                Some(slot) => {
+                  let damage = match buffer.get_relex_damage() {
+                    Some(damage) => damage
+                    None =>
+                      @core.Edit::new(
+                        0,
+                        old_syntax.cst_node().text_len(),
+                        source.length(),
+                      )
+                  }
+                  slot.val = slot.val.map(deps => deps.after_edit(damage))
+                }
+                None => ()
+              }
               return (@seam.SyntaxNode::from_cst(new_cst), all_diagnostics, 1)
             }
             None => () // Fall through to normal incremental
@@ -261,13 +296,26 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       }
       // Buffer is always Some after the match above.
       let buffer = token_buf.val.unwrap()
+      let reuse_edit = if spec.track_reuse_dependencies {
+        match buffer.get_relex_damage() {
+          Some(damage) => damage
+          None =>
+            @core.Edit::new(
+              0,
+              old_syntax.cst_node().text_len(),
+              source.length(),
+            )
+        }
+      } else {
+        edit
+      }
       // Patch the persistent old-token cache: remove tokens in the old damage
       // range and accumulate offset delta for post-damage lookups.
       old_token_cache.val.apply_source_edit(edit)
       let cursor = Some(
         @core.ReuseCursor::new_with_edit(
           old_syntax.cst_node(),
-          edit,
+          reuse_edit,
           buffer.token_count(),
           i => buffer.get_token(i),
           i => buffer.get_start(i),
@@ -276,6 +324,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
           reuse_size_threshold=spec.reuse_size_threshold,
           old_token_cache=old_token_cache.val,
           allow_left_adjacent_reuse=edit.old_len > 0 && edit.new_len == 0,
+          dependencies=reuse_dependencies.map_or(None, slot => slot.val),
         ),
       )
       let (new_cst, diagnostics, reuse_count) = @core.parse_tokens_indexed(
@@ -288,6 +337,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
         spec,
         cursor~,
         prev_diagnostics=Some(last_parse_diags.val),
+        on_reuse_dependencies?,
       )
       let lex_diagnostics = buffer.get_diagnostics()
       let all_diagnostics = lex_diagnostics.copy()

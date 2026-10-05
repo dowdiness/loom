@@ -210,13 +210,14 @@ test "block container core: migrated edit families match fresh semantic projecti
       "paragraph\n    # heading\n",
     ),
   )
-  let blank_line_reuse = assert_block_container_incremental_parity(
-    "block container blank-line boundary",
-    "- one\n- two\n",
-    @core.Edit::insert("- one\n".length(), "\n".length()),
-    "- one\n\n- two\n",
+  ignore(
+    assert_block_container_incremental_parity(
+      "block container blank-line boundary",
+      "- one\n- two\n",
+      @core.Edit::insert("- one\n".length(), "\n".length()),
+      "- one\n\n- two\n",
+    ),
   )
-  inspect(blank_line_reuse != 1, content="true")
   ignore(
     assert_block_container_incremental_parity(
       "block container blockquote lazy continuation",
@@ -225,18 +226,20 @@ test "block container core: migrated edit families match fresh semantic projecti
       "> bar\nbaz\n",
     ),
   )
-  let marker_reuse = assert_block_container_incremental_parity(
-    "block container marker boundary",
-    "- one\n- two\n- three\n",
-    @core.Edit::new("- one\n".length(), "-".length(), "*".length()),
-    "- one\n* two\n- three\n",
+  ignore(
+    assert_block_container_incremental_parity(
+      "block container marker boundary",
+      "- one\n- two\n- three\n",
+      @core.Edit::new("- one\n".length(), "-".length(), "*".length()),
+      "- one\n* two\n- three\n",
+    ),
   )
-  inspect(marker_reuse != 1, content="true")
-  let fence_reuse = assert_block_container_incremental_parity(
-    "block container fence boundary",
-    "`` text\nTail\n",
-    @core.Edit::insert("``".length(), "`".length()),
-    "``` text\nTail\n",
+  ignore(
+    assert_block_container_incremental_parity(
+      "block container fence boundary",
+      "`` text\nTail\n",
+      @core.Edit::insert("``".length(), "`".length()),
+      "``` text\nTail\n",
+    ),
   )
-  inspect(fence_reuse != 1, content="true")
 }

@@ -2,7 +2,8 @@
 
 ///|
 /// Reuse-aware node combinator. The core grammar API.
-/// On reuse hit: emits the old node and skips body entirely — O(1) per node.
+/// On reuse hit: skips the grammar body; token advancement and source rebasing
+/// still account for the reused subtree's size.
 /// On miss: start_node → body() → finish_node — standard parse path.
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::node(
   self : ParserContext[T, K],
@@ -168,7 +169,12 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
   match self.reuse_cursor {
     None => false
     Some(cursor) =>
-      match cursor.try_reuse_repeat_group(byte_offset, token_pos) {
+      match
+        cursor.try_reuse_repeat_group_in_context(
+          byte_offset,
+          token_pos,
+          self.reuse_context,
+        ) {
         None => false
         Some(node) => {
           let old_node_end = cursor.current_offset + node.text_len()

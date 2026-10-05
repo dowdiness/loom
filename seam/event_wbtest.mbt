@@ -360,6 +360,82 @@ test "EventBuffer mark and start_at" {
 }
 
 ///|
+test "EventBuffer checkpoint restores retroactive claims but preserves earlier wraps" {
+  let buf = EventBuffer::new()
+  let outer = buf.mark()
+  let inner = buf.mark()
+  buf.push(Token(RawKind(9), "x"))
+  buf.start_at(inner, RawKind(32))
+  buf.push(FinishNode)
+  let checkpoint = buf.checkpoint()
+
+  buf.start_at(outer, RawKind(31))
+  buf.push(FinishNode)
+  buf.restore(checkpoint)
+
+  buf.start_at(outer, RawKind(31))
+  buf.push(FinishNode)
+  let root = buf.build_tree(RawKind(0), policy=event_test_policy)
+  let outer_node = match root.children[0] {
+    CstElement::Node(node) => node
+    CstElement::Token(_) => abort("expected outer node")
+  }
+  inspect(outer_node.kind, content="RawKind(31)")
+  let inner_node = match outer_node.children[0] {
+    CstElement::Node(node) => node
+    CstElement::Token(_) => abort("expected committed inner wrapper")
+  }
+  inspect(inner_node.kind, content="RawKind(32)")
+  inspect(inner_node.token_count, content="1")
+}
+
+///|
+test "EventBuffer checkpoint supports repeated restore and alternate mark claims" {
+  let buf = EventBuffer::new()
+  let mark = buf.mark()
+  buf.push(Token(RawKind(9), "x"))
+  let checkpoint = buf.checkpoint()
+
+  buf.start_at(mark, RawKind(31))
+  buf.restore(checkpoint)
+  buf.start_at(mark, RawKind(32))
+  buf.restore(checkpoint)
+  buf.start_at(mark, RawKind(33))
+  buf.push(FinishNode)
+  let root = buf.build_tree(RawKind(0), policy=event_test_policy)
+  let wrapped = match root.children[0] {
+    CstElement::Node(node) => node
+    CstElement::Token(_) => abort("expected wrapped node")
+  }
+  inspect(wrapped.kind, content="RawKind(33)")
+}
+
+///|
+test "EventBuffer truncate invalidates claims before reusing their slot" {
+  let buf = EventBuffer::new()
+  let checkpoint = buf.checkpoint()
+  let removed_mark = buf.mark()
+  buf.start_at(removed_mark, RawKind(31))
+  buf.truncate(0)
+
+  let mark = buf.mark()
+  buf.push(Token(RawKind(9), "x"))
+  buf.start_at(mark, RawKind(32))
+  buf.restore(checkpoint)
+  let restored_mark = buf.mark()
+  buf.start_at(restored_mark, RawKind(33))
+  buf.push(Token(RawKind(9), "x"))
+  buf.push(FinishNode)
+  let root = buf.build_tree(RawKind(0), policy=event_test_policy)
+  let wrapped = match root.children[0] {
+    CstElement::Node(node) => node
+    CstElement::Token(_) => abort("expected wrapped node")
+  }
+  inspect(wrapped.kind, content="RawKind(33)")
+  inspect(wrapped.token_count, content="1")
+}
+
+///|
 test "Tombstone events are ignored by build_tree" {
   let events = [ParseEvent::Tombstone, ParseEvent::Token(RawKind(10), "1")]
   let root = build_test_tree(events, RawKind(22))

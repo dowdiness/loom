@@ -91,28 +91,77 @@ plans retain per-label dependencies, relative block-owned origins, and the
 established nested-link/image precedence. Do not force contextual fallback to
 mask direct/local differences. CST shape and public APIs are unchanged.
 
-### Quoted list item continuation
+### Quoted list item ownership
 
-Paragraph continuation lines in a blockquote can remain inside their list item.
-The item's inline parser reuses the quote continuation rule, treating quote
-markers as structural prefixes and accepting lazy continuation text. The private
-context carries the enclosing quote's prefix ownership and marker depth so
-nested marker runs can be consumed; it does not enforce every container-exit
-boundary. In particular, a quote owned by a list item can still consume a
-following root-level quote marker that should start a separate blockquote.
+Quoted list items separate the enclosing quote's physical prefix from the item's
+content indentation. The private quote context carries prefix ownership and
+marker depth. Paragraph continuation consumes that prefix as syntax, including
+lazy continuation, but yields before a following block opener.
 
-Quoted-item block continuation remains incomplete: nested lists, headings,
-fenced code, and additional paragraphs after a blank line are not all assigned
-to the correct item. Reusing paragraph continuation changes some of these
-already nonconforming outputs: nested list and heading markers can become
-literal item text, and fenced-code block placement can change. These cases are
-not behavior-preserving and must not be described as unchanged quote-level
-siblings. The 37-case comparison for PR #965 improved from 9 to 29 CommonMark
-matches; its eight remaining mismatches were also baseline mismatches. That
-observation is limited to those cases, not a general no-regression guarantee.
+The item's block flow consumes the enclosing prefix and checks item-relative
+indentation before dispatching nested lists, headings, fenced or indented code,
+HTML, or another paragraph. The prefix retains physical content and marker-end
+columns so tabs use their actual starting column, including partial quote padding.
+Quoted blank separators are provisional: they remain inside the item only when
+the following block belongs there. Sibling-list matching uses the columns of the
+next item's marker, not those of a preceding blank quote line.
 
-[Issue #966](https://github.com/dowdiness/loom/issues/966) records all eight
-inputs with expected, baseline, and PR HTML: six outputs changed and two did not.
+Indented-code continuation consumes the complete quote context. Marked blank
+lines stay in the code block only when another owned indented line follows;
+losing an enclosing quote ends the block. Indented code still cannot interrupt
+a paragraph without a blank line. At a nested quote's block start, ordered
+markers need not start at one; that restriction belongs to paragraph interruption.
+
+Type 6 HTML continuation requires both the complete quote prefix and the item's
+relative indentation. HTML lowering removes the item-owned prefix from each line,
+rebasing against that line's quote position while preserving extra HTML whitespace.
+The default raw-HTML escaping policy is unchanged.
+
+Markdown enables dependency-aware CST reuse. Quote-owned lists, items, and code
+reuse unchanged nodes only when their observed source extent is untouched and
+their complete entry context matches. Context includes inherited quote ownership,
+effective marker depth, physical columns, and list-body indentation; the repeated
+nested-quote parser carries the same information into its children.
+
+Failed termination lookahead remains part of the dependency even after rollback.
+An indentation edit beyond the consumed node, an EOF append, or a lexer-state
+change can therefore reject reuse without banning a whole node family.
+Dependencies live in a parser-owned sidecar, not CST hashes or MarkdownIR.
+Local block reparse retains its grammar-owned admissibility check; accepted
+splices conservatively invalidate sidecar ranges for the next fallback parse.
+Semantic attachment equality remains incremental.
+
+A list-owned quote accepts continuation markers in its own indentation band.
+It does not acquire a root-level marker merely because that marker is valid at
+the document root. When an outer quote exists, its prefix is consumed separately;
+an inner quote's paragraph may still continue lazily after that explicit outer
+prefix. Opening markers on the item's own line do not require continuation indent.
+
+The lexer preserves quote mode across indentation before a fence. Its private
+session and detached-replay context retain the required list indentation before
+each physical quote marker, not just their count, along with the opening fence's
+source column. A marker accepts its owner's indentation plus up to three optional
+columns; tabs advance from the physical column, including partial quote padding.
+Fences opened on a later item-content line recover their owning list indentation.
+Stateful and stateless stepping use the same prefix rules. Code-body quote
+prefixes remain structural CST tokens; additional quote characters remain literal
+code content. No public lexer mode, MarkdownIR lowering fallback, or renderer
+special case is needed.
+
+The eight cases recorded in [issue #966](https://github.com/dowdiness/loom/issues/966)
+have exact HTML, lossless CST, block-ancestry, and source-origin regressions.
+Fresh, keyed attachment, and `MarkdownDocumentUpdates` results are compared across
+prefix, indentation, and body edits using both `apply_edit` and validated
+`apply_changes`, including ownership changes and their reversal.
+These cases and the official CommonMark corpus are bounded coverage, not a claim
+of conformance for every combination of containers.
+
+Adjacent combinations still differ from CommonMark: padded bullet markers before
+a nested quote, stacked list markers before a quote, and under-indented or
+tab-shortened quote exits. These also fail on the original #967 head. The
+multiple-outer-quote fence case now passes with block-start ordered-list dispatch.
+An unquoted list's multiline Type 6 HTML continuation remains a separate,
+pre-existing failure; the quote-owned continuation rule does not cover that path.
 
 ### Projection identity boundary
 

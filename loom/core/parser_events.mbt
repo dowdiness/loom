@@ -8,6 +8,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::flush_trivia(
   self : ParserContext[T, K],
 ) -> Unit {
   while self.position < self.token_count {
+    self.observe_token(self.position)
     let token = (self.get_token)(self.position)
     if @seam.IsTrivia::is_trivia(token) {
       let text = self.text_at(self.position)
@@ -142,6 +143,18 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(
   self : ParserContext[T, K],
   kind : K,
 ) -> Unit {
+  match self.dependency_builder {
+    Some(builder) => {
+      builder.flush_tokens(self.get_start, self.get_end)
+      builder.start_node(
+        kind.to_raw(),
+        self.source_position(),
+        self.events.length(),
+        self.reuse_context,
+      )
+    }
+    None => ()
+  }
   self.open_nodes = self.open_nodes + 1
   self.node_stack.push(kind)
   self.events.push(@seam.StartNode(kind.to_raw()))
@@ -153,6 +166,13 @@ pub fn[T, K] ParserContext::finish_node(self : ParserContext[T, K]) -> Unit {
   if self.open_nodes <= 0 {
     return
   }
+  match self.dependency_builder {
+    Some(builder) => {
+      builder.flush_tokens(self.get_start, self.get_end)
+      builder.finish_node(self.source_position())
+    }
+    None => ()
+  }
   self.open_nodes = self.open_nodes - 1
   let _ = self.node_stack.pop()
   self.events.push(@seam.FinishNode)
@@ -162,12 +182,19 @@ pub fn[T, K] ParserContext::finish_node(self : ParserContext[T, K]) -> Unit {
 /// Reserve a placeholder that can later be claimed by start_at.
 /// Used for retroactive wrapping (e.g. binary expressions, applications).
 pub fn[T, K] ParserContext::mark(self : ParserContext[T, K]) -> Int {
-  self.events.mark()
+  let mark = self.events.mark()
+  match self.dependency_builder {
+    Some(builder) => builder.mark(mark, self.source_position())
+    None => ()
+  }
+  mark
 }
 
 ///|
-/// Save checkpointed parser execution state: position, events, diagnostic
-/// additions, open-node count/stack, and reuse cursor/count.
+/// Save checkpointed parser execution state: position, emitted events and
+/// retroactive event claims, diagnostic additions, open-node count/stack,
+/// reuse cursor/count, entry context, and dependency-frame shape. Source
+/// observations survive rollback.
 pub fn[T, K] ParserContext::checkpoint(
   self : ParserContext[T, K],
 ) -> Checkpoint[T, K] {
@@ -178,23 +205,29 @@ pub fn[T, K] ParserContext::checkpoint(
   }
   {
     position: self.position,
-    events_len: self.events.length(),
+    events: self.events.checkpoint(),
     node_stack_snapshot: node_stack,
     error_count: self.error_count,
     open_nodes: self.open_nodes,
     reuse_cursor,
     reuse_count: self.reuse_count,
+    dependencies: self.dependency_builder.map(builder => {
+      builder.flush_tokens(self.get_start, self.get_end)
+      builder.checkpoint()
+    }),
+    reuse_context: self.reuse_context,
   }
 }
 
 ///|
-/// Restore checkpointed execution state saved by checkpoint().
+/// Restore checkpointed execution state saved by checkpoint(), including
+/// undoing retroactive event claims made after the checkpoint.
 pub fn[T, K] ParserContext::restore(
   self : ParserContext[T, K],
   cp : Checkpoint[T, K],
 ) -> Unit {
   self.position = cp.position
-  self.events.truncate(cp.events_len)
+  self.events.restore(cp.events)
   self.diagnostics.truncate(cp.error_count)
   self.error_count = cp.error_count
   self.open_nodes = cp.open_nodes
@@ -205,6 +238,14 @@ pub fn[T, K] ParserContext::restore(
   }
   self.reuse_cursor = cp.reuse_cursor.map(cursor => cursor.snapshot())
   self.reuse_count = cp.reuse_count
+  self.reuse_context = cp.reuse_context
+  match (self.dependency_builder, cp.dependencies) {
+    (Some(builder), Some(dependencies)) => {
+      builder.flush_tokens(self.get_start, self.get_end)
+      builder.restore(dependencies)
+    }
+    _ => ()
+  }
 }
 
 ///|
@@ -212,7 +253,10 @@ pub fn[T, K] ParserContext::restore(
 /// state and return the body's result.
 ///
 /// Use for pure lookahead whose effects are limited to token consumption,
-/// events, diagnostic additions, open-node count/stack, and reuse cursor/count.
+/// appended events and retroactive event claims, diagnostic additions, open-
+/// node count/stack, reuse cursor/count, entry context, and dependency-frame
+/// shape. Failed lookahead observations remain dependencies of the containing
+/// parse.
 /// It does not roll back in-place diagnostic mutation or parser configuration
 /// such as goal sources, goal subsumption checks, or reuse diagnostics.
 ///
@@ -233,6 +277,10 @@ pub fn[T, K, R] ParserContext::lookahead(
   let cp = self.checkpoint()
   let result = body()
   self.restore(cp)
+  match (self.dependency_builder, cp.dependencies) {
+    (Some(builder), Some(dependencies)) => builder.end_lookahead(dependencies)
+    _ => ()
+  }
   result
 }
 
@@ -243,6 +291,13 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(
   mark : Int,
   kind : K,
 ) -> Unit {
+  match self.dependency_builder {
+    Some(builder) => {
+      builder.flush_tokens(self.get_start, self.get_end)
+      builder.start_at(mark, kind.to_raw(), self.reuse_context)
+    }
+    None => ()
+  }
   self.events.start_at(mark, kind.to_raw())
   self.open_nodes = self.open_nodes + 1
   self.node_stack.push(kind)

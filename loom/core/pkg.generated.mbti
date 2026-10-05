@@ -27,7 +27,7 @@ pub fn lexer_diagnostic_at(@diagnostic.SourceId, String, Int, Int, String) -> @d
 
 pub fn next_char_offset(String, Int) -> Int
 
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(@diagnostic.SourceId, String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, LanguageSpec[T, K], cursor? : ReuseCursor[T, K]?, prev_diagnostics? : DiagnosticSet?) -> (@seam.CstNode, DiagnosticSet, Int) raise Failure
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(@diagnostic.SourceId, String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, LanguageSpec[T, K], cursor? : ReuseCursor[T, K]?, prev_diagnostics? : DiagnosticSet?, on_reuse_dependencies? : (ReuseDependencies) -> Unit) -> (@seam.CstNode, DiagnosticSet, Int) raise Failure
 
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(@diagnostic.SourceId, String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, DiagnosticSet) raise Failure
 
@@ -161,9 +161,10 @@ pub struct LanguageSpec[T, K] {
   eof_token : T
   parse_root : (ParserContext[T, K]) -> Unit
   reuse_size_threshold : Int
+  track_reuse_dependencies : Bool
   // private fields
 }
-pub fn[T, K : @seam.ToRawKind] LanguageSpec::new(K, K, K, T, incomplete_kind? : K, parse_root? : (ParserContext[T, K]) -> Unit, reuse_size_threshold? : Int, trivia_kinds_spec? : Array[K]) -> Self[T, K]
+pub fn[T, K : @seam.ToRawKind] LanguageSpec::new(K, K, K, T, incomplete_kind? : K, parse_root? : (ParserContext[T, K]) -> Unit, reuse_size_threshold? : Int, trivia_kinds_spec? : Array[K], track_reuse_dependencies? : Bool) -> Self[T, K]
 pub fn[T, K : @seam.ToRawKind] LanguageSpec::trivia_kinds_raw(Self[T, K]) -> Array[@seam.RawKind]
 
 pub struct LexCursor {
@@ -285,6 +286,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::consume_while_emit_if(Self[T, K], (T) -> Bool, K, (T) -> Bool) -> Bool
 pub fn[T : Eq + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::consume_while_emit_mapped(Self[T, K], Array[(T, K)]) -> Int
 pub fn[T, K] ParserContext::current_node_kind(Self[T, K]) -> K?
+pub fn[T, K] ParserContext::current_reuse_context(Self[T, K]) -> ReuseContext?
 pub fn[T : @seam.IsTrivia, K] ParserContext::current_token_range(Self[T, K]) -> Range
 pub fn[T : @seam.IsTrivia, K] ParserContext::current_token_text(Self[T, K]) -> StringView
 pub fn[T, K] ParserContext::cursor_position(Self[T, K]) -> Int
@@ -309,6 +311,7 @@ pub fn[T, K] ParserContext::new(@diagnostic.SourceId, Array[TokenInfo[T]], Strin
 pub fn[T, K] ParserContext::new_indexed(@diagnostic.SourceId, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, String, LanguageSpec[T, K]) -> Self[T, K]
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::node(Self[T, K], K, () -> Unit) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::node_with_recovery(Self[T, K], K, () -> Bool, (T) -> Bool) -> Unit
+pub fn[T, K] ParserContext::observe_source_range(Self[T, K], Int, Int) -> Unit
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek(Self[T, K]) -> T
 pub fn[T, K] ParserContext::peek_index(Self[T, K], Int) -> T
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(Self[T, K]) -> TokenInfo[T]
@@ -334,6 +337,7 @@ pub fn[T, K] ParserContext::token_text_at(Self[T, K], Int) -> StringView
 pub fn[T, K] ParserContext::too_many_errors(Self[T, K], Int) -> Bool
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::try_reuse_current_node(Self[T, K], K) -> Bool
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::try_reuse_repeat_group(Self[T, K]) -> Bool
+pub fn[T, K, R] ParserContext::with_reuse_context(Self[T, K], ReuseContext, () -> R) -> R
 pub fn[T, K : @seam.ToRawKind] ParserContext::wrap_at(Self[T, K], Int, K, () -> Unit) -> Unit
 
 pub(all) struct PrefixLexer[T] {
@@ -366,6 +370,13 @@ pub fn Range::to_repr(Self) -> @debug.Repr
 pub fn Range::to_string(Self) -> String
 pub impl Show for Range
 
+pub struct ReuseContext {
+  // private fields
+} derive(Eq)
+pub fn ReuseContext::equal(Self, Self) -> Bool
+pub fn ReuseContext::new(Int, Int, parent? : Self?) -> Self
+pub fn ReuseContext::not_equal(Self, Self) -> Bool
+
 pub struct ReuseCursor[T, K] {
   stack : Array[CursorFrame]
   mut current_offset : Int
@@ -385,17 +396,23 @@ pub struct ReuseCursor[T, K] {
   get_start : (Int) -> Int
   get_text : (Int) -> StringView
   spec : LanguageSpec[T, K]
+  // private fields
 }
 pub fn[T, K] ReuseCursor::advance_past(Self[T, K], @seam.CstNode) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::explain_reuse_rejection(Self[T, K], @seam.RawKind, Int, Int) -> ReuseRejectionReason?
 pub fn[T, K] ReuseCursor::get_old_token_cache(Self[T, K]) -> OldTokenCache
 pub fn[T, K] ReuseCursor::is_reuse_disabled(Self[T, K]) -> Bool
-pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int, Int, Int, (Int) -> T, (Int) -> Int, (Int) -> StringView, LanguageSpec[T, K], reuse_size_threshold? : Int, old_token_cache? : OldTokenCache, allow_left_adjacent_reuse? : Bool, new_damage_end? : Int) -> Self[T, K]
-pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(@seam.CstNode, Edit, Int, (Int) -> T, (Int) -> Int, (Int) -> StringView, LanguageSpec[T, K], reuse_size_threshold? : Int, old_token_cache? : OldTokenCache, allow_left_adjacent_reuse? : Bool) -> Self[T, K]
+pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int, Int, Int, (Int) -> T, (Int) -> Int, (Int) -> StringView, LanguageSpec[T, K], reuse_size_threshold? : Int, old_token_cache? : OldTokenCache, allow_left_adjacent_reuse? : Bool, new_damage_end? : Int, dependencies? : ReuseDependencies?) -> Self[T, K]
+pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(@seam.CstNode, Edit, Int, (Int) -> T, (Int) -> Int, (Int) -> StringView, LanguageSpec[T, K], reuse_size_threshold? : Int, old_token_cache? : OldTokenCache, allow_left_adjacent_reuse? : Bool, dependencies? : ReuseDependencies?) -> Self[T, K]
 pub fn[T, K] ReuseCursor::next_sibling_has_error(Self[T, K]) -> Bool
 pub fn[T, K] ReuseCursor::snapshot(Self[T, K]) -> Self[T, K]
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse(Self[T, K], @seam.RawKind, Int, Int) -> @seam.CstNode?
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse_repeat_group(Self[T, K], Int, Int) -> @seam.CstNode?
+
+pub struct ReuseDependencies {
+  // private fields
+}
+pub fn ReuseDependencies::after_edit(Self, Edit) -> Self
 
 type ReuseRejectionReason derive(Eq, @debug.Debug)
 pub fn ReuseRejectionReason::equal(Self, Self) -> Bool
@@ -429,6 +446,7 @@ pub struct TokenBuffer[T] {
 }
 pub fn[T] TokenBuffer::get_diagnostics(Self[T]) -> DiagnosticSet
 pub fn[T] TokenBuffer::get_end(Self[T], Int) -> Int
+pub fn[T] TokenBuffer::get_relex_damage(Self[T]) -> Edit?
 pub fn[T] TokenBuffer::get_source(Self[T]) -> String
 pub fn[T] TokenBuffer::get_start(Self[T], Int) -> Int
 pub fn[T] TokenBuffer::get_starts(Self[T]) -> Array[Int]

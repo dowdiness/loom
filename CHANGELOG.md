@@ -11,8 +11,32 @@ Notable user-facing changes to Loom and its sibling modules.
   and `SemanticChange` APIs. Core publishes a semantic value and matching source
   baseline together; callers choose settlement and explicit fault retry.
 - `SettingsAttachment::retry()` retries the latest source after a semantic fault.
+- Opt-in parser reuse dependencies: `LanguageSpec::new` accepts
+  `track_reuse_dependencies`; `ParserContext` exposes exact entry-context scopes
+  and explicit source observations. Indexed parses can publish an immutable
+  `ReuseDependencies` sidecar for the next reuse cursor.
+- Opaque `EventCheckpoint` snapshots with `EventBuffer::checkpoint` and
+  `EventBuffer::restore` for rolling back appended events and retroactive marks.
 
 ### Fixed
+
+- Parser rollback restores children moved by speculative `start_at` wrapping,
+  including nested same-kind/same-span dependency occurrences. It also undoes
+  claims on earlier event marks, preventing unbalanced CSTs and allowing a
+  restored mark to be claimed by another alternative.
+
+- Markdown quoted list items retain nested lists, headings, fenced and indented
+  code, HTML, and paragraphs after quoted blank lines inside the owning item.
+  Continuation tabs use physical columns; indented code consumes every enclosing
+  quote marker, and HTML stops when its line leaves the list item. HTML lowering
+  removes list-owned indentation while preserving relative content indentation.
+  List-owned quotes stop before root-level quote markers; nested fence prefixes
+  preserve literal quote characters and list-owned indentation. Fresh, keyed,
+  and document-update IR agree across prefix, indentation, and body edits and
+  their reversal through both incremental edit APIs (#966, #967).
+  Quoted lists, items, and code now reuse certified unchanged nodes rather than
+  disabling reuse by node family. Certification includes failed lookahead,
+  inherited ownership/indentation context, and the lexer's retokenized range.
 
 - Markdown list items inside blockquotes now keep their continuation lines.
   A quoted line that continues the item's paragraph stays in the same list item
@@ -47,6 +71,11 @@ Notable user-facing changes to Loom and its sibling modules.
   also removed.
 
 ### Changed
+
+- Dependency-aware parser checkpoints retain a shared parent-linked frame chain
+  instead of copying every open dependency frame. Rollback preserves failed
+  lookahead observations and the existing parser-state contract while reducing
+  checkpoint allocation.
 
 - CI and scheduled benchmarks now use MoonBit `0.10.14+7d59c7ec9`.
   Source formatting and strict-warning compatibility follow that toolchain.

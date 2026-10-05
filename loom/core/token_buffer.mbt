@@ -36,6 +36,7 @@ pub struct TokenBuffer[T] {
   // Goal-aware lex step function. None when the grammar does not use goals.
   // Set via TokenBuffer::set_goal_step.
   priv mut goal_step : ((String, Int, Int) -> LexStep[T])?
+  priv mut relex_damage : Edit?
 }
 
 ///|
@@ -63,6 +64,7 @@ fn[T] token_buffer_from_initial(
     version: 0,
     goal_cache: GoalCache::new(),
     goal_step: None,
+    relex_damage: None,
   }
 }
 
@@ -95,6 +97,7 @@ priv enum ModeStoragePlan[T] {
 priv struct ModeCommitPlan[T] {
   storage : ModeStoragePlan[T]
   diagnostics : DiagnosticSet
+  damage : Edit
 }
 
 ///|
@@ -721,15 +724,13 @@ fn[T : Eq] TokenBuffer::prepare_mode_commit(
     self.source.length()
   }
   guard old_relex_end >= old_relex_start else { return None }
+  let damage = Edit::new(
+    old_relex_start,
+    old_relex_end - old_relex_start,
+    old_relex_end - old_relex_start + delta,
+  )
   let shifted_diagnostics = self.diagnostics.after_relex(
-    SourceEdit(
-      self.source_id,
-      Edit::new(
-        old_relex_start,
-        old_relex_end - old_relex_start,
-        old_relex_end - old_relex_start + delta,
-      ),
-    ),
+    SourceEdit(self.source_id, damage),
     failure_context="incremental relex",
   )
   shifted_diagnostics.add_all(relexed.diagnostics)
@@ -741,6 +742,7 @@ fn[T : Eq] TokenBuffer::prepare_mode_commit(
     return Some({
       storage: Patch(replacement_tokens, replacement_starts),
       diagnostics: shifted_diagnostics,
+      damage,
     })
   }
   let new_tokens : Array[TokenInfo[T]] = []
@@ -771,6 +773,7 @@ fn[T : Eq] TokenBuffer::prepare_mode_commit(
   Some({
     storage: Replace(new_tokens, new_starts),
     diagnostics: shifted_diagnostics,
+    damage,
   })
 }
 
@@ -799,6 +802,7 @@ fn[T] TokenBuffer::commit_mode_plan(
   self.tokens = tokens
   self.starts = starts
   self.diagnostics = plan.diagnostics
+  self.relex_damage = Some(plan.damage)
   self.source = new_source
   self.version = old_version + 1
   control.session = Ready(session)
@@ -835,6 +839,9 @@ fn[T : Eq] TokenBuffer::reset_mode_session(
       self.tokens = next_tokens
       self.starts = next_starts
       self.diagnostics = next_diagnostics
+      self.relex_damage = Some(
+        Edit::new(0, self.source.length(), new_source.length()),
+      )
       self.source = new_source
       self.version = self.version + 1
       control.session = Ready(session)
@@ -864,6 +871,9 @@ pub fn[T : Eq] TokenBuffer::update(
     self.tokens = result.tokens
     self.starts = result.starts
     self.diagnostics = result.diagnostics
+    self.relex_damage = Some(
+      Edit::new(0, self.source.length(), new_source.length()),
+    )
     self.source = new_source
     self.version = old_version + 1
     self.goal_cache.invalidate()
@@ -982,21 +992,20 @@ pub fn[T : Eq] TokenBuffer::update(
   // EOF sentinel
   new_tokens.push(TokenInfo::new(self.eof_token, 0))
   new_starts.push(new_len)
+  let damage = Edit::new(
+    left_old_offset,
+    right_old_offset - left_old_offset,
+    right_old_offset - left_old_offset + delta,
+  )
   let updated_diagnostics = self.diagnostics.after_relex(
-    SourceEdit(
-      self.source_id,
-      Edit::new(
-        left_old_offset,
-        right_old_offset - left_old_offset,
-        right_old_offset - left_old_offset + delta,
-      ),
-    ),
+    SourceEdit(self.source_id, damage),
     failure_context="incremental relex",
   )
   updated_diagnostics.add_all(replacement_diagnostics)
   self.tokens = new_tokens
   self.starts = new_starts
   self.diagnostics = updated_diagnostics
+  self.relex_damage = Some(damage)
   self.source = new_source
   self.version = old_version + 1
   self.goal_cache.invalidate()
@@ -1431,4 +1440,12 @@ fn[T] longest_lexable_prefix_len(
     }
   }
   0
+}
+
+///|
+/// Old/new source envelope replaced by the last successful token update.
+/// Includes lexer-state propagation beyond the textual edit. None means the
+/// buffer was freshly constructed, with no certified preceding token stream.
+pub fn[T] TokenBuffer::get_relex_damage(self : TokenBuffer[T]) -> Edit? {
+  self.relex_damage
 }

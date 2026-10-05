@@ -693,7 +693,17 @@ fn lex_block_quote_line_start(
         None => lex_line_start(input, pos, Some(line_end), same_line_cache)
       }
     }
-    _ => lex_line_start(input, pos, line_end_hint, same_line_cache)
+    _ => {
+      let (step, mode) = lex_line_start(
+        input, pos, line_end_hint, same_line_cache,
+      )
+      let next_mode = match step {
+        Produced(info, next_offset=_) if info.token is Indentation(_) =>
+          BlockQuoteLineStart
+        _ => mode
+      }
+      (step, next_mode)
+    }
   }
 }
 
@@ -862,15 +872,15 @@ fn lex_quoted_code_block_line_prefix(
   input : String,
   pos : Int,
   mode : MarkdownLexMode,
+  quote_indents : Array[Int]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode)? {
   let line_start = line_start_offset(input, pos)
   guard input[line_start:pos].is_blank() else { return None }
   match input.view(start_offset=pos) {
     [' ', ..] | ['\t', ..] => {
-      let (end, col) = leading_indent_end_offset_and_column(
-        input, line_start, 0,
-      )
-      guard col <= 3 && char_at(input, end) is Some('>') && end > pos else {
+      let (end, _) = leading_indent_end_offset_and_column(input, line_start, 0)
+      guard end > pos &&
+        quoted_code_prefix_end(input, line_start, quote_indents) is Some(_) else {
         return None
       }
       Some(
@@ -886,9 +896,21 @@ fn lex_quoted_code_block_line_prefix(
         ),
       )
     }
-    ['>', ' ' | '\t', .. rest] =>
-      Some(produced_until(BlockQuoteMarker, pos, rest, mode))
-    ['>', ..] => Some(produce_token_from(BlockQuoteMarker, pos, 1, mode))
+    ['>', ..] => {
+      guard quoted_code_prefix_end(input, line_start, quote_indents)
+        is Some(end) else {
+        return None
+      }
+      Some(
+        (
+          Produced(
+            @core.TokenInfo::new(BlockQuoteMarker, end - pos),
+            next_offset=end,
+          ),
+          mode,
+        ),
+      )
+    }
     _ => None
   }
 }
@@ -899,11 +921,12 @@ fn lex_code_block_newline(
   pos : Int,
   rest : StringView,
   mode : MarkdownLexMode,
+  quote_indents : Array[Int]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let after_newline = rest.start_offset()
   let next_mode = match mode {
     QuotedCodeBlock(_, _) =>
-      if !line_starts_with_block_quote_marker(input, after_newline) {
+      if quoted_code_prefix_end(input, after_newline, quote_indents) is None {
         LineStart
       } else {
         mode
@@ -971,6 +994,7 @@ fn lex_code_block_body(
   fence_character : Char,
   opening_indent : Int?,
   mode : MarkdownLexMode,
+  quote_indents? : Array[Int]? = None,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, mode)
@@ -990,7 +1014,7 @@ fn lex_code_block_body(
     None =>
       match input.view(start_offset=pos) {
         ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
-          lex_code_block_newline(input, pos, rest, mode)
+          lex_code_block_newline(input, pos, rest, mode, quote_indents)
         _ => emit_code_text_line(input, pos, mode)
       }
   }
@@ -1004,20 +1028,28 @@ fn lex_quoted_code_block(
   fence_character : Char,
   opening_indent : Int?,
   mode : MarkdownLexMode,
+  quote_indents : Array[Int]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, mode)
   }
-  match lex_quoted_code_block_line_prefix(input, pos, mode) {
+  match lex_quoted_code_block_line_prefix(input, pos, mode, quote_indents) {
     Some(step) => return step
     None => ()
   }
-  if line_start_offset(input, pos) == pos &&
-    !line_starts_with_block_quote_marker(input, pos) {
-    return (Done, LineStart)
+  // A failed prefix at the physical line's start exits this quoted fence.
+  let line_start = line_start_offset(input, pos)
+  if input[line_start:pos].is_blank() {
+    return lex_line_start(input, pos, None, None)
   }
   lex_code_block_body(
-    input, pos, fence_len, fence_character, opening_indent, mode,
+    input,
+    pos,
+    fence_len,
+    fence_character,
+    opening_indent,
+    mode,
+    quote_indents~,
   )
 }
 
@@ -1135,6 +1167,7 @@ fn markdown_lex_step_inner_with_context(
   line_end_hint : Int?,
   opening_indent : Int?,
   same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
+  quote_indents? : Array[Int]? = None,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, mode)
@@ -1157,19 +1190,21 @@ fn markdown_lex_step_inner_with_context(
         },
         mode,
       )
-    QuotedCodeBlock(n, fence_character) =>
+    QuotedCodeBlock(n, fence_character) => {
+      let (indent, indents) = match opening_indent {
+        Some(indent) => (Some(indent), quote_indents)
+        None => {
+          let (_, indent, indents) = source_fence_replay_until(
+            source_fence_replay_initial(input, n, fence_character),
+            pos,
+          )
+          (indent, indents)
+        }
+      }
       lex_quoted_code_block(
-        input,
-        pos,
-        n,
-        fence_character,
-        match opening_indent {
-          Some(_) => opening_indent
-          None =>
-            source_derived_code_block_indent(input, pos, n, fence_character)
-        },
-        mode,
+        input, pos, n, fence_character, indent, mode, indents,
       )
+    }
     HtmlBlockRaw => lex_html_block_raw(input, pos)
     HtmlBlockUntil(delimiter) => lex_html_block_until(input, pos, delimiter)
     HtmlBlockEndLine => lex_html_block_end_line(input, pos)
@@ -1194,24 +1229,7 @@ pub fn markdown_lex_step(
   pos : Int,
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
-  let opening_indent = match mode {
-    CodeBlock(fence_length, fence_character)
-    | QuotedCodeBlock(fence_length, fence_character) =>
-      Some(
-        source_derived_code_block_indent(
-          input, pos, fence_length, fence_character,
-        ).unwrap_or(0),
-      )
-    _ => None
-  }
-  markdown_lex_step_inner_with_context(
-    input,
-    pos,
-    mode,
-    None,
-    opening_indent,
-    None,
-  )
+  markdown_lex_step_inner_with_context(input, pos, mode, None, None, None)
 }
 
 ///|

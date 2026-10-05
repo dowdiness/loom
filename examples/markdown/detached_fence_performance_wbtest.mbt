@@ -38,7 +38,7 @@ test "detached fence replay state matches stateless scan" {
   let line_starts = detached_fence_line_starts(source)
   let mut state = source_fence_replay_initial(source, 3, '`')
   for pos in line_starts {
-    let (next_state, replay_indent) = source_fence_replay_until(state, pos)
+    let (next_state, replay_indent, _) = source_fence_replay_until(state, pos)
     assert_eq(
       replay_indent,
       source_derived_code_block_indent(source, pos, 3, '`'),

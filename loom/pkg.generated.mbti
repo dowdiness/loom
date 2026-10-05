@@ -36,7 +36,7 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq]
 
 pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] new_syntax_parser(@diagnostic.SourceId, String, SyntaxGrammar[T, K], runtime? : @cells.Runtime) -> @pipeline.SyntaxParser raise Failure
 
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(@diagnostic.SourceId, String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, @core.LanguageSpec[T, K], cursor? : @core.ReuseCursor[T, K]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int) raise Failure
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(@diagnostic.SourceId, String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, @core.LanguageSpec[T, K], cursor? : @core.ReuseCursor[T, K]?, prev_diagnostics? : @core.DiagnosticSet?, on_reuse_dependencies? : (@core.ReuseDependencies) -> Unit) -> (@seam.CstNode, @core.DiagnosticSet, Int) raise Failure
 
 pub fn[Id] realign_projection_identities(@projection.ProjectionIdentityBaseline[Id], String, Array[@projection.ProjectionLeaf], (@projection.ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[@projection.StableProjectionLeaf[Id]]
 

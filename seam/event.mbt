@@ -69,6 +69,22 @@ fn buffered_events_of_parse_events(
 }
 
 ///|
+/// A destructive mark claim needed by checkpoints taken before the claim.
+priv struct EventStartAtUndo {
+  position : Int
+  mark : Int
+}
+
+///|
+/// Constant-size snapshot of an `EventBuffer`'s rollback boundary.
+///
+/// Checkpoints are buffer-specific and may only be restored backward.
+pub struct EventCheckpoint {
+  priv events_len : Int
+  priv undo_position : Int
+}
+
+///|
 /// Accumulates parse events for a single parse run.
 ///
 /// ## Invariants
@@ -86,16 +102,54 @@ fn buffered_events_of_parse_events(
 /// - `start_at(mark, kind)` — retroactively fill a `Tombstone` with `StartNode`
 ///
 /// After parsing, call `buf.build_tree(...)` or `buf.build_tree_interned(...)`
-/// directly on the buffer. The raw backing array is private to
-/// prevent callers from bypassing the mark/start_at contract.
+/// directly on the buffer. The raw backing array is private to prevent callers
+/// from bypassing the mark/start_at contract.
 pub struct EventBuffer {
   priv events : Array[BufferedEvent]
+  priv start_at_undos : Array[EventStartAtUndo]
+  priv mut next_undo_position : Int
 }
 
 ///|
 /// Create an empty `EventBuffer`.
 pub fn EventBuffer::new() -> EventBuffer {
-  { events: [], }
+  { events: [], start_at_undos: [], next_undo_position: 0, }
+}
+
+///|
+/// Capture the current event length and retroactive-claim rollback boundary.
+///
+/// The checkpoint is constant-size and is valid only for this buffer. Restore
+/// checkpoints only backward; restoring never replays events or claims.
+pub fn EventBuffer::checkpoint(self : EventBuffer) -> EventCheckpoint {
+  { events_len: self.events.length(), undo_position: self.next_undo_position, }
+}
+
+///|
+/// Restore appended events and retroactive mark claims made since a checkpoint.
+///
+/// Claims made after the checkpoint return to `Tombstone` when their slots
+/// survive, so those marks can be claimed again. Earlier claims are preserved.
+/// The checkpoint must belong to this buffer and be from no later than the
+/// current state.
+pub fn EventBuffer::restore(
+  self : EventBuffer,
+  checkpoint : EventCheckpoint,
+) -> Unit {
+  while self.start_at_undos.length() > 0 {
+    let last_index = self.start_at_undos.length() - 1
+    let undo = self.start_at_undos[last_index]
+    if undo.position < checkpoint.undo_position {
+      break
+    }
+    if undo.mark < self.events.length() {
+      self.events[undo.mark] = BufferedTombstone
+    }
+    let _ = self.start_at_undos.pop()
+  }
+  // Remaining claims precede this checkpoint and refer to its retained prefix.
+  // No journal compaction is needed, unlike an arbitrary public truncate.
+  self.events.truncate(checkpoint.events_len)
 }
 
 ///|
@@ -212,9 +266,9 @@ pub fn EventBuffer::push_parser_synthetic_zero_width_token(
 }
 
 ///|
-/// Reserve a slot and return its index. Used for retroactive StartNode placement.
-/// The slot must either be claimed exactly once via start_at() or remain as
-/// Tombstone (which build_tree ignores).
+/// Reserve a slot and return its index for a possible retroactive node claim.
+/// The slot must either be claimed via start_at() or remain Tombstone
+/// (which build_tree ignores).
 pub fn EventBuffer::mark(self : EventBuffer) -> Int {
   let index = self.events.length()
   self.events.push(BufferedTombstone)
@@ -223,9 +277,11 @@ pub fn EventBuffer::mark(self : EventBuffer) -> Int {
 
 ///|
 /// Retroactively fill a Tombstone slot with StartNode(kind).
-/// This function enforces the mark/start_at contract:
-/// - mark must be in bounds
-/// - mark must still point to Tombstone
+///
+/// Claims made after an EventBuffer checkpoint are reversible by restoring
+/// that checkpoint; claims before it remain committed. This function enforces
+/// the mark/start_at contract: mark must be in bounds and still point to
+/// Tombstone.
 pub fn EventBuffer::start_at(
   self : EventBuffer,
   mark : Int,
@@ -240,7 +296,11 @@ pub fn EventBuffer::start_at(
     )
   }
   match self.events[mark] {
-    BufferedTombstone => self.events[mark] = BufferedStartNode(kind)
+    BufferedTombstone => {
+      self.events[mark] = BufferedStartNode(kind)
+      self.start_at_undos.push({ position: self.next_undo_position, mark, })
+      self.next_undo_position = self.next_undo_position + 1
+    }
     _ =>
       abort(
         "EventBuffer::start_at: mark does not point to Tombstone, mark=" +
@@ -258,6 +318,9 @@ pub fn EventBuffer::length(self : EventBuffer) -> Int {
 ///|
 /// Truncate the buffer to the first `n` events, discarding the rest.
 /// No-op when n is outside [0, length].
+///
+/// Undo entries for removed marks are discarded so a later restore cannot
+/// accidentally modify a different event that reuses the same array index.
 pub fn EventBuffer::truncate(self : EventBuffer, n : Int) -> Unit {
   let keep = if n < 0 {
     0
@@ -266,8 +329,22 @@ pub fn EventBuffer::truncate(self : EventBuffer, n : Int) -> Unit {
   } else {
     n
   }
-  while self.events.length() > keep {
-    let _ = self.events.pop()
+  if keep < self.events.length() {
+    let undo_count = self.start_at_undos.length()
+    let mut kept_undos = 0
+    for index in 0..<undo_count {
+      let undo = self.start_at_undos[index]
+      if undo.mark < keep {
+        if kept_undos != index {
+          self.start_at_undos[kept_undos] = undo
+        }
+        kept_undos = kept_undos + 1
+      }
+    }
+    self.start_at_undos.truncate(kept_undos)
+    while self.events.length() > keep {
+      let _ = self.events.pop()
+    }
   }
 }
 

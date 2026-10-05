@@ -1,7 +1,45 @@
 ///|
+let markdown_root_reuse_context : @core.ReuseContext = @core.ReuseContext::new(
+  0, 0,
+)
+
+///|
 /// Root entry point for the Markdown parser.
 fn parse_root(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
-  parse_markdown_document_blocks(ctx)
+  ctx.with_reuse_context(markdown_root_reuse_context, fn() {
+    parse_markdown_document_blocks(ctx)
+  })
+}
+
+///|
+/// Reuse keys mirror the recursive physical ownership state. Integer tags
+/// distinguish grammar entry roles; values remain source-independent.
+fn BlockQuotePrefixOwnership::reuse_context(
+  self : BlockQuotePrefixOwnership,
+  parent? : @core.ReuseContext? = None,
+) -> @core.ReuseContext {
+  match self {
+    Root => @core.ReuseContext::new(1, 0, parent~)
+    ListOwned(indent) => @core.ReuseContext::new(2, indent, parent~)
+    QuotedListOwned(quote, indent) =>
+      @core.ReuseContext::new(
+        3,
+        indent,
+        parent=Some(quote.reuse_context(parent~)),
+      )
+  }
+}
+
+///|
+fn BlockQuoteLineContext::reuse_context(
+  self : BlockQuoteLineContext,
+  parent? : @core.ReuseContext? = None,
+) -> @core.ReuseContext {
+  @core.ReuseContext::new(
+    4,
+    self.depth,
+    parent=Some(self.ownership.reuse_context(parent~)),
+  )
 }
 
 ///|
@@ -25,14 +63,16 @@ priv enum HtmlBlockContainerContext {
   HtmlRoot
   HtmlBlockQuote
   HtmlListItem(Int)
+  HtmlQuotedListItem(BlockQuoteLineContext, Int)
 }
 
 ///|
-/// Who owns the structural indent before a blockquote marker on continuation
-/// lines. Root markers allow ≤3 columns; a list item may own a wider band.
+/// Physical quote-prefix ownership, separate from item-relative indentation.
+/// Quoted items consume their enclosing quote before checking their own band.
 priv enum BlockQuotePrefixOwnership {
   Root
   ListOwned(Int)
+  QuotedListOwned(BlockQuoteLineContext, Int)
 }
 
 ///|
@@ -43,6 +83,8 @@ fn BlockQuotePrefixOwnership::accepts_marker_indent(
   match self {
     Root => columns <= 3
     ListOwned(min_indent) => columns >= min_indent && columns < min_indent + 4
+    QuotedListOwned(_, min_indent) =>
+      columns >= min_indent && columns < min_indent + 4
   }
 }
 
@@ -56,15 +98,32 @@ priv struct BlockQuoteLineContext {
 }
 
 ///|
-/// Root ≤3 always; list-owned containers also accept their `[min, min+4)` band.
-fn BlockQuotePrefixOwnership::accepts_container_marker_indent(
-  self : BlockQuotePrefixOwnership,
-  columns : Int,
-) -> Bool {
-  match self {
-    Root => self.accepts_marker_indent(columns)
-    ListOwned(_) =>
-      Root.accepts_marker_indent(columns) || self.accepts_marker_indent(columns)
+/// Both quote parsers carry physical layout and effective depth into child nodes.
+/// Prefix ownership is already part of the enclosing quote's context.
+fn block_quote_content_reuse_context(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_column : Int,
+  marker_end_column : Int,
+  depth : Int,
+) -> @core.ReuseContext {
+  let marker = @core.ReuseContext::new(
+    60,
+    marker_end_column,
+    parent=ctx.current_reuse_context(),
+  )
+  let content = @core.ReuseContext::new(61, content_column, parent=Some(marker))
+  @core.ReuseContext::new(62, depth, parent=Some(content))
+}
+
+///|
+fn physical_quote_depth(
+  ownership : BlockQuotePrefixOwnership,
+  depth : Int,
+) -> Int {
+  match ownership {
+    QuotedListOwned(quote, _) =>
+      depth + physical_quote_depth(quote.ownership, quote.depth)
+    _ => depth
   }
 }
 
@@ -683,7 +742,8 @@ fn decide_block_quote_list_item_continuation(
   quote_context : BlockQuoteLineContext,
   has_paragraph_content : Bool,
 ) -> ContinuationDecision[RepeatedNestedBlockQuoteContinuation] {
-  if has_paragraph_content {
+  if has_paragraph_content &&
+    !quoted_list_item_next_line_starts_block(ctx, quote_context) {
     repeated_nested_block_quote_paragraph_continuation(
       ctx,
       quote_context.ownership,
@@ -759,40 +819,29 @@ fn try_parse_block_quote_setext_heading(
 }
 
 ///|
-fn consume_quoted_blank_line_markers(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  content_column : Int,
-  marker_end_column : Int,
-) -> (Int, Int) {
-  for content_column = content_column, marker_end_column = marker_end_column {
-    guard ctx.peek() is BlankLine && ctx.peek_nth(1) is BlockQuoteMarker else {
-      break (content_column, marker_end_column)
-    }
-    ctx.emit_token(BlankLineToken)
-    let (next_content_column, next_marker_end_column) = current_block_quote_marker_columns(
-      ctx,
-    )
-    ctx.emit_token(BlockQuoteMarkerToken)
-    continue next_content_column, next_marker_end_column
-  }
-}
-
-///|
 fn consume_quoted_list_item_separator_if_matching(
   ctx : @core.ParserContext[Token, SyntaxKind],
   matches_marker : (@core.ParserContext[Token, SyntaxKind], Int, Int) -> Bool,
+  quote : BlockQuoteLineContext,
 ) -> (Int, Int)? {
-  guard ctx.peek() is Newline && ctx.peek_nth(1) is BlockQuoteMarker else {
+  if ctx.peek() is Newline {
+    ctx.emit_token(NewlineToken)
+  }
+  guard consume_block_quote_marker_count(ctx, quote.ownership, quote.depth)
+    is Some((content_column, marker_end_column)) else {
     return None
   }
-  ctx.emit_token(NewlineToken)
-  let (content_column, marker_end_column) = current_block_quote_marker_columns(
-    ctx,
-  )
-  ctx.emit_token(BlockQuoteMarkerToken)
-  let (content_column, marker_end_column) = consume_quoted_blank_line_markers(
-    ctx, content_column, marker_end_column,
-  )
+  let mut content_column = content_column
+  let mut marker_end_column = marker_end_column
+  while ctx.peek() is BlankLine {
+    ctx.emit_token(BlankLineToken)
+    guard consume_block_quote_marker_count(ctx, quote.ownership, quote.depth)
+      is Some((next_content_column, next_marker_end_column)) else {
+      return None
+    }
+    content_column = next_content_column
+    marker_end_column = next_marker_end_column
+  }
   if matches_marker(ctx, content_column, marker_end_column) {
     Some((content_column, marker_end_column))
   } else {
@@ -804,9 +853,10 @@ fn consume_quoted_list_item_separator_if_matching(
 fn block_quote_list_continuation_columns(
   ctx : @core.ParserContext[Token, SyntaxKind],
   matches_marker : (@core.ParserContext[Token, SyntaxKind], Int, Int) -> Bool,
+  quote : BlockQuoteLineContext,
 ) -> (Int, Int)? {
   ctx.lookahead(() => {
-    consume_quoted_list_item_separator_if_matching(ctx, matches_marker)
+    consume_quoted_list_item_separator_if_matching(ctx, matches_marker, quote)
   })
 }
 
@@ -818,23 +868,52 @@ fn parse_block_quote_marker_scoped_list(
   marker_end_column : Int,
   marker_matches : (@core.ParserContext[Token, SyntaxKind], Int, Int) -> Bool,
   parse_item : (@core.ParserContext[Token, SyntaxKind]) -> Unit,
+  quote : BlockQuoteLineContext,
 ) -> Unit {
-  ctx.node(list_kind, fn() {
+  let context = @core.ReuseContext::new(
+    if list_kind is UnorderedListNode {
+      10
+    } else {
+      11
+    },
+    content_column,
+    parent=Some(
+      @core.ReuseContext::new(
+        12,
+        marker_end_column,
+        parent=Some(
+          @core.ReuseContext::new(
+            13,
+            quote.depth,
+            parent=ctx.current_reuse_context(),
+          ),
+        ),
+      ),
+    ),
+  )
+  ctx.with_reuse_context(context, fn() {
+    if ctx.try_reuse_current_node(list_kind) {
+      return
+    }
+    ctx.start_node(list_kind)
     for content_column = content_column, marker_end_column = marker_end_column {
       guard marker_matches(ctx, content_column, marker_end_column) else {
         break
       }
       parse_item(ctx)
-      match block_quote_list_continuation_columns(ctx, marker_matches) {
+      match block_quote_list_continuation_columns(ctx, marker_matches, quote) {
         Some((next_content_column, next_marker_end_column)) => {
           ignore(
-            consume_quoted_list_item_separator_if_matching(ctx, marker_matches),
+            consume_quoted_list_item_separator_if_matching(
+              ctx, marker_matches, quote,
+            ),
           )
           continue next_content_column, next_marker_end_column
         }
         None => break
       }
     }
+    ctx.finish_node()
   })
 }
 
@@ -917,6 +996,7 @@ fn parse_block_quote_list_at_min_indent(
           )
         },
         ctx => parse_block_quote_list_item(ctx, ownership, quote_depth),
+        { ownership, depth: quote_depth, },
       )
     None => ()
   }
@@ -957,6 +1037,7 @@ fn parse_block_quote_ordered_list_at_min_indent(
           )
         },
         ctx => parse_block_quote_ordered_list_item(ctx, ownership, quote_depth),
+        { ownership, depth: quote_depth, },
       )
     None => ()
   }
@@ -1007,11 +1088,40 @@ fn parse_block_quote_ordered_list_item(
 fn current_block_quote_marker_columns(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> (Int, Int) {
-  let marker_text = ctx.current_token_text().to_owned()
-  (
-    block_quote_content_column_from_marker_text(marker_text),
-    count_indent_columns(marker_text, 0, marker_text.length()),
+  let marker_text = ctx.current_token_text()
+  let marker_start = marker_text.start_offset()
+  let source = marker_text.data()
+  let source_line_start = line_start_offset_before(source, marker_start)
+  ctx.observe_source_range(
+    if source_line_start > 0 {
+      source_line_start - 1
+    } else {
+      0
+    },
+    marker_start,
   )
+  let start_column = count_indent_columns(
+    source, source_line_start, marker_start,
+  )
+  let marker_end_column = columns_after(marker_text, start_column)
+  let content_column = match marker_text.find(">") {
+    Some(offset) =>
+      columns_after(marker_text[:offset + 1], start_column) +
+      (if offset + 1 < marker_text.length() { 1 } else { 0 })
+    None => marker_end_column
+  }
+  (content_column, marker_end_column)
+}
+
+///|
+fn current_quoted_content_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  columns : (Int, Int),
+) -> Int {
+  let (content_column, marker_end_column) = columns
+  marker_end_column +
+  leading_indent_columns_from(ctx.current_token_text(), marker_end_column) -
+  content_column
 }
 
 ///|
@@ -1036,11 +1146,10 @@ fn parse_block_quote_after_marker(
     ListMarker if current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent >= 4) =>
-      parse_quoted_indented_code_block_from_current_line(
-        ctx,
-        min_indent=4,
-        ownership~,
-      )
+      parse_quoted_indented_code_block_at_min_indent(ctx, 4, {
+        ownership,
+        depth: quote_depth,
+      })
     ListMarker => {
       ctx.emit_token(TextToken)
       parse_block_quote_paragraph(ctx)
@@ -1054,17 +1163,21 @@ fn parse_block_quote_after_marker(
     OrderedListMarker(_) if current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent >= 4) =>
-      parse_quoted_indented_code_block_from_current_line(
-        ctx,
-        min_indent=4,
-        ownership~,
-      )
+      parse_quoted_indented_code_block_at_min_indent(ctx, 4, {
+        ownership,
+        depth: quote_depth,
+      })
     OrderedListMarker(_) => {
       ctx.emit_token(TextToken)
       parse_block_quote_paragraph(ctx)
     }
     BlockQuoteMarker => parse_block_quote_with_prefix(ctx, None, ownership)
-    CodeFenceOpen(_, _) => parse_quoted_code_block_with_prefix(ctx, None)
+    CodeFenceOpen(_, _) =>
+      parse_quoted_code_block_with_prefix(
+        ctx,
+        None,
+        quote_depth=physical_quote_depth(ownership, quote_depth),
+      )
     Indentation(_) if ctx.peek_nth(1) is ListMarker &&
       current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
@@ -1083,7 +1196,11 @@ fn parse_block_quote_after_marker(
         ctx,
         marker_end_column,
         content_column + 4,
-      ) => parse_quoted_indented_code_block(ctx, ownership~)
+      ) =>
+      parse_quoted_indented_code_block_at_min_indent(ctx, 4, {
+        ownership,
+        depth: quote_depth,
+      })
     Indentation(_) => {
       let prefix = PresentLinePrefix
       match ctx.peek_nth(1) {
@@ -1091,9 +1208,16 @@ fn parse_block_quote_after_marker(
         HeadingMarker(_) => parse_heading_with_prefix(ctx, Some(prefix))
         BlockQuoteMarker => parse_block_quote_with_prefix(ctx, None, ownership)
         CodeFenceOpen(_, _) =>
-          parse_quoted_code_block_with_prefix(ctx, Some(prefix))
+          parse_quoted_code_block_with_prefix(
+            ctx,
+            Some(prefix),
+            quote_depth=physical_quote_depth(ownership, quote_depth),
+          )
         HtmlBlockOpen(_) => parse_html_block(ctx, Some(prefix), HtmlBlockQuote)
-        _ => parse_block_quote_paragraph(ctx)
+        _ =>
+          parse_repeated_nested_block_quote_paragraph(
+            ctx, ownership, quote_depth,
+          )
       }
     }
     HtmlBlockOpen(_) => parse_html_block(ctx, None, HtmlBlockQuote)
@@ -1102,7 +1226,7 @@ fn parse_block_quote_after_marker(
     EOF => ()
     _ =>
       if !try_parse_block_quote_setext_heading(ctx) {
-        parse_block_quote_paragraph(ctx)
+        parse_repeated_nested_block_quote_paragraph(ctx, ownership, quote_depth)
       }
   }
 }
@@ -1116,21 +1240,11 @@ fn peek_nth_is_indented_blockquote_marker(
   match ctx.peek_nth(offset) {
     Indentation(text) => {
       let columns = count_indent_columns(text, 0, text.length())
-      ownership.accepts_container_marker_indent(columns) &&
+      ownership.accepts_marker_indent(columns) &&
       ctx.peek_nth(offset + 1) is BlockQuoteMarker
     }
     _ => false
   }
-}
-
-///|
-fn peek_nth_is_blockquote_marker_start(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  offset : Int,
-  ownership : BlockQuotePrefixOwnership,
-) -> Bool {
-  ctx.peek_nth(offset) is BlockQuoteMarker ||
-  peek_nth_is_indented_blockquote_marker(ctx, offset, ownership)
 }
 
 ///|
@@ -1142,19 +1256,15 @@ fn prefixed_block_quote_marker(
 }
 
 ///|
-fn block_quote_marker_after_newline(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  ownership : BlockQuotePrefixOwnership,
-) -> Bool {
-  peek_nth_is_blockquote_marker_start(ctx, 1, ownership)
-}
-
-///|
 fn consume_block_quote_child_separator(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
 ) -> Unit {
-  if ctx.peek() is Newline && block_quote_marker_after_newline(ctx, ownership) {
+  if ctx.peek() is Newline &&
+    ctx.lookahead(() => {
+      ctx.emit_token(NewlineToken)
+      consume_current_block_quote_marker(ctx, ownership) is Some(_)
+    }) {
     ctx.emit_token(NewlineToken)
   }
 }
@@ -1165,33 +1275,57 @@ fn parse_block_quote_with_prefix(
   prefix : LinePrefix?,
   ownership : BlockQuotePrefixOwnership,
 ) -> Unit {
-  // A list item owns its content indentation, so carry it as the min indent
-  // of the owned prefix accepted on subsequent physical lines of the quote.
-  if try_parse_repeated_nested_block_quote(ctx, prefix, ownership) {
-    return
-  }
-  ctx.node(BlockQuoteNode, fn() {
-    // A list item owns its content indentation, which can exceed the root
-    // blockquote limit of three columns. Consume that structural prefix inside
-    // the quote before entering the marker loop; otherwise this parser returns
-    // successfully without advancing and its caller repeats forever.
-    match prefix {
-      Some(_) => ctx.emit_token(IndentationToken)
-      None => ()
-    }
-    while ctx.peek() is BlockQuoteMarker ||
-          prefixed_block_quote_marker(ctx, ownership) {
-      if prefixed_block_quote_marker(ctx, ownership) {
-        ctx.emit_token(IndentationToken)
-      }
-      let (content_column, marker_end_column) = current_block_quote_marker_columns(
-        ctx,
-      )
-      ctx.emit_token(BlockQuoteMarkerToken)
-      parse_block_quote_after_marker(
-        ctx, content_column, marker_end_column, ownership, 1,
-      )
-      consume_block_quote_child_separator(ctx, ownership)
+  let owner_context = ownership.reuse_context(
+    parent=ctx.current_reuse_context(),
+  )
+  let context = @core.ReuseContext::new(
+    20,
+    if prefix is Some(_) {
+      1
+    } else {
+      0
+    },
+    parent=Some(owner_context),
+  )
+  ctx.with_reuse_context(context, fn() {
+    // A list item owns its content indentation, so carry it as the min indent
+    // of the owned prefix accepted on subsequent physical lines of the quote.
+    if try_parse_repeated_nested_block_quote(ctx, prefix, ownership) {
+      ()
+    } else {
+      ctx.node(BlockQuoteNode, fn() {
+        // A list item owns its content indentation, which can exceed the root
+        // blockquote limit of three columns. Consume that structural prefix inside
+        // the quote before entering the marker loop; otherwise this parser returns
+        // successfully without advancing and its caller repeats forever.
+        match prefix {
+          Some(_) => ctx.emit_token(IndentationToken)
+          None => ()
+        }
+        let mut opening = true
+        while opening ||
+              ctx.lookahead(() => {
+                consume_current_block_quote_marker(ctx, ownership) is Some(_)
+              }) {
+          let marker_owner = if opening { Root } else { ownership }
+          opening = false
+          guard consume_current_block_quote_marker(ctx, marker_owner)
+            is Some((content_column, marker_end_column)) else {
+            abort("blockquote parser requires its owned marker")
+          }
+          ctx.with_reuse_context(
+            block_quote_content_reuse_context(
+              ctx, content_column, marker_end_column, 1,
+            ),
+            () => {
+              parse_block_quote_after_marker(
+                ctx, content_column, marker_end_column, ownership, 1,
+              )
+            },
+          )
+          consume_block_quote_child_separator(ctx, ownership)
+        }
+      })
     }
   })
 }
@@ -1317,17 +1451,30 @@ fn parse_list_at_min_indent_with_first_item_column(
   min_indent : Int,
   first_item_marker_start_column : Int?,
 ) -> Unit {
-  ctx.node(UnorderedListNode, fn() {
-    match current_unordered_list_marker(ctx) {
-      Some(opening_marker) =>
-        parse_list_items_at_min_indent(
-          ctx,
-          Unordered(opening_marker),
-          min_indent,
-          first_item_marker_start_column,
-        )
-      None => ()
-    }
+  let context = @core.ReuseContext::new(
+    40,
+    min_indent,
+    parent=Some(
+      @core.ReuseContext::new(
+        41,
+        first_item_marker_start_column.unwrap_or(-1),
+        parent=ctx.current_reuse_context(),
+      ),
+    ),
+  )
+  ctx.with_reuse_context(context, fn() {
+    ctx.node(UnorderedListNode, fn() {
+      match current_unordered_list_marker(ctx) {
+        Some(opening_marker) =>
+          parse_list_items_at_min_indent(
+            ctx,
+            Unordered(opening_marker),
+            min_indent,
+            first_item_marker_start_column,
+          )
+        None => ()
+      }
+    })
   })
 }
 
@@ -1463,6 +1610,7 @@ priv struct ListItemFlowContext {
   content_indent : Int
   marker_end_column : Int
   allow_ordered_marker : Bool
+  quote_context : BlockQuoteLineContext?
 }
 
 ///|
@@ -2056,7 +2204,7 @@ fn following_text_leading_indent(token : Token, start_col : Int) -> Int {
 }
 
 ///|
-fn columns_after(text : String, start_column : Int) -> Int {
+fn columns_after(text : StringView, start_column : Int) -> Int {
   text.fold(init=start_column, (column, ch) => {
     match ch {
       ' ' => column + 1
@@ -2345,81 +2493,49 @@ fn consume_indented_code_body(
 }
 
 ///|
-/// After a newline inside quote-owned indented code, continue only when the
-/// next physical line still opens with a blockquote marker and then meets the
-/// indented-code indent. Bare indent leaves the quote (CommonMark 236);
-/// unmarked blanks end it (242 / 252).
-fn next_line_continues_quoted_indented_code(
+/// Probe transactionally: every enclosing quote must still own the line.
+/// Quoted blanks belong to the code only if an indented line follows them.
+fn consume_quoted_indented_code_prefix(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
-  ownership : BlockQuotePrefixOwnership,
+  quote : BlockQuoteLineContext,
 ) -> Bool {
-  let marker_offset = match ctx.peek() {
-    BlockQuoteMarker => Some(0)
-    Indentation(_) if peek_nth_is_indented_blockquote_marker(ctx, 0, ownership) =>
-      Some(1)
-    _ => None
-  }
-  match marker_offset {
-    None => false
-    Some(offset) =>
-      match ctx.peek_nth(offset + 1) {
-        Indentation(text) =>
-          count_indent_columns(text, 0, text.length()) >= min_indent
-        token if token_is_indented_code_leftover(token) =>
-          match leftover_token_payload_indent(token) {
-            Some(columns) => columns >= min_indent
-            None => false
-          }
-        _ => false
-      }
-  }
-}
-
-///|
-fn consume_blockquote_prefix_for_quoted_indented_code(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  ownership : BlockQuotePrefixOwnership,
-) -> Unit {
-  if prefixed_block_quote_marker(ctx, ownership) {
-    ctx.emit_token(IndentationToken)
-  }
-  ctx.emit_token(BlockQuoteMarkerToken)
-}
-
-///|
-/// Consume one physical line of quote-owned indented code. Returns `true` when
-/// a trailing newline was taken so the caller may try a marked continuation.
-fn try_consume_quoted_indented_code_line(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  min_indent : Int,
-) -> Bool {
-  while indented_code_body_continues(ctx, min_indent) {
-    match ctx.peek() {
-      Newline => {
-        ctx.emit_token(NewlineToken)
-        return true
-      }
-      BlankLine => return false
-      _ => emit_indented_code_line(ctx)
+  while true {
+    guard consume_block_quote_marker_count(ctx, quote.ownership, quote.depth)
+      is Some(columns) else {
+      return false
     }
+    if ctx.peek() is BlankLine {
+      ctx.emit_token(BlankLineToken)
+      continue
+    }
+    return (
+        ctx.peek() is Indentation(_) ||
+        token_is_indented_code_leftover(ctx.peek())
+      ) &&
+      current_quoted_content_indent(ctx, columns) >= min_indent
   }
   false
 }
 
 ///|
-/// Consume quote-owned indented code for the current line and any further
-/// marked indented-code lines. Unmarked line breaks leave the quote.
+/// The caller has established the first line's indentation. Further lines
+/// must retain the complete quote prefix and the code's relative indent.
 fn consume_quoted_indented_code_body(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
-  ownership : BlockQuotePrefixOwnership,
+  quote : BlockQuoteLineContext,
 ) -> Unit {
-  while try_consume_quoted_indented_code_line(ctx, min_indent) {
-    guard next_line_continues_quoted_indented_code(ctx, min_indent, ownership) else {
+  while true {
+    emit_indented_code_line(ctx)
+    guard ctx.peek() is Newline else { break }
+    ctx.emit_token(NewlineToken)
+    guard ctx.lookahead(() => {
+      consume_quoted_indented_code_prefix(ctx, min_indent, quote)
+    }) else {
       break
     }
-    consume_blockquote_prefix_for_quoted_indented_code(ctx, ownership)
+    ignore(consume_quoted_indented_code_prefix(ctx, min_indent, quote))
   }
 }
 
@@ -2428,27 +2544,18 @@ fn parse_indented_code_block_from_current_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent~ : Int,
 ) -> Unit {
-  ctx.node(CodeBlockNode, fn() {
-    emit_indented_code_line(ctx)
-    if ctx.peek() is Newline {
-      ctx.emit_token(NewlineToken)
-    }
-    consume_indented_code_body(ctx, min_indent)
-  })
-}
-
-///|
-/// Emit the current quote-owned indented-code line, then absorb further marked
-/// indented-code lines into the same block.
-fn parse_quoted_indented_code_block_from_current_line(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  min_indent~ : Int,
-  ownership~ : BlockQuotePrefixOwnership,
-) -> Unit {
-  ctx.node(CodeBlockNode, fn() {
-    emit_indented_code_line(ctx)
-    consume_quoted_indented_code_body(ctx, min_indent, ownership)
-  })
+  ctx.with_reuse_context(
+    @core.ReuseContext::new(52, min_indent, parent=ctx.current_reuse_context()),
+    fn() {
+      ctx.node(CodeBlockNode, fn() {
+        emit_indented_code_line(ctx)
+        if ctx.peek() is Newline {
+          ctx.emit_token(NewlineToken)
+        }
+        consume_indented_code_body(ctx, min_indent)
+      })
+    },
+  )
 }
 
 ///|
@@ -2460,6 +2567,10 @@ fn parse_list_item_flow_after_body(
   context : ListItemFlowContext,
   has_paragraph_content : Bool,
 ) -> Unit {
+  if context.quote_context is Some(quote) {
+    parse_quoted_list_item_flow(ctx, context, quote)
+    return
+  }
   while try_parse_list_item_block_after_newline(
           ctx,
           context.content_indent,
@@ -2520,91 +2631,128 @@ fn parse_list_item_body(
   allow_ordered_marker~ : Bool,
   quote_context? : BlockQuoteLineContext? = None,
 ) -> Unit {
-  let context = ListItemFlowContext::{
-    content_indent,
+  // Marker width affects every child block even if the item start is unchanged.
+  let marker_context = @core.ReuseContext::new(
+    32,
     marker_end_column,
-    allow_ordered_marker,
-  }
-  let starts_reference_definition = current_line_is_link_reference_definition(
-    ctx,
+    parent=ctx.current_reuse_context(),
   )
-  let has_paragraph_content = !starts_reference_definition &&
-    list_item_line_starts_paragraph(ctx)
-  match ctx.peek() {
-    ListMarker => {
-      parse_list_at_min_indent_with_first_item_column(
+  ctx.with_reuse_context(
+    @core.ReuseContext::new(33, content_indent, parent=Some(marker_context)),
+    fn() {
+      let context = ListItemFlowContext::{
+        content_indent,
+        marker_end_column,
+        allow_ordered_marker,
+        quote_context,
+      }
+      let starts_reference_definition = current_line_is_link_reference_definition(
         ctx,
-        0,
-        Some(context.content_indent),
       )
-      parse_list_item_flow_after_body(ctx, context, true)
-      return
-    }
-    OrderedListMarker(_) => {
-      parse_ordered_list_at_min_indent_with_first_item_column(
-        ctx,
-        0,
-        Some(context.content_indent),
-      )
-      parse_list_item_flow_after_body(ctx, context, true)
-      return
-    }
-    BlockQuoteMarker => {
-      parse_block_quote_with_prefix(ctx, None, ListOwned(content_indent))
-      parse_list_item_flow_after_body(ctx, context, true)
-      return
-    }
-    CodeFenceOpen(_, _) => {
-      parse_code_block(ctx)
-      parse_list_item_code_fence_tail(ctx, context)
-      return
-    }
-    HtmlBlockOpen(_) => {
-      parse_html_block(ctx, None, HtmlListItem(content_indent))
-      parse_list_item_flow_after_body(ctx, context, false)
-      return
-    }
-    HeadingMarker(_) => {
-      parse_heading(ctx)
-      parse_list_item_flow_after_body(ctx, context, true)
-      return
-    }
-    _ => ()
-  }
-  if starts_reference_definition {
-    parse_link_reference_definition(ctx)
-  } else if current_text_reaches_indented_code_column(
-      ctx, marker_end_column, content_indent,
-    ) {
-    parse_indented_code_block_from_current_line(
-      ctx,
-      min_indent=marker_end_column + 4,
-    )
-  } else if line_at_offset_is_thematic_break(ctx, 0) {
-    parse_inline_thematic_break(ctx)
-  } else if !has_paragraph_content ||
-    !list_item_has_setext_candidate(ctx, content_indent, allow_ordered_marker~) ||
-    !try_parse_list_item_setext_heading(
-      ctx,
-      content_indent,
-      allow_ordered_marker~,
-    ) {
-    parse_list_item_inline_content(
-      ctx,
-      content_indent,
-      allow_ordered_marker~,
-      quote_context~,
-    )
-  }
-  if !has_paragraph_content {
-    ignore(try_continue_empty_list_item_after_newline(ctx, context))
-  }
-  if ctx.peek() is Newline &&
-    ctx.peek_nth(1) is BlockQuoteMarker &&
-    ctx.peek_nth(2) is BlockQuoteMarker {
-    ignore(try_parse_list_item_quoted_blank_line_continuation(ctx, context))
-  }
-  parse_list_item_flow_after_body(ctx, context, has_paragraph_content)
+      let has_paragraph_content = !starts_reference_definition &&
+        list_item_line_starts_paragraph(ctx)
+      match ctx.peek() {
+        ListMarker => {
+          parse_list_at_min_indent_with_first_item_column(
+            ctx,
+            0,
+            Some(context.content_indent),
+          )
+          parse_list_item_flow_after_body(ctx, context, true)
+          return
+        }
+        OrderedListMarker(_) => {
+          parse_ordered_list_at_min_indent_with_first_item_column(
+            ctx,
+            0,
+            Some(context.content_indent),
+          )
+          parse_list_item_flow_after_body(ctx, context, true)
+          return
+        }
+        BlockQuoteMarker => {
+          let owner = match quote_context {
+            Some(quote) => QuotedListOwned(quote, content_indent)
+            None => ListOwned(content_indent)
+          }
+          parse_block_quote_with_prefix(ctx, None, owner)
+          parse_list_item_flow_after_body(ctx, context, true)
+          return
+        }
+        CodeFenceOpen(_, _) => {
+          match quote_context {
+            Some(quote) => {
+              parse_quoted_code_block_with_prefix(
+                ctx,
+                None,
+                quote_depth=physical_quote_depth(quote.ownership, quote.depth),
+              )
+              parse_list_item_flow_after_body(ctx, context, true)
+            }
+            None => {
+              parse_code_block(ctx)
+              parse_list_item_code_fence_tail(ctx, context)
+            }
+          }
+          return
+        }
+        HtmlBlockOpen(_) => {
+          let container = match quote_context {
+            Some(quote) => HtmlQuotedListItem(quote, content_indent)
+            None => HtmlListItem(content_indent)
+          }
+          parse_html_block(ctx, None, container)
+          parse_list_item_flow_after_body(ctx, context, false)
+          return
+        }
+        HeadingMarker(_) => {
+          parse_heading(ctx)
+          parse_list_item_flow_after_body(ctx, context, true)
+          return
+        }
+        _ => ()
+      }
+      if starts_reference_definition {
+        parse_link_reference_definition(ctx)
+      } else if current_text_reaches_indented_code_column(
+          ctx, marker_end_column, content_indent,
+        ) {
+        parse_indented_code_block_from_current_line(
+          ctx,
+          min_indent=marker_end_column + 4,
+        )
+      } else if line_at_offset_is_thematic_break(ctx, 0) {
+        parse_inline_thematic_break(ctx)
+      } else if !has_paragraph_content ||
+        !list_item_has_setext_candidate(
+          ctx,
+          content_indent,
+          allow_ordered_marker~,
+        ) ||
+        !try_parse_list_item_setext_heading(
+          ctx,
+          content_indent,
+          allow_ordered_marker~,
+        ) {
+        parse_list_item_inline_content(
+          ctx,
+          content_indent,
+          allow_ordered_marker~,
+          quote_context~,
+        )
+      }
+      if !has_paragraph_content {
+        ignore(try_continue_empty_list_item_after_newline(ctx, context))
+      }
+      if quote_context is None &&
+        ctx.peek() is Newline &&
+        ctx.peek_nth(1) is BlockQuoteMarker &&
+        ctx.peek_nth(2) is BlockQuoteMarker {
+        ignore(try_parse_list_item_quoted_blank_line_continuation(ctx, context))
+      }
+      parse_list_item_flow_after_body(ctx, context, has_paragraph_content)
+    },
+  )
 }
 
 ///|
@@ -2614,27 +2762,54 @@ fn parse_list_item_with_marker_start_column(
   marker_start_column : Int?,
   quote_context? : BlockQuoteLineContext? = None,
 ) -> Unit {
-  ctx.node(ListItemNode, fn() {
-    let marker_start_column = match marker_start_column {
-      Some(column) => column
-      None => consume_list_item_prefix(ctx)
-    }
-    let content_indent = current_list_item_content_indent(
-      ctx, marker_start_column,
-    )
-    let marker_end_column = columns_after(
-      ctx.current_token_text().to_owned(),
-      marker_start_column,
-    )
-    ctx.emit_token(ListMarkerToken)
-    parse_list_item_body(
+  let start_column = match marker_start_column {
+    Some(column) => column
+    None => current_token_leading_indent(ctx)
+  }
+  let context = @core.ReuseContext::new(
+    30,
+    start_column,
+    parent=ctx.current_reuse_context(),
+  )
+  ctx.with_reuse_context(context, fn() {
+    parse_list_item_with_marker_start_column_in_context(
       ctx,
-      content_indent,
-      marker_end_column,
-      allow_ordered_marker=true,
+      marker_start_column,
       quote_context~,
     )
   })
+}
+
+///|
+fn parse_list_item_with_marker_start_column_in_context(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  marker_start_column : Int?,
+  quote_context? : BlockQuoteLineContext? = None,
+) -> Unit {
+  if ctx.try_reuse_current_node(ListItemNode) {
+    return
+  }
+  ctx.start_node(ListItemNode)
+  let marker_start_column = match marker_start_column {
+    Some(column) => column
+    None => consume_list_item_prefix(ctx)
+  }
+  let content_indent = current_list_item_content_indent(
+    ctx, marker_start_column,
+  )
+  let marker_end_column = columns_after(
+    ctx.current_token_text().to_owned(),
+    marker_start_column,
+  )
+  ctx.emit_token(ListMarkerToken)
+  parse_list_item_body(
+    ctx,
+    content_indent,
+    marker_end_column,
+    allow_ordered_marker=true,
+    quote_context~,
+  )
+  ctx.finish_node()
 }
 
 ///|
@@ -2656,17 +2831,30 @@ fn parse_ordered_list_at_min_indent_with_first_item_column(
   min_indent : Int,
   first_item_marker_start_column : Int?,
 ) -> Unit {
-  ctx.node(OrderedListNode, fn() {
-    match current_ordered_list_marker(ctx) {
-      Some(opening_marker) =>
-        parse_list_items_at_min_indent(
-          ctx,
-          Ordered(opening_marker),
-          min_indent,
-          first_item_marker_start_column,
-        )
-      None => ()
-    }
+  let context = @core.ReuseContext::new(
+    42,
+    min_indent,
+    parent=Some(
+      @core.ReuseContext::new(
+        43,
+        first_item_marker_start_column.unwrap_or(-1),
+        parent=ctx.current_reuse_context(),
+      ),
+    ),
+  )
+  ctx.with_reuse_context(context, fn() {
+    ctx.node(OrderedListNode, fn() {
+      match current_ordered_list_marker(ctx) {
+        Some(opening_marker) =>
+          parse_list_items_at_min_indent(
+            ctx,
+            Ordered(opening_marker),
+            min_indent,
+            first_item_marker_start_column,
+          )
+        None => ()
+      }
+    })
   })
 }
 
@@ -2685,27 +2873,50 @@ fn parse_ordered_list_item_with_marker_start_column(
   marker_start_column : Int?,
   quote_context? : BlockQuoteLineContext? = None,
 ) -> Unit {
-  ctx.node(ListItemNode, fn() {
-    let marker_start_column = match marker_start_column {
-      Some(column) => column
-      None => consume_list_item_prefix(ctx)
-    }
-    let content_indent = current_list_item_content_indent(
-      ctx, marker_start_column,
-    )
-    let marker_end_column = columns_after(
-      ctx.current_token_text().to_owned(),
-      marker_start_column,
-    )
-    ctx.emit_token(OrderedListMarkerToken)
-    parse_list_item_body(
+  let parent = ctx.current_reuse_context()
+  let start_column = match marker_start_column {
+    Some(column) => column
+    None => current_token_leading_indent(ctx)
+  }
+  ctx.with_reuse_context(@core.ReuseContext::new(31, start_column, parent~), fn() {
+    parse_ordered_list_item_with_marker_start_column_in_context(
       ctx,
-      content_indent,
-      marker_end_column,
-      allow_ordered_marker=false,
+      marker_start_column,
       quote_context~,
     )
   })
+}
+
+///|
+fn parse_ordered_list_item_with_marker_start_column_in_context(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  marker_start_column : Int?,
+  quote_context? : BlockQuoteLineContext? = None,
+) -> Unit {
+  if ctx.try_reuse_current_node(ListItemNode) {
+    return
+  }
+  ctx.start_node(ListItemNode)
+  let marker_start_column = match marker_start_column {
+    Some(column) => column
+    None => consume_list_item_prefix(ctx)
+  }
+  let content_indent = current_list_item_content_indent(
+    ctx, marker_start_column,
+  )
+  let marker_end_column = columns_after(
+    ctx.current_token_text().to_owned(),
+    marker_start_column,
+  )
+  ctx.emit_token(OrderedListMarkerToken)
+  parse_list_item_body(
+    ctx,
+    content_indent,
+    marker_end_column,
+    allow_ordered_marker=false,
+    quote_context~,
+  )
+  ctx.finish_node()
 }
 
 ///|
@@ -2781,6 +2992,25 @@ fn consume_deferred_html_line(
 }
 
 ///|
+/// Unlike a paragraph, an HTML body cannot lazily leave its owning item.
+fn consume_quoted_list_html_prefix(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  quote : BlockQuoteLineContext,
+  content_indent : Int,
+) -> Bool {
+  guard consume_block_quote_marker_count(ctx, quote.ownership, quote.depth)
+    is Some(columns) else {
+    return false
+  }
+  guard ctx.peek() is Indentation(_) &&
+    current_quoted_content_indent(ctx, columns) >= content_indent else {
+    return false
+  }
+  ctx.emit_token(IndentationToken)
+  true
+}
+
+///|
 fn consume_container_html_block_body(
   ctx : @core.ParserContext[Token, SyntaxKind],
   container : HtmlBlockContainerContext,
@@ -2802,6 +3032,13 @@ fn consume_container_html_block_body(
       while ctx.peek() is Indentation(_) &&
             current_token_leading_indent(ctx) >= content_indent {
         ctx.emit_token(IndentationToken)
+        consume_deferred_html_line(ctx)
+      }
+    HtmlQuotedListItem(quote, content_indent) =>
+      while ctx.lookahead(() => {
+              consume_quoted_list_html_prefix(ctx, quote, content_indent)
+            }) {
+        ignore(consume_quoted_list_html_prefix(ctx, quote, content_indent))
         consume_deferred_html_line(ctx)
       }
     HtmlRoot => ()
@@ -2862,7 +3099,7 @@ fn parse_html_block(
       Type6 => {
         match container {
           HtmlRoot => consume_html_block_html_text_body(ctx)
-          HtmlBlockQuote | HtmlListItem(_) =>
+          HtmlBlockQuote | HtmlListItem(_) | HtmlQuotedListItem(_, _) =>
             consume_container_html_block_body(ctx, container)
         }
         while ctx.peek() is Newline {
@@ -2913,58 +3150,81 @@ fn parse_code_block_with_prefix(
   ctx : @core.ParserContext[Token, SyntaxKind],
   prefix : LinePrefix?,
 ) -> Unit {
-  ctx.node(CodeBlockNode, fn() {
-    match prefix {
-      Some(_) => ctx.emit_token(IndentationToken)
-      None => ()
-    }
-    ctx.emit_token(CodeFenceOpenToken)
-    while !(ctx.peek() is CodeFenceClose) && ctx.peek() != EOF {
-      match ctx.peek() {
-        CodeText(_) => ctx.emit_token(CodeTextToken)
-        Newline => ctx.emit_token(NewlineToken)
-        BlankLine => ctx.emit_token(BlankLineToken)
-        _ => ctx.bump_error()
-      }
-    }
-    if ctx.peek() is CodeFenceClose {
-      ctx.emit_token(CodeFenceCloseToken)
-    }
-    if ctx.peek() is Newline {
-      ctx.emit_token(NewlineToken)
-    }
-  })
+  ctx.with_reuse_context(
+    @core.ReuseContext::new(
+      50,
+      if prefix is Some(_) {
+        1
+      } else {
+        0
+      },
+      parent=ctx.current_reuse_context(),
+    ),
+    fn() {
+      ctx.node(CodeBlockNode, fn() {
+        match prefix {
+          Some(_) => ctx.emit_token(IndentationToken)
+          None => ()
+        }
+        ctx.emit_token(CodeFenceOpenToken)
+        while !(ctx.peek() is CodeFenceClose) && ctx.peek() != EOF {
+          match ctx.peek() {
+            CodeText(_) => ctx.emit_token(CodeTextToken)
+            Newline => ctx.emit_token(NewlineToken)
+            BlankLine => ctx.emit_token(BlankLineToken)
+            _ => ctx.bump_error()
+          }
+        }
+        if ctx.peek() is CodeFenceClose {
+          ctx.emit_token(CodeFenceCloseToken)
+        }
+        if ctx.peek() is Newline {
+          ctx.emit_token(NewlineToken)
+        }
+      })
+    },
+  )
 }
 
 ///|
 fn parse_quoted_code_block_with_prefix(
   ctx : @core.ParserContext[Token, SyntaxKind],
   prefix : LinePrefix?,
+  quote_depth~ : Int,
 ) -> Unit {
-  ctx.node(CodeBlockNode, fn() {
-    match prefix {
-      Some(_) => ctx.emit_token(IndentationToken)
-      None => ()
-    }
-    ctx.emit_token(CodeFenceOpenToken)
-    while ctx.peek() != EOF {
-      match ctx.peek() {
-        CodeFenceClose => {
-          ctx.emit_token(CodeFenceCloseToken)
-          if ctx.peek() is Newline {
-            ctx.emit_token(NewlineToken)
-          }
-          break
+  ctx.with_reuse_context(
+    @core.ReuseContext::new(51, quote_depth, parent=ctx.current_reuse_context()),
+    fn() {
+      ctx.node(CodeBlockNode, fn() {
+        match prefix {
+          Some(_) => ctx.emit_token(IndentationToken)
+          None => ()
         }
-        CodeText(_) => ctx.emit_token(CodeTextToken)
-        Indentation(_) if ctx.peek_nth(1) is BlockQuoteMarker =>
-          ctx.emit_token(IndentationToken)
-        BlockQuoteMarker => ctx.emit_token(BlockQuoteMarkerToken)
-        Newline => ctx.emit_token(NewlineToken)
-        BlankLine | _ => break
-      }
-    }
-  })
+        ctx.emit_token(CodeFenceOpenToken)
+        while ctx.peek() != EOF {
+          match ctx.peek() {
+            CodeFenceClose => {
+              ctx.emit_token(CodeFenceCloseToken)
+              if ctx.peek() is Newline {
+                ctx.emit_token(NewlineToken)
+              }
+              break
+            }
+            CodeText(_) => ctx.emit_token(CodeTextToken)
+            Indentation(_) if ctx.peek_nth(1) is BlockQuoteMarker &&
+              ctx.lookahead(() => {
+                ctx.emit_token(IndentationToken)
+                quote_marker_count(ctx.current_token_text()) == quote_depth
+              }) => ctx.emit_token(IndentationToken)
+            BlockQuoteMarker if quote_marker_count(ctx.current_token_text()) ==
+              quote_depth => ctx.emit_token(BlockQuoteMarkerToken)
+            Newline => ctx.emit_token(NewlineToken)
+            BlankLine | _ => break
+          }
+        }
+      })
+    },
+  )
 }
 
 ///|
@@ -2975,14 +3235,19 @@ fn parse_indented_code_block_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
 ) -> Unit {
-  ctx.node(CodeBlockNode, fn() {
-    consume_indented_code_body(ctx, min_indent)
-    if ctx.peek() is Newline {
-      ctx.emit_token(NewlineToken)
-    } else if ctx.peek() is BlankLine {
-      ctx.emit_token(BlankLineToken)
-    }
-  })
+  ctx.with_reuse_context(
+    @core.ReuseContext::new(53, min_indent, parent=ctx.current_reuse_context()),
+    fn() {
+      ctx.node(CodeBlockNode, fn() {
+        consume_indented_code_body(ctx, min_indent)
+        if ctx.peek() is Newline {
+          ctx.emit_token(NewlineToken)
+        } else if ctx.peek() is BlankLine {
+          ctx.emit_token(BlankLineToken)
+        }
+      })
+    },
+  )
 }
 
 ///|
@@ -2998,17 +3263,26 @@ fn parse_indented_code_block(
 fn parse_quoted_indented_code_block_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
-  ownership : BlockQuotePrefixOwnership,
+  quote : BlockQuoteLineContext,
 ) -> Unit {
-  ctx.node(CodeBlockNode, fn() {
-    consume_quoted_indented_code_body(ctx, min_indent, ownership)
+  // An edit just after this node can change the quote-owned continuation.
+  let context = @core.ReuseContext::new(
+    54,
+    min_indent,
+    parent=Some(
+      @core.ReuseContext::new(
+        55,
+        quote.depth,
+        parent=ctx.current_reuse_context(),
+      ),
+    ),
+  )
+  ctx.with_reuse_context(context, fn() {
+    if ctx.try_reuse_current_node(CodeBlockNode) {
+      return
+    }
+    ctx.start_node(CodeBlockNode)
+    consume_quoted_indented_code_body(ctx, min_indent, quote)
+    ctx.finish_node()
   })
-}
-
-///|
-fn parse_quoted_indented_code_block(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  ownership~ : BlockQuotePrefixOwnership,
-) -> Unit {
-  parse_quoted_indented_code_block_at_min_indent(ctx, 4, ownership)
 }
