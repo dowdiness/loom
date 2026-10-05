@@ -509,3 +509,157 @@ test "dependency checkpoints retain retroactive children and parent siblings" {
   )
   assert_eq(restored.tree, outside.tree)
 }
+
+///|
+fn dependency_wrapping_roundtrip(tracking : Bool) -> Unit raise {
+  let mut executions = 0
+  let spec = dependency_test_spec(
+    ctx => {
+      let mark = ctx.mark()
+      ctx.node(KExpr, () => {
+        executions += 1
+        ctx.emit_token(KNum)
+      })
+      let checkpoint = ctx.checkpoint()
+      for closed in [false, true] {
+        ctx.start_at(mark, KComment)
+        ctx.report_at_current(message="speculative diagnostic")
+        if closed {
+          ctx.finish_node()
+        }
+        ctx.restore(checkpoint)
+      }
+      // A restored mark must be claimable by the committed alternative.
+      ctx.start_at(mark, KComment)
+      ctx.finish_node()
+      dependency_drain(ctx)
+    },
+    tracking~,
+  )
+  let initial = dependency_parse("1+2+3", spec)
+  executions = 0
+  let outside = dependency_parse(
+    "1+2+4",
+    spec,
+    previous=initial,
+    edit=Edit::new(4, 1, 1),
+  )
+  assert_eq(executions, 0)
+  assert_eq(outside.tree, dependency_parse(outside.source, spec).tree)
+  let undone = dependency_parse(
+    initial.source,
+    spec,
+    previous=outside,
+    edit=Edit::new(4, 1, 1),
+  )
+  assert_eq(undone.tree, initial.tree)
+}
+
+///|
+test "speculative wrapping rollback restores dependency-certified children" {
+  dependency_wrapping_roundtrip(true)
+}
+
+///|
+test "speculative wrapping rollback restores legacy parser events" {
+  dependency_wrapping_roundtrip(false)
+}
+
+///|
+test "speculative wrapping rollback preserves same-span occurrence ambiguity" {
+  let spec = dependency_test_spec(ctx => {
+    ctx.start_node(KExpr)
+    let mark = ctx.mark()
+    ctx.node(KExpr, () => ctx.emit_token(KNum))
+    ctx.lookahead(() => ctx.start_at(mark, KComment))
+    ctx.finish_node()
+    dependency_drain(ctx)
+  })
+  let initial = dependency_parse("1+2+3", spec)
+  let outside = dependency_parse(
+    "1+2+4",
+    spec,
+    previous=initial,
+    edit=Edit::new(4, 1, 1),
+  )
+  assert_eq(outside.tree, dependency_parse(outside.source, spec).tree)
+  let undone = dependency_parse(
+    initial.source,
+    spec,
+    previous=outside,
+    edit=Edit::new(4, 1, 1),
+  )
+  assert_eq(undone.tree, initial.tree)
+}
+
+///|
+test "nested speculative wrapping rollback retains siblings and observations" {
+  let mut executions = 0
+  let spec = dependency_test_spec(ctx => {
+    ctx.node(KNum, () => ctx.emit_token(KNum))
+    ctx.node(KExpr, () => {
+      executions += 1
+      let outer_mark = ctx.mark()
+      ctx.node(KComment, () => {
+        ctx.emit_token(KPlus)
+        ctx.emit_token(KNum)
+      })
+      let inner_mark = ctx.mark()
+      ctx.node(KNum, () => {
+        ctx.emit_token(KPlus)
+        ctx.emit_token(KNum)
+      })
+      let checkpoint = ctx.checkpoint()
+      let mut special = false
+      for closed in [false, true] {
+        ctx.start_at(outer_mark, KRoot)
+        let nested = ctx.checkpoint()
+        ctx.start_at(inner_mark, KComment)
+        special = ctx.peek_nth(3) == Num(5)
+        if closed {
+          ctx.finish_node()
+          ctx.finish_node()
+        }
+        ctx.restore(nested)
+        ctx.finish_node()
+        ctx.restore(checkpoint)
+      }
+      if special {
+        ctx.start_node(KRoot)
+      }
+      ctx.emit_token(KPlus)
+      ctx.emit_token(KNum)
+      if special {
+        ctx.finish_node()
+      }
+    })
+    dependency_drain(ctx)
+  })
+  let initial = dependency_parse("1+2+3+4+5+6+7", spec)
+  executions = 0
+  let outside = dependency_parse(
+    "1+2+3+4+5+6+8",
+    spec,
+    previous=initial,
+    edit=Edit::new(12, 1, 1),
+  )
+  assert_eq(executions, 0)
+  assert_eq(outside.tree, dependency_parse(outside.source, spec).tree)
+  executions = 0
+  let observed = dependency_parse(
+    "1+2+3+4+9+6+8",
+    spec,
+    previous=outside,
+    edit=Edit::new(8, 1, 1),
+  )
+  assert_eq(executions, 1)
+  assert_true(observed.tree.children()[1] != outside.tree.children()[1])
+  assert_eq(observed.tree, dependency_parse(observed.source, spec).tree)
+  let undone = dependency_parse(
+    outside.source,
+    spec,
+    previous=observed,
+    edit=Edit::new(8, 1, 1),
+  )
+  assert_eq(undone.tree, outside.tree)
+}

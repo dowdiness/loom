@@ -15,8 +15,15 @@ Notable user-facing changes to Loom and its sibling modules.
   `track_reuse_dependencies`; `ParserContext` exposes exact entry-context scopes
   and explicit source observations. Indexed parses can publish an immutable
   `ReuseDependencies` sidecar for the next reuse cursor.
+- Opaque `EventCheckpoint` snapshots with `EventBuffer::checkpoint` and
+  `EventBuffer::restore` for rolling back appended events and retroactive marks.
 
 ### Fixed
+
+- Parser rollback restores children moved by speculative `start_at` wrapping,
+  including nested same-kind/same-span dependency occurrences. It also undoes
+  claims on earlier event marks, preventing unbalanced CSTs and allowing a
+  restored mark to be claimed by another alternative.
 
 - Markdown quoted list items retain nested lists, headings, fenced and indented
   code, HTML, and paragraphs after quoted blank lines inside the owning item.

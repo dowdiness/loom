@@ -191,6 +191,11 @@ configuration transaction; do not use it with setters such as
 `checkpoint`/`restore` pair only when a parser must commit a successful branch
 and roll back a failed one.
 
+Rollback includes `start_at` claims on marks created before the checkpoint and
+dependency children moved into speculative wrappers. Restored marks can be
+claimed again. Checkpoints belong to the same parser and support backward
+rollback, not forward replay after restoring an older checkpoint.
+
 `ctx.node(kind, body)` is the primary building block: it attempts incremental reuse from a prior parse, falling back to `start_node → body() → finish_node` on a miss. Prefer it over bare `start_node`/`finish_node` whenever incremental parsing is needed.
 
 `ctx.separated_list(element_kind, separator, parse_element, element_start?,

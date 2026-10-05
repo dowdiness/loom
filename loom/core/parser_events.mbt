@@ -191,9 +191,10 @@ pub fn[T, K] ParserContext::mark(self : ParserContext[T, K]) -> Int {
 }
 
 ///|
-/// Save checkpointed parser execution state: position, events, diagnostic
-/// additions, open-node count/stack, reuse cursor/count, entry context, and
-/// dependency-frame shape. Source observations survive rollback.
+/// Save checkpointed parser execution state: position, emitted events and
+/// retroactive event claims, diagnostic additions, open-node count/stack,
+/// reuse cursor/count, entry context, and dependency-frame shape. Source
+/// observations survive rollback.
 pub fn[T, K] ParserContext::checkpoint(
   self : ParserContext[T, K],
 ) -> Checkpoint[T, K] {
@@ -204,7 +205,7 @@ pub fn[T, K] ParserContext::checkpoint(
   }
   {
     position: self.position,
-    events_len: self.events.length(),
+    events: self.events.checkpoint(),
     node_stack_snapshot: node_stack,
     error_count: self.error_count,
     open_nodes: self.open_nodes,
@@ -219,13 +220,14 @@ pub fn[T, K] ParserContext::checkpoint(
 }
 
 ///|
-/// Restore checkpointed execution state saved by checkpoint().
+/// Restore checkpointed execution state saved by checkpoint(), including
+/// undoing retroactive event claims made after the checkpoint.
 pub fn[T, K] ParserContext::restore(
   self : ParserContext[T, K],
   cp : Checkpoint[T, K],
 ) -> Unit {
   self.position = cp.position
-  self.events.truncate(cp.events_len)
+  self.events.restore(cp.events)
   self.diagnostics.truncate(cp.error_count)
   self.error_count = cp.error_count
   self.open_nodes = cp.open_nodes
@@ -251,9 +253,10 @@ pub fn[T, K] ParserContext::restore(
 /// state and return the body's result.
 ///
 /// Use for pure lookahead whose effects are limited to token consumption,
-/// events, diagnostic additions, open-node count/stack, reuse cursor/count,
-/// entry context, and dependency-frame shape. Failed lookahead observations
-/// remain dependencies of the containing parse.
+/// appended events and retroactive event claims, diagnostic additions, open-
+/// node count/stack, reuse cursor/count, entry context, and dependency-frame
+/// shape. Failed lookahead observations remain dependencies of the containing
+/// parse.
 /// It does not roll back in-place diagnostic mutation or parser configuration
 /// such as goal sources, goal subsumption checks, or reuse diagnostics.
 ///

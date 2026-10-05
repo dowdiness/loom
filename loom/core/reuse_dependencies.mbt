@@ -64,11 +64,19 @@ priv struct DependencyFrame {
 }
 
 ///|
+priv struct DependencyWrapUndo {
+  parent : DependencyFrame
+  first_child : Int
+  children : Array[DependencyChild]
+}
+
+///|
 priv struct DependencyBuilder {
   root : DependencyFrame
   mut frame : DependencyFrame
   marks : Map[Int, Int]
   mark_events : Array[Int]
+  wrap_undos : Array[DependencyWrapUndo]
   mut observation : DependencyObservation?
   mut next_observation : Int
   mut pending_token_start : Int
@@ -80,6 +88,7 @@ priv struct DependencyCheckpoint {
   frame : DependencyFrame
   children_len : Int
   marks_len : Int
+  wraps_len : Int
   observation : DependencyObservation
 }
 
@@ -119,6 +128,7 @@ fn DependencyBuilder::new(kind : @seam.RawKind) -> DependencyBuilder {
     frame: root,
     marks: {},
     mark_events: [],
+    wrap_undos: [],
     observation: None,
     next_observation: 0,
     pending_token_start: 2147483647,
@@ -250,6 +260,15 @@ fn DependencyBuilder::start_at(
   while first > 0 && parent.children[first - 1].event >= mark {
     first -= 1
   }
+  // A checkpoint's child count cannot recover entries moved out of this
+  // array. Save only the destructive suffix, not every frame at checkpoint.
+  if self.observation is Some(_) && first < parent.children.length() {
+    self.wrap_undos.push({
+      parent,
+      first_child: first,
+      children: parent.children[first:].to_owned(),
+    })
+  }
   for i in first..<parent.children.length() {
     let child = parent.children[i]
     children.push({
@@ -291,6 +310,7 @@ fn DependencyBuilder::checkpoint(
     frame: self.frame,
     children_len: self.frame.children.length(),
     marks_len: self.mark_events.length(),
+    wraps_len: self.wrap_undos.length(),
     observation,
   }
 }
@@ -317,6 +337,15 @@ fn DependencyBuilder::restore(
   // Keep a directly restored checkpoint observing subsequent attempts. The
   // lookahead combinator explicitly releases its private checkpoint afterward.
   self.observation = Some(observed)
+  // Undo moves before trimming speculative publications or reopening ancestors.
+  // Reverse order also restores children moved through nested wrappers.
+  while self.wrap_undos.length() > checkpoint.wraps_len {
+    let undo = self.wrap_undos.pop().unwrap()
+    undo.parent.children.truncate(undo.first_child)
+    for child in undo.children {
+      undo.parent.children.push(child)
+    }
+  }
   self.frame = checkpoint.frame
   self.frame.children.truncate(checkpoint.children_len)
   // Saved links also retain ancestors closed by the speculative branch.

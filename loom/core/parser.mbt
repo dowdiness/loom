@@ -171,7 +171,7 @@ pub struct ParserContext[T, K] {
 /// Create with checkpoint(), restore with restore().
 pub(all) struct Checkpoint[T, K] {
   priv position : Int
-  priv events_len : Int
+  priv events : @seam.EventCheckpoint
   priv node_stack_snapshot : Array[K]
   priv error_count : Int
   priv open_nodes : Int
