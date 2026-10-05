@@ -108,6 +108,20 @@ extent. One-shot and detached block parses do not build a sidecar unless the
 indexed driver is asked to capture one. This costs bookkeeping on captured
 parses in exchange for restoring safe quoted-node reuse.
 
+Dependency frames keep immutable parent links and the parent's child count at
+entry. Only the current frame's child list changes while a descendant is open;
+retroactive wrapping records the parent count after moving its children.
+A dependency checkpoint therefore saves the current frame and its child count,
+not a copy of every open frame. Restore follows the saved links and truncates
+each child list to its recorded prefix, including ancestors closed by a
+speculative branch. Frame observations remain shared, monotonic evidence.
+
+This makes dependency checkpoint capture constant-size and removes allocation
+of a replacement dependency stack during restore. Restore still visits the
+saved ancestors. The separate `ParserContext` node-kind stack, cursor snapshot,
+and other rollback state are unchanged; this is not a constant-time claim for
+the complete public checkpoint operation.
+
 ## Rationale
 
 The four Markdown consumers establish a repeated, low-level parser-owned

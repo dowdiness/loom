@@ -65,6 +65,11 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Changed
 
+- Dependency-aware parser checkpoints retain a shared parent-linked frame chain
+  instead of copying every open dependency frame. Rollback preserves failed
+  lookahead observations and the existing parser-state contract while reducing
+  checkpoint allocation.
+
 - CI and scheduled benchmarks now use MoonBit `0.10.14+7d59c7ec9`.
   Source formatting and strict-warning compatibility follow that toolchain.
   Existing trait implementations use explicit `pub extend` declarations where

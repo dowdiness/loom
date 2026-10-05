@@ -384,3 +384,128 @@ test "reuse dependencies distinguish nested same-kind occurrences at one span" {
   )
   assert_eq(incremental.tree, dependency_parse(incremental.source, spec).tree)
 }
+
+///|
+test "dependency checkpoints reopen ancestors across repeated alternatives" {
+  let mut executions = 0
+  let spec = dependency_test_spec(ctx => {
+    ctx.node(KExpr, () => {
+      executions += 1
+      ctx.start_node(KComment)
+      ctx.emit_token(KNum)
+      let checkpoint = ctx.checkpoint()
+      let special = ctx.lookahead(() => {
+        ctx.emit_token(KPlus)
+        ctx.emit_token(KNum)
+        ctx.finish_node()
+        ctx.finish_node()
+        ctx.node(KRoot, () => ctx.emit_token(KPlus))
+        ctx.peek_nth(4) == Num(5)
+      })
+      for _ in 0..<2 {
+        ctx.finish_node()
+        ctx.finish_node()
+        ctx.node(KRoot, () => ctx.emit_token(KPlus))
+        ctx.restore(checkpoint)
+      }
+      if special {
+        ctx.start_node(KRoot)
+      }
+      ctx.emit_token(KPlus)
+      ctx.emit_token(KNum)
+      if special {
+        ctx.finish_node()
+      }
+      ctx.finish_node()
+    })
+    dependency_drain(ctx)
+  })
+  let initial = dependency_parse("1+2+3+4+5+6+7", spec)
+  executions = 0
+  let outside = dependency_parse(
+    "1+2+3+4+5+6+8",
+    spec,
+    previous=initial,
+    edit=Edit::new(12, 1, 1),
+  )
+  assert_eq(executions, 0)
+  assert_eq(outside.tree, dependency_parse(outside.source, spec).tree)
+  executions = 0
+  let observed = dependency_parse(
+    "1+2+3+4+9+6+8",
+    spec,
+    previous=outside,
+    edit=Edit::new(8, 1, 1),
+  )
+  assert_eq(executions, 1)
+  assert_true(observed.tree.children()[0] != outside.tree.children()[0])
+  assert_eq(observed.tree, dependency_parse(observed.source, spec).tree)
+  let restored = dependency_parse(
+    outside.source,
+    spec,
+    previous=observed,
+    edit=Edit::new(8, 1, 1),
+  )
+  assert_eq(restored.tree, outside.tree)
+}
+
+///|
+test "dependency checkpoints retain retroactive children and parent siblings" {
+  let mut executions = 0
+  let spec = dependency_test_spec(ctx => {
+    ctx.node(KNum, () => ctx.emit_token(KNum))
+    if !ctx.try_reuse_current_node(KExpr) {
+      executions += 1
+      let mark = ctx.mark()
+      ctx.node(KComment, () => {
+        ctx.emit_token(KPlus)
+        ctx.emit_token(KNum)
+      })
+      ctx.start_at(mark, KExpr)
+      let checkpoint = ctx.checkpoint()
+      let special = ctx.lookahead(() => {
+        ctx.finish_node()
+        ctx.node(KRoot, () => ctx.emit_token(KPlus))
+        ctx.peek_nth(4) == Num(5)
+      })
+      ctx.restore(checkpoint)
+      if special {
+        ctx.start_node(KRoot)
+      }
+      ctx.emit_token(KPlus)
+      ctx.emit_token(KNum)
+      if special {
+        ctx.finish_node()
+      }
+      ctx.finish_node()
+    }
+    dependency_drain(ctx)
+  })
+  let initial = dependency_parse("1+2+3+4+5+6+7", spec)
+  executions = 0
+  let outside = dependency_parse(
+    "1+2+3+4+5+6+8",
+    spec,
+    previous=initial,
+    edit=Edit::new(12, 1, 1),
+  )
+  assert_eq(executions, 0)
+  assert_eq(outside.tree, dependency_parse(outside.source, spec).tree)
+  executions = 0
+  let observed = dependency_parse(
+    "1+2+3+4+9+6+8",
+    spec,
+    previous=outside,
+    edit=Edit::new(8, 1, 1),
+  )
+  assert_eq(executions, 1)
+  assert_true(observed.tree.children()[1] != outside.tree.children()[1])
+  assert_eq(observed.tree, dependency_parse(observed.source, spec).tree)
+  let restored = dependency_parse(
+    outside.source,
+    spec,
+    previous=observed,
+    edit=Edit::new(8, 1, 1),
+  )
+  assert_eq(restored.tree, outside.tree)
+}

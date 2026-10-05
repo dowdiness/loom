@@ -54,6 +54,10 @@ priv struct DependencyFrame {
   start : Int
   event : Int
   context : ReuseContext?
+  // Ancestor child lists stay frozen while a descendant is current. Save their
+  // lengths on entry so checkpoints only need the current frame's child count.
+  parent : DependencyFrame?
+  parent_children_len : Int
   mut read_start : Int
   mut read_end : Int
   children : Array[DependencyChild]
@@ -61,7 +65,8 @@ priv struct DependencyFrame {
 
 ///|
 priv struct DependencyBuilder {
-  mut frames : Array[DependencyFrame]
+  root : DependencyFrame
+  mut frame : DependencyFrame
   marks : Map[Int, Int]
   mark_events : Array[Int]
   mut observation : DependencyObservation?
@@ -72,7 +77,8 @@ priv struct DependencyBuilder {
 
 ///|
 priv struct DependencyCheckpoint {
-  frames : Array[(DependencyFrame, Int)]
+  frame : DependencyFrame
+  children_len : Int
   marks_len : Int
   observation : DependencyObservation
 }
@@ -97,18 +103,20 @@ fn DependencyObservation::observe(
 
 ///|
 fn DependencyBuilder::new(kind : @seam.RawKind) -> DependencyBuilder {
+  let root : DependencyFrame = {
+    kind,
+    start: 0,
+    event: -1,
+    context: None,
+    parent: None,
+    parent_children_len: 0,
+    read_start: 0,
+    read_end: 0,
+    children: [],
+  }
   {
-    frames: [
-      {
-        kind,
-        start: 0,
-        event: -1,
-        context: None,
-        read_start: 0,
-        read_end: 0,
-        children: [],
-      },
-    ],
+    root,
+    frame: root,
     marks: {},
     mark_events: [],
     observation: None,
@@ -138,7 +146,7 @@ fn DependencyBuilder::flush_tokens(
 
 ///|
 fn DependencyBuilder::current(self : DependencyBuilder) -> DependencyFrame {
-  self.frames[self.frames.length() - 1]
+  self.frame
 }
 
 ///|
@@ -172,15 +180,18 @@ fn DependencyBuilder::start_node(
   event : Int,
   context : ReuseContext?,
 ) -> Unit {
-  self.frames.push({
+  let parent = self.frame
+  self.frame = {
     kind,
     start,
     event,
     context,
+    parent: Some(parent),
+    parent_children_len: parent.children.length(),
     read_start: start,
     read_end: start,
     children: [],
-  })
+  }
 }
 
 ///|
@@ -197,8 +208,9 @@ fn DependencyBuilder::place(
 
 ///|
 fn DependencyBuilder::finish_node(self : DependencyBuilder, end : Int) -> Unit {
-  guard self.frames.length() > 1 else { return }
-  let frame = self.frames.pop().unwrap()
+  let frame = self.frame
+  guard frame.parent is Some(parent) else { return }
+  self.frame = parent
   frame.observe(frame.start, end)
   self.place(
     {
@@ -250,15 +262,17 @@ fn DependencyBuilder::start_at(
   // Retroactive wrappers include observations made before they were opened.
   // The containing frame is a conservative envelope; it also covers failed
   // lookahead that emitted no children between mark() and start_at().
-  self.frames.push({
+  self.frame = {
     kind,
     start,
     event: mark,
     context,
+    parent: Some(parent),
+    parent_children_len: parent.children.length(),
     read_start: parent.read_start.min(start),
     read_end: parent.read_end.max(start),
     children,
-  })
+  }
 }
 
 ///|
@@ -274,7 +288,8 @@ fn DependencyBuilder::checkpoint(
   self.next_observation += 1
   self.observation = Some(observation)
   {
-    frames: self.frames.map(frame => (frame, frame.children.length())),
+    frame: self.frame,
+    children_len: self.frame.children.length(),
     marks_len: self.mark_events.length(),
     observation,
   }
@@ -297,18 +312,17 @@ fn DependencyBuilder::restore(
     observed.observe(observer.start, observer.end)
   }
   if observed.start <= observed.end {
-    checkpoint.frames[checkpoint.frames.length() - 1].0.observe(
-      observed.start,
-      observed.end,
-    )
+    checkpoint.frame.observe(observed.start, observed.end)
   }
   // Keep a directly restored checkpoint observing subsequent attempts. The
   // lookahead combinator explicitly releases its private checkpoint afterward.
   self.observation = Some(observed)
-  self.frames = checkpoint.frames.map(pair => {
-    pair.0.children.truncate(pair.1)
-    pair.0
-  })
+  self.frame = checkpoint.frame
+  self.frame.children.truncate(checkpoint.children_len)
+  // Saved links also retain ancestors closed by the speculative branch.
+  for child = self.frame; child.parent is Some(parent); child = parent {
+    parent.children.truncate(child.parent_children_len)
+  }
   while self.mark_events.length() > checkpoint.marks_len {
     let event = self.mark_events.pop().unwrap()
     self.marks.remove(event)
@@ -334,7 +348,7 @@ fn DependencyBuilder::finish(
   kind : @seam.RawKind,
   text_len : Int,
 ) -> ReuseDependencies {
-  let frame = self.frames[0]
+  let frame = self.root
   let root = if frame.children.length() == 1 &&
     frame.children[0].offset == 0 &&
     frame.children[0].node.kind == kind &&
