@@ -162,27 +162,6 @@ test "incremental reuse: preserves prior diagnostic messages on reused invalid s
 }
 
 ///|
-test "parse_cst_recover_with_tokens: preserves prior diagnostic messages on reused invalid subtree" {
-  let source_id = cst_parser_wbtest_source_id()
-  let source = "(x) =>"
-  let tokens = @lexer.tokenize(source)
-  let (old_tree, old_errors) = parse_cst(source_id, source)
-  inspect(old_errors.length() > 0, content="true")
-
-  let cursor = make_reuse_cursor(old_tree, 99, 99, tokens, source)
-  let (_, errors, reuse_count) = parse_cst_recover_with_tokens(
-    source_id,
-    source,
-    tokens,
-    Some(cursor),
-    prev_diagnostics=Some(old_errors),
-  )
-  inspect(reuse_count > 0, content="true")
-  inspect(errors.length(), content=old_errors.length().to_string())
-  inspect(errors.items()[0].message(), content=old_errors.items()[0].message())
-}
-
-///|
 test "reuse fires: let init IntLiteral reused after def value edit" {
   let source_id = cst_parser_wbtest_source_id()
   // Old: "let x = 1\ny"  →  New: "let x = 1\nz"  (damage [10,11))

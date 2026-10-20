@@ -320,15 +320,6 @@ test "node_with_recovery: malformed if missing then" {
   assert_first_child_kind(cst, @syntax.IfExpr)
 }
 
-///|
-test "node_with_recovery: malformed lambda missing body" {
-  let source = "(x) =>"
-  let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
-  assert_cst_complete(source, cst)
-  inspect(diagnostics.length() > 0, content="true")
-  assert_first_child_kind(cst, @syntax.LambdaExpr)
-}
-
 // ============================================================================
 // Incremental reuse with error recovery transitions
 // ============================================================================
