@@ -6,7 +6,7 @@ suberror CountError {
 
 ///|
 struct Count {
-  value : Int
+  value : Int32
 }
 
 ///|
@@ -41,7 +41,7 @@ fn Quantifier::Quantifier(kind : QuantifierKind) -> Quantifier {
 }
 
 ///|
-fn Count::Count(value : Int) -> Count raise CountError {
+fn Count::Count(value : Int32) -> Count raise CountError {
   guard value >= 0 && value <= counted_quantifier_limit() else {
     raise OutOfRange
   }
@@ -49,7 +49,7 @@ fn Count::Count(value : Int) -> Count raise CountError {
 }
 
 ///|
-fn checked_count(value : Int) -> Count? {
+fn checked_count(value : Int32) -> Count? {
   try Count(value) catch {
     _ => None
   } noraise {
@@ -58,7 +58,7 @@ fn checked_count(value : Int) -> Count? {
 }
 
 ///|
-fn Count::to_int(self : Count) -> Int {
+fn Count::to_int(self : Count) -> Int32 {
   self.value
 }
 
@@ -73,7 +73,7 @@ fn CountRange::CountRange(
 }
 
 ///|
-fn RepeatBounds::exact(value : Int) -> RepeatBounds? {
+fn RepeatBounds::exact(value : Int32) -> RepeatBounds? {
   match checked_count(value) {
     Some(count) => Some(Exact(count))
     None => None
@@ -81,7 +81,7 @@ fn RepeatBounds::exact(value : Int) -> RepeatBounds? {
 }
 
 ///|
-fn RepeatBounds::at_least(value : Int) -> RepeatBounds? {
+fn RepeatBounds::at_least(value : Int32) -> RepeatBounds? {
   match checked_count(value) {
     Some(count) => Some(AtLeast(count))
     None => None
@@ -89,7 +89,7 @@ fn RepeatBounds::at_least(value : Int) -> RepeatBounds? {
 }
 
 ///|
-fn RepeatBounds::range(min : Int, max : Int) -> RepeatBounds? {
+fn RepeatBounds::range(min : Int32, max : Int32) -> RepeatBounds? {
   match (checked_count(min), checked_count(max)) {
     (Some(min), Some(max)) =>
       try CountRange(min, max) catch {
@@ -102,7 +102,7 @@ fn RepeatBounds::range(min : Int, max : Int) -> RepeatBounds? {
 }
 
 ///|
-fn RepeatBounds::min(self : RepeatBounds) -> Int {
+fn RepeatBounds::min(self : RepeatBounds) -> Int32 {
   match self {
     Exact(min) | AtLeast(min) => min.to_int()
     Range(bounds) => bounds.min.to_int()
@@ -111,7 +111,7 @@ fn RepeatBounds::min(self : RepeatBounds) -> Int {
 
 ///|
 /// MoonBit `re` rejects counted bounds above 256 (native compile probe).
-fn counted_quantifier_limit() -> Int {
+fn counted_quantifier_limit() -> Int32 {
   256
 }
 
@@ -240,7 +240,7 @@ fn PatternParser::parse_counted(
 }
 
 ///|
-fn decimal_to_int(pattern : String, start : Int, end : Int) -> Int {
+fn decimal_to_int(pattern : String, start : Int32, end : Int32) -> Int32 {
   let mut value = 0
   let mut i = start
   while i < end {
@@ -253,10 +253,10 @@ fn decimal_to_int(pattern : String, start : Int, end : Int) -> Int {
 ///|
 fn decimal_leq(
   pattern : String,
-  left_start : Int,
-  left_end : Int,
-  right_start : Int,
-  right_end : Int,
+  left_start : Int32,
+  left_end : Int32,
+  right_start : Int32,
+  right_end : Int32,
 ) -> Bool {
   let mut left = left_start
   while left < left_end && pattern[left] == '0' {
@@ -284,8 +284,8 @@ fn decimal_leq(
 ///|
 fn decimal_leq_limit(
   pattern : String,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   limit : String,
 ) -> Bool {
   let mut value = start
@@ -307,7 +307,7 @@ fn decimal_leq_limit(
 }
 
 ///|
-fn PatternParser::scan_decimal_end(self : PatternParser, from : Int) -> Int {
+fn PatternParser::scan_decimal_end(self : PatternParser, from : Int32) -> Int32 {
   let mut end = from
   while end < self.length && is_ascii_digit(self.pattern[end]) {
     end = end + 1
@@ -319,8 +319,8 @@ fn PatternParser::scan_decimal_end(self : PatternParser, from : Int) -> Int {
 fn PatternParser::recover_counted(
   self : PatternParser,
   node : Pattern,
-  open : Int,
-  from : Int,
+  open : Int32,
+  from : Int32,
 ) -> Pattern {
   self.note_malformed(open)
   self.pos = from

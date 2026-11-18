@@ -92,10 +92,10 @@ fn diagnostics_have_code(
 ///|
 fn assert_rename_diagnostic_labels(
   diagnostic : @core.Diagnostic,
-  primary_start : Int,
-  primary_end : Int,
-  secondary_start : Int,
-  secondary_end : Int,
+  primary_start : Int32,
+  primary_end : Int32,
+  secondary_start : Int32,
+  secondary_end : Int32,
   secondary_message : String,
 ) -> Unit raise {
   let source_id = rename_test_source_id()
@@ -126,7 +126,7 @@ fn assert_rename_diagnostic_labels(
 ///|
 fn edit_starting_at(
   edits : Array[@rename.TextEdit],
-  start : Int,
+  start : Int32,
 ) -> @rename.TextEdit {
   for e in edits {
     if e.start == start {
@@ -137,7 +137,7 @@ fn edit_starting_at(
 }
 
 ///|
-fn edits_cover_offset(edits : Array[@rename.TextEdit], offset : Int) -> Bool {
+fn edits_cover_offset(edits : Array[@rename.TextEdit], offset : Int32) -> Bool {
   for e in edits {
     if offset >= e.start && offset < e.end {
       return true

@@ -19,7 +19,7 @@ fn[T : InlineContinuationAction] parse_block_quote_paragraph_with_continuation(
 fn[T : InlineContinuationAction] try_parse_block_quote_setext_heading_with_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
   decide : () -> ContinuationDecision[T],
-  underline_depth : () -> Int?,
+  underline_depth : () -> Int32?,
   consume_underline : () -> Unit,
 ) -> Bool {
   let checkpoint = ctx.checkpoint()

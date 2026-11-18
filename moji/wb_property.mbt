@@ -4,6 +4,7 @@
 // `property_tables.mbt`.
 
 ///|
+#derive(Eq)
 pub enum WB {
   WbOther
   WbCR
@@ -24,13 +25,13 @@ pub enum WB {
   WbNumeric
   WbExtendNumLet
   WbWSegSpace
-} derive(Eq)
+}
 
 ///|
 /// `Word_Break` property of a codepoint.
 ///
 /// Returns `WbOther` for codepoints not in any `WordBreakProperty` range.
-pub fn wb_of(cp : Int) -> WB {
+pub fn wb_of(cp : Int32) -> WB {
   if in_range_table(table_wb_cr, cp) {
     return WbCR
   }

@@ -4,7 +4,7 @@
 fn diff_nodes(
   old : @seam.CstNode,
   new : @seam.CstNode,
-  old_pos : Int,
+  old_pos : Int32,
   result : Array[Edit],
 ) -> Unit {
   if old == new {

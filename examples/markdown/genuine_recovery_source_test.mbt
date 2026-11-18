@@ -2,7 +2,7 @@
 fn genuine_recovery_source_ir(
   source_id : @core.SourceId,
   source : String,
-  diagnostics? : @core.DiagnosticSet = @core.DiagnosticSet::empty(),
+  diagnostics~ : @core.DiagnosticSet = @core.DiagnosticSet::empty(),
 ) -> @markdown.MarkdownIR {
   let error = try! @seam.CstNode::new_unclassified(
     @seam.ToRawKind::to_raw(@markdown.SyntaxKind::ErrorNode),

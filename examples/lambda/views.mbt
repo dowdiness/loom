@@ -108,8 +108,8 @@ pub impl ToJson for LambdaExprView with fn to_json(self) -> Json {
     "kind": "LambdaExpr",
     "param": self.param(),
     "params": self.params(),
-    "start": (self.node.start() : Int),
-    "end": (self.node.end() : Int),
+    "start": (self.node.start() : Int32),
+    "end": (self.node.end() : Int32),
     "body": body_json,
   }
 }
@@ -164,8 +164,8 @@ pub impl ToJson for AppExprView with fn to_json(self) -> Json {
   }
   {
     "kind": "AppExpr",
-    "start": (self.node.start() : Int),
-    "end": (self.node.end() : Int),
+    "start": (self.node.start() : Int32),
+    "end": (self.node.end() : Int32),
     "func": func_json,
     "args": self.args().map(fn(n) { n.to_json() }),
   }
@@ -262,8 +262,8 @@ pub impl ToJson for BinaryExprView with fn to_json(self) -> Json {
     })
   {
     "kind": "BinaryExpr",
-    "start": (self.node.start() : Int),
-    "end": (self.node.end() : Int),
+    "start": (self.node.start() : Int32),
+    "end": (self.node.end() : Int32),
     "operands": self.operands().map(fn(n) { n.to_json() }),
     "ops": ops_json,
   }
@@ -321,8 +321,8 @@ pub impl ToJson for IfExprView with fn to_json(self) -> Json {
   }
   {
     "kind": "IfExpr",
-    "start": (self.node.start() : Int),
-    "end": (self.node.end() : Int),
+    "start": (self.node.start() : Int32),
+    "end": (self.node.end() : Int32),
     "condition": cond_json,
     "then": then_json,
     "else": else_json,
@@ -363,8 +363,8 @@ pub impl ToJson for ParenExprView with fn to_json(self) -> Json {
   }
   {
     "kind": "ParenExpr",
-    "start": (self.node.start() : Int),
-    "end": (self.node.end() : Int),
+    "start": (self.node.start() : Int32),
+    "end": (self.node.end() : Int32),
     "inner": inner_json,
   }
 }
@@ -393,7 +393,7 @@ pub impl @seam.AstView for IntLiteralView with fn syntax_node(self) {
 ///|
 /// Parse and return the integer value. Returns None if the token text is not
 /// a valid integer (should not happen in a well-formed tree).
-pub fn IntLiteralView::value(self : IntLiteralView) -> Int? {
+pub fn IntLiteralView::value(self : IntLiteralView) -> Int32? {
   match self.node.direct_token_of_kind(@syntax.IntToken.to_raw()) {
     None => None
     Some(t) => {
@@ -405,12 +405,12 @@ pub fn IntLiteralView::value(self : IntLiteralView) -> Int? {
 
 ///|
 pub impl ToJson for IntLiteralView with fn to_json(self) -> Json {
-  let v : Int = self.value().unwrap_or(0)
+  let v : Int32 = self.value().unwrap_or(0)
   {
     "kind": "IntLiteral",
-    "value": (v : Int),
-    "start": (self.node.start() : Int),
-    "end": (self.node.end() : Int),
+    "value": (v : Int32),
+    "start": (self.node.start() : Int32),
+    "end": (self.node.end() : Int32),
   }
 }
 
@@ -445,8 +445,8 @@ pub impl ToJson for VarRefView with fn to_json(self) -> Json {
   {
     "kind": "VarRef",
     "name": self.name(),
-    "start": (self.node.start() : Int),
-    "end": (self.node.end() : Int),
+    "start": (self.node.start() : Int32),
+    "end": (self.node.end() : Int32),
   }
 }
 
@@ -508,8 +508,8 @@ pub impl ToJson for LetDefView with fn to_json(self) -> Json {
   {
     "kind": "LetDef",
     "name": self.name(),
-    "start": (self.node.start() : Int),
-    "end": (self.node.end() : Int),
+    "start": (self.node.start() : Int32),
+    "end": (self.node.end() : Int32),
     "init": init_json,
   }
 }
@@ -558,8 +558,8 @@ pub impl ToJson for BlockExprView with fn to_json(self) -> Json {
   }
   {
     "kind": "BlockExpr",
-    "start": (self.node.start() : Int),
-    "end": (self.node.end() : Int),
+    "start": (self.node.start() : Int32),
+    "end": (self.node.end() : Int32),
     "defs": self.defs().map(fn(v) { v.to_json() }),
     "body": body_json,
   }
@@ -590,8 +590,8 @@ pub impl @seam.AstView for HoleLiteralView with fn syntax_node(self) {
 pub impl ToJson for HoleLiteralView with fn to_json(self) -> Json {
   {
     "kind": "HoleLiteral",
-    "start": (self.node.start() : Int),
-    "end": (self.node.end() : Int),
+    "start": (self.node.start() : Int32),
+    "end": (self.node.end() : Int32),
   }
 }
 

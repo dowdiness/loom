@@ -1,5 +1,5 @@
 ///|
-fn unterminated_inline_comment_workload(repeat_count : Int) -> String {
+fn unterminated_inline_comment_workload(repeat_count : Int32) -> String {
   let builder = StringBuilder::StringBuilder()
   builder.write_string("x ")
   for i = 0; i < repeat_count; i = i + 1 {
@@ -12,7 +12,7 @@ fn unterminated_inline_comment_workload(repeat_count : Int) -> String {
 ///|
 fn benchmark_unterminated_inline_comment_tokenize(
   b : @bench.T,
-  repeat_count : Int,
+  repeat_count : Int32,
 ) -> Unit {
   let source = unterminated_inline_comment_workload(repeat_count)
   b.bench(() => {
@@ -74,7 +74,7 @@ test "markdown unterminated inline comments 4096x tokenize" (b : @bench.T) {
 }
 
 ///|
-fn angle_free_inline_workload(repeat_count : Int) -> String {
+fn angle_free_inline_workload(repeat_count : Int32) -> String {
   let builder = StringBuilder::StringBuilder()
   for i = 0; i < repeat_count; i = i + 1 {
     builder.write_string("plain *emphasis* and [link](url) ")
@@ -108,7 +108,7 @@ test "markdown angle-free 4096x stateless tokenize" (b : @bench.T) {
 }
 
 ///|
-fn greater_than_heavy_inline_workload(repeat_count : Int) -> String {
+fn greater_than_heavy_inline_workload(repeat_count : Int32) -> String {
   let builder = StringBuilder::StringBuilder()
   for i = 0; i < repeat_count; i = i + 1 {
     builder.write_string("plain text > with a marker and >> more >> ")
@@ -145,7 +145,7 @@ test "markdown greater-than-heavy 4096x stateless tokenize" (b : @bench.T) {
 }
 
 ///|
-fn successful_single_line_inline_html_workload(repeat_count : Int) -> String {
+fn successful_single_line_inline_html_workload(repeat_count : Int32) -> String {
   let builder = StringBuilder::StringBuilder()
   for i = 0; i < repeat_count; i = i + 1 {
     builder.write_string(
@@ -184,7 +184,7 @@ test "markdown successful single-line inline HTML 512x stateless tokenize" (
 }
 
 ///|
-fn successful_multiline_inline_html_workload(repeat_count : Int) -> String {
+fn successful_multiline_inline_html_workload(repeat_count : Int32) -> String {
   let builder = StringBuilder::StringBuilder()
   for i = 0; i < repeat_count; i = i + 1 {
     builder.write_string(

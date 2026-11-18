@@ -3,8 +3,8 @@
 
 ///|
 fn nested_blockquote_stack_doc(
-  depth : Int,
-  line_count : Int,
+  depth : Int32,
+  line_count : Int32,
   terminator : String,
   terminate_last_line : Bool,
 ) -> String {
@@ -22,8 +22,8 @@ fn nested_blockquote_stack_doc(
 }
 
 ///|
-fn nested_blockquote_stack_max_quote_depth(cst : @seam.CstNode) -> Int {
-  let pending : Array[(@seam.SyntaxNode, Int)] = [
+fn nested_blockquote_stack_max_quote_depth(cst : @seam.CstNode) -> Int32 {
+  let pending : Array[(@seam.SyntaxNode, Int32)] = [
     (@seam.SyntaxNode::from_cst(cst), 0),
   ]
   let mut max_quote_depth = 0
@@ -45,7 +45,7 @@ fn nested_blockquote_stack_max_quote_depth(cst : @seam.CstNode) -> Int {
 fn assert_nested_blockquote_stack_parse(
   label : String,
   source : String,
-  expected_depth : Int,
+  expected_depth : Int32,
 ) -> Unit {
   let (cst, diagnostics) = parse_cst(
     @core.SourceId("markdown-nested-blockquote-stack:" + label),

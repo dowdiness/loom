@@ -24,7 +24,7 @@ test "Diagnostic stores message and primary range" {
 }
 
 ///|
-fn test_range_or_abort(start : Int, end : Int) -> TextRange {
+fn test_range_or_abort(start : Int32, end : Int32) -> TextRange {
   try TextRange::from_offsets(start, end) catch {
     _ => abort("expected valid test range")
   } noraise {
@@ -35,8 +35,8 @@ fn test_range_or_abort(start : Int, end : Int) -> TextRange {
 ///|
 fn test_parser_diagnostic(
   message : String,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Diagnostic {
   let span = SourceSpan(
     SourceId("parser-context-source"),
@@ -48,7 +48,7 @@ fn test_parser_diagnostic(
 }
 
 ///|
-fn diagnostic_start(diagnostic : Diagnostic) -> Int {
+fn diagnostic_start(diagnostic : Diagnostic) -> Int32 {
   let primary = diagnostic
     .labels()
     .filter(label => label.style() == LabelStyle::Primary)
@@ -59,7 +59,7 @@ fn diagnostic_start(diagnostic : Diagnostic) -> Int {
 }
 
 ///|
-fn diagnostic_end(diagnostic : Diagnostic) -> Int {
+fn diagnostic_end(diagnostic : Diagnostic) -> Int32 {
   let primary = diagnostic
     .labels()
     .filter(label => label.style() == LabelStyle::Primary)

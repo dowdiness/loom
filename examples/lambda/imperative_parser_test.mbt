@@ -681,7 +681,7 @@ fn assert_lambda_incremental_edit_matches_full(
   old_source : String,
   edit : @core.Edit,
   new_source : String,
-) -> Int {
+) -> Int32 {
   let parser = @loom.new_imperative_parser(
     imperative_parser_test_source_id(),
     old_source,

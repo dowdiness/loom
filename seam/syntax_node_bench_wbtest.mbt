@@ -12,9 +12,9 @@
 /// With width-2 tokens, odd offsets are strict-interior and even offsets
 /// are token boundaries.
 fn make_position_tree(
-  depth : Int,
-  tokens_per_node : Int,
-  fanout : Int,
+  depth : Int32,
+  tokens_per_node : Int32,
+  fanout : Int32,
 ) -> CstNode raise Failure {
   let children : Array[CstElement] = []
   for i = 0; i < tokens_per_node; i = i + 1 {

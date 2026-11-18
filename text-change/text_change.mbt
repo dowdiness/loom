@@ -2,21 +2,23 @@
 // Keep this module leaf-only: no parser, CRDT, or UI dependencies.
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum TextChange {
-  ReplaceRange(start~ : Int, delete_len~ : Int, inserted~ : String)
+  ReplaceRange(start~ : Int32, delete_len~ : Int32, inserted~ : String)
   ReplaceAll(String)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ChangeSetError {
   NegativeSourceLength
-  NegativeRange(index~ : Int, start~ : Int, delete_len~ : Int)
-  ReplaceAll(index~ : Int)
-  Unordered(index~ : Int)
-  Overlapping(index~ : Int)
-  OutOfBounds(index~ : Int, end~ : Int, source_length~ : Int)
-  ResultLengthOverflow(index~ : Int)
-} derive(Eq, Debug)
+  NegativeRange(index~ : Int32, start~ : Int32, delete_len~ : Int32)
+  ReplaceAll(index~ : Int32)
+  Unordered(index~ : Int32)
+  Overlapping(index~ : Int32)
+  OutOfBounds(index~ : Int32, end~ : Int32, source_length~ : Int32)
+  ResultLengthOverflow(index~ : Int32)
+}
 
 ///|
 /// An atomic collection of replacements in the original source coordinates.
@@ -24,21 +26,21 @@ pub(all) suberror ChangeSetError {
 /// The fields are intentionally private: construct a set with `ChangeSet::ChangeSet`
 /// so that its ordering and length invariants are always checked.
 pub(all) struct ChangeSet {
-  priv source_length : Int
-  priv result_length : Int
+  priv source_length : Int32
+  priv result_length : Int32
   priv changes : Array[TextChange]
 }
 
 ///|
 /// Validate and construct an atomic set of UTF-16 source-coordinate changes.
 pub fn ChangeSet::ChangeSet(
-  source_length~ : Int,
+  source_length~ : Int32,
   changes~ : Array[TextChange],
 ) -> ChangeSet raise ChangeSetError {
   if source_length < 0 {
     raise ChangeSetError::NegativeSourceLength
   }
-  let mut previous_start : Int? = None
+  let mut previous_start : Int32? = None
   let mut previous_end = 0
   let mut result_length = source_length
   for index, change in changes {
@@ -84,17 +86,19 @@ pub fn ChangeSet::ChangeSet(
 
 ///|
 /// Construct an empty change set for a source of the given UTF-16 length.
-pub fn ChangeSet::empty(source_length : Int) -> ChangeSet raise ChangeSetError {
+pub fn ChangeSet::empty(
+  source_length : Int32,
+) -> ChangeSet raise ChangeSetError {
   ChangeSet::ChangeSet(source_length~, changes=[])
 }
 
 ///|
-pub fn ChangeSet::source_length(self : ChangeSet) -> Int {
+pub fn ChangeSet::source_length(self : ChangeSet) -> Int32 {
   self.source_length
 }
 
 ///|
-pub fn ChangeSet::result_length(self : ChangeSet) -> Int {
+pub fn ChangeSet::result_length(self : ChangeSet) -> Int32 {
   self.result_length
 }
 
@@ -118,7 +122,7 @@ pub fn ChangeSet::each(
 /// Apply every replacement against the original source coordinates.
 pub fn ChangeSet::apply(self : ChangeSet, source : String) -> String? {
   guard source.length() == self.source_length else { return None }
-  let builder = StringBuilder(size_hint=self.result_length)
+  let builder = StringBuilder(capacity=self.result_length)
   let mut cursor = 0
   for change in self.changes {
     match change {
@@ -141,18 +145,18 @@ pub fn ChangeSet::apply(self : ChangeSet, source : String) -> String? {
 ///|
 fn cluster_equal(
   old_text : String,
-  old_start : Int,
-  old_end : Int,
+  old_start : Int32,
+  old_end : Int32,
   new_text : String,
-  new_start : Int,
-  new_end : Int,
+  new_start : Int32,
+  new_end : Int32,
 ) -> Bool {
   old_text[old_start:old_end].to_owned() ==
   new_text[new_start:new_end].to_owned()
 }
 
 ///|
-fn common_prefix_len(old_text : String, new_text : String) -> Int {
+fn common_prefix_len(old_text : String, new_text : String) -> Int32 {
   let old_boundaries = @moji.grapheme_boundaries(old_text)
   let new_boundaries = @moji.grapheme_boundaries(new_text)
   let mut idx = 0
@@ -176,8 +180,8 @@ fn common_prefix_len(old_text : String, new_text : String) -> Int {
 fn common_suffix_lens(
   old_text : String,
   new_text : String,
-  prefix_len : Int,
-) -> (Int, Int) {
+  prefix_len : Int32,
+) -> (Int32, Int32) {
   let old_boundaries = @moji.grapheme_boundaries(old_text)
   let new_boundaries = @moji.grapheme_boundaries(new_text)
   let mut old_idx = old_boundaries.length() - 1
@@ -238,7 +242,7 @@ pub fn TextChange::apply(self : TextChange, source : String) -> String? {
         return None
       }
       let builder = StringBuilder(
-        size_hint=source.length() - delete_len + inserted.length(),
+        capacity=source.length() - delete_len + inserted.length(),
       )
       builder
       ..write_stringview(prefix)

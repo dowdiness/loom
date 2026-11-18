@@ -1,4 +1,5 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum Token {
   Minus
   Arrow
@@ -8,7 +9,7 @@ pub(all) enum Token {
   Whitespace
   Error(String)
   EOF
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Token with @moonbitlang/core/debug.Debug::{to_repr}

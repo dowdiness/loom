@@ -1,5 +1,5 @@
 ///|
-fn line_start_offset(input : String, pos : Int) -> Int {
+fn line_start_offset(input : String, pos : Int32) -> Int32 {
   for i = pos - 1 {
     match char_at(input, i) {
       Some('\r') | Some('\n') => break i + 1
@@ -14,18 +14,18 @@ fn line_start_offset(input : String, pos : Int) -> Int {
 ///|
 priv struct SameLineListItemPrefixFacts {
   source : String
-  line_start : Int
-  line_end : Int
-  prefix_end : Int
-  list_marker_count : Int
+  line_start : Int32
+  line_end : Int32
+  prefix_end : Int32
+  list_marker_count : Int32
   line_is_thematic_break : Bool
 }
 
 ///|
 fn scan_same_line_list_item_prefix(
   input : String,
-  line_start : Int,
-  line_end : Int,
+  line_start : Int32,
+  line_end : Int32,
 ) -> SameLineListItemPrefixFacts {
   let mut cursor = line_start
   let mut list_marker_count = 0
@@ -111,7 +111,7 @@ fn scan_same_line_list_item_prefix(
 fn same_line_list_item_prefix_facts_with_cache(
   cache : Ref[SameLineListItemPrefixFacts?],
   input : String,
-  pos : Int,
+  pos : Int32,
 ) -> SameLineListItemPrefixFacts {
   match cache.val {
     Some(facts) if facts.line_start <= pos &&
@@ -131,7 +131,7 @@ fn same_line_list_item_prefix_facts_with_cache(
 ///|
 fn same_line_list_item_prefix_facts(
   input : String,
-  pos : Int,
+  pos : Int32,
 ) -> SameLineListItemPrefixFacts {
   let line_start = line_start_offset(input, pos)
   let line_end = find_line_end(input, pos)
@@ -144,7 +144,7 @@ fn same_line_list_item_prefix_facts(
 /// rescan the line while checking the three inline-mode guard conditions.
 fn same_line_list_item_block_start_with_facts(
   input : String,
-  pos : Int,
+  pos : Int32,
   facts : SameLineListItemPrefixFacts,
 ) -> Bool {
   match input.get_char(pos) {

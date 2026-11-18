@@ -36,7 +36,7 @@ test "UAX #29 GraphemeBreakTest 15.1 conformance" {
 }
 
 ///|
-fn arrays_equal(a : Array[Int], b : Array[Int]) -> Bool {
+fn arrays_equal(a : Array[Int32], b : Array[Int32]) -> Bool {
   if a.length() != b.length() {
     return false
   }
@@ -51,8 +51,8 @@ fn arrays_equal(a : Array[Int], b : Array[Int]) -> Bool {
 ///|
 fn format_failure(
   text : String,
-  expected : Array[Int],
-  actual : Array[Int],
+  expected : Array[Int32],
+  actual : Array[Int32],
 ) -> String {
   let buf = StringBuilder()
   buf.write_string("\n  text codeunits: [")
@@ -71,7 +71,7 @@ fn format_failure(
 }
 
 ///|
-fn format_array(a : Array[Int]) -> String {
+fn format_array(a : Array[Int32]) -> String {
   let buf = StringBuilder()
   buf.write_string("[")
   for i, v in a {

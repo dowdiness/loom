@@ -4,7 +4,7 @@
 // The stateful lexer carries the opening indent and does not use this path.
 
 ///|
-fn source_list_owned_benchmark_input(depth : Int) -> (String, Int, Int) {
+fn source_list_owned_benchmark_input(depth : Int32) -> (String, Int32, Int32) {
   let buf = StringBuilder::StringBuilder()
   let mut source_length = 0
   for level = 0; level < depth; level = level + 1 {
@@ -36,9 +36,9 @@ test "source list ownership rejects over-indented fence" {
 ///|
 fn source_list_owned_workload(
   source : String,
-  fence_start : Int,
-  fence_indent : Int,
-) -> Int {
+  fence_start : Int32,
+  fence_indent : Int32,
+) -> Int32 {
   if source_line_is_list_owned(source, fence_start, fence_indent) {
     1
   } else {

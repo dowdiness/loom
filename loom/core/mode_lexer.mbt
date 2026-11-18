@@ -2,7 +2,7 @@
 /// Mode-aware lexer. Each step takes a mode and returns
 ///  the token plus the next mode.
 pub(all) struct ModeLexer[T, M] {
-  lex_step : (String, Int, M) -> (LexStep[T], M)
+  lex_step : (String, Int32, M) -> (LexStep[T], M)
   initial_mode : M
 }
 
@@ -52,29 +52,29 @@ pub fn[T, M] tokenize_with_modes(
 /// A callback may retain this value, but cannot recover or mutate the backing
 /// array. `start_at` aborts when `index` is outside `[0, length())` because an
 /// invalid token index is a caller defect and continuing would corrupt re-lex.
-pub struct OldTokenStarts(Array[Int])
+pub struct OldTokenStarts(Array[Int32])
 
 ///|
-fn OldTokenStarts::from_owned(starts : Array[Int]) -> OldTokenStarts {
+fn OldTokenStarts::from_owned(starts : Array[Int32]) -> OldTokenStarts {
   OldTokenStarts(starts)
 }
 
 ///|
 /// Construct a detached read-only offset capability.
 /// The input array is copied so later caller mutation cannot affect it.
-pub fn OldTokenStarts::new(starts : Array[Int]) -> OldTokenStarts {
+pub fn OldTokenStarts::new(starts : Array[Int32]) -> OldTokenStarts {
   OldTokenStarts(starts.copy())
 }
 
 ///|
 #inline
-pub fn OldTokenStarts::length(self : OldTokenStarts) -> Int {
+pub fn OldTokenStarts::length(self : OldTokenStarts) -> Int32 {
   self.0.length()
 }
 
 ///|
 #inline
-pub fn OldTokenStarts::start_at(self : OldTokenStarts, index : Int) -> Int {
+pub fn OldTokenStarts::start_at(self : OldTokenStarts, index : Int32) -> Int32 {
   self.0[index]
 }
 
@@ -93,15 +93,21 @@ pub struct ModeRelexFactory[T] {
 /// Per-TokenBuffer mutable mode snapshot for convergence-based re-lexing.
 pub struct ModeRelexState[T] {
   priv tokenize_fn : (String) -> LexResult[T]
-  priv relex_from_fn : (String, Int, Int, Int, OldTokenStarts, Int, Int) -> ModeRelexResult[
-    T,
-  ] raise LexResultError
+  priv relex_from_fn : (
+    String,
+    Int32,
+    Int32,
+    Int32,
+    OldTokenStarts,
+    Int32,
+    Int32,
+  ) -> ModeRelexResult[T] raise LexResultError
 }
 
 ///|
 pub fn[T] ModeRelexState::new(
   tokenize~ : (String) -> LexResult[T],
-  relex_from~ : (String, Int, Int, Int, OldTokenStarts, Int, Int) -> ModeRelexResult[
+  relex_from~ : (String, Int32, Int32, Int32, OldTokenStarts, Int32, Int32) -> ModeRelexResult[
     T,
   ] raise LexResultError,
 ) -> ModeRelexState[T] {
@@ -121,12 +127,12 @@ pub fn[T] ModeRelexState::tokenize(
 pub fn[T] ModeRelexState::relex_from(
   self : ModeRelexState[T],
   source : String,
-  start_offset : Int,
-  start_tok_idx : Int,
-  old_token_count : Int,
+  start_offset : Int32,
+  start_tok_idx : Int32,
+  old_token_count : Int32,
   old_starts : OldTokenStarts,
-  edit_delta : Int,
-  new_damage_end : Int,
+  edit_delta : Int32,
+  new_damage_end : Int32,
 ) -> ModeRelexResult[T] raise LexResultError {
   (self.relex_from_fn)(
     source, start_offset, start_tok_idx, old_token_count, old_starts, edit_delta,
@@ -180,16 +186,16 @@ fn[T] ModeRelexFactory::new_session_with_initial(
 /// reuse can resume.
 pub struct ModeRelexResult[T] {
   priv tokens : Array[TokenInfo[T]]
-  priv starts : Array[Int]
+  priv starts : Array[Int32]
   priv diagnostics : DiagnosticSet
-  priv converged_at_old_token : Int
+  priv converged_at_old_token : Int32
 }
 
 ///|
 fn[T] validate_mode_relex_result(
   tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
-  converged_at_old_token : Int,
+  starts : Array[Int32],
+  converged_at_old_token : Int32,
 ) -> Unit raise LexResultError {
   guard tokens.length() == starts.length() else {
     raise TokenStartCountMismatch(tokens.length(), starts.length())
@@ -218,9 +224,9 @@ fn[T] validate_mode_relex_result(
 /// Construct an alias-safe replacement chunk from a custom mode relexer.
 pub fn[T] ModeRelexResult::new(
   tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
+  starts : Array[Int32],
   diagnostics : DiagnosticSet,
-  converged_at_old_token~ : Int,
+  converged_at_old_token~ : Int32,
 ) -> ModeRelexResult[T] raise LexResultError {
   let tokens = tokens.copy()
   let starts = starts.copy()
@@ -233,9 +239,9 @@ pub fn[T] ModeRelexResult::new(
 #inline
 fn[T] mode_relex_result_owned(
   tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
+  starts : Array[Int32],
   diagnostics : DiagnosticSet,
-  converged_at_old_token : Int,
+  converged_at_old_token : Int32,
 ) -> ModeRelexResult[T] {
   { tokens, starts, diagnostics, converged_at_old_token, }
 }
@@ -248,7 +254,7 @@ pub fn[T] ModeRelexResult::tokens(
 }
 
 ///|
-pub fn[T] ModeRelexResult::starts(self : ModeRelexResult[T]) -> Array[Int] {
+pub fn[T] ModeRelexResult::starts(self : ModeRelexResult[T]) -> Array[Int32] {
   self.starts.copy()
 }
 
@@ -262,7 +268,7 @@ pub fn[T] ModeRelexResult::diagnostics(
 ///|
 pub fn[T] ModeRelexResult::converged_at_old_token(
   self : ModeRelexResult[T],
-) -> Int {
+) -> Int32 {
   self.converged_at_old_token
 }
 
@@ -274,7 +280,7 @@ priv struct ModeRelexInternal[T, M] {
 
 ///|
 priv struct ModeRecoveredStep[M] {
-  pos : Int
+  pos : Int32
   mode : M
   consumed_token : Bool
   stop : Bool
@@ -284,14 +290,14 @@ priv struct ModeRecoveredStep[M] {
 fn[T, M] push_recovered_mode_step(
   source_id : SourceId,
   source : String,
-  pos : Int,
+  pos : Int32,
   mode : M,
   step : LexStep[T],
   next_mode : M,
   error_token : T,
   error_token_from_message : ((String) -> T)?,
   tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
+  starts : Array[Int32],
   modes : Array[M],
   diagnostics : DiagnosticSet,
 ) -> ModeRecoveredStep[M] {
@@ -375,10 +381,10 @@ fn[T, M] tokenize_with_modes_recovering(
   input : String,
   eof_token : T,
   error_token : T,
-  error_token_from_message? : ((String) -> T)? = None,
+  error_token_from_message~ : ((String) -> T)? = None,
 ) -> (LexResult[T], Array[M]) {
   let tokens : Array[TokenInfo[T]] = []
-  let starts : Array[Int] = []
+  let starts : Array[Int32] = []
   let modes : Array[M] = []
   let diagnostics = DiagnosticSet::empty()
   let mut pos = 0
@@ -412,7 +418,7 @@ pub fn[T, M] tokenize_mode_lexer_recovering(
   input : String,
   eof_token : T,
   error_token~ : T,
-  error_token_from_message? : ((String) -> T)? = None,
+  error_token_from_message~ : ((String) -> T)? = None,
 ) -> LexResult[T] {
   let (result, _) = tokenize_with_modes_recovering(
     source_id,
@@ -430,12 +436,12 @@ pub fn[T, M] tokenize_mode_lexer_recovering(
 ///|
 #inline
 fn[M : Eq] mode_relex_converged(
-  old_idx : Int,
+  old_idx : Int32,
   old_modes : Array[M],
   old_starts : OldTokenStarts,
-  edit_delta : Int,
+  edit_delta : Int32,
   mode : M,
-  pos : Int,
+  pos : Int32,
 ) -> Bool {
   old_idx < old_modes.length() &&
   old_idx < old_starts.length() &&
@@ -448,12 +454,12 @@ fn[T, M : Eq] mode_relex_recovering(
   source_id : SourceId,
   lexer : ModeLexer[T, M],
   source : String,
-  start_offset : Int,
-  start_tok_idx : Int,
-  old_token_count : Int,
+  start_offset : Int32,
+  start_tok_idx : Int32,
+  old_token_count : Int32,
   old_starts : OldTokenStarts,
-  edit_delta : Int,
-  new_damage_end : Int,
+  edit_delta : Int32,
+  new_damage_end : Int32,
   old_modes : Array[M],
   error_token : T,
   error_token_from_message : ((String) -> T)?,
@@ -465,7 +471,7 @@ fn[T, M : Eq] mode_relex_recovering(
   }
   let mut pos = start_offset
   let tokens : Array[TokenInfo[T]] = []
-  let starts : Array[Int] = []
+  let starts : Array[Int32] = []
   let modes : Array[M] = []
   let diagnostics = DiagnosticSet::empty()
   let mut old_idx = start_tok_idx
@@ -521,16 +527,16 @@ fn[T, M : Eq] new_mode_relex_session(
     modes_ref.val = modes
     result
   }
-  let relex_from : (String, Int, Int, Int, OldTokenStarts, Int, Int) -> ModeRelexResult[
+  let relex_from : (String, Int32, Int32, Int32, OldTokenStarts, Int32, Int32) -> ModeRelexResult[
     T,
   ] raise LexResultError = fn(
     source : String,
-    start_offset : Int,
-    start_tok_idx : Int,
-    old_token_count : Int,
+    start_offset : Int32,
+    start_tok_idx : Int32,
+    old_token_count : Int32,
     old_starts : OldTokenStarts,
-    edit_delta : Int,
-    new_damage_end : Int,
+    edit_delta : Int32,
+    new_damage_end : Int32,
   ) -> ModeRelexResult[T] {
     let old_modes = modes_ref.val
     let internal = mode_relex_recovering(
@@ -581,7 +587,7 @@ pub fn[T, M : Eq] erase_mode_lexer_factory(
   new_lexer : () -> ModeLexer[T, M],
   eof_token : T,
   error_token~ : T,
-  error_token_from_message? : ((String) -> T)? = None,
+  error_token_from_message~ : ((String) -> T)? = None,
 ) -> ModeRelexFactory[T] {
   let new_session = fn(source_id : SourceId) {
     let lexer = new_lexer()
@@ -608,7 +614,7 @@ pub fn[T, M : Eq] erase_mode_lexer(
   lexer : ModeLexer[T, M],
   eof_token : T,
   error_token~ : T,
-  error_token_from_message? : ((String) -> T)? = None,
+  error_token_from_message~ : ((String) -> T)? = None,
 ) -> ModeRelexFactory[T] {
   erase_mode_lexer_factory(
     () => lexer,

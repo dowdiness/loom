@@ -7,8 +7,8 @@ import {
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/shrink",
   "moonbitlang/core/quickcheck/splitmix",
-  "moonbitlang/quickcheck/shrink",
 }
 
 // Values
@@ -25,29 +25,30 @@ pub fn rebuild_from(Term, Array[Term]) -> Term
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) enum Bop {
   Plus
   Minus
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 pub fn Bop::equal(Self, Self) -> Bool
-pub fn Bop::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Bop::from_json(@json.Json, @json.DecodeContext) -> Self raise @json.JsonDecodeError
 pub fn Bop::not_equal(Self, Self) -> Bool
 pub fn Bop::output(Self, &Logger) -> Unit
-pub fn Bop::to_json(Self) -> Json
+pub fn Bop::to_json(Self) -> @json.Json
 pub fn Bop::to_repr(Self) -> @debug.Repr
 pub fn Bop::to_string(Self) -> String
 pub impl Show for Bop
 
 pub struct PrettyLayout {
   layout : @pretty.Layout[@pretty.SyntaxCategory]
-  prec : Int
+  prec : Int32
 }
 pub fn PrettyLayout::app(Self, Self) -> Self
 pub fn PrettyLayout::bop(Bop, Self, Self) -> Self
 pub fn PrettyLayout::error_term(String) -> Self
-pub fn PrettyLayout::hole(Int) -> Self
+pub fn PrettyLayout::hole(Int32) -> Self
 pub fn PrettyLayout::if_then_else(Self, Self, Self) -> Self
-pub fn PrettyLayout::int_lit(Int) -> Self
+pub fn PrettyLayout::int_lit(Int32) -> Self
 pub fn PrettyLayout::lam(String, Self) -> Self
 pub fn PrettyLayout::let_def(String, Self) -> Self
 pub fn PrettyLayout::mod(Array[(String, Self)], Self) -> Self
@@ -58,14 +59,14 @@ pub impl TermSym for PrettyLayout
 
 pub struct SourceText {
   repr : String
-  prec : Int
+  prec : Int32
 }
 pub fn SourceText::app(Self, Self) -> Self
 pub fn SourceText::bop(Bop, Self, Self) -> Self
 pub fn SourceText::error_term(String) -> Self
-pub fn SourceText::hole(Int) -> Self
+pub fn SourceText::hole(Int32) -> Self
 pub fn SourceText::if_then_else(Self, Self, Self) -> Self
-pub fn SourceText::int_lit(Int) -> Self
+pub fn SourceText::int_lit(Int32) -> Self
 pub fn SourceText::lam(String, Self) -> Self
 pub fn SourceText::let_def(String, Self) -> Self
 pub fn SourceText::mod(Array[(String, Self)], Self) -> Self
@@ -74,8 +75,9 @@ pub fn SourceText::unit() -> Self
 pub fn SourceText::variable(String) -> Self
 pub impl TermSym for SourceText
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) enum Term {
-  Int(Int)
+  Int(Int32)
   Var(String)
   Lam(String, Term)
   App(Term, Term)
@@ -86,18 +88,18 @@ pub(all) enum Term {
   Unit
   Unbound(String)
   Error(String)
-  Hole(Int)
-} derive(Eq, ToJson, @debug.Debug)
+  Hole(Int32)
+}
 pub fn Term::app(Self, Self) -> Self
-pub fn Term::arbitrary(Int, @splitmix.RandomState) -> Self
+pub fn Term::arbitrary(Int32, @splitmix.RandomState) -> Self
 pub fn Term::bop(Bop, Self, Self) -> Self
 pub fn Term::canonical(Self) -> Self
 pub fn Term::children(Self) -> Array[Self]
 pub fn Term::equal(Self, Self) -> Bool
 pub fn Term::error_term(String) -> Self
-pub fn Term::hole(Int) -> Self
+pub fn Term::hole(Int32) -> Self
 pub fn Term::if_then_else(Self, Self, Self) -> Self
-pub fn Term::int_lit(Int) -> Self
+pub fn Term::int_lit(Int32) -> Self
 pub fn Term::kind_tag(Self) -> String
 pub fn Term::label(Self) -> String
 pub fn Term::lam(String, Self) -> Self
@@ -108,7 +110,7 @@ pub fn Term::output(Self, &Logger) -> Unit
 pub fn Term::placeholder(Self) -> String
 pub fn Term::same_kind(Self, Self) -> Bool
 pub fn Term::shrink(Self) -> Iter[Self]
-pub fn Term::to_json(Self) -> Json
+pub fn Term::to_json(Self) -> @json.Json
 pub fn Term::to_layout(Self) -> @pretty.Layout[@pretty.SyntaxCategory]
 pub fn Term::to_repr(Self) -> @debug.Repr
 pub fn Term::to_source(Self) -> String
@@ -133,7 +135,7 @@ pub type VarName = String
 
 // Traits
 pub(open) trait TermSym {
-  fn int_lit(Int) -> Self
+  fn int_lit(Int32) -> Self
   fn variable(String) -> Self
   fn lam(String, Self) -> Self
   fn app(Self, Self) -> Self
@@ -144,5 +146,5 @@ pub(open) trait TermSym {
   fn unit() -> Self
   fn unbound(String) -> Self
   fn error_term(String) -> Self
-  fn hole(Int) -> Self
+  fn hole(Int32) -> Self
 }

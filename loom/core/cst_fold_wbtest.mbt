@@ -1,6 +1,6 @@
 ///|
 /// Helper: create a leaf token element.
-fn tok(kind_val : Int, text : String) -> @seam.CstElement {
+fn tok(kind_val : Int32, text : String) -> @seam.CstElement {
   @seam.CstElement::Token(
     @seam.CstToken::CstToken(@seam.RawKind(kind_val), text),
   )
@@ -9,7 +9,7 @@ fn tok(kind_val : Int, text : String) -> @seam.CstElement {
 ///|
 /// Helper: create a node element.
 fn nd(
-  kind_val : Int,
+  kind_val : Int32,
   children : Array[@seam.CstElement],
 ) -> @seam.CstElement raise Failure {
   @seam.CstElement::Node(
@@ -19,7 +19,7 @@ fn nd(
 
 ///|
 /// White-box retention signal. This intentionally stays out of the public API.
-fn[Ast] CstFold::cache_entry_count(self : CstFold[Ast]) -> Int {
+fn[Ast] CstFold::cache_entry_count(self : CstFold[Ast]) -> Int32 {
   self.cache.keys().count()
 }
 

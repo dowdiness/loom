@@ -10,7 +10,7 @@ fn syntax_visitor_kind_text(kind : RawKind) -> String {
 }
 
 ///|
-fn syntax_visitor_span_text(start : Int, end : Int) -> String {
+fn syntax_visitor_span_text(start : Int32, end : Int32) -> String {
   "@" + start.to_string() + "-" + end.to_string()
 }
 
@@ -51,13 +51,13 @@ impl SyntaxMutVisitor for RecordingSyntaxVisitor with fn visit_token(
 }
 
 ///|
-fn syntax_visitor_token(kind : Int, text : String) -> CstElement {
+fn syntax_visitor_token(kind : Int32, text : String) -> CstElement {
   Token(CstToken(RawKind(kind), text))
 }
 
 ///|
 fn syntax_visitor_node(
-  kind : Int,
+  kind : Int32,
   children : Array[CstElement],
 ) -> CstElement raise Failure {
   Node(CstNode::new_unclassified(RawKind(kind), children))

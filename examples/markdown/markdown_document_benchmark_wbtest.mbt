@@ -1,5 +1,5 @@
 ///|
-fn markdown_document_benchmark_source(count : Int) -> String {
+fn markdown_document_benchmark_source(count : Int32) -> String {
   let out = StringBuilder()
   out.write_string("# Benchmark\n\n")
   for i = 0; i < count; i = i + 1 {

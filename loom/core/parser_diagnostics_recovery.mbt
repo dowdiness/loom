@@ -5,9 +5,9 @@
 fn make_parser_diagnostic(
   source_id : SourceId,
   msg : String,
-  start : Int,
-  end : Int,
-  code? : DiagnosticCode? = None,
+  start : Int32,
+  end : Int32,
+  code~ : DiagnosticCode? = None,
 ) -> Diagnostic {
   let (labels, notes) : (Array[DiagnosticLabel], Array[String]) = try
     TextRange::from_offsets(start, end)
@@ -45,8 +45,8 @@ pub fn[T, K] ParserContext::report(
 pub fn[T, K] ParserContext::report_error(
   self : ParserContext[T, K],
   message~ : String,
-  code? : DiagnosticCode? = None,
-  range? : TextRange? = None,
+  code~ : DiagnosticCode? = None,
+  range~ : TextRange? = None,
 ) -> Unit {
   let labels = range.map_or([], range => {
     [
@@ -74,7 +74,7 @@ pub fn[T, K] ParserContext::report_error(
 pub fn[T : @seam.IsTrivia, K] ParserContext::report_at_current(
   self : ParserContext[T, K],
   message~ : String,
-  code? : DiagnosticCode? = None,
+  code~ : DiagnosticCode? = None,
 ) -> Unit {
   let diagnostic = self
     .current_token_position()
@@ -101,7 +101,7 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::report_at_current(
 pub fn[T : @seam.IsTrivia, K] ParserContext::report_expected(
   self : ParserContext[T, K],
   expected~ : String,
-  code? : DiagnosticCode? = None,
+  code~ : DiagnosticCode? = None,
 ) -> Unit {
   self.report_at_current(message="expected " + expected, code~)
 }

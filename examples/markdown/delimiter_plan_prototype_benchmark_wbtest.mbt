@@ -45,7 +45,7 @@ fn delimiter_plan_plain_control(source : String) -> String {
 }
 
 ///|
-fn delimiter_plan_mixed_control(section_count : Int) -> String {
+fn delimiter_plan_mixed_control(section_count : Int32) -> String {
   let out = StringBuilder()
   for i in 0..<section_count {
     out.write_string("## Section \{i}\n\n")
@@ -59,7 +59,7 @@ fn delimiter_plan_mixed_control(section_count : Int) -> String {
 }
 
 ///|
-fn delimiter_plan_fenced_control(block_count : Int) -> String {
+fn delimiter_plan_fenced_control(block_count : Int32) -> String {
   let out = StringBuilder()
   for i in 0..<block_count {
     out.write_string("```moonbit\n")
@@ -70,7 +70,7 @@ fn delimiter_plan_fenced_control(block_count : Int) -> String {
 }
 
 ///|
-fn delimiter_plan_find(source : String, target : String) -> Int {
+fn delimiter_plan_find(source : String, target : String) -> Int32 {
   for i = 0; i <= source.length() - target.length(); i = i + 1 {
     if source[i:i + target.length()].to_owned() == target {
       return i

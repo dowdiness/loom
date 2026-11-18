@@ -1,7 +1,7 @@
 // Step-based lexer for JSON tokens
 
 ///|
-fn is_digit(code : Int) -> Bool {
+fn is_digit(code : Int32) -> Bool {
   code >= 48 && code <= 57 // '0'..'9'
 }
 
@@ -11,7 +11,7 @@ fn is_digit_char(ch : Char) -> Bool {
 }
 
 ///|
-fn is_hex_digit(code : Int) -> Bool {
+fn is_hex_digit(code : Int32) -> Bool {
   (code >= 48 && code <= 57) ||
   (code >= 65 && code <= 70) ||
   (code >= 97 && code <= 102)
@@ -23,7 +23,7 @@ fn is_whitespace_char(c : Char) -> Bool {
 }
 
 ///|
-fn invalid_end_at_cursor(input : String, cursor : @core.LexCursor) -> Int {
+fn invalid_end_at_cursor(input : String, cursor : @core.LexCursor) -> Int32 {
   let cursor_pos = cursor.position()
   if cursor_pos < input.length() {
     @core.next_char_offset(input, cursor_pos)
@@ -33,7 +33,7 @@ fn invalid_end_at_cursor(input : String, cursor : @core.LexCursor) -> Int {
 }
 
 ///|
-fn read_string(cursor : @core.LexCursor) -> (String, Int)? {
+fn read_string(cursor : @core.LexCursor) -> (String, Int32)? {
   // cursor points at the opening '"'
   ignore(cursor.consume_char('"'))
   let input = cursor.source()
@@ -159,7 +159,7 @@ fn read_number(cursor : @core.LexCursor) -> Unit {
 }
 
 ///|
-fn invalid_width_from_end(input : String, pos : Int, end : Int) -> Int {
+fn invalid_width_from_end(input : String, pos : Int32, end : Int32) -> Int32 {
   let bounded_end = if end < pos {
     pos
   } else if end > input.length() {
@@ -177,7 +177,7 @@ fn invalid_width_from_end(input : String, pos : Int, end : Int) -> Int {
 
 ///|
 /// Step-based lexer: returns one LexStep per call.
-fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
+fn step_lex(input : String, pos : Int32) -> @core.LexStep[Token] {
   let cursor = @core.LexCursor::new(input, pos)
   if cursor.is_done() {
     return Done
@@ -263,7 +263,7 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
 
 ///|
 /// Public step-based lexer for JSON.
-pub fn json_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
+pub fn json_step_lexer(source : String, start : Int32) -> @core.LexStep[Token] {
   step_lex(source, start)
 }
 

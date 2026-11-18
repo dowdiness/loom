@@ -10,7 +10,7 @@ fn idf_source_id() -> @core.SourceId {
 }
 
 ///|
-fn idf_next_seed(seed : Int) -> Int {
+fn idf_next_seed(seed : Int32) -> Int32 {
   let a = 1103515245
   let c = 12345
   let m = 2147483647
@@ -18,7 +18,7 @@ fn idf_next_seed(seed : Int) -> Int {
 }
 
 ///|
-fn idf_clamp(pos : Int, len : Int) -> Int {
+fn idf_clamp(pos : Int32, len : Int32) -> Int32 {
   if pos < 0 {
     0
   } else if pos > len {
@@ -29,7 +29,7 @@ fn idf_clamp(pos : Int, len : Int) -> Int {
 }
 
 ///|
-fn idf_slice_string(s : String, start : Int, end : Int) -> String? {
+fn idf_slice_string(s : String, start : Int32, end : Int32) -> String? {
   Some(s[start:end].to_owned())
 }
 
@@ -49,7 +49,7 @@ fn idf_pool(allow_invalid : Bool) -> Array[String] {
 }
 
 ///|
-fn idf_make_fragment(seed : Int, allow_invalid : Bool) -> String {
+fn idf_make_fragment(seed : Int32, allow_invalid : Bool) -> String {
   let pool = idf_pool(allow_invalid)
   let mut s = seed
   let mut out = ""
@@ -64,7 +64,7 @@ fn idf_make_fragment(seed : Int, allow_invalid : Bool) -> String {
 }
 
 ///|
-fn idf_make_source(seed : Int, allow_invalid : Bool) -> String {
+fn idf_make_source(seed : Int32, allow_invalid : Bool) -> String {
   let pool = idf_pool(allow_invalid)
   let mut s = seed
   let mut out = ""
@@ -81,9 +81,9 @@ fn idf_make_source(seed : Int, allow_invalid : Bool) -> String {
 ///|
 fn idf_apply_random_edit(
   source : String,
-  seed : Int,
+  seed : Int32,
   allow_invalid : Bool,
-) -> (String, @core.Edit, Int) {
+) -> (String, @core.Edit, Int32) {
   let len = source.length()
   let mut s = idf_next_seed(seed)
   let op = s.abs() % 3 // 0 insert, 1 delete, 2 replace
@@ -253,7 +253,7 @@ fn idf_source_file_pool() -> Array[String] {
 
 ///|
 /// Build an initial source string using the source-file pool.
-fn idf_make_source_file_source(seed : Int) -> String {
+fn idf_make_source_file_source(seed : Int32) -> String {
   let pool = idf_source_file_pool()
   let mut s = seed
   let mut out = ""
@@ -271,8 +271,8 @@ fn idf_make_source_file_source(seed : Int) -> String {
 /// Apply a random edit drawn from the source-file pool.
 fn idf_apply_source_file_edit(
   source : String,
-  seed : Int,
-) -> (String, @core.Edit, Int) {
+  seed : Int32,
+) -> (String, @core.Edit, Int32) {
   let frag_pool = idf_source_file_pool()
   let len = source.length()
   let mut s = idf_next_seed(seed)

@@ -2,10 +2,11 @@
 
 ///|
 /// A range in the source
+#derive(Debug, Eq, Hash, Compare)
 pub(all) struct Range {
-  start : Int
-  end : Int
-} derive(Debug, Eq, Hash, Compare)
+  start : Int32
+  end : Int32
+}
 
 ///|
 pub impl Show for Range with fn output(self, logger) {
@@ -14,13 +15,13 @@ pub impl Show for Range with fn output(self, logger) {
 
 ///|
 /// Create a new range
-pub fn Range::new(start : Int, end : Int) -> Range {
+pub fn Range::new(start : Int32, end : Int32) -> Range {
   { start, end, }
 }
 
 ///|
 /// Check if this range contains a position
-pub fn Range::contains(self : Range, pos : Int) -> Bool {
+pub fn Range::contains(self : Range, pos : Int32) -> Bool {
   pos >= self.start && pos < self.end
 }
 
@@ -49,7 +50,7 @@ pub fn Range::merge(self : Range, other : Range) -> Range {
 
 ///|
 /// Get the length of the range
-pub fn Range::length(self : Range) -> Int {
+pub fn Range::length(self : Range) -> Int32 {
   self.end - self.start
 }
 

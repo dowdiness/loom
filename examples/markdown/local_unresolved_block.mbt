@@ -1,4 +1,5 @@
 ///|
+#derive(Eq)
 #warnings("-unused_value")
 priv struct LocalReferenceCandidate {
   placeholder : String
@@ -9,7 +10,7 @@ priv struct LocalReferenceCandidate {
   origin : MarkdownIROrigin
   label_origin : MarkdownIROrigin?
   reference_label_origin : MarkdownIROrigin?
-} derive(Eq)
+}
 
 ///|
 fn register_local_reference_candidate(
@@ -40,7 +41,7 @@ fn register_local_reference_candidate(
 ///|
 fn find_local_reference_candidate(
   candidates : Array[LocalReferenceCandidate],
-  candidate_indices : @hashmap.HashMap[String, Int],
+  candidate_indices : @hashmap.HashMap[String, Int32],
   placeholder : String,
 ) -> LocalReferenceCandidate? {
   candidate_indices.get(placeholder).map(index => candidates[index])
@@ -112,7 +113,7 @@ fn protect_local_nested_link_openers(
   source : String,
 ) -> Array[MarkdownIR] {
   let guarded = children.copy()
-  let open_indices : Array[Int] = []
+  let open_indices : Array[Int32] = []
   for index, child in children {
     if is_shortcut_reference_open(child, source) {
       open_indices.push(index)
@@ -183,33 +184,36 @@ fn restore_local_nested_link_openers(
 }
 
 ///|
+#derive(Eq)
 #warnings("-unused_value")
 priv enum LocalBlockPlacement {
   RelativeLocalBlock
   ContextualAbsoluteBlock
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 #warnings("-unused_value")
 priv struct LocalBlockPlan {
   source_id : @core.SourceId
   source : String
   unresolved : MarkdownIR
   reference_candidates : Array[LocalReferenceCandidate]
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 #warnings("-unused_value")
 priv struct ResolvedLocalBlock {
   ir : MarkdownIR
   placement : LocalBlockPlacement
-} derive(Eq)
+}
 
 ///|
 fn resolve_local_markdown_ir(
   ir : MarkdownIR,
   reference_candidates : Array[LocalReferenceCandidate],
-  reference_candidate_indices : @hashmap.HashMap[String, Int],
+  reference_candidate_indices : @hashmap.HashMap[String, Int32],
   context : MarkdownIRLoweringContext,
 ) -> MarkdownIR {
   fn resolve_sequence(children : Array[MarkdownIR]) -> Array[MarkdownIR] {
@@ -433,7 +437,7 @@ fn lower_contextual_resolved_block(
   source : String,
   lookup : (String) -> LinkReferenceDefinition?,
   diagnostics_in_block : (MarkdownIROrigin) -> Array[@core.Diagnostic],
-  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
+  extensions~ : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> ResolvedLocalBlock {
   let context : MarkdownIRLoweringContext = {
     source_id,
@@ -460,7 +464,7 @@ fn resolve_local_block(
   plan : LocalBlockPlan,
   lookup : (String) -> LinkReferenceDefinition?,
 ) -> ResolvedLocalBlock {
-  let mut reference_candidate_indices : @hashmap.HashMap[String, Int] = @hashmap.HashMap::new()
+  let mut reference_candidate_indices : @hashmap.HashMap[String, Int32] = @hashmap.HashMap::new()
   for index, candidate in plan.reference_candidates {
     reference_candidate_indices = reference_candidate_indices.add(
       candidate.placeholder,
@@ -494,7 +498,7 @@ fn resolve_local_block(
 ///|
 fn shift_local_origin(
   origin : MarkdownIROrigin,
-  base : Int,
+  base : Int32,
 ) -> MarkdownIROrigin {
   MarkdownIROrigin(start=origin.start() + base, end=origin.end() + base)
 }
@@ -502,13 +506,13 @@ fn shift_local_origin(
 ///|
 fn shift_optional_local_origin(
   origin : MarkdownIROrigin?,
-  base : Int,
+  base : Int32,
 ) -> MarkdownIROrigin? {
   origin.map(value => shift_local_origin(value, base))
 }
 
 ///|
-fn place_local_task(task : MarkdownIRTask?, base : Int) -> MarkdownIRTask? {
+fn place_local_task(task : MarkdownIRTask?, base : Int32) -> MarkdownIRTask? {
   task.map(task => {
     MarkdownIRTask(
       checked=task.checked(),
@@ -518,7 +522,7 @@ fn place_local_task(task : MarkdownIRTask?, base : Int) -> MarkdownIRTask? {
 }
 
 ///|
-fn place_local_link_surface(surface : LinkSurface, base : Int) -> LinkSurface {
+fn place_local_link_surface(surface : LinkSurface, base : Int32) -> LinkSurface {
   let destination_is_block_owned = surface.form
     is LinkReferenceForm::InlineLinkForm
   {
@@ -547,7 +551,7 @@ fn place_local_link_surface(surface : LinkSurface, base : Int) -> LinkSurface {
 }
 
 ///|
-fn place_local_markdown_ir(ir : MarkdownIR, base : Int) -> MarkdownIR {
+fn place_local_markdown_ir(ir : MarkdownIR, base : Int32) -> MarkdownIR {
   let node : MarkdownIRNode = match ir.node {
     Document(children) =>
       Document(children.map(child => place_local_markdown_ir(child, base)))
@@ -650,7 +654,7 @@ fn place_local_markdown_ir(ir : MarkdownIR, base : Int) -> MarkdownIR {
 #warnings("-unused_value")
 fn place_resolved_local_block(
   block : ResolvedLocalBlock,
-  base : Int,
+  base : Int32,
 ) -> MarkdownIR {
   match block.placement {
     RelativeLocalBlock => {

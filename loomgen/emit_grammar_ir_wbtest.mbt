@@ -584,12 +584,12 @@ test "is_mbt_identifier accepts identifiers and rejects the rest" {
 /// lets the reject tests assert the `line N:` prefix the emitter now attaches.
 fn file_only_inputs(
   gf : String,
-) -> (EnumDecl, EnumDecl, Map[String, RuleAst], Map[String, Int]) {
+) -> (EnumDecl, EnumDecl, Map[String, RuleAst], Map[String, Int32]) {
   let (token_enum, term_enum) = enums_of(
     read_fixture("fixtures/file_only_grammar.mbt"),
   )
   let file_rules : Map[String, RuleAst] = Map([])
-  let file_lines : Map[String, Int] = Map([])
+  let file_lines : Map[String, Int32] = Map([])
   match parse_grammar_file(gf) {
     Ok(prods) =>
       for p in prods {
@@ -757,7 +757,7 @@ test "emit_grammar_ir: grammar-file rule overrides a broken #loom.rule annotatio
     #|} derive(Eq, Debug)
   let (token_enum, term_enum) = enums_of(src)
   let file_rules : Map[String, RuleAst] = Map([])
-  let file_lines : Map[String, Int] = Map([])
+  let file_lines : Map[String, Int32] = Map([])
   match parse_grammar_file("Parens = LParen RParen") {
     Ok(prods) =>
       for p in prods {

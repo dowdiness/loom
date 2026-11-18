@@ -107,9 +107,9 @@ pub fn[T, K, Ast] Grammar::new(
   spec~ : @core.LanguageSpec[T, K],
   lex~ : (@core.SourceId, String) -> @core.LexResult[T],
   fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast,
-  incremental_relex_enabled? : Bool = true,
-  block_reparse_spec? : @core.BlockReparseSpec[T, K]? = None,
-  mode_relex? : @core.ModeRelexFactory[T]? = None,
+  incremental_relex_enabled~ : Bool = true,
+  block_reparse_spec~ : @core.BlockReparseSpec[T, K]? = None,
+  mode_relex~ : @core.ModeRelexFactory[T]? = None,
 ) -> Grammar[T, K, Ast] {
   {
     spec,
@@ -125,9 +125,9 @@ pub fn[T, K, Ast] Grammar::new(
 pub fn[T, K] SyntaxGrammar::new(
   spec~ : @core.LanguageSpec[T, K],
   lex~ : (@core.SourceId, String) -> @core.LexResult[T],
-  incremental_relex_enabled? : Bool = true,
-  block_reparse_spec? : @core.BlockReparseSpec[T, K]? = None,
-  mode_relex? : @core.ModeRelexFactory[T]? = None,
+  incremental_relex_enabled~ : Bool = true,
+  block_reparse_spec~ : @core.BlockReparseSpec[T, K]? = None,
+  mode_relex~ : @core.ModeRelexFactory[T]? = None,
 ) -> SyntaxGrammar[T, K] {
   { spec, lex, incremental_relex_enabled, block_reparse_spec, mode_relex, }
 }

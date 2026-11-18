@@ -7,13 +7,14 @@ import {
 }
 
 // Values
-pub fn step_lex_first(String, Int) -> @core.LexStep[Token]
+pub fn step_lex_first(String, Int32) -> @core.LexStep[Token]
 
-pub fn step_lex_legacy(String, Int) -> @core.LexStep[Token]
+pub fn step_lex_legacy(String, Int32) -> @core.LexStep[Token]
 
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum Token {
   PayloadShort(String)
   PayloadLong(String)
@@ -41,7 +42,7 @@ pub(all) enum Token {
   CandidateN
   CandidateO
   EOF
-} derive(Eq, @debug.Debug)
+}
 pub fn Token::equal(Self, Self) -> Bool
 pub fn Token::not_equal(Self, Self) -> Bool
 pub fn Token::to_repr(Self) -> @debug.Repr

@@ -8,7 +8,7 @@
 pub fn lex_moonbit(
   source_id : @core.SourceId,
   source : String,
-  name? : String = "",
+  name~ : String = "",
 ) -> @core.LexResult[MoonToken] {
   let official = @lexer.tokens_from_string_with_utf16_location(
     source,

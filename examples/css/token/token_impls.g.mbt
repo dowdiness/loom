@@ -34,7 +34,7 @@ pub impl @seam.IsEof for Token with fn is_eof(self) {
 ///|
 /// Maps tokens to the same raw-kind space as SyntaxKind.
 pub impl @seam.ToRawKind for Token with fn to_raw(self) {
-  let n : Int = match self {
+  let n : Int32 = match self {
     Ident => 0
     Colon => 1
     Semicolon => 2

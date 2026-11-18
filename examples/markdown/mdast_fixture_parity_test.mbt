@@ -83,7 +83,7 @@ fn MdastFixture::assert_xfail(
 }
 
 ///|
-fn mdast_fixture_actual_status_counts() -> (Int, Int, Int) {
+fn mdast_fixture_actual_status_counts() -> (Int32, Int32, Int32) {
   for fixture in mdast_fixture_cases(); pass = 0, xfail = 0, skip = 0 {
     match fixture.status {
       Pass => continue pass + 1, xfail, skip

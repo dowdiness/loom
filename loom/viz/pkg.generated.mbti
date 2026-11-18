@@ -14,7 +14,7 @@ pub fn[T : DotNode] to_graph(T) -> @parser.Graph
 
 // Types and methods
 pub(all) struct DotTreeNode {
-  int_id : Int
+  int_id : Int32
   id : String
   label : String
   attrs : Map[String, String]
@@ -22,20 +22,20 @@ pub(all) struct DotTreeNode {
   edge_labels : Array[String]
 }
 pub fn DotTreeNode::children(Self) -> Array[Self]
-pub fn DotTreeNode::edge_label(Self, Int) -> String
+pub fn DotTreeNode::edge_label(Self, Int32) -> String
 pub fn DotTreeNode::from_graph(@parser.Graph) -> Self?
 pub fn DotTreeNode::label(Self) -> String
 pub fn DotTreeNode::node_attrs(Self) -> String
-pub fn DotTreeNode::node_id(Self) -> Int
+pub fn DotTreeNode::node_id(Self) -> Int32
 pub impl DotNode for DotTreeNode
 
 // Type aliases
 
 // Traits
 pub(open) trait DotNode {
-  fn node_id(Self) -> Int
+  fn node_id(Self) -> Int32
   fn label(Self) -> String
   fn node_attrs(Self) -> String
   fn children(Self) -> Array[Self]
-  fn edge_label(Self, Int) -> String
+  fn edge_label(Self, Int32) -> String
 }

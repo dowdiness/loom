@@ -11,7 +11,7 @@ fn format_pattern_error(error : PatternError) -> String {
 }
 
 ///|
-fn repeat_bounds_max(bounds : RepeatBounds) -> Int? {
+fn repeat_bounds_max(bounds : RepeatBounds) -> Int32? {
   match bounds {
     Exact(max) => Some(max.to_int())
     AtLeast(_) => None
@@ -42,7 +42,7 @@ fn expect_pattern_err(pattern : String) -> Unit {
 }
 
 ///|
-fn expect_malformed(pattern : String, at : Int) -> Unit {
+fn expect_malformed(pattern : String, at : Int32) -> Unit {
   match parse_pattern(pattern) {
     Err(PatternError::Malformed(found, _)) =>
       if found != at {
@@ -65,7 +65,7 @@ fn expect_malformed(pattern : String, at : Int) -> Unit {
 }
 
 ///|
-fn expect_unsupported(pattern : String, at : Int) -> Unit {
+fn expect_unsupported(pattern : String, at : Int32) -> Unit {
   match parse_pattern(pattern) {
     Err(PatternError::Unsupported(found, _)) =>
       if found != at {
@@ -113,8 +113,8 @@ enum ExpectedBoundShape {
 fn expect_counted_bounds(
   pattern : String,
   expected_shape : ExpectedBoundShape,
-  expected_min : Int,
-  expected_max : Int?,
+  expected_min : Int32,
+  expected_max : Int32?,
 ) -> Unit {
   match parse_pattern(pattern) {
     Ok(Quantified(_, { kind: Counted(bounds), })) => {

@@ -20,13 +20,14 @@ pub fn extract_facts(@seam.SyntaxNode) -> (Array[Def], Array[Call])
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub struct Call {
   callee : String
   resolved_scope : ScopeId
   is_call_position : Bool
-  start : Int
-  end : Int
-} derive(Eq, @debug.Debug)
+  start : Int32
+  end : Int32
+}
 pub fn Call::equal(Self, Self) -> Bool
 pub fn Call::not_equal(Self, Self) -> Bool
 pub fn Call::output(Self, &Logger) -> Unit
@@ -45,14 +46,15 @@ pub fn CallersPipeline::facts(Self) -> (Array[Def], Array[Call], Array[(ScopeId,
 pub fn CallersPipeline::from_parser(@pipeline.Parser[@ast.Term]) -> Self
 pub fn CallersPipeline::visible_from(Self, ScopeId, String) -> Bool
 
+#derive(Eq, @debug.Debug)
 pub struct Def {
   name : String
   scope : ScopeId
-  start : Int
-  end : Int
-  name_start : Int
-  name_end : Int
-} derive(Eq, @debug.Debug)
+  start : Int32
+  end : Int32
+  name_start : Int32
+  name_end : Int32
+}
 pub fn Def::equal(Self, Self) -> Bool
 pub fn Def::not_equal(Self, Self) -> Bool
 pub fn Def::output(Self, &Logger) -> Unit
@@ -60,12 +62,13 @@ pub fn Def::to_repr(Self) -> @debug.Repr
 pub fn Def::to_string(Self) -> String
 pub impl Show for Def
 
+#derive(Eq, Hash, @debug.Debug)
 pub(all) enum ScopeId {
   TopScope
-  LambdaScope(Int, Int)
-} derive(Eq, Hash, @debug.Debug)
+  LambdaScope(Int32, Int32)
+}
 pub fn ScopeId::equal(Self, Self) -> Bool
-pub fn ScopeId::hash(Self) -> Int
+pub fn ScopeId::hash(Self) -> Int32
 pub fn ScopeId::hash_combine(Self, Hasher) -> Unit
 pub fn ScopeId::not_equal(Self, Self) -> Bool
 pub fn ScopeId::output(Self, &Logger) -> Unit

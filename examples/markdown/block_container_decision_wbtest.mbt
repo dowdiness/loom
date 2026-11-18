@@ -1,9 +1,9 @@
 ///|
 fn block_start_facts(
   current : BlockTokenFact,
-  after_prefix? : BlockTokenFact = FactInline,
-  current_indent? : Int = 0,
-  prefixed? : Bool = false,
+  after_prefix~ : BlockTokenFact = FactInline,
+  current_indent~ : Int32 = 0,
+  prefixed~ : Bool = false,
 ) -> BlockLineFacts {
   BlockStart(BlockStartFacts::{
     current,
@@ -15,14 +15,14 @@ fn block_start_facts(
 
 ///|
 fn root_continuation_facts(
-  next? : BlockTokenFact = FactInline,
-  at_newline? : Bool = true,
-  setext_underline? : Bool = false,
-  prefixed_block_start? : Bool = false,
-  lone_list_marker? : Bool = false,
-  next_breaks_paragraph? : Bool = false,
-  over_indented_atx? : Bool = false,
-  prefix? : ContinuationPrefixKind = NoPrefix,
+  next~ : BlockTokenFact = FactInline,
+  at_newline~ : Bool = true,
+  setext_underline~ : Bool = false,
+  prefixed_block_start~ : Bool = false,
+  lone_list_marker~ : Bool = false,
+  next_breaks_paragraph~ : Bool = false,
+  over_indented_atx~ : Bool = false,
+  prefix~ : ContinuationPrefixKind = NoPrefix,
 ) -> BlockLineFacts {
   RootContinuation(RootContinuationFacts::{
     next,
@@ -38,13 +38,13 @@ fn root_continuation_facts(
 
 ///|
 fn block_quote_continuation_facts(
-  marked_line_continues? : Bool = false,
-  marked_prefix? : ContinuationPrefixKind = NoPrefix,
-  unquoted_line_continues? : Bool = false,
-  unquoted_prefix? : ContinuationPrefixKind = NoPrefix,
-  at_newline? : Bool = true,
-  setext_underline? : Bool = false,
-  unquoted_thematic_break? : Bool = false,
+  marked_line_continues~ : Bool = false,
+  marked_prefix~ : ContinuationPrefixKind = NoPrefix,
+  unquoted_line_continues~ : Bool = false,
+  unquoted_prefix~ : ContinuationPrefixKind = NoPrefix,
+  at_newline~ : Bool = true,
+  setext_underline~ : Bool = false,
+  unquoted_thematic_break~ : Bool = false,
 ) -> BlockLineFacts {
   BlockQuoteContinuation(BlockQuoteContinuationFacts::{
     at_newline,
@@ -59,13 +59,13 @@ fn block_quote_continuation_facts(
 
 ///|
 fn list_item_continuation_facts(
-  next? : BlockTokenFact = FactInline,
-  next_indent? : Int? = None,
-  at_newline? : Bool = true,
-  setext_underline? : Bool = false,
-  prefix_is_marker_boundary? : Bool = false,
-  prefixed_block_start? : Bool = false,
-  next_can_continue? : Bool = true,
+  next~ : BlockTokenFact = FactInline,
+  next_indent~ : Int32? = None,
+  at_newline~ : Bool = true,
+  setext_underline~ : Bool = false,
+  prefix_is_marker_boundary~ : Bool = false,
+  prefixed_block_start~ : Bool = false,
+  next_can_continue~ : Bool = true,
 ) -> BlockLineFacts {
   ListItemContinuation(ListItemContinuationFacts::{
     next,

@@ -1,16 +1,18 @@
 ///|
 /// Lambda-owned diagnostic phase for the analysis facade.
+#derive(Eq, Debug)
 pub(all) enum LambdaDiagnosticPhase {
   ParsePhase
   TypecheckPhase
-} derive(Eq, Debug)
+}
 
 ///|
 /// A lambda diagnostic produced by parser or type analysis.
+#derive(Eq, Debug)
 pub(all) enum LambdaDiagnostic {
   ParseDiagnostic(@core.Diagnostic)
   TypecheckDiagnostic(@typecheck.TypeDiagnostic)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Build a lambda diagnostic from a parser diagnostic.

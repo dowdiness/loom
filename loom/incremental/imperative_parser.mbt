@@ -25,7 +25,7 @@ fn[Ast] ImperativeParser::accept_tree(
   source : String,
   syntax : @seam.SyntaxNode,
   diagnostics : @core.DiagnosticSet,
-  reuse_count : Int,
+  reuse_count : Int32,
 ) -> ParseSnapshot[Ast] {
   let new_cst = syntax.cst_node()
   let ast = match (self.prev_cst, self.snapshot) {
@@ -155,7 +155,7 @@ pub fn[Ast] ImperativeParser::diagnostics(
 ///|
 pub fn[Ast] ImperativeParser::get_last_reuse_count(
   self : ImperativeParser[Ast],
-) -> Int {
+) -> Int32 {
   match self.snapshot {
     Some(snapshot) => snapshot.reuse_count
     None => 0

@@ -648,7 +648,7 @@ test "build_tree canonicalizes reused RepeatGroup fragments before balancing" {
     events.push(Token(RawKind(200), "\n"))
   }
 
-  fn push_child_run(events : Array[ParseEvent], count : Int) -> Unit {
+  fn push_child_run(events : Array[ParseEvent], count : Int32) -> Unit {
     for i in 0..<count {
       push_child(events)
       if i < count - 1 {
@@ -657,7 +657,7 @@ test "build_tree canonicalizes reused RepeatGroup fragments before balancing" {
     }
   }
 
-  fn flat_parent_tree(count : Int) -> CstNode raise {
+  fn flat_parent_tree(count : Int32) -> CstNode raise {
     let events : Array[ParseEvent] = []
     events.push(StartNode(RawKind(1)))
     push_child_run(events, count)
@@ -675,7 +675,7 @@ test "build_tree canonicalizes reused RepeatGroup fragments before balancing" {
     CstElement::Token(CstToken::CstToken(RawKind(200), "\n"))
   }
 
-  fn repeat_group_run(start : Int, end : Int) -> CstNode raise Failure {
+  fn repeat_group_run(start : Int32, end : Int32) -> CstNode raise Failure {
     if start >= end {
       abort("repeat_group_run requires a non-empty range")
     }

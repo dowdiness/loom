@@ -5,7 +5,7 @@
 // binary search.
 
 ///|
-fn in_range_table(table : Array[Int], cp : Int) -> Bool {
+fn in_range_table(table : Array[Int32], cp : Int32) -> Bool {
   let n = table.length() / 2
   if n == 0 {
     return false
@@ -31,7 +31,7 @@ fn in_range_table(table : Array[Int], cp : Int) -> Bool {
 /// `Grapheme_Cluster_Break` property of a codepoint.
 ///
 /// Returns `Other` for codepoints not in any `GraphemeBreakProperty` range.
-pub fn gcb_of(cp : Int) -> GCB {
+pub fn gcb_of(cp : Int32) -> GCB {
   if in_range_table(table_cr, cp) {
     return CR
   }
@@ -76,7 +76,7 @@ pub fn gcb_of(cp : Int) -> GCB {
 
 ///|
 /// True iff the codepoint has the `Extended_Pictographic` property.
-pub fn is_extended_pictographic(cp : Int) -> Bool {
+pub fn is_extended_pictographic(cp : Int32) -> Bool {
   in_range_table(table_extended_pictographic, cp)
 }
 
@@ -86,13 +86,13 @@ pub fn is_extended_pictographic(cp : Int) -> Bool {
 /// such as ZWSP (U+200B), ZWNJ (U+200C), LRM (U+200E), BOM (U+FEFF),
 /// variation selectors, and language tags. Source: UCD 15.1
 /// `DerivedCoreProperties.txt`.
-pub fn is_default_ignorable_code_point(cp : Int) -> Bool {
+pub fn is_default_ignorable_code_point(cp : Int32) -> Bool {
   in_range_table(table_default_ignorable_code_point, cp)
 }
 
 ///|
 /// `Indic_Conjunct_Break` derived property (Unicode 15.1+).
-pub fn incb_of(cp : Int) -> InCB {
+pub fn incb_of(cp : Int32) -> InCB {
   if in_range_table(table_incb_consonant, cp) {
     return IcbConsonant
   }

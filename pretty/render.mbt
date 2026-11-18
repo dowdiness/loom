@@ -10,12 +10,13 @@ priv enum Mode {
 ///|
 /// Rendered command stream produced by `resolve`.
 /// Consumed by `render_string` (ignores annotations) or `render_spans` (collects them).
+#derive(Debug, Eq)
 pub(all) enum Cmd[A] {
   CText(String)
-  CNewline(Int)
+  CNewline(Int32)
   CAnnStart(A)
   CAnnEnd(A)
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl[A : Debug] Show for Cmd[A] with fn output(self, logger) {
@@ -26,7 +27,7 @@ pub impl[A : Debug] Show for Cmd[A] with fn output(self, logger) {
 /// Width of the entire layout when rendered flat (all Lines become spaces).
 /// Returns -1 if the layout contains HardLine (cannot be flattened).
 /// O(1) — reads from the cached fw field.
-pub fn[A] flat_width(layout : Layout[A]) -> Int {
+pub fn[A] flat_width(layout : Layout[A]) -> Int32 {
   layout_fw(layout)
 }
 
@@ -35,7 +36,7 @@ pub fn[A] flat_width(layout : Layout[A]) -> Int {
 /// Used when computing suffix width for the left child of a Concat
 /// whose right child contains a HardLine: only the text before that
 /// break shares a line with whatever Group is to the left.
-pub fn[A] prefix_flat_width(layout : Layout[A]) -> Int {
+pub fn[A] prefix_flat_width(layout : Layout[A]) -> Int32 {
   match layout {
     Empty(_) => 0
     Text(_, width) => width
@@ -68,15 +69,15 @@ pub fn[A] prefix_flat_width(layout : Layout[A]) -> Int {
 /// The suffix_fw parameter carries the flat width of content that follows
 /// on the same line — so a Group considers not just its own content but
 /// also what comes after it before the next line break.
-pub fn[A] resolve(width : Int, layout : Layout[A]) -> Array[Cmd[A]] {
+pub fn[A] resolve(width : Int32, layout : Layout[A]) -> Array[Cmd[A]] {
   let cmds : Array[Cmd[A]] = []
   fn go(
-    indent : Int,
+    indent : Int32,
     mode : Mode,
-    column : Int,
+    column : Int32,
     lay : Layout[A],
-    suffix_fw : Int,
-  ) -> Int {
+    suffix_fw : Int32,
+  ) -> Int32 {
     match lay {
       Empty(_) => column
       Text(s, text_width) => {

@@ -2,9 +2,9 @@
 /// Persistent append-only RawKind registry derived from the Fork architecture decision.
 /// Tracks tombstoned raws so retired kind numbers are never reused.
 struct RawKindRegistry {
-  known : Map[String, Int]
-  mut next_raw : Int
-  tombstones : @hashset.HashSet[Int]
+  known : Map[String, Int32]
+  mut next_raw : Int32
+  tombstones : @hashset.HashSet[Int32]
 }
 
 ///|
@@ -13,7 +13,7 @@ fn RawKindRegistry::new() -> Self {
 }
 
 ///|
-fn RawKindRegistry::assign(self : Self, name : String) -> Int {
+fn RawKindRegistry::assign(self : Self, name : String) -> Int32 {
   match self.known.get(name) {
     Some(raw) => raw
     None => {
@@ -26,7 +26,7 @@ fn RawKindRegistry::assign(self : Self, name : String) -> Int {
 }
 
 ///|
-fn RawKindRegistry::reserve(self : Self, name : String, raw : Int) -> Unit {
+fn RawKindRegistry::reserve(self : Self, name : String, raw : Int32) -> Unit {
   match self.known.get(name) {
     Some(existing) if existing == raw => ()
     Some(_) => abort("raw conflict for name: " + name)
@@ -50,7 +50,7 @@ fn RawKindRegistry::reserve(self : Self, name : String, raw : Int) -> Unit {
 }
 
 ///|
-fn RawKindRegistry::seed(self : Self, entries : Array[(String, Int)]) -> Unit {
+fn RawKindRegistry::seed(self : Self, entries : Array[(String, Int32)]) -> Unit {
   for pair in entries {
     let (name, raw) = pair
     self.reserve(name, raw)
@@ -60,7 +60,7 @@ fn RawKindRegistry::seed(self : Self, entries : Array[(String, Int)]) -> Unit {
 ///|
 /// Seed tombstoned raws so they block future reuse across regeneration cycles.
 /// `rawns`: raw numbers to take from prior generated output.
-fn RawKindRegistry::seed_retired(self : Self, rawns : Array[Int]) -> Unit {
+fn RawKindRegistry::seed_retired(self : Self, rawns : Array[Int32]) -> Unit {
   for raw in rawns {
     // Sanity-check: a tombstoned raw must not be in the active set.
     for pair in self.known {
@@ -78,7 +78,7 @@ fn RawKindRegistry::seed_retired(self : Self, rawns : Array[Int]) -> Unit {
 
 ///|
 /// Return the set of tombstoned raws as a sorted array (copy, not live reference).
-fn RawKindRegistry::tombstoned_rawns(self : Self) -> Array[Int] {
+fn RawKindRegistry::tombstoned_rawns(self : Self) -> Array[Int32] {
   let raws = self.tombstones.to_array()
   raws.sort()
   raws
@@ -88,8 +88,8 @@ fn RawKindRegistry::tombstoned_rawns(self : Self) -> Array[Int] {
 /// Extract (kind_name, raw) pairs from an existing syntax_kind.mbt file.
 /// Scans lines for `Name => number` or `Name => @seam.RawKind(number)` patterns
 /// in the ToRawKind impl or equivalent raw-kind assignment arms.
-fn extract_raw_pairs(source : String) -> Array[(String, Int)] {
-  let pairs : Array[(String, Int)] = []
+fn extract_raw_pairs(source : String) -> Array[(String, Int32)] {
+  let pairs : Array[(String, Int32)] = []
   let lines = source.split("\n").to_array()
   for line in lines {
     let trimmed = line.trim().to_owned()
@@ -154,8 +154,8 @@ fn extract_raw_pairs(source : String) -> Array[(String, Int)] {
 
 ///|
 /// Parse tombstoned raw numbers from a previously-generated syntax_kind.mbt (or .g.mbt).
-fn extract_retired_rawns(source : String) -> Array[Int] {
-  let raws : Array[Int] = []
+fn extract_retired_rawns(source : String) -> Array[Int32] {
+  let raws : Array[Int32] = []
   let lines = source.split("\n").to_array()
   for line in lines {
     let trimmed = line.trim().to_owned()
@@ -174,7 +174,7 @@ fn extract_retired_rawns(source : String) -> Array[Int] {
 }
 
 ///|
-fn parse_int(s : String) -> Int {
+fn parse_int(s : String) -> Int32 {
   for i = 0, n = 0; i < s.length(); {
     let c = s[i]
     if c >= '0' && c <= '9' {

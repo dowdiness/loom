@@ -1,9 +1,10 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum UnorderedListMarker {
   Dash
   Star
   Plus
-} derive(Eq, Debug)
+}
 
 ///|
 fn UnorderedListMarker::text(self : UnorderedListMarker) -> String {
@@ -18,7 +19,7 @@ fn UnorderedListMarker::text(self : UnorderedListMarker) -> String {
 /// Skip literal space characters only; CommonMark tabs expand to four-column
 /// indentation and are not interchangeable with optional 0–3 space prefixes in
 /// the setext/ATX source-slice helpers that use this.
-fn skip_leading_spaces(text : String, pos : Int) -> Int {
+fn skip_leading_spaces(text : String, pos : Int32) -> Int32 {
   let mut i = pos
   while i < text.length() {
     match char_at(text, i) {
@@ -43,10 +44,11 @@ fn unordered_list_marker_from_text(text : String) -> UnorderedListMarker? {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum OrderedListDelimiter {
   Period
   Paren
-} derive(Eq, Debug)
+}
 
 ///|
 fn OrderedListDelimiter::text(self : OrderedListDelimiter) -> String {
@@ -57,14 +59,15 @@ fn OrderedListDelimiter::text(self : OrderedListDelimiter) -> String {
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct OrderedListMarker {
-  priv start : Int
+  priv start : Int32
   priv delimiter : OrderedListDelimiter
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn OrderedListMarker::OrderedListMarker(
-  start~ : Int,
+  start~ : Int32,
   delimiter~ : OrderedListDelimiter,
 ) -> OrderedListMarker {
   guard start >= 0 && start < 1000000000 else {
@@ -74,7 +77,7 @@ pub fn OrderedListMarker::OrderedListMarker(
 }
 
 ///|
-pub fn OrderedListMarker::start(self : OrderedListMarker) -> Int {
+pub fn OrderedListMarker::start(self : OrderedListMarker) -> Int32 {
   self.start
 }
 
@@ -102,9 +105,9 @@ fn is_decimal_digit(ch : Char) -> Bool {
 fn parse_marker_line(
   text : StringView,
   is_marker : (Char) -> Bool,
-  min_count~ : Int,
+  min_count~ : Int32,
   allow_internal_whitespace~ : Bool,
-) -> (Char, Int)? {
+) -> (Char, Int32)? {
   let (marker, count, valid) = for
     ch in text
     marker = (None : Char?),
@@ -165,7 +168,7 @@ fn is_valid_thematic_break_markers(text : StringView) -> Bool {
 }
 
 ///|
-fn parse_setext_underline_depth(text : StringView) -> Int? {
+fn parse_setext_underline_depth(text : StringView) -> Int32? {
   match
     parse_marker_line(
       text,
@@ -247,7 +250,7 @@ test "setext underline markers reject internal whitespace" {
 }
 
 ///|
-fn count_ordered_marker_digits(text : String, pos : Int) -> Int {
+fn count_ordered_marker_digits(text : String, pos : Int32) -> Int32 {
   let mut n = 0
   while pos + n < text.length() && n < 9 {
     match char_at(text, pos + n) {
@@ -278,13 +281,14 @@ fn ordered_list_marker_from_text(text : String) -> OrderedListMarker? {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum Token {
-  HeadingMarker(Int) // "# " = 1, "## " = 2, etc. (includes trailing space)
+  HeadingMarker(Int32) // "# " = 1, "## " = 2, etc. (includes trailing space)
   ListMarker // "- " or "* " or "+ " (includes trailing space)
   OrderedListMarker(OrderedListMarker) // "1. " or "1) " (includes trailing space)
   BlockQuoteMarker // ">" plus optional following space, with up to three leading spaces
   ThematicBreak
-  CodeFenceOpen(Int, String) // backtick count, info string
+  CodeFenceOpen(Int32, String) // backtick count, info string
   CodeFenceClose // closing fence
   HtmlBlockOpen(String) // opening line of an HTML block
   HtmlText(String) // line of HTML block content
@@ -303,7 +307,7 @@ pub(all) enum Token {
   Newline // \n
   Error(String)
   EOF
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for Token with fn output(self, logger) {

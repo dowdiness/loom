@@ -1030,8 +1030,8 @@ test "parse: nested list stays editor-compatible" {
 ///|
 fn assert_nested_list_cst_shape(
   source : String,
-  top_level_item_count : Int,
-  nested_item_count : Int,
+  top_level_item_count : Int32,
+  nested_item_count : Int32,
 ) -> Unit raise {
   let (cst, _) = try! @markdown.parse_cst(
     @core.SourceId("markdown-parser-test-document"),
@@ -1241,7 +1241,7 @@ test "parse: blank-line-separated marker change starts a new list" {
       [
         UnorderedList([UnorderedListItem([Text("one")])]),
         UnorderedList([UnorderedListItem([Text("two")])]),
-      ]
+      ],
     ) => inspect(true, content="true")
     _ => inspect(block, content="two separate lists")
   }
@@ -1261,13 +1261,13 @@ test "parse: ordered list delimiter change starts a new editor-compatible list" 
             OrderedListItem([Text("one")], Some(first_item_marker)),
             OrderedListItem([Text("two")], Some(second_item_marker)),
           ],
-          Some(first_list_marker)
+          Some(first_list_marker),
         ),
         OrderedList(
           [OrderedListItem([Text("three")], Some(third_item_marker))],
-          Some(second_list_marker)
+          Some(second_list_marker),
         ),
-      ]
+      ],
     ) => {
       inspect(first_list_marker.text(), content="1.")
       inspect(first_item_marker.text(), content="1.")
@@ -1294,9 +1294,9 @@ test "parse: non-one ordered marker does not interrupt paragraph" {
             Text(" "),
             Text("14. "),
             Text(" The doors are 6."),
-          ]
+          ],
         ),
-      ]
+      ],
     ) => inspect(true, content="true")
     _ => inspect(block, content="single paragraph")
   }
@@ -1314,9 +1314,9 @@ test "parse: one-start ordered marker interrupts paragraph" {
         Paragraph(_),
         OrderedList(
           [OrderedListItem([Text(" The doors are 6.")], Some(item_marker))],
-          Some(list_marker)
+          Some(list_marker),
         ),
-      ]
+      ],
     ) => {
       inspect(list_marker.text(), content="1.")
       inspect(item_marker.text(), content="1.")

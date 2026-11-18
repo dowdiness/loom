@@ -1,5 +1,5 @@
 ///|
-fn line_end_offset(source : String, start : Int, limit : Int) -> Int {
+fn line_end_offset(source : String, start : Int32, limit : Int32) -> Int32 {
   let mut pos = start
   while pos < limit {
     match char_at(source, pos) {
@@ -11,7 +11,7 @@ fn line_end_offset(source : String, start : Int, limit : Int) -> Int {
 }
 
 ///|
-fn next_line_start(source : String, line_end : Int, limit : Int) -> Int {
+fn next_line_start(source : String, line_end : Int32, limit : Int32) -> Int32 {
   if line_end < limit {
     match source.view(start_offset=line_end) {
       ['\r', '\n', .. rest] => rest.start_offset()
@@ -24,7 +24,11 @@ fn next_line_start(source : String, line_end : Int, limit : Int) -> Int {
 }
 
 ///|
-fn code_fence_marker_start(source : String, line_start : Int, end : Int) -> Int {
+fn code_fence_marker_start(
+  source : String,
+  line_start : Int32,
+  end : Int32,
+) -> Int32 {
   let mut marker_start = line_start
   let mut indentation = 0
   while marker_start < end &&
@@ -40,7 +44,7 @@ fn code_fence_marker_start(source : String, line_start : Int, end : Int) -> Int 
 fn code_fence_close_line_start(
   origin : MarkdownIROrigin,
   source : String,
-) -> Int? {
+) -> Int32? {
   let fence_character = match char_at(source, origin.start()) {
     Some('`') => '`'
     Some('~') => '~'

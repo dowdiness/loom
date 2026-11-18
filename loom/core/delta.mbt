@@ -1,9 +1,10 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum TextDelta {
-  Retain(Int) // advance cursor n bytes — no edit emitted
+  Retain(Int32) // advance cursor n bytes — no edit emitted
   Insert(String) // insert text at cursor position
-  Delete(Int) // delete n bytes at cursor position
-} derive(Debug, Eq)
+  Delete(Int32) // delete n bytes at cursor position
+}
 
 ///|
 pub impl Show for TextDelta with fn output(self, logger) {

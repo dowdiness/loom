@@ -4,7 +4,7 @@
 priv enum BlockContainerFrame {
   RootFrame
   BlockQuoteFrame
-  ListItemFrame(Int, Bool)
+  ListItemFrame(Int32, Bool)
 }
 
 ///|
@@ -38,7 +38,7 @@ fn block_quote_container_state(
 ///|
 fn list_item_block_container_state(
   mode : BlockContinuationMode,
-  content_indent~ : Int,
+  content_indent~ : Int32,
   allow_ordered_marker~ : Bool,
   paragraph_open~ : Bool,
 ) -> BlockContainerState {
@@ -82,7 +82,7 @@ priv enum ContinuationPrefixKind {
 priv struct BlockStartFacts {
   current : BlockTokenFact
   after_prefix : BlockTokenFact
-  current_indent : Int
+  current_indent : Int32
   prefixed : Bool
 }
 
@@ -112,7 +112,7 @@ priv struct BlockQuoteContinuationFacts {
 ///|
 priv struct ListItemContinuationFacts {
   next : BlockTokenFact
-  next_indent : Int?
+  next_indent : Int32?
   at_newline : Bool
   setext_underline : Bool
   prefix_is_marker_boundary : Bool
@@ -371,7 +371,7 @@ fn decide_block_quote_continuation_core(
 ///|
 fn decide_list_item_continuation_core(
   state : BlockContainerState,
-  content_indent : Int,
+  content_indent : Int32,
   allow_ordered_marker : Bool,
   facts : ListItemContinuationFacts,
 ) -> BlockTransition {

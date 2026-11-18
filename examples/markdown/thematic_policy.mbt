@@ -1,7 +1,7 @@
 ///|
 fn line_at_offset_is_thematic_break(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  offset : Int,
+  offset : Int32,
 ) -> Bool {
   let line = StringBuilder()
   for i = offset {

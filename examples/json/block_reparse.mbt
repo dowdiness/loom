@@ -4,7 +4,7 @@ fn is_json_container_kind(kind : @seam.RawKind) -> Bool {
 }
 
 ///|
-fn json_container_depth(node : @seam.SyntaxNode) -> Int {
+fn json_container_depth(node : @seam.SyntaxNode) -> Int32 {
   let mut depth = 0
   let mut current = node.parent()
   while current is Some(parent) {

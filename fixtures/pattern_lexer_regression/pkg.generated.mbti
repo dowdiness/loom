@@ -7,11 +7,12 @@ import {
 }
 
 // Values
-pub fn step_lex(String, Int) -> @core.LexStep[Token]
+pub fn step_lex(String, Int32) -> @core.LexStep[Token]
 
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum Token {
   Minus
   Arrow
@@ -21,7 +22,7 @@ pub(all) enum Token {
   Whitespace
   Error(String)
   EOF
-} derive(Eq, @debug.Debug)
+}
 pub fn Token::equal(Self, Self) -> Bool
 pub fn Token::not_equal(Self, Self) -> Bool
 pub fn Token::to_repr(Self) -> @debug.Repr

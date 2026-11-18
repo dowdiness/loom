@@ -8,7 +8,7 @@ priv enum InlineAngleKind {
 ///|
 priv struct InlineAngleMatch {
   kind : InlineAngleKind
-  end : Int
+  end : Int32
 }
 
 ///|
@@ -16,23 +16,23 @@ priv struct InlineAngleMatch {
 /// one reverse pass over the source so failed long-form HTML candidates do not
 /// rescan the remaining document at every later `<`.
 priv struct InlineAngleDelimiterSnapshot {
-  comment_end : Int?
-  cdata_end : Int?
-  processing_instruction_end : Int?
-  greater_than_end : Int?
+  comment_end : Int32?
+  cdata_end : Int32?
+  processing_instruction_end : Int32?
+  greater_than_end : Int32?
 }
 
 ///|
 priv struct InlineAngleDelimiterIndex {
-  angle_delimiters : Map[Int, InlineAngleDelimiterSnapshot]
-  single_quote_closers : Map[Int, Int]
-  double_quote_closers : Map[Int, Int]
+  angle_delimiters : Map[Int32, InlineAngleDelimiterSnapshot]
+  single_quote_closers : Map[Int32, Int32]
+  double_quote_closers : Map[Int32, Int32]
 }
 
 ///|
 fn ascii_delimiter_matches_at(
   input : StringView,
-  start : Int,
+  start : Int32,
   delimiter : String,
 ) -> Bool {
   guard start >= 0 && start + delimiter.length() <= input.length() else {
@@ -50,15 +50,15 @@ fn ascii_delimiter_matches_at(
 fn build_inline_angle_delimiter_index(
   input : StringView,
 ) -> InlineAngleDelimiterIndex {
-  let angle_delimiters : Map[Int, InlineAngleDelimiterSnapshot] = Map([])
-  let single_quote_closers : Map[Int, Int] = Map([])
-  let double_quote_closers : Map[Int, Int] = Map([])
-  let mut next_comment_end : Int? = None
-  let mut next_cdata_end : Int? = None
-  let mut next_processing_instruction_end : Int? = None
-  let mut next_greater_than_end : Int? = None
-  let mut next_single_quote : Int? = None
-  let mut next_double_quote : Int? = None
+  let angle_delimiters : Map[Int32, InlineAngleDelimiterSnapshot] = Map([])
+  let single_quote_closers : Map[Int32, Int32] = Map([])
+  let double_quote_closers : Map[Int32, Int32] = Map([])
+  let mut next_comment_end : Int32? = None
+  let mut next_cdata_end : Int32? = None
+  let mut next_processing_instruction_end : Int32? = None
+  let mut next_greater_than_end : Int32? = None
+  let mut next_single_quote : Int32? = None
+  let mut next_double_quote : Int32? = None
   for cursor = input.length() - 1; cursor >= 0; cursor = cursor - 1 {
     if ascii_delimiter_matches_at(input, cursor, "-->") {
       next_comment_end = Some(cursor + 3)
@@ -100,18 +100,18 @@ fn build_inline_angle_delimiter_index(
 }
 
 ///|
-fn is_ascii_letter_code_unit(code_unit : Int) -> Bool {
+fn is_ascii_letter_code_unit(code_unit : Int32) -> Bool {
   (code_unit >= 0x41 && code_unit <= 0x5A) ||
   (code_unit >= 0x61 && code_unit <= 0x7A)
 }
 
 ///|
-fn is_ascii_digit_code_unit_local(code_unit : Int) -> Bool {
+fn is_ascii_digit_code_unit_local(code_unit : Int32) -> Bool {
   code_unit >= 0x30 && code_unit <= 0x39
 }
 
 ///|
-fn is_uri_scheme_code_unit(code_unit : Int) -> Bool {
+fn is_uri_scheme_code_unit(code_unit : Int32) -> Bool {
   is_ascii_letter_code_unit(code_unit) ||
   is_ascii_digit_code_unit_local(code_unit) ||
   code_unit == 0x2B ||
@@ -120,12 +120,12 @@ fn is_uri_scheme_code_unit(code_unit : Int) -> Bool {
 }
 
 ///|
-fn is_autolink_uri_body_code_unit(code_unit : Int) -> Bool {
+fn is_autolink_uri_body_code_unit(code_unit : Int32) -> Bool {
   code_unit > 0x20 && code_unit != 0x3C && code_unit != 0x3E
 }
 
 ///|
-fn is_email_local_code_unit(code_unit : Int) -> Bool {
+fn is_email_local_code_unit(code_unit : Int32) -> Bool {
   is_ascii_letter_code_unit(code_unit) ||
   is_ascii_digit_code_unit_local(code_unit) ||
   (match code_unit {
@@ -154,14 +154,14 @@ fn is_email_local_code_unit(code_unit : Int) -> Bool {
 }
 
 ///|
-fn is_email_domain_code_unit(code_unit : Int) -> Bool {
+fn is_email_domain_code_unit(code_unit : Int32) -> Bool {
   is_ascii_letter_code_unit(code_unit) ||
   is_ascii_digit_code_unit_local(code_unit) ||
   code_unit == 0x2D
 }
 
 ///|
-fn consume_email_domain_label(input : StringView, start : Int) -> Int? {
+fn consume_email_domain_label(input : StringView, start : Int32) -> Int32? {
   guard start < input.length() &&
     (
       is_ascii_letter_code_unit(input.code_unit_at(start).to_int()) ||
@@ -182,7 +182,7 @@ fn consume_email_domain_label(input : StringView, start : Int) -> Int? {
 ///|
 fn classify_email_autolink_at(
   input : StringView,
-  start : Int,
+  start : Int32,
 ) -> InlineAngleMatch? {
   guard start + 5 <= input.length() &&
     input.code_unit_at(start).to_int() == 0x3C else {
@@ -225,7 +225,7 @@ fn classify_email_autolink_at(
 }
 
 ///|
-fn is_html_whitespace_code_unit(code_unit : Int) -> Bool {
+fn is_html_whitespace_code_unit(code_unit : Int32) -> Bool {
   code_unit == 0x09 ||
   code_unit == 0x0A ||
   code_unit == 0x0C ||
@@ -234,12 +234,12 @@ fn is_html_whitespace_code_unit(code_unit : Int) -> Bool {
 }
 
 ///|
-fn is_html_attribute_name_start(code_unit : Int) -> Bool {
+fn is_html_attribute_name_start(code_unit : Int32) -> Bool {
   is_ascii_letter_code_unit(code_unit) || code_unit == 0x5F || code_unit == 0x3A
 }
 
 ///|
-fn is_html_attribute_name_code_unit(code_unit : Int) -> Bool {
+fn is_html_attribute_name_code_unit(code_unit : Int32) -> Bool {
   is_html_attribute_name_start(code_unit) ||
   is_ascii_digit_code_unit_local(code_unit) ||
   code_unit == 0x2E ||
@@ -247,7 +247,7 @@ fn is_html_attribute_name_code_unit(code_unit : Int) -> Bool {
 }
 
 ///|
-fn skip_html_whitespace(input : StringView, start : Int) -> Int {
+fn skip_html_whitespace(input : StringView, start : Int32) -> Int32 {
   let mut cursor = start
   while cursor < input.length() &&
         is_html_whitespace_code_unit(input.code_unit_at(cursor).to_int()) {
@@ -257,7 +257,7 @@ fn skip_html_whitespace(input : StringView, start : Int) -> Int {
 }
 
 ///|
-fn consume_html_tag_name(input : StringView, start : Int) -> Int? {
+fn consume_html_tag_name(input : StringView, start : Int32) -> Int32? {
   guard start < input.length() &&
     is_ascii_letter_code_unit(input.code_unit_at(start).to_int()) else {
     return None
@@ -279,9 +279,9 @@ fn consume_html_tag_name(input : StringView, start : Int) -> Int? {
 ///|
 fn consume_html_attribute_value(
   input : StringView,
-  start : Int,
+  start : Int32,
   delimiter_index : InlineAngleDelimiterIndex?,
-) -> Int? {
+) -> Int32? {
   guard start < input.length() else { return None }
   let quote = input.code_unit_at(start).to_int()
   if quote == 0x22 || quote == 0x27 {
@@ -333,9 +333,9 @@ fn consume_html_attribute_value(
 ///|
 fn classify_inline_open_tag_at(
   input : StringView,
-  start : Int,
+  start : Int32,
   delimiter_index : InlineAngleDelimiterIndex?,
-) -> Int? {
+) -> Int32? {
   guard consume_html_tag_name(input, start + 1) is Some(initial_end) else {
     return None
   }
@@ -380,7 +380,7 @@ fn classify_inline_open_tag_at(
 }
 
 ///|
-fn classify_inline_close_tag_at(input : StringView, start : Int) -> Int? {
+fn classify_inline_close_tag_at(input : StringView, start : Int32) -> Int32? {
   guard start + 3 < input.length() &&
     input.code_unit_at(start + 1).to_int() == 0x2F &&
     consume_html_tag_name(input, start + 2) is Some(name_end) else {
@@ -397,11 +397,11 @@ fn classify_inline_close_tag_at(input : StringView, start : Int) -> Int? {
 ///|
 fn find_ascii_delimiter(
   input : StringView,
-  start : Int,
+  start : Int32,
   delimiter : String,
-  candidate_start : Int,
+  candidate_start : Int32,
   delimiter_index : InlineAngleDelimiterIndex?,
-) -> Int? {
+) -> Int32? {
   match delimiter_index {
     Some(index) =>
       match index.angle_delimiters.get(candidate_start) {
@@ -431,9 +431,9 @@ fn find_ascii_delimiter(
 ///|
 fn classify_inline_comment_at(
   input : StringView,
-  start : Int,
+  start : Int32,
   delimiter_index : InlineAngleDelimiterIndex?,
-) -> Int? {
+) -> Int32? {
   guard start + 4 <= input.length() &&
     input[start:start + 4].to_owned() == "<!--" else {
     return None
@@ -464,9 +464,9 @@ fn classify_inline_comment_at(
 ///|
 fn classify_inline_declaration_at(
   input : StringView,
-  start : Int,
+  start : Int32,
   delimiter_index : InlineAngleDelimiterIndex?,
-) -> Int? {
+) -> Int32? {
   guard start + 4 < input.length() &&
     input.code_unit_at(start + 1).to_int() == 0x21 else {
     return None
@@ -492,7 +492,7 @@ fn classify_inline_declaration_at(
 ///|
 fn classify_inline_html_at(
   input : StringView,
-  start : Int,
+  start : Int32,
   delimiter_index : InlineAngleDelimiterIndex?,
 ) -> InlineAngleMatch? {
   guard start < input.length() && input.code_unit_at(start).to_int() == 0x3C else {
@@ -522,7 +522,7 @@ fn classify_inline_html_at(
 ///|
 fn classify_uri_autolink_at(
   input : StringView,
-  start : Int,
+  start : Int32,
 ) -> InlineAngleMatch? {
   guard start + 4 <= input.length() &&
     input.code_unit_at(start).to_int() == 0x3C &&
@@ -557,7 +557,7 @@ fn classify_uri_autolink_at(
 ///|
 fn classify_inline_angle_at_with_index(
   input : StringView,
-  start : Int,
+  start : Int32,
   delimiter_index : InlineAngleDelimiterIndex?,
 ) -> InlineAngleMatch? {
   match classify_uri_autolink_at(input, start) {

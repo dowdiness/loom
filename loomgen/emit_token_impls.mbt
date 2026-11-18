@@ -21,7 +21,10 @@ fn escape_string(s : String) -> String {
 
 ///|
 /// Emit `token_impls.g.mbt` — Show, IsTrivia, IsEof, ToRawKind for Token.
-fn kind_name_to_raw(kinds : Array[(String, Int)], kind_name : String) -> Int {
+fn kind_name_to_raw(
+  kinds : Array[(String, Int32)],
+  kind_name : String,
+) -> Int32 {
   for i = 0; i < kinds.length(); i = i + 1 {
     let (kn, raw) = kinds[i]
     if kn == kind_name {
@@ -128,7 +131,7 @@ fn show_literal_for(variant : VariantDecl) -> String {
 ///|
 fn emit_token_impls(
   token_enum : EnumDecl,
-  token_kinds : Array[(String, Int)],
+  token_kinds : Array[(String, Int32)],
 ) -> String {
   // Validate every variant has a role before generating.
   // #loom.line_pattern tokens without a role are exempt — they're produced by

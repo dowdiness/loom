@@ -15,7 +15,7 @@ fn parser_byte_fuzz_source_id() -> @core.SourceId {
 
 ///|
 /// Deterministic PRNG (same LCG as imperative_differential_fuzz_test.mbt).
-fn bf_next_seed(seed : Int) -> Int {
+fn bf_next_seed(seed : Int32) -> Int32 {
   let a = 1103515245
   let c = 12345
   let m = 2147483647
@@ -24,7 +24,7 @@ fn bf_next_seed(seed : Int) -> Int {
 
 ///|
 /// Generate a random codepoint avoiding the surrogate range (0xD800–0xDFFF).
-fn bf_random_codepoint(seed : Int) -> (Int, Int) {
+fn bf_random_codepoint(seed : Int32) -> (Int32, Int32) {
   let s = bf_next_seed(seed)
   // BMP minus surrogates: 0x0001–0xD7FF, 0xE000–0xFFFF = 63487 valid codepoints
   let range = 0xD7FF + (0xFFFF - 0xE000 + 1) // 63487
@@ -37,7 +37,7 @@ fn bf_random_codepoint(seed : Int) -> (Int, Int) {
 /// Build a string of `len` characters drawn from the full BMP range
 /// (excluding surrogates), including control chars, null bytes, and
 /// non-ASCII codepoints.
-fn bf_make_raw_string(seed : Int, len : Int) -> (String, Int) {
+fn bf_make_raw_string(seed : Int32, len : Int32) -> (String, Int32) {
   let buf = StringBuilder()
   let mut s = seed
   for _i = 0; _i < len; _i = _i + 1 {
@@ -52,7 +52,7 @@ fn bf_make_raw_string(seed : Int, len : Int) -> (String, Int) {
 /// Build a string mixing raw bytes with valid lambda syntax fragments.
 /// This exercises paths where the lexer partially recognizes tokens
 /// before hitting unexpected bytes.
-fn bf_make_mixed_string(seed : Int, len : Int) -> (String, Int) {
+fn bf_make_mixed_string(seed : Int32, len : Int32) -> (String, Int32) {
   let fragments = [
     "x", "=>", ",", "(", ")", "+", "-", "if", "then", "else", "let", " = ", "\n",
     "\t", "\u{00}", "42", "  ",
@@ -79,7 +79,7 @@ fn bf_make_mixed_string(seed : Int, len : Int) -> (String, Int) {
 
 ///|
 /// Slice a string safely, returning empty string on invalid range.
-fn bf_slice(s : String, start : Int, end : Int) -> String {
+fn bf_slice(s : String, start : Int32, end : Int32) -> String {
   if start < 0 || end < start || start > s.length() || end > s.length() {
     return ""
   }

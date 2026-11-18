@@ -1,34 +1,38 @@
 ///|
 /// stable semantic form retained by a Markdown link or image.
+#derive(Eq, Debug)
 pub(all) enum MarkdownReferenceForm {
   Inline
   FullReference
   CollapsedReference
   ShortcutReference
-} derive(Eq, Debug)
+}
 
 ///|
 /// semantic kind of an autolink.
+#derive(Eq, Debug)
 pub(all) enum MarkdownAutolinkKind {
   Uri
   Email
-} derive(Eq, Debug)
+}
 
 ///|
 /// source form retained for a hard line break.
+#derive(Eq, Debug)
 pub(all) enum MarkdownHardBreakForm {
-  TrailingSpaces(Int)
+  TrailingSpaces(Int32)
   Backslash
-} derive(Eq, Debug)
+}
 
 ///|
 /// exhaustive public read view of one Markdown semantic node.
 ///
 /// Children and source attachment stay on `MarkdownNode`; the view contains
 /// only the semantic and rendering metadata needed to interpret this node.
+#derive(Eq, Debug)
 pub(all) enum MarkdownNodeView {
   Document
-  Heading(depth~ : Int)
+  Heading(depth~ : Int32)
   Paragraph
   BlockQuote
   UnorderedList(spread~ : Bool, marker~ : UnorderedListMarker?)
@@ -36,12 +40,12 @@ pub(all) enum MarkdownNodeView {
   ListItem(
     spread~ : Bool,
     marker~ : UnorderedListMarker?,
-    task_checked~ : Bool?
+    task_checked~ : Bool?,
   )
   OrderedListItem(
     spread~ : Bool,
     marker~ : OrderedListMarker?,
-    task_checked~ : Bool?
+    task_checked~ : Bool?,
   )
   CodeBlock(info~ : String, value~ : String)
   HtmlBlock(value~ : String)
@@ -53,17 +57,17 @@ pub(all) enum MarkdownNodeView {
   Link(
     destination~ : String,
     title~ : String?,
-    reference_form~ : MarkdownReferenceForm
+    reference_form~ : MarkdownReferenceForm,
   )
   Image(
     destination~ : String,
     title~ : String?,
-    reference_form~ : MarkdownReferenceForm
+    reference_form~ : MarkdownReferenceForm,
   )
   Autolink(
     kind~ : MarkdownAutolinkKind,
     display~ : String,
-    destination~ : String
+    destination~ : String,
   )
   InlineHtml(value~ : String)
   SoftBreak
@@ -71,7 +75,7 @@ pub(all) enum MarkdownNodeView {
   Unsupported(message~ : String)
   Raw(value~ : String)
   Recovered(value~ : String)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Detached, opaque semantic node owned by one document snapshot.

@@ -15,7 +15,7 @@ priv enum ModeRelexSession[T] {
 priv struct ModeRelexControl[T] {
   factory : ModeRelexFactory[T]
   mut session : ModeRelexSession[T]
-  mut invalid_attempts : Int
+  mut invalid_attempts : Int32
 }
 
 ///|
@@ -25,17 +25,17 @@ pub struct TokenBuffer[T] {
   priv incremental_relex_enabled : Bool
   priv eof_token : T
   priv mut tokens : Array[TokenInfo[T]]
-  priv mut starts : Array[Int]
+  priv mut starts : Array[Int32]
   priv mut diagnostics : DiagnosticSet
   priv mode_relex : ModeRelexControl[T]?
   priv mut source : String
-  priv mut version : Int
+  priv mut version : Int32
   // Goal-directed tokenization cache. Lazy — populated only by goal queries.
   // Cleared on source edit (see TokenBuffer::update).
   priv goal_cache : GoalCache[T]
   // Goal-aware lex step function. None when the grammar does not use goals.
   // Set via TokenBuffer::set_goal_step.
-  priv mut goal_step : ((String, Int, Int) -> LexStep[T])?
+  priv mut goal_step : ((String, Int32, Int32) -> LexStep[T])?
   priv mut relex_damage : Edit?
 }
 
@@ -47,7 +47,7 @@ fn[T] token_buffer_from_initial(
   incremental_relex_enabled : Bool,
   eof_token : T,
   tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
+  starts : Array[Int32],
   diagnostics : DiagnosticSet,
   mode_relex : ModeRelexControl[T]?,
 ) -> TokenBuffer[T] {
@@ -89,8 +89,8 @@ fn[T] decide_mode_start(control : ModeRelexControl[T]?) -> ModeStartDecision[T] 
 
 ///|
 priv enum ModeStoragePlan[T] {
-  Patch(Array[TokenInfo[T]], Array[Int])
-  Replace(Array[TokenInfo[T]], Array[Int])
+  Patch(Array[TokenInfo[T]], Array[Int32])
+  Replace(Array[TokenInfo[T]], Array[Int32])
 }
 
 ///|
@@ -107,11 +107,12 @@ priv enum ModeCandidateOrigin {
 }
 
 ///|
+#derive(Debug)
 priv enum ModeValidationDecision {
   CommitCandidate
   CreateFreshSession
   MarkResetRequired
-} derive(Debug)
+}
 
 ///|
 fn decide_mode_validation(
@@ -157,7 +158,7 @@ fn[T : Eq] full_lex_result_error(
 ///|
 fn[T : Eq] full_lex_arrays_error(
   tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
+  starts : Array[Int32],
   source : String,
   eof_token : T,
 ) -> String? {
@@ -220,8 +221,8 @@ fn[T : Eq] abort_on_invalid_initial_result(
 ///|
 /// Build a starts array from a token array via prefix sum.
 /// Invariant: starts[i+1] == starts[i] + tokens[i].len
-pub fn[T] build_starts(tokens : Array[TokenInfo[T]]) -> Array[Int] {
-  let starts : Array[Int] = Array::make(tokens.length(), 0)
+pub fn[T] build_starts(tokens : Array[TokenInfo[T]]) -> Array[Int32] {
+  let starts : Array[Int32] = Array::make(tokens.length(), 0)
   let mut offset = 0
   for i = 0; i < tokens.length(); i = i + 1 {
     starts[i] = offset
@@ -235,7 +236,7 @@ pub fn[T] build_starts(tokens : Array[TokenInfo[T]]) -> Array[Int] {
 /// Loops step_fn until Done, collecting TokenInfo results. Appends eof_token.
 /// Raises LexError on Invalid or Incomplete steps.
 pub fn[T] tokenize_via_steps(
-  step_fn : (String, Int) -> LexStep[T],
+  step_fn : (String, Int32) -> LexStep[T],
   input : String,
   eof_token : T,
 ) -> Array[TokenInfo[T]] raise LexError {
@@ -247,12 +248,12 @@ pub fn[T] tokenize_via_steps(
 /// Invalid/incomplete steps still raise `LexError`; recoverable paths should
 /// use `TokenBuffer::new_from_steps`.
 pub fn[T] tokenize_via_steps_result(
-  step_fn : (String, Int) -> LexStep[T],
+  step_fn : (String, Int32) -> LexStep[T],
   input : String,
   eof_token : T,
 ) -> LexResult[T] raise LexError {
   let tokens : Array[TokenInfo[T]] = []
-  let starts : Array[Int] = []
+  let starts : Array[Int32] = []
   let mut pos = 0
   while true {
     match step_fn(input, pos) {
@@ -315,7 +316,7 @@ pub fn[T : Eq] TokenBuffer::new_from_lex(
   source : String,
   lex_fn~ : (String) -> LexResult[T],
   eof_token~ : T,
-  incremental_relex_enabled? : Bool = true,
+  incremental_relex_enabled~ : Bool = true,
 ) -> TokenBuffer[T] {
   let result = lex_fn(source)
   abort_on_invalid_initial_result(result, source, eof_token, "plain")
@@ -395,7 +396,7 @@ pub fn[T] TokenBuffer::new_from_steps(
   lexer : PrefixLexer[T],
   eof_token~ : T,
   error_token~ : T,
-  error_token_from_message? : ((String) -> T)? = None,
+  error_token_from_message~ : ((String) -> T)? = None,
 ) -> TokenBuffer[T] {
   let result = tokenize_from_steps_result(
     source_id,
@@ -497,13 +498,13 @@ pub fn[T] TokenBuffer::get_tokens(self : TokenBuffer[T]) -> Array[TokenInfo[T]] 
 
 ///|
 /// Return the token at index i (without position information).
-pub fn[T] TokenBuffer::get_token(self : TokenBuffer[T], i : Int) -> T {
+pub fn[T] TokenBuffer::get_token(self : TokenBuffer[T], i : Int32) -> T {
   self.tokens[i].token
 }
 
 ///|
 /// Return a defensive copy of the token start offsets.
-pub fn[T] TokenBuffer::get_starts(self : TokenBuffer[T]) -> Array[Int] {
+pub fn[T] TokenBuffer::get_starts(self : TokenBuffer[T]) -> Array[Int32] {
   self.starts.copy()
 }
 
@@ -515,19 +516,19 @@ pub fn[T] TokenBuffer::get_diagnostics(self : TokenBuffer[T]) -> DiagnosticSet {
 
 ///|
 /// Return the start code-unit offset of the token at index i.
-pub fn[T] TokenBuffer::get_start(self : TokenBuffer[T], i : Int) -> Int {
+pub fn[T] TokenBuffer::get_start(self : TokenBuffer[T], i : Int32) -> Int32 {
   self.starts[i]
 }
 
 ///|
 /// Return the end code-unit offset of the token at index i.
-pub fn[T] TokenBuffer::get_end(self : TokenBuffer[T], i : Int) -> Int {
+pub fn[T] TokenBuffer::get_end(self : TokenBuffer[T], i : Int32) -> Int32 {
   self.starts[i] + self.tokens[i].len
 }
 
 ///|
 /// Return a StringView of the source text for the token at index i.
-pub fn[T] TokenBuffer::get_view(self : TokenBuffer[T], i : Int) -> StringView {
+pub fn[T] TokenBuffer::get_view(self : TokenBuffer[T], i : Int32) -> StringView {
   self.source.view(
     start_offset=self.starts[i],
     end_offset=self.starts[i] + self.tokens[i].len,
@@ -536,7 +537,7 @@ pub fn[T] TokenBuffer::get_view(self : TokenBuffer[T], i : Int) -> StringView {
 
 ///|
 /// Return the number of tokens (including the trailing EOF sentinel).
-pub fn[T] TokenBuffer::token_count(self : TokenBuffer[T]) -> Int {
+pub fn[T] TokenBuffer::token_count(self : TokenBuffer[T]) -> Int32 {
   self.tokens.length()
 }
 
@@ -546,7 +547,7 @@ pub fn[T] TokenBuffer::get_source(self : TokenBuffer[T]) -> String {
 }
 
 ///|
-pub fn[T] TokenBuffer::get_version(self : TokenBuffer[T]) -> Int {
+pub fn[T] TokenBuffer::get_version(self : TokenBuffer[T]) -> Int32 {
   self.version
 }
 
@@ -556,7 +557,7 @@ pub fn[T] TokenBuffer::get_version(self : TokenBuffer[T]) -> Int {
 /// Initialize before parsing; not safe to change mid-parse.
 pub fn[T] TokenBuffer::set_goal_step(
   self : TokenBuffer[T],
-  step : (String, Int, Int) -> LexStep[T],
+  step : (String, Int32, Int32) -> LexStep[T],
 ) -> Unit {
   self.goal_step = Some(step)
 }
@@ -566,8 +567,8 @@ pub fn[T] TokenBuffer::set_goal_step(
 /// Returns Done when no goal_step is configured.
 pub fn[T] TokenBuffer::tokenize_at_offset(
   self : TokenBuffer[T],
-  offset : Int,
-  goal : Int,
+  offset : Int32,
+  goal : Int32,
 ) -> LexStep[T] {
   match self.goal_step {
     Some(step) => step(self.source, offset, goal)
@@ -584,9 +585,9 @@ pub fn[T] TokenBuffer::tokenize_at_offset(
 /// are speculative and cache-shared across checkpoints).
 pub fn[T] TokenBuffer::goal_token_at(
   self : TokenBuffer[T],
-  offset : Int,
-  goal : Int,
-) -> (T, Int) {
+  offset : Int32,
+  goal : Int32,
+) -> (T, Int32) {
   match self.goal_cache.lookup(offset, goal) {
     Some(result) => result
     None =>
@@ -613,8 +614,8 @@ pub fn[T] TokenBuffer::goal_token_at(
 /// Returns EOF when no token starts at `offset`.
 fn[T] TokenBuffer::baseline_token_at(
   self : TokenBuffer[T],
-  offset : Int,
-) -> (T, Int) {
+  offset : Int32,
+) -> (T, Int32) {
   let len = self.tokens.length()
   let mut lo = 0
   let mut hi = len
@@ -641,8 +642,8 @@ fn[T] TokenBuffer::baseline_token_at(
 /// multiple baseline positions and reuse must be skipped.
 pub fn[T] TokenBuffer::goal_span_exceeds(
   self : TokenBuffer[T],
-  offset : Int,
-  baseline_len : Int,
+  offset : Int32,
+  baseline_len : Int32,
 ) -> Bool {
   match self.goal_cache.goal_span_containing(offset) {
     Some((_start, end)) => end - offset > baseline_len
@@ -655,7 +656,7 @@ fn[T : Eq] TokenBuffer::prepare_mode_commit(
   self : TokenBuffer[T],
   edit : Edit,
   new_source : String,
-  left_tok_idx : Int,
+  left_tok_idx : Int32,
   relexed : ModeRelexResult[T],
 ) -> ModeCommitPlan[T]? {
   let old_tokens = self.tokens
@@ -746,7 +747,7 @@ fn[T : Eq] TokenBuffer::prepare_mode_commit(
     })
   }
   let new_tokens : Array[TokenInfo[T]] = []
-  let new_starts : Array[Int] = []
+  let new_starts : Array[Int32] = []
   for i in 0..<left_tok_idx {
     new_tokens.push(old_tokens[i])
     new_starts.push(old_starts[i])
@@ -781,7 +782,7 @@ fn[T : Eq] TokenBuffer::prepare_mode_commit(
 fn[T] TokenBuffer::commit_mode_plan(
   self : TokenBuffer[T],
   plan : ModeCommitPlan[T],
-  left_tok_idx : Int,
+  left_tok_idx : Int32,
   new_source : String,
   control : ModeRelexControl[T],
   session : ModeRelexState[T],
@@ -969,7 +970,7 @@ pub fn[T : Eq] TokenBuffer::update(
     new_source, left_clamped, right_clamped,
   )
   let new_tokens : Array[TokenInfo[T]] = []
-  let new_starts : Array[Int] = []
+  let new_starts : Array[Int32] = []
   // Copy unchanged prefix tokens (their positions don't shift).
   for i = 0; i < left_tok_idx; i = i + 1 {
     new_tokens.push(old_tokens[i])
@@ -1018,7 +1019,7 @@ pub fn[T : Eq] TokenBuffer::update(
 fn offset_lex_diagnostics(
   source_id : SourceId,
   diagnostics : DiagnosticSet,
-  offset : Int,
+  offset : Int32,
   context : String,
 ) -> DiagnosticSet {
   try TextOffset(0) catch {
@@ -1051,9 +1052,9 @@ fn offset_lex_diagnostics(
 fn[T : Eq] TokenBuffer::lex_range_impl(
   self : TokenBuffer[T],
   source : String,
-  start : Int,
-  end : Int,
-) -> (Array[TokenInfo[T]], Array[Int], DiagnosticSet) raise LexError {
+  start : Int32,
+  end : Int32,
+) -> (Array[TokenInfo[T]], Array[Int32], DiagnosticSet) raise LexError {
   if start < 0 || end < start || end > source.length() {
     raise LexError("Invalid range")
   }
@@ -1061,7 +1062,7 @@ fn[T : Eq] TokenBuffer::lex_range_impl(
   let slice_result = (self.retokenize_full)(slice.to_owned())
   // lex result contract: EOF is always last — skip it.
   let result_tokens : Array[TokenInfo[T]] = []
-  let result_starts : Array[Int] = []
+  let result_starts : Array[Int32] = []
   if slice_result.tokens.length() == 0 {
     return (
       result_tokens,
@@ -1121,9 +1122,9 @@ fn[T : Eq] TokenBuffer::lex_range_impl(
 /// Returns len-1 if all tokens end before pos.
 fn[T] find_left_index(
   tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
-  pos : Int,
-) -> Int {
+  starts : Array[Int32],
+  pos : Int32,
+) -> Int32 {
   let len = tokens.length()
   if len == 0 {
     return 0
@@ -1150,9 +1151,9 @@ fn[T] find_left_index(
 /// Returns 0 if all tokens start after pos.
 fn[T] find_right_index(
   tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
-  pos : Int,
-) -> Int {
+  starts : Array[Int32],
+  pos : Int32,
+) -> Int32 {
   let len = tokens.length()
   if len == 0 {
     return 0
@@ -1175,7 +1176,7 @@ fn[T] find_right_index(
 }
 
 ///|
-fn map_start_pos(pos : Int, edit : Edit) -> Int {
+fn map_start_pos(pos : Int32, edit : Edit) -> Int32 {
   if pos <= edit.start {
     pos
   } else if pos >= edit.old_end() {
@@ -1186,7 +1187,7 @@ fn map_start_pos(pos : Int, edit : Edit) -> Int {
 }
 
 ///|
-fn map_end_pos(pos : Int, edit : Edit) -> Int {
+fn map_end_pos(pos : Int32, edit : Edit) -> Int32 {
   if pos < edit.start {
     pos
   } else if pos >= edit.old_end() {
@@ -1197,7 +1198,7 @@ fn map_end_pos(pos : Int, edit : Edit) -> Int {
 }
 
 ///|
-fn clamp_offset(pos : Int, length : Int) -> Int {
+fn clamp_offset(pos : Int32, length : Int32) -> Int32 {
   if pos < 0 {
     0
   } else if pos > length {
@@ -1285,7 +1286,7 @@ fn[T] tokenize_from_steps_result(
   error_token_from_message~ : ((String) -> T)?,
 ) -> LexResult[T] {
   let result : Array[TokenInfo[T]] = []
-  let starts : Array[Int] = []
+  let starts : Array[Int32] = []
   let diagnostics = DiagnosticSet::empty()
   let len = source.length()
   let mut pos = 0
@@ -1368,7 +1369,7 @@ fn[T] tokenize_from_steps_strict_result(
   eof_token : T,
 ) -> LexResult[T] raise LexError {
   let result : Array[TokenInfo[T]] = []
-  let starts : Array[Int] = []
+  let starts : Array[Int32] = []
   let len = source.length()
   let mut pos = 0
   while pos < len {
@@ -1416,11 +1417,11 @@ fn[T] recoverable_error_token(
 fn[T] longest_lexable_prefix_len(
   s : String,
   tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError,
-) -> Int {
+) -> Int32 {
   // Linear descending scan: robust even when tokenize(prefix) success is
   // non-monotone across prefix lengths (e.g. unterminated constructs that
   // become valid only when a later closing delimiter is included).
-  let boundaries : Array[Int] = []
+  let boundaries : Array[Int32] = []
   let mut pos = 0
   while pos < s.length() {
     pos = next_char_offset(s, pos)

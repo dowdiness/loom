@@ -12,10 +12,10 @@
 // uses skip_until_progress, never plain skip_until (loom #647 precedent).
 
 ///|
-const MAX_ERRORS : Int = 50
+const MAX_ERRORS : Int32 = 50
 
 ///|
-const MAX_DEPTH : Int = 512
+const MAX_DEPTH : Int32 = 512
 
 ///|
 /// True when the next tokens form a close-tag prefix (`<` `/`). jsx has no
@@ -145,7 +145,7 @@ fn parse_attribute(
 /// point is what loom #647 fixed at html's root.
 fn parse_element(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-  depth~ : Int,
+  depth~ : Int32,
 ) -> Unit {
   if depth > MAX_DEPTH {
     ctx.error("Maximum JSX nesting depth exceeded")
@@ -202,7 +202,7 @@ fn parse_element(
 fn parse_content(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   tag_name : String,
-  depth~ : Int,
+  depth~ : Int32,
 ) -> Unit {
   while !ctx.at_eof() {
     if at_close_tag(ctx) {
@@ -252,7 +252,7 @@ fn parse_content(
 ///|
 fn parse_fragment(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-  depth~ : Int,
+  depth~ : Int32,
 ) -> Unit {
   if depth > MAX_DEPTH {
     ctx.error("Maximum JSX nesting depth exceeded")
@@ -275,7 +275,7 @@ fn parse_fragment(
 /// unwinds to an ancestor element.
 fn parse_fragment_content(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-  depth~ : Int,
+  depth~ : Int32,
 ) -> Unit {
   while !ctx.at_eof() {
     if at_close_tag(ctx) {

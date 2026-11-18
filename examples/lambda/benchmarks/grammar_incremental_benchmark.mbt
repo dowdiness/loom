@@ -331,7 +331,7 @@ fn make_deep_tree_session(base : String) -> Array[(@core.Edit, String)] {
     abort("deep-tree session: '(f x)' not found")
   }
   // (offset, expected current char, flipped char) for four distinct deep leaves.
-  let flips : Array[(Int, String, String)] = [
+  let flips : Array[(Int32, String, String)] = [
     (lam + 8, "g", "h"), // deepest: body of `(g) => g`
     (lam + 2, "g", "h"), // param of `(g) => g`
     (app + 3, "x", "y"), // arg of nested application `(f x)`

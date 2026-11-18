@@ -43,7 +43,7 @@ fn pratt_reuse_tokens() -> Array[@core.TokenInfo[TestToken]] {
 }
 
 ///|
-fn pratt_reuse_starts() -> Array[Int] {
+fn pratt_reuse_starts() -> Array[Int32] {
   [0, 1, 2, 3, 4, 5, 6, 7]
 }
 
@@ -86,11 +86,11 @@ fn pratt_parse(
   source_id : @core.SourceId,
   source : String,
   tokens : Array[@core.TokenInfo[TestToken]],
-  starts : Array[Int],
+  starts : Array[Int32],
   spec : @core.LanguageSpec[TestToken, TestToken],
-  cursor? : @core.ReuseCursor[TestToken, TestToken]? = None,
-  prev_diagnostics? : @core.DiagnosticSet? = None,
-) -> (@seam.CstNode, @core.DiagnosticSet, Int) {
+  cursor~ : @core.ReuseCursor[TestToken, TestToken]? = None,
+  prev_diagnostics~ : @core.DiagnosticSet? = None,
+) -> (@seam.CstNode, @core.DiagnosticSet, Int32) {
   try! @core.parse_tokens_indexed(
     source_id,
     source,
@@ -117,7 +117,7 @@ fn binary_growth_tokens() -> Array[@core.TokenInfo[TestToken]] {
 }
 
 ///|
-fn binary_growth_starts() -> Array[Int] {
+fn binary_growth_starts() -> Array[Int32] {
   [0, 1, 2, 3, 4, 5]
 }
 
@@ -148,7 +148,7 @@ fn app_old_tokens() -> Array[@core.TokenInfo[TestToken]] {
 }
 
 ///|
-fn app_old_starts() -> Array[Int] {
+fn app_old_starts() -> Array[Int32] {
   [0, 1, 2]
 }
 
@@ -179,7 +179,7 @@ fn app_growth_tokens() -> Array[@core.TokenInfo[TestToken]] {
 }
 
 ///|
-fn app_growth_starts() -> Array[Int] {
+fn app_growth_starts() -> Array[Int32] {
   [0, 1, 2, 3]
 }
 

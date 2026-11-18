@@ -46,7 +46,11 @@ fn escape_first_units(pattern : String, span : PatternSpan) -> FirstCodeUnits {
 }
 
 ///|
-fn class_literal(pattern : String, pos : Int, limit : Int) -> (UInt16, Int)? {
+fn class_literal(
+  pattern : String,
+  pos : Int32,
+  limit : Int32,
+) -> (UInt16, Int32)? {
   guard pos < limit else { return None }
   if pattern[pos] != '\\' {
     Some((pattern[pos], pos + 1))

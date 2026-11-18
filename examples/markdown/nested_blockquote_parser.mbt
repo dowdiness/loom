@@ -6,7 +6,7 @@
 fn consume_current_block_quote_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   if ownership is QuotedListOwned(quote, indent) {
     let checkpoint = ctx.checkpoint()
     if consume_block_quote_marker_count(ctx, quote.ownership, quote.depth)
@@ -35,8 +35,8 @@ fn consume_current_block_quote_marker(
 fn consume_block_quote_marker_count(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
-  count : Int,
-) -> (Int, Int)? {
+  count : Int32,
+) -> (Int32, Int32)? {
   let mut content_column = 0
   let mut marker_end_column = 0
   for index = 0; index < count; index = index + 1 {
@@ -56,8 +56,8 @@ fn consume_block_quote_marker_count(
 fn consume_repeated_nested_block_quote_line_prefix(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
-  depth : Int,
-) -> (Int, Int)? {
+  depth : Int32,
+) -> (Int32, Int32)? {
   if ctx.peek() is Newline {
     ctx.emit_token(NewlineToken)
   }
@@ -67,7 +67,7 @@ fn consume_repeated_nested_block_quote_line_prefix(
 ///|
 fn repeated_nested_block_quote_paragraph_starts(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  columns : (Int, Int),
+  columns : (Int32, Int32),
 ) -> Bool {
   // At a block start, every ordered marker can open a list; the paragraph
   // interruption rule (start=1) does not apply. Indented code is also a block.
@@ -89,7 +89,7 @@ fn repeated_nested_block_quote_paragraph_starts(
 fn next_repeated_nested_block_quote_depth(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
-) -> Int {
+) -> Int32 {
   ctx.lookahead(() => {
     match ctx.peek() {
       Newline => ctx.emit_token(NewlineToken)
@@ -116,7 +116,7 @@ fn next_repeated_nested_block_quote_depth(
 fn repeated_nested_block_quote_depth(
   ctx : @core.ParserContext[Token, SyntaxKind],
   prefix : LinePrefix?,
-) -> Int? {
+) -> Int32? {
   ctx.lookahead(() => {
     match prefix {
       Some(_) => ctx.emit_token(IndentationToken)
@@ -136,7 +136,7 @@ fn repeated_nested_block_quote_depth(
 
 ///|
 priv enum RepeatedNestedBlockQuoteContinuation {
-  ContinueNestedMarkers(BlockQuotePrefixOwnership, Int)
+  ContinueNestedMarkers(BlockQuotePrefixOwnership, Int32)
   ContinueExistingQuote(BlockContinuationAction)
 }
 
@@ -144,7 +144,7 @@ priv enum RepeatedNestedBlockQuoteContinuation {
 fn repeated_nested_block_quote_paragraph_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
-  depth : Int,
+  depth : Int32,
 ) -> ContinuationDecision[RepeatedNestedBlockQuoteContinuation] {
   // An enclosing quote can be explicit while the item's inner quote is lazy.
   // Its marker belongs to the outer container, not to a new root quote.
@@ -225,7 +225,7 @@ impl InlineContinuationAction for RepeatedNestedBlockQuoteContinuation with fn a
 fn repeated_nested_block_quote_decider(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
-  depth : Int,
+  depth : Int32,
 ) -> () -> ContinuationDecision[RepeatedNestedBlockQuoteContinuation] {
   () => {
     repeated_nested_block_quote_paragraph_continuation(ctx, ownership, depth)
@@ -236,7 +236,7 @@ fn repeated_nested_block_quote_decider(
 fn parse_repeated_nested_block_quote_paragraph(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
-  depth : Int,
+  depth : Int32,
 ) -> Unit {
   parse_block_quote_paragraph_with_continuation(
     ctx,
@@ -248,8 +248,8 @@ fn parse_repeated_nested_block_quote_paragraph(
 fn repeated_nested_block_quote_setext_underline_depth(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
-  depth : Int,
-) -> Int? {
+  depth : Int32,
+) -> Int32? {
   ctx.lookahead(() => {
     guard ctx.peek() is Newline else { return None }
     guard consume_repeated_nested_block_quote_line_prefix(ctx, ownership, depth)
@@ -268,7 +268,7 @@ fn repeated_nested_block_quote_setext_underline_depth(
 fn repeated_nested_block_quote_starts_setext_heading(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   ctx.lookahead(() => {
     parse_indexed_inline_container_without_continuation(
@@ -284,7 +284,7 @@ fn repeated_nested_block_quote_starts_setext_heading(
 fn consume_repeated_nested_block_quote_setext_underline(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
-  depth : Int,
+  depth : Int32,
 ) -> Unit {
   guard consume_repeated_nested_block_quote_line_prefix(ctx, ownership, depth)
     is Some(_) else {
@@ -297,7 +297,7 @@ fn consume_repeated_nested_block_quote_setext_underline(
 fn try_parse_repeated_nested_block_quote_setext_heading(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
-  depth : Int,
+  depth : Int32,
 ) -> Bool {
   try_parse_block_quote_setext_heading_with_continuation(
     ctx,
@@ -317,9 +317,9 @@ fn try_parse_repeated_nested_block_quote_setext_heading(
 fn parse_repeated_nested_block_quote_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
-  depth : Int,
-  content_column : Int,
-  marker_end_column : Int,
+  depth : Int32,
+  content_column : Int32,
+  marker_end_column : Int32,
 ) -> Unit {
   ctx.with_reuse_context(
     block_quote_content_reuse_context(
@@ -351,7 +351,7 @@ fn parse_repeated_nested_block_quote_block(
 fn parse_repeated_nested_block_quote(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
-  depth : Int,
+  depth : Int32,
   prefix : LinePrefix?,
 ) -> Unit {
   ctx.node(BlockQuoteNode, fn() {

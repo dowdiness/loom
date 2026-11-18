@@ -23,7 +23,7 @@ pub impl @core.AstView for IfExprProj with fn syntax_node(self) {
 ///|
 pub fn IfExprProj::condition(
   self : IfExprProj,
-  message? : String = "view IfExpr.condition expects exactly one IfCondition",
+  message~ : String = "view IfExpr.condition expects exactly one IfCondition",
 ) -> Result[@seam.SyntaxNode, @seam.ProjectionShapeError] {
   self.node.required_direct_child_of_kind(IfCondition.to_raw(), message~)
 }
@@ -31,7 +31,7 @@ pub fn IfExprProj::condition(
 ///|
 pub fn IfExprProj::then_branch(
   self : IfExprProj,
-  message? : String = "view IfExpr.then_branch expects exactly one IfThen",
+  message~ : String = "view IfExpr.then_branch expects exactly one IfThen",
 ) -> Result[@seam.SyntaxNode, @seam.ProjectionShapeError] {
   self.node.required_direct_child_of_kind(IfThen.to_raw(), message~)
 }
@@ -39,7 +39,7 @@ pub fn IfExprProj::then_branch(
 ///|
 pub fn IfExprProj::else_branch(
   self : IfExprProj,
-  message? : String = "view IfExpr.else_branch expects at most one IfElse",
+  message~ : String = "view IfExpr.else_branch expects at most one IfElse",
 ) -> Result[@seam.SyntaxNode?, @seam.ProjectionShapeError] {
   self.node.optional_direct_child_of_kind(IfElse.to_raw(), message~)
 }
@@ -66,7 +66,7 @@ pub impl @core.AstView for LambdaExprProj with fn syntax_node(self) {
 ///|
 pub fn LambdaExprProj::body(
   self : LambdaExprProj,
-  message? : String = "view LambdaExpr.body expects exactly one LambdaBody",
+  message~ : String = "view LambdaExpr.body expects exactly one LambdaBody",
 ) -> Result[@seam.SyntaxNode, @seam.ProjectionShapeError] {
   self.node.required_direct_child_of_kind(LambdaBody.to_raw(), message~)
 }
@@ -113,7 +113,7 @@ pub impl @core.AstView for LambdaBodyProj with fn syntax_node(self) {
 /// Return the single expression/block child wrapped by this LambdaBody.
 pub fn LambdaBodyProj::inner(
   self : LambdaBodyProj,
-  message? : String = "view LambdaBody.inner expects exactly one child expression",
+  message~ : String = "view LambdaBody.inner expects exactly one child expression",
 ) -> Result[@seam.SyntaxNode, @seam.ProjectionShapeError] {
   match self.node.nth_child(0) {
     Some(child) => Ok(child)

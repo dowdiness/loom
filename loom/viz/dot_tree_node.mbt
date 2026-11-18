@@ -3,7 +3,7 @@
 
 ///|
 pub(all) struct DotTreeNode {
-  int_id : Int
+  int_id : Int32
   id : String
   label : String
   attrs : Map[String, String]
@@ -61,7 +61,7 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
   let node_labels : Map[String, String] = Default::default()
   let node_attrs_map : Map[String, Map[String, String]] = Default::default()
   let child_list : Map[String, Array[(String, String)]] = Default::default()
-  let indegree : Map[String, Int] = Default::default()
+  let indegree : Map[String, Int32] = Default::default()
   let known_node_ids : Map[String, Bool] = Default::default()
   let all_node_ids : Array[String] = []
 
@@ -69,7 +69,7 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
     nid : String,
     known_node_ids : Map[String, Bool],
     all_node_ids : Array[String],
-    indegree : Map[String, Int],
+    indegree : Map[String, Int32],
   ) -> Unit {
     match known_node_ids.get(nid) {
       Some(true) => ()
@@ -156,7 +156,7 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
   let rid = root_candidates[0]
 
   // Validate connectivity and acyclicity before building the concrete tree.
-  let visit_state : Map[String, Int] = Default::default() // 1=in stack, 2=done
+  let visit_state : Map[String, Int32] = Default::default() // 1=in stack, 2=done
   if !validate_reachability(rid, child_list, visit_state) {
     return None
   }
@@ -176,7 +176,7 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
 fn validate_reachability(
   nid : String,
   child_list : Map[String, Array[(String, String)]],
-  visit_state : Map[String, Int],
+  visit_state : Map[String, Int32],
 ) -> Bool {
   match visit_state.get(nid) {
     Some(1) | Some(2) => return false
@@ -202,7 +202,7 @@ fn build_tree(
   node_labels : Map[String, String],
   node_attrs_map : Map[String, Map[String, String]],
   child_list : Map[String, Array[(String, String)]],
-  counter : Ref[Int],
+  counter : Ref[Int32],
   visiting : Map[String, Bool],
 ) -> DotTreeNode? {
   match visiting.get(nid) {

@@ -5,7 +5,7 @@
 // rebuilt across the unchanged document suffix.
 
 ///|
-fn bench_perf_block_reparse_cycle(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_block_reparse_cycle(b : @bench.T, count : Int32) -> Unit {
   let source_id = @core.SourceId("markdown-block-reparse-benchmark")
   let source = perf_work_paragraph_doc(count)
   let (edited, edit) = perf_work_middle_edit(source)
@@ -33,7 +33,10 @@ fn bench_perf_block_reparse_cycle(b : @bench.T, count : Int) -> Unit {
 }
 
 ///|
-fn perf_mode_relex_left_token(starts : Array[Int], edit_start : Int) -> Int {
+fn perf_mode_relex_left_token(
+  starts : Array[Int32],
+  edit_start : Int32,
+) -> Int32 {
   let mut left = 0
   while left + 1 < starts.length() && starts[left + 1] <= edit_start {
     left = left + 1
@@ -46,7 +49,7 @@ fn perf_mode_relex_left_token(starts : Array[Int], edit_start : Int) -> Int {
 }
 
 ///|
-fn bench_perf_mode_relex_cycle(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_mode_relex_cycle(b : @bench.T, count : Int32) -> Unit {
   let source_id = @core.SourceId("markdown-mode-relex-benchmark")
   let source = perf_work_paragraph_doc(count)
   let (edited, edit) = perf_work_middle_edit(source)

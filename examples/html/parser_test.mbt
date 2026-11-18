@@ -28,7 +28,7 @@ fn dump_element(elem : @seam.CstElement) -> String? {
 }
 
 ///|
-fn html_diagnostic_start(diag : @core.Diagnostic) -> Int {
+fn html_diagnostic_start(diag : @core.Diagnostic) -> Int32 {
   match
     diag
     .labels()
@@ -138,7 +138,9 @@ test "script content is raw text" {
   // Regression for loom #626: <script>/<style> content must lex as
   // @token.RawText (RawTextLeaf in the tree), not @token.Text (TextLeaf).
   let source_id = @core.SourceId("html-parser-script-raw-text")
-  let result = @html.html_grammar.parse_cst(source_id, "<script>var x = 1;</script>") catch {
+  let result = @html.html_grammar.parse_cst(
+    source_id, "<script>var x = 1;</script>",
+  ) catch {
     _ => return fail("raw-text parse raised")
   }
   let (tree, diagnostics) = result
@@ -195,7 +197,9 @@ test "HTML IR compile rejects an unregistered guard" {
 ///|
 test "mismatched close tags report diagnostics through close boundary" {
   let source_id = @core.SourceId("html-parser-close-boundary")
-  let result = @html.html_grammar.parse_cst(source_id, "<div><span></div></span>") catch {
+  let result = @html.html_grammar.parse_cst(
+    source_id, "<div><span></div></span>",
+  ) catch {
     _ => return fail("close-boundary mismatch parse raised")
   }
   let (_, diagnostics) = result
@@ -265,7 +269,9 @@ test "nested tags and void elements preserve sibling structure" {
 ///|
 test "mismatched nesting preserves a valid sibling" {
   let source_id = @core.SourceId("html-parser-mismatched-valid-sibling")
-  let result = @html.html_grammar.parse_cst(source_id, "<div><span></div><p>ok</p>") catch {
+  let result = @html.html_grammar.parse_cst(
+    source_id, "<div><span></div><p>ok</p>",
+  ) catch {
     _ => return fail("mismatched parse raised")
   }
   let (tree, diagnostics) = result

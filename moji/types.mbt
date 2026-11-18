@@ -6,6 +6,7 @@
 // folded into `GCB`.
 
 ///|
+#derive(Eq)
 pub enum GCB {
   Other
   CR
@@ -21,15 +22,16 @@ pub enum GCB {
   T
   LV
   LVT
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 pub enum InCB {
   IcbNone
   IcbConsonant
   IcbExtend
   IcbLinker
-} derive(Eq)
+}
 
 ///|
 pub extend GCB with Eq::{not_equal, equal}

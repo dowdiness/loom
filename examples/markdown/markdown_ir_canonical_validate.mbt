@@ -1,10 +1,10 @@
 ///|
 priv struct MarkdownIRCanonicalFormatStats {
-  container_candidates : Int
-  container_expansions : Int
-  candidates : Int
-  search_expansions : Int
-  reparses : Int
+  container_candidates : Int32
+  container_expansions : Int32
+  candidates : Int32
+  search_expansions : Int32
+  reparses : Int32
 }
 
 ///|
@@ -27,7 +27,7 @@ fn markdown_ir_canonical_empty_stats() -> MarkdownIRCanonicalFormatStats {
 ///|
 fn markdown_ir_canonical_max_string_set_length(
   sets : Array[Array[String]],
-) -> Int {
+) -> Int32 {
   let mut maximum = 0
   for set in sets {
     maximum = maximum.max(set.length())
@@ -37,8 +37,8 @@ fn markdown_ir_canonical_max_string_set_length(
 
 ///|
 fn markdown_ir_canonical_max_assignment_set_length(
-  sets : Array[Array[Array[Int]]],
-) -> Int {
+  sets : Array[Array[Array[Int32]]],
+) -> Int32 {
   let mut maximum = 0
   for set in sets {
     maximum = maximum.max(set.length())
@@ -49,7 +49,7 @@ fn markdown_ir_canonical_max_assignment_set_length(
 ///|
 fn markdown_ir_canonical_search_stats(
   search : MarkdownIRCanonicalSearchState,
-  reparses : Int,
+  reparses : Int32,
 ) -> MarkdownIRCanonicalFormatStats {
   {
     container_candidates: markdown_ir_canonical_max_string_set_length(
@@ -91,7 +91,7 @@ fn markdown_ir_canonical_candidate_matches(
   source_id : @core.SourceId,
   expected : MarkdownIRCanonicalSemantic,
   markdown : String,
-  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
+  extensions~ : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> Bool {
   let (cst, diagnostics) = parse_cst(source_id, markdown) catch {
     _ => return false

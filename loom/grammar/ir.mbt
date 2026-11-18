@@ -7,10 +7,11 @@ pub type RuleName = String
 ///|
 /// One alternative in a `Choice`: a reified start predicate plus the body to
 /// run when it matches. `starts` is `Pred` data, never a host closure.
+#derive(Eq, Debug)
 pub(all) struct Alt[T, K] {
   starts : Pred[T]
   body : Expr[T, K]
-} derive(Eq, Debug)
+}
 
 ///|
 /// Reified, generic grammar expression — the heart of the contract.
@@ -20,6 +21,7 @@ pub(all) struct Alt[T, K] {
 /// hatch reifies to a structural node here; `ManualNewlineAppExpr` is the one
 /// evidence-gated residue (its mode is threaded through recursion — see the
 /// design spec §5.1).
+#derive(Eq, Debug)
 pub(all) enum Expr[T, K] {
   /// Wrap the inner expr in a node of the given kind.
   Node(K, Expr[T, K])
@@ -51,7 +53,7 @@ pub(all) enum Expr[T, K] {
     delim~ : Pred[T],
     delim_kind~ : K,
     between_msg~ : String,
-    after_msg~ : String
+    after_msg~ : String,
   )
   /// Run each expression in sequence.
   Seq(Array[Expr[T, K]])
@@ -109,7 +111,7 @@ pub(all) enum Expr[T, K] {
     Pred[T],
     Pred[T],
     msg_alt~ : String,
-    msg_else~ : String
+    msg_else~ : String,
   )
   /// Emit a diagnostic, open an error node of the given kind, bump tokens into
   /// it until the stop predicate holds, then close it. Callers guard the
@@ -121,14 +123,15 @@ pub(all) enum Expr[T, K] {
   ManualNewlineAppExpr
   /// No-op.
   Empty
-} derive(Eq, Debug)
+}
 
 ///|
 /// A complete grammar: named rules plus the root rule name.
+#derive(Eq, Debug)
 pub(all) struct GrammarIr[T, K] {
   rules : Map[RuleName, Expr[T, K]]
   root : RuleName
-} derive(Eq, Debug)
+}
 
 ///|
 /// Construct a grammar from a rule map and the root rule name.

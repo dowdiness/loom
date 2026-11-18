@@ -20,33 +20,33 @@ pub fn[A] concat(Layout[A], Layout[A]) -> Layout[A]
 
 pub fn[A] empty() -> Layout[A]
 
-pub fn[A] flat_width(Layout[A]) -> Int
+pub fn[A] flat_width(Layout[A]) -> Int32
 
 pub fn[A] group(Layout[A]) -> Layout[A]
 
 pub fn[A] hardline() -> Layout[A]
 
-pub fn[A] layout_fw(Layout[A]) -> Int
+pub fn[A] layout_fw(Layout[A]) -> Int32
 
 pub fn[A] line() -> Layout[A]
 
-pub fn[A] nest(Layout[A], indent? : Int) -> Layout[A]
+pub fn[A] nest(Layout[A], indent? : Int32) -> Layout[A]
 
 pub fn[A] parens(Layout[A]) -> Layout[A]
 
-pub fn[A] prefix_flat_width(Layout[A]) -> Int
+pub fn[A] prefix_flat_width(Layout[A]) -> Int32
 
-pub fn[T : Pretty] pretty_print(T, width? : Int) -> String
+pub fn[T : Pretty] pretty_print(T, width? : Int32) -> String
 
-pub fn[T : Pretty] pretty_spans(T, width? : Int) -> Array[(Span, SyntaxCategory)]
+pub fn[T : Pretty] pretty_spans(T, width? : Int32) -> Array[(Span, SyntaxCategory)]
 
 pub fn[T : Pretty] pretty_unparse(T) -> String
 
-pub fn[A] render_spans(Layout[A], width? : Int) -> Array[(Span, A)]
+pub fn[A] render_spans(Layout[A], width? : Int32) -> Array[(Span, A)]
 
-pub fn[A] render_string(Layout[A], width? : Int) -> String
+pub fn[A] render_string(Layout[A], width? : Int32) -> String
 
-pub fn[A] resolve(Int, Layout[A]) -> Array[Cmd[A]]
+pub fn[A] resolve(Int32, Layout[A]) -> Array[Cmd[A]]
 
 pub fn[A] separate(Layout[A], Array[Layout[A]]) -> Layout[A]
 
@@ -56,23 +56,25 @@ pub fn[A] surround(Layout[A], Layout[A], Layout[A]) -> Layout[A]
 
 pub fn[A] text(String) -> Layout[A]
 
-pub fn[A] text_with_width(String, Int) -> Layout[A] raise PrettyBuildError
+pub fn[A] text_with_width(String, Int32) -> Layout[A] raise PrettyBuildError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror PrettyBuildError {
-  NegativeTextWidth(Int)
-} derive(Eq, @debug.Debug)
+  NegativeTextWidth(Int32)
+}
 pub fn PrettyBuildError::equal(Self, Self) -> Bool
 pub fn PrettyBuildError::not_equal(Self, Self) -> Bool
 pub fn PrettyBuildError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum Cmd[A] {
   CText(String)
-  CNewline(Int)
+  CNewline(Int32)
   CAnnStart(A)
   CAnnEnd(A)
-} derive(Eq, @debug.Debug)
+}
 pub fn[A : Eq] Cmd::equal(Self[A], Self[A]) -> Bool
 pub fn[A : Eq] Cmd::not_equal(Self[A], Self[A]) -> Bool
 pub fn[A : @debug.Debug] Cmd::output(Self[A], &Logger) -> Unit
@@ -80,16 +82,17 @@ pub fn[A : @debug.Debug] Cmd::to_repr(Self[A]) -> @debug.Repr
 pub fn[A : @debug.Debug] Cmd::to_string(Self[A]) -> String
 pub impl[A : @debug.Debug] Show for Cmd[A]
 
+#derive(Eq, @debug.Debug)
 pub enum Layout[A] {
-  Empty(Int)
-  Text(String, Int)
-  Line(Int)
-  HardLine(Int)
-  Nest(Int, Layout[A], Int)
-  Concat(Layout[A], Layout[A], Int)
-  Group(Layout[A], Int)
-  Annotate(A, Layout[A], Int)
-} derive(Eq, @debug.Debug)
+  Empty(Int32)
+  Text(String, Int32)
+  Line(Int32)
+  HardLine(Int32)
+  Nest(Int32, Layout[A], Int32)
+  Concat(Layout[A], Layout[A], Int32)
+  Group(Layout[A], Int32)
+  Annotate(A, Layout[A], Int32)
+}
 pub fn[A] Layout::add(Self[A], Self[A]) -> Self[A]
 pub fn[A : Eq] Layout::equal(Self[A], Self[A]) -> Bool
 pub fn[A : Eq] Layout::not_equal(Self[A], Self[A]) -> Bool
@@ -99,10 +102,11 @@ pub fn[A : @debug.Debug] Layout::to_string(Self[A]) -> String
 pub impl[A] Add for Layout[A]
 pub impl[A : @debug.Debug] Show for Layout[A]
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Span {
-  start : Int
-  end : Int
-} derive(Eq, @debug.Debug)
+  start : Int32
+  end : Int32
+}
 pub fn Span::equal(Self, Self) -> Bool
 pub fn Span::not_equal(Self, Self) -> Bool
 pub fn Span::output(Self, &Logger) -> Unit
@@ -110,6 +114,7 @@ pub fn Span::to_repr(Self) -> @debug.Repr
 pub fn Span::to_string(Self) -> String
 pub impl Show for Span
 
+#derive(Eq, @debug.Debug)
 pub(all) enum SyntaxCategory {
   Keyword
   Identifier
@@ -121,7 +126,7 @@ pub(all) enum SyntaxCategory {
   Error
   EvalAnnotation
   EvalError
-} derive(Eq, @debug.Debug)
+}
 pub fn SyntaxCategory::equal(Self, Self) -> Bool
 pub fn SyntaxCategory::not_equal(Self, Self) -> Bool
 pub fn SyntaxCategory::output(Self, &Logger) -> Unit

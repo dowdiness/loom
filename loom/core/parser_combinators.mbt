@@ -68,9 +68,9 @@ pub fn[
   element_kind : K,
   separator : T,
   parse_element : () -> Bool,
-  element_start? : () -> Bool = () => false,
-  wrap_element? : Bool = true,
-) -> Int {
+  element_start~ : () -> Bool = () => false,
+  wrap_element~ : Bool = true,
+) -> Int32 {
   // State machine over element slots: `count` and `after_separator` are the
   // loop state. `slot_progressed` is intentionally imperative loop state: it
   // gates zero-width missing-separator recovery so inconsistent lookahead
@@ -222,7 +222,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 /// Inner node() calls within body() still benefit from reuse.
 pub fn[T, K : @seam.ToRawKind] ParserContext::wrap_at(
   self : ParserContext[T, K],
-  mark : Int,
+  mark : Int32,
   kind : K,
   body : () -> Unit,
 ) -> Unit {

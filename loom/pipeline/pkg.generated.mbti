@@ -15,9 +15,10 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub suberror ParserUpdateError {
   ChangeSetMismatch
-} derive(Eq, @debug.Debug)
+}
 pub fn ParserUpdateError::equal(Self, Self) -> Bool
 pub fn ParserUpdateError::not_equal(Self, Self) -> Bool
 pub fn ParserUpdateError::to_repr(Self) -> @debug.Repr
@@ -70,7 +71,7 @@ pub struct SemanticObservation[M, R] {
   // private fields
 }
 pub fn[M, R] SemanticObservation::accepted(Self[M, R]) -> SemanticAccepted[M]?
-pub fn[M, R] SemanticObservation::revision(Self[M, R]) -> Int
+pub fn[M, R] SemanticObservation::revision(Self[M, R]) -> Int32
 pub fn[M, R] SemanticObservation::source(Self[M, R]) -> String
 pub fn[M, R] SemanticObservation::status(Self[M, R]) -> SemanticStatus[R]
 
@@ -78,7 +79,7 @@ pub struct SemanticSnapshot {
   // private fields
 }
 pub fn SemanticSnapshot::diagnostics(Self) -> @core.DiagnosticSet
-pub fn SemanticSnapshot::revision(Self) -> Int
+pub fn SemanticSnapshot::revision(Self) -> Int32
 pub fn SemanticSnapshot::source(Self) -> String
 pub fn SemanticSnapshot::source_id(Self) -> @diagnostic.SourceId
 pub fn SemanticSnapshot::syntax(Self) -> @seam.SyntaxNode
@@ -104,13 +105,14 @@ pub fn SyntaxParser::source(Self) -> @cells.Derived[String]
 pub fn SyntaxParser::source_id(Self) -> @diagnostic.SourceId
 pub fn SyntaxParser::syntax_tree(Self) -> @cells.Derived[@seam.SyntaxNode]
 
+#derive(Eq, @debug.Debug)
 pub struct SyntaxSnapshot {
   source_id : @diagnostic.SourceId
   source : String
   syntax : @seam.SyntaxNode
   diagnostics : @core.DiagnosticSet
-  reuse_count : Int
-} derive(Eq, @debug.Debug)
+  reuse_count : Int32
+}
 pub fn SyntaxSnapshot::copy(Self) -> Self
 pub fn SyntaxSnapshot::equal(Self, Self) -> Bool
 pub fn SyntaxSnapshot::not_equal(Self, Self) -> Bool

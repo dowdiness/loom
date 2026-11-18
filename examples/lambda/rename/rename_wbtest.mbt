@@ -87,7 +87,7 @@ test "compute_edits: ignores calls in a different scope" {
 fn wb_def_with_name_start(
   defs : Array[@callers.Def],
   syntax : @seam.SyntaxNode,
-  start : Int,
+  start : Int32,
 ) -> @callers.Def {
   for d in defs {
     let (name_start, _) = name_range_of(d, syntax)

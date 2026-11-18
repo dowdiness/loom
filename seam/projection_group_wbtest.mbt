@@ -19,7 +19,7 @@ fn render_group_spans(groups : Array[DirectElementGroup]) -> String {
 test "SyntaxNode::direct_element_groups_by non-empty groups span their element extent" {
   // Same stack-call shape as the raw-API test, at base offset 10:
   // `stack`@10-15 `(`@15-16 n2@16-17 `,`@17-18 n2@18-19 n3@19-21 `,`@21-22 `42`@22-24 `)`@24-25
-  let arg = (kind : Int, text : String) => {
+  let arg = (kind : Int32, text : String) => {
     CstElement::Node(
       CstNode::new_unclassified(RawKind(kind), [
         CstElement::Token(CstToken::CstToken(RawKind(9), text)),

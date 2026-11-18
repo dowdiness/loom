@@ -1,5 +1,5 @@
 ///|
-fn markdown_property_small_nonnegative(seed : Int) -> Int {
+fn markdown_property_small_nonnegative(seed : Int32) -> Int32 {
   let n = seed % 1000
   if n < 0 {
     -n
@@ -9,20 +9,20 @@ fn markdown_property_small_nonnegative(seed : Int) -> Int {
 }
 
 ///|
-fn markdown_property_safe_text(prefix : String, seed : Int) -> String {
+fn markdown_property_safe_text(prefix : String, seed : Int32) -> String {
   prefix + markdown_property_small_nonnegative(seed).to_string()
 }
 
 ///|
-fn markdown_property_list_item_source(seed : Int, index : Int) -> String {
+fn markdown_property_list_item_source(seed : Int32, index : Int32) -> String {
   "- " + markdown_property_safe_text("item", seed + index)
 }
 
 ///|
 fn markdown_property_unordered_list_source(
-  item_count : Int,
-  seed : Int,
-  trailing_newline? : Bool = true,
+  item_count : Int32,
+  seed : Int32,
+  trailing_newline~ : Bool = true,
 ) -> String {
   let buf = StringBuilder()
   for i = 0; i < item_count; i = i + 1 {
@@ -36,9 +36,9 @@ fn markdown_property_unordered_list_source(
 
 ///|
 fn markdown_property_unordered_list_source_with_replacement(
-  item_count : Int,
-  seed : Int,
-  target_index : Int,
+  item_count : Int32,
+  seed : Int32,
+  target_index : Int32,
   replacement : String,
 ) -> String {
   let buf = StringBuilder()
@@ -54,7 +54,10 @@ fn markdown_property_unordered_list_source_with_replacement(
 }
 
 ///|
-fn assert_markdown_property_heading_case(depth : Int, seed : Int) -> Unit raise {
+fn assert_markdown_property_heading_case(
+  depth : Int32,
+  seed : Int32,
+) -> Unit raise {
   let text = markdown_property_safe_text("Title", seed)
   let marker = "#".repeat(depth)
   let source = marker + " " + text + "\n"
@@ -103,8 +106,8 @@ fn assert_markdown_property_heading_case(depth : Int, seed : Int) -> Unit raise 
 
 ///|
 fn assert_markdown_property_list_case(
-  item_count : Int,
-  seed : Int,
+  item_count : Int32,
+  seed : Int32,
 ) -> Unit raise {
   let source = markdown_property_unordered_list_source(item_count, seed)
   let canonical_source = markdown_property_unordered_list_source(
@@ -191,7 +194,7 @@ test "property: MarkdownIR heading rewrite modes preserve ATX depth" {
   for depth in [1, 2, 3, 4, 5, 6] {
     assert_markdown_property_heading_case(depth, depth)
   }
-  let seeds : Array[Int] = @quickcheck.samples(64)
+  let seeds : Array[Int32] = @quickcheck.samples(64)
   for seed in seeds {
     let depth = markdown_property_small_nonnegative(seed) % 6 + 1
     assert_markdown_property_heading_case(depth, seed)
@@ -203,7 +206,7 @@ test "property: MarkdownIR unordered list rewrite modes preserve item origins" {
   for item_count in [1, 2, 3, 4, 5, 6, 7, 8] {
     assert_markdown_property_list_case(item_count, item_count)
   }
-  let seeds : Array[Int] = @quickcheck.samples(64)
+  let seeds : Array[Int32] = @quickcheck.samples(64)
   for seed in seeds {
     let item_count = markdown_property_small_nonnegative(seed) % 8 + 1
     assert_markdown_property_list_case(item_count, seed)

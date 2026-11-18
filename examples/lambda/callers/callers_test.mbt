@@ -376,7 +376,7 @@ test "extract_facts: well-formed lambda still binds correctly under new extracti
 
 ///|
 test "ScopeId derives Hash (compile-time check)" {
-  let m : @hashmap.HashMap[@callers.ScopeId, Int] = @hashmap.HashMap([])
+  let m : @hashmap.HashMap[@callers.ScopeId, Int32] = @hashmap.HashMap([])
   m.set(TopScope, 1)
   m.set(LambdaScope(0, 5), 2)
   // is-pattern checks avoid the deprecated Show-on-Option warning while

@@ -14,7 +14,7 @@
 /// property table to `GCB::Other` — equivalent to default-break behaviour.
 ///
 /// Precondition: `0 <= i < text.length()`.
-pub fn decode_codepoint_at(text : String, i : Int) -> (Int, Int) {
+pub fn decode_codepoint_at(text : String, i : Int32) -> (Int32, Int32) {
   let cu = text.at(i).to_int()
   if cu >= 0xD800 && cu <= 0xDBFF && i + 1 < text.length() {
     let cu2 = text.at(i + 1).to_int()
@@ -29,7 +29,7 @@ pub fn decode_codepoint_at(text : String, i : Int) -> (Int, Int) {
 ///|
 /// True iff `i` is the index of a UTF-16 trailing (low) surrogate inside
 /// `text`. Used to test for mid-codepoint offsets.
-pub fn is_trailing_surrogate_at(text : String, i : Int) -> Bool {
+pub fn is_trailing_surrogate_at(text : String, i : Int32) -> Bool {
   if i < 0 || i >= text.length() {
     return false
   }

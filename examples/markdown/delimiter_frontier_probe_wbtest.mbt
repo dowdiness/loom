@@ -3,6 +3,7 @@
 // continuation-boundary, invalidation, and performance gates.
 
 ///|
+#derive(Eq)
 enum ProbeTokenKind {
   Text
   Backtick
@@ -10,35 +11,35 @@ enum ProbeTokenKind {
   Prefix
   BlockBoundary
   Other
-} derive(Eq)
+}
 
 ///|
 struct ProbeToken {
   kind : ProbeTokenKind
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
 }
 
 ///|
 struct ProbeContainer {
   tokens : Array[ProbeToken]
-  end : Int
+  end : Int32
 }
 
 ///|
 struct ProbeRun {
-  token_index : Int
-  start : Int
-  length : Int
+  token_index : Int32
+  start : Int32
+  length : Int32
 }
 
 ///|
 struct DelimiterScanFrontier {
-  mut frontier_token : Int
-  runs_by_length : Map[Int, Array[ProbeRun]]
-  cursor_by_length : Map[Int, Int]
+  mut frontier_token : Int32
+  runs_by_length : Map[Int32, Array[ProbeRun]]
+  cursor_by_length : Map[Int32, Int32]
   mut exhausted : Bool
-  mut visits : Int
+  mut visits : Int32
 }
 
 ///|
@@ -66,7 +67,7 @@ fn probe_kind(token : Token) -> ProbeTokenKind {
 ///|
 fn probe_container_from_source(
   source : String,
-  container_end : Int,
+  container_end : Int32,
 ) -> ProbeContainer raise @core.LexError {
   guard 0 <= container_end && container_end <= source.length() else {
     raise @core.LexError("container end is outside source")
@@ -92,7 +93,7 @@ fn probe_container_from_source(
 }
 
 ///|
-fn in_container_token_count(container : ProbeContainer) -> Int {
+fn in_container_token_count(container : ProbeContainer) -> Int32 {
   let mut count = 0
   for token in container.tokens {
     if token.end <= container.end {
@@ -125,7 +126,7 @@ fn record_run(frontier : DelimiterScanFrontier, run : ProbeRun) -> Unit {
 fn frontier_observe_until(
   frontier : DelimiterScanFrontier,
   container : ProbeContainer,
-  stop_after_token : Int,
+  stop_after_token : Int32,
 ) -> Unit {
   let limit = if stop_after_token < container.tokens.length() {
     stop_after_token

@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 enum MigrationOwnership {
   MigrationCanonical
   MigrationAlreadyDelegated
@@ -9,30 +10,33 @@ enum MigrationOwnership {
   MigrationMutatedCoreQualifier
   MigrationCommentInserted
   MigrationAbsent
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct MigrationWord {
   camel : String
   snake : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct MigrationMode {
   mode_name : String
   fn_name : String
   helper_name : String
-  component_count : Int
+  component_count : Int32
   ownership : MigrationOwnership
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct MigrationCase {
   modes : Array[MigrationMode]
   selected_modes : Array[String]
   token_type : String
   core_qual : String
-} derive(Debug, Eq)
+}
 
 ///|
 fn migration_property_words() -> Array[MigrationWord] {
@@ -60,7 +64,7 @@ fn migration_property_core_quals() -> Array[String] {
 
 ///|
 fn migration_property_mode(
-  word_indices : Array[Int],
+  word_indices : Array[Int32],
   ownership : MigrationOwnership,
 ) -> MigrationMode {
   if word_indices.length() < 1 || word_indices.length() > 3 {
@@ -414,7 +418,7 @@ fn migration_property_basis_cases() -> Array[MigrationCase] {
 }
 
 ///|
-fn migration_property_ownership_index(ownership : MigrationOwnership) -> Int {
+fn migration_property_ownership_index(ownership : MigrationOwnership) -> Int32 {
   match ownership {
     MigrationCanonical => 0
     MigrationAlreadyDelegated => 1
@@ -432,7 +436,7 @@ fn migration_property_ownership_index(ownership : MigrationOwnership) -> Int {
 fn migration_property_mode_index(
   modes : Array[MigrationMode],
   mode_name : String,
-) -> Int {
+) -> Int32 {
   for i, mode in modes {
     if mode.mode_name == mode_name {
       return i
@@ -568,7 +572,7 @@ test "line skeleton migration basis covers ownership and selection classes" {
 fn migration_property_value_index(
   values : Array[String],
   needle : String,
-) -> Int {
+) -> Int32 {
   for i, value in values {
     if value == needle {
       return i
@@ -610,7 +614,10 @@ fn migration_property_assert_unique_names(case : MigrationCase) -> Unit {
 }
 
 ///|
-fn migration_property_pick(random : @splitmix.RandomState, modulo : Int) -> Int {
+fn migration_property_pick(
+  random : @splitmix.RandomState,
+  modulo : Int32,
+) -> Int32 {
   if modulo <= 0 {
     abort("migration_property_pick requires a positive modulo")
   }
@@ -619,7 +626,7 @@ fn migration_property_pick(random : @splitmix.RandomState, modulo : Int) -> Int 
 
 ///|
 fn migration_property_shuffle_ints(
-  values : Array[Int],
+  values : Array[Int32],
   random : @splitmix.RandomState,
 ) -> Unit {
   for i = values.length() - 1; i > 0; i = i - 1 {
@@ -644,7 +651,7 @@ fn migration_property_shuffle_strings(
 }
 
 ///|
-fn migration_property_ownership_from_pick(index : Int) -> MigrationOwnership {
+fn migration_property_ownership_from_pick(index : Int32) -> MigrationOwnership {
   match index {
     0 => MigrationCanonical
     1 => MigrationAlreadyDelegated
@@ -661,7 +668,7 @@ fn migration_property_ownership_from_pick(index : Int) -> MigrationOwnership {
 
 ///|
 impl @quickcheck.Arbitrary for MigrationCase with fn arbitrary(_size, random) {
-  let first_word_indices : Array[Int] = []
+  let first_word_indices : Array[Int32] = []
   for i in 0..<migration_property_words().length() {
     first_word_indices.push(i)
   }
@@ -743,7 +750,7 @@ fn migration_property_fixed_seed_cases() -> Array[MigrationCase] {
   ]
   let cases : Array[MigrationCase] = []
   for seed in seeds {
-    let random = @splitmix.new(seed~)
+    let random = @splitmix.RandomState(seed~)
     let case : MigrationCase = @quickcheck.Arbitrary::arbitrary(12, random)
     cases.push(case)
   }

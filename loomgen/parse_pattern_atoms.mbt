@@ -208,7 +208,7 @@ fn PatternParser::parse_class(self : PatternParser) -> Pattern {
 }
 
 ///|
-fn class_posix_name_prefix(pattern : String, pos : Int) -> (String, Int)? {
+fn class_posix_name_prefix(pattern : String, pos : Int32) -> (String, Int32)? {
   let mut name_end = pos + 2
   if name_end >= pattern.length() || !is_ascii_alpha(pattern[name_end]) {
     None
@@ -221,7 +221,7 @@ fn class_posix_name_prefix(pattern : String, pos : Int) -> (String, Int)? {
 }
 
 ///|
-fn class_posix_class(pattern : String, pos : Int) -> (String, Int)? {
+fn class_posix_class(pattern : String, pos : Int32) -> (String, Int32)? {
   let mut i = pos + 2
   while i + 1 < pattern.length() {
     if pattern[i] == ']' {

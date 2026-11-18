@@ -30,7 +30,7 @@ pub fn[T, K] BlockReparseSpec::new(
     ParserContext[T, K],
   ) -> Unit)?,
   is_balanced : (Array[TokenInfo[T]]) -> Bool,
-  may_reparse_boundary? : (@seam.SyntaxNode, Edit, StringView) -> Bool = (
+  may_reparse_boundary~ : (@seam.SyntaxNode, Edit, StringView) -> Bool = (
     _,
     _,
     _,
@@ -60,11 +60,11 @@ priv struct ReparseCandidate {
 /// cannot be located.
 fn build_physical_path(
   root : @seam.CstNode,
-  target_offset : Int,
-  target_end : Int,
+  target_offset : Int32,
+  target_end : Int32,
   target_kind : @seam.RawKind,
-) -> Array[Int]? {
-  let path : Array[Int] = []
+) -> Array[Int32]? {
+  let path : Array[Int32] = []
   let mut current = root
   let mut current_offset = 0
   // Check if root itself is the target
@@ -128,7 +128,7 @@ fn find_reparseable_ancestors(
   tree : @seam.SyntaxNode,
   edit : Edit,
   is_reparseable : (@seam.RawKind) -> Bool,
-  include_boundaries? : Bool = false,
+  include_boundaries~ : Bool = false,
 ) -> Array[ReparseCandidate] {
   let candidates : Array[ReparseCandidate] = []
   // Search from the edit start only. A zero-width insertion at an old block's
@@ -177,7 +177,7 @@ pub fn find_reparseable_ancestor(
   tree : @seam.SyntaxNode,
   edit : Edit,
   is_reparseable : (@seam.RawKind) -> Bool,
-) -> (@seam.SyntaxNode, Array[Int])? {
+) -> (@seam.SyntaxNode, Array[Int32])? {
   match find_reparseable_ancestors(tree, edit, is_reparseable) {
     [first, ..] =>
       build_physical_path(
@@ -193,7 +193,7 @@ pub fn find_reparseable_ancestor(
 ///|
 fn node_at_physical_path(
   root : @seam.CstNode,
-  path : Array[Int],
+  path : Array[Int32],
 ) -> @seam.CstNode? {
   let mut node = root
   for index in path {
@@ -211,7 +211,7 @@ fn node_at_physical_path(
 /// at `path` replaced by `new_node`.
 pub fn splice_tree(
   root : @seam.CstNode,
-  path : Array[Int],
+  path : Array[Int32],
   new_node : @seam.CstNode,
 ) -> @seam.CstNode raise Failure {
   if path.length() == 0 {
@@ -256,7 +256,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K] parse_block_isolated(
   block_text : String,
   block_kind : @seam.RawKind,
   tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
+  starts : Array[Int32],
   reparse_fn : (ParserContext[T, K]) -> Unit,
   spec : LanguageSpec[T, K],
 ) -> (@seam.CstNode, DiagnosticSet)? raise Failure {
@@ -338,7 +338,7 @@ fn push_offset_diagnostic(
   result : DiagnosticSet,
   diagnostic : Diagnostic,
   source_id : SourceId,
-  delta : Int,
+  delta : Int32,
   after : TextOffset,
   context : String,
 ) -> Unit {
@@ -353,10 +353,10 @@ fn push_offset_diagnostic(
 fn merge_diagnostics(
   source_id : SourceId,
   old_diagnostics : DiagnosticSet,
-  block_start : Int,
-  block_old_end : Int,
+  block_start : Int32,
+  block_old_end : Int32,
   new_diagnostics : DiagnosticSet,
-  delta : Int,
+  delta : Int32,
 ) -> DiagnosticSet {
   let old_len = block_old_end - block_start
   let result = old_diagnostics.after_relex(

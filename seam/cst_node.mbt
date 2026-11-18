@@ -1,7 +1,8 @@
 ///|
 /// Language-independent node kind (equivalent to rowan's RawSyntaxKind).
 /// Each language defines its own enum and converts to/from RawKind via to_raw()/from_raw().
-pub(all) struct RawKind(Int) derive(Eq, Hash, Compare, Debug)
+#derive(Eq, Hash, Compare, Debug)
+pub(all) struct RawKind(Int32)
 
 ///|
 pub impl Show for RawKind with fn output(self, logger) {
@@ -31,14 +32,15 @@ pub let repeat_group_kind : RawKind = RawKind(-1)
 /// - `hash`, `kind`, `source`, `start`, `end`, and `source_backed` are frozen
 ///   after construction. Package internals must never mutate these fields after
 ///   construction; doing so invalidates the equality and hash semantics.
+#derive(Debug(ignore=[String]))
 pub struct CstToken {
   kind : RawKind
   priv source : String
-  priv start : Int
-  priv end : Int
-  priv hash : Int
+  priv start : Int32
+  priv end : Int32
+  priv hash : Int32
   priv source_backed : Bool
-} derive(Debug(ignore=[String]))
+}
 
 ///|
 /// Create a CstToken. Hash is computed from kind and text.
@@ -98,19 +100,19 @@ pub fn CstToken::unsafe_backing_source(self : CstToken) -> String {
 
 ///|
 /// Start offset of this token's text within `source`.
-pub fn CstToken::start_offset(self : CstToken) -> Int {
+pub fn CstToken::start_offset(self : CstToken) -> Int32 {
   self.start
 }
 
 ///|
 /// Exclusive end offset of this token's text within `source`.
-pub fn CstToken::end_offset(self : CstToken) -> Int {
+pub fn CstToken::end_offset(self : CstToken) -> Int32 {
   self.end
 }
 
 ///|
 /// Number of UTF-16 code units in this token's text span.
-pub fn CstToken::text_len(self : CstToken) -> Int {
+pub fn CstToken::text_len(self : CstToken) -> Int32 {
   self.end - self.start
 }
 
@@ -154,14 +156,15 @@ pub impl Hash for CstToken with fn hash_combine(self, hasher) {
 }
 
 ///|
+#derive(Debug)
 pub(all) enum CstElement {
   Token(CstToken)
   Node(CstNode)
-} derive(Debug)
+}
 
 ///|
 /// Total UTF-16 code-unit length of this element's text.
-pub fn CstElement::text_len(self : CstElement) -> Int {
+pub fn CstElement::text_len(self : CstElement) -> Int32 {
   match self {
     Token(t) => t.text_len()
     Node(n) => n.text_len
@@ -218,16 +221,17 @@ pub impl Hash for CstElement with fn hash_combine(self, hasher) {
 ///   under this node, computed as the sum of `child.text_len()` at construction time.
 ///
 /// - `token_count` is the non-trivia leaf token count (see field doc below).
+#derive(Debug(ignore=[CstMetadataPolicy]))
 pub struct CstNode {
   priv kind : RawKind
   priv children : Array[CstElement]
-  priv text_len : Int
-  priv hash : Int
+  priv text_len : Int32
+  priv hash : Int32
   /// Non-trivia leaf token count. Equals the number of leaf tokens whose kind
   /// is not classified as trivia by this node's metadata policy.
   /// Used by the incremental parser to advance `position` (whitespace-free
   /// token index) without an O(subtree) traversal on every reuse.
-  priv token_count : Int
+  priv token_count : Int32
   /// True if this node or any descendant has an error or incomplete kind.
   /// Computed at construction time from the policy's role-distinct error and
   /// incomplete kinds.
@@ -235,7 +239,7 @@ pub struct CstNode {
   /// for healthy reused nodes.
   priv has_any_error : Bool
   priv policy : CstMetadataPolicy
-} derive(Debug(ignore=[CstMetadataPolicy]))
+}
 
 ///|
 /// Create a classified CstNode.
@@ -322,7 +326,7 @@ fn CstNode::new_owned(
 /// Reuses the receiver policy and recomputes cached metadata.
 pub fn CstNode::with_replaced_child(
   self : CstNode,
-  index : Int,
+  index : Int32,
   new_child : CstElement,
 ) -> CstNode raise Failure {
   let new_children = self.children.copy()
@@ -351,7 +355,7 @@ pub fn CstNode::with_replaced_root(
 /// Variant-tagged child hash, aligned with `CstElement::Hash`.
 /// Reduces cross-variant collisions: a Token and Node with identical raw
 /// hashes will not produce the same contribution to the parent's cached hash.
-fn child_hash(elem : CstElement) -> Int {
+fn child_hash(elem : CstElement) -> Int32 {
   match elem {
     Token(t) => combine_hash(1, t.hash)
     Node(n) => combine_hash(2, n.hash)
@@ -366,13 +370,13 @@ pub fn CstNode::kind(self : CstNode) -> RawKind {
 
 ///|
 /// Total UTF-16 code-unit length of this node's token text.
-pub fn CstNode::text_len(self : CstNode) -> Int {
+pub fn CstNode::text_len(self : CstNode) -> Int32 {
   self.text_len
 }
 
 ///|
 /// Number of non-trivia leaf tokens under this node.
-pub fn CstNode::token_count(self : CstNode) -> Int {
+pub fn CstNode::token_count(self : CstNode) -> Int32 {
   self.token_count
 }
 

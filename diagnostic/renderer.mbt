@@ -43,8 +43,8 @@ pub(open) trait SourceResolver {
 /// must be non-negative and ordered; offsets beyond the line text represent
 /// stripped line terminators.
 pub(open) trait TextDisplay {
-  fn render_line(Self, String, Int) -> String
-  fn marker_cells(Self, String, Int, Int, Int) -> (Int, Int)
+  fn render_line(Self, String, Int32) -> String
+  fn marker_cells(Self, String, Int32, Int32, Int32) -> (Int32, Int32)
 }
 
 ///|
@@ -68,12 +68,13 @@ impl TextDisplay for CodeUnitTextDisplay with fn marker_cells(
 
 ///|
 /// Expected failures at the source-backed rendering boundary.
+#derive(Eq, Debug)
 pub suberror DiagnosticRenderError {
   MissingSource(SourceId)
   MismatchedLineIndex(SourceId)
-  RangeOutOfBounds(SourceSpan, Int)
+  RangeOutOfBounds(SourceSpan, Int32)
   InvalidUtf16Boundary(SourceSpan)
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct ValidatedDiagnosticLabel {
@@ -218,7 +219,7 @@ fn[R : SourceResolver] validate_diagnostic_groups(
 }
 
 ///|
-fn source_line_content_end(source : SourceSnapshot, line : Int) -> Int {
+fn source_line_content_end(source : SourceSnapshot, line : Int32) -> Int32 {
   let starts = source.line_index.line_starts
   let line_start = starts[line]
   let raw_end = match starts.get(line + 1) {
@@ -245,7 +246,7 @@ fn source_line_content_end(source : SourceSnapshot, line : Int) -> Int {
 fn[D : TextDisplay] render_diagnostic_source_line(
   builder : StringBuilder,
   validated : ValidatedDiagnosticLabel,
-  line : Int,
+  line : Int32,
   display : D,
 ) -> Unit raise DiagnosticRenderError {
   let label = validated.label

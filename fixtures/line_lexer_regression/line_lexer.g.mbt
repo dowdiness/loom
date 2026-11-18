@@ -5,7 +5,7 @@
 /// Each function matches #loom.line_pattern tokens against whole lines.
 fn generated_lex_line_start(
   source : String,
-  pos : Int,
+  pos : Int32,
 ) -> (@core.LexStep[Token], LexMode) {
   if pos >= source.length() {
     return (Done, LineStart)
@@ -17,7 +17,7 @@ fn generated_lex_line_start(
       _ => line_end = line_end + 1
     }
   }
-  let rest = source[pos:line_end].view()
+  let rest = source[pos:line_end]
 
   // HeadingMarker
   if rest =~ (re"^(?:#{1,6} )", after=after) {

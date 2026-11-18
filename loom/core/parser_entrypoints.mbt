@@ -88,15 +88,15 @@ fn[T, K : @seam.ToRawKind] build_tree_generic(
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(
   source_id : SourceId,
   source : String,
-  token_count : Int,
-  get_token : (Int) -> T,
-  get_start : (Int) -> Int,
-  get_end : (Int) -> Int,
+  token_count : Int32,
+  get_token : (Int32) -> T,
+  get_start : (Int32) -> Int32,
+  get_end : (Int32) -> Int32,
   spec : LanguageSpec[T, K],
-  cursor? : ReuseCursor[T, K]? = None,
-  prev_diagnostics? : DiagnosticSet? = None,
+  cursor~ : ReuseCursor[T, K]? = None,
+  prev_diagnostics~ : DiagnosticSet? = None,
   on_reuse_dependencies? : (ReuseDependencies) -> Unit,
-) -> (@seam.CstNode, DiagnosticSet, Int) raise Failure {
+) -> (@seam.CstNode, DiagnosticSet, Int32) raise Failure {
   let ctx = ParserContext::new_indexed(
     source_id, token_count, get_token, get_start, get_end, source, spec,
   )

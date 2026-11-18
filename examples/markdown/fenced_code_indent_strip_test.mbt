@@ -1,6 +1,6 @@
 ///|
 fn assert_commonmark_fenced_indent_strip(
-  example : Int,
+  example : Int32,
   source : String,
   expected_html : String,
 ) -> Unit raise {

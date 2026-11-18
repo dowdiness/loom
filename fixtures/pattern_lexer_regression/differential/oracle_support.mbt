@@ -11,7 +11,7 @@ fn record_payload(value : String) -> String {
 let custom_log : Array[String] = []
 
 ///|
-fn custom_first(source : String, pos : Int) -> @core.LexStep[Token] {
+fn custom_first(source : String, pos : Int32) -> @core.LexStep[Token] {
   custom_log.push("first")
   let cursor = @core.LexCursor::new(source, pos)
   if cursor.starts_with("#") {
@@ -23,7 +23,7 @@ fn custom_first(source : String, pos : Int) -> @core.LexStep[Token] {
 }
 
 ///|
-fn custom_second(source : String, pos : Int) -> @core.LexStep[Token] {
+fn custom_second(source : String, pos : Int32) -> @core.LexStep[Token] {
   custom_log.push("second")
   let cursor = @core.LexCursor::new(source, pos)
   if cursor.starts_with("@") {

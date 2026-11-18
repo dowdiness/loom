@@ -16,11 +16,12 @@
 /// Fields are read-only outside the package; construct via `Setting::Setting` so
 /// the only way to make one is through the (future-proof, validatable)
 /// constructor.
+#derive(Eq, Debug)
 pub struct Setting {
   id : String
   key : String
   value : Double
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn Setting::Setting(
@@ -37,9 +38,10 @@ pub fn Setting::Setting(
 ///
 /// The backing array is private; `settings()` hands back a defensive copy so a
 /// caller cannot mutate the committed last-good document in place.
+#derive(Eq, Debug)
 pub struct SettingsDoc {
   priv settings : Array[Setting]
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn SettingsDoc::SettingsDoc(settings : Array[Setting]) -> SettingsDoc {

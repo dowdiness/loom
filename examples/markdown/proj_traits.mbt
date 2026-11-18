@@ -43,7 +43,7 @@ fn inline_text(inlines : Array[Inline]) -> String {
 ///|
 fn ordered_marker_text(
   marker : OrderedListMarker?,
-  fallback_start : Int,
+  fallback_start : Int32,
   fallback_delimiter : OrderedListDelimiter,
 ) -> String {
   match marker {

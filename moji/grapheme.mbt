@@ -11,18 +11,20 @@
 // `Int` offset, clamping to `[0, text.length()]`.
 
 ///|
+#derive(Eq)
 priv enum EpState {
   EpA // not in EP context
   EpB // saw EP, possibly followed by GCB-Extend
   EpC // saw EP Extend* ZWJ — ready to glue with next EP via GB11
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum IncbState {
   IcsNone
   IcsConsonant
   IcsLinker
-} derive(Eq)
+}
 
 ///|
 priv struct State {
@@ -142,8 +144,8 @@ fn State::break_before(
 ///
 /// First element is always `0`; last is always `text.length()`. For empty
 /// text, returns `[0]` (single boundary).
-pub fn grapheme_boundaries(text : String) -> Array[Int] {
-  let out : Array[Int] = []
+pub fn grapheme_boundaries(text : String) -> Array[Int32] {
+  let out : Array[Int32] = []
   out.push(0)
   let len = text.length()
   if len == 0 {
@@ -175,7 +177,7 @@ pub fn grapheme_boundaries(text : String) -> Array[Int] {
 /// Iterate UTF-16 (start, end) ranges, one per grapheme cluster.
 ///
 /// Empty string yields zero items.
-pub fn grapheme_clusters(text : String) -> Iter[(Int, Int)] {
+pub fn grapheme_clusters(text : String) -> Iter[(Int32, Int32)] {
   let bs = grapheme_boundaries(text)
   let mut idx = 0
   Iter::new(fn() {
@@ -204,7 +206,7 @@ pub fn grapheme_clusters(text : String) -> Iter[(Int, Int)] {
 /// `grapheme_boundaries(text)`. A tight loop calling this `n` times over
 /// the same string is therefore O(n²) — for hot paths over long strings,
 /// materialise `grapheme_boundaries(text)` once and binary-search instead.
-pub fn next_grapheme_boundary(text : String, pos : Int) -> Int {
+pub fn next_grapheme_boundary(text : String, pos : Int32) -> Int32 {
   let len = text.length()
   if pos <= 0 {
     return 0
@@ -229,7 +231,7 @@ pub fn next_grapheme_boundary(text : String, pos : Int) -> Int {
 /// `pos >= text.length()`. Same offset-tolerance contract as
 /// `next_grapheme_boundary`. Same O(n) per-call cost — see the note on
 /// `next_grapheme_boundary` for the materialise-once escape hatch.
-pub fn prev_grapheme_boundary(text : String, pos : Int) -> Int {
+pub fn prev_grapheme_boundary(text : String, pos : Int32) -> Int32 {
   let len = text.length()
   if pos <= 0 {
     return 0
@@ -254,7 +256,7 @@ pub fn prev_grapheme_boundary(text : String, pos : Int) -> Int {
 /// Endpoints `0` and `text.length()` are always boundaries. Positions
 /// inside surrogate pairs and inside multi-codepoint clusters are never
 /// boundaries.
-pub fn is_grapheme_boundary(text : String, pos : Int) -> Bool {
+pub fn is_grapheme_boundary(text : String, pos : Int32) -> Bool {
   let len = text.length()
   if pos <= 0 || pos >= len {
     return true

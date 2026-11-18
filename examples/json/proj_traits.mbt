@@ -83,7 +83,7 @@ pub impl @core.Renderable for JsonValue with fn unparse(self) {
 }
 
 ///|
-fn json_unparse(value : JsonValue, depth : Int) -> String {
+fn json_unparse(value : JsonValue, depth : Int32) -> String {
   match value {
     Null => "null"
     Bool(b) => b.to_string()

@@ -5,6 +5,10 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/core/immut/hashset" @immut_hashset,
   "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/shrink",
   "moonbitlang/core/quickcheck/splitmix",
-  "moonbitlang/quickcheck" @qc,
 }
+
+import {
+  "moonbitlang/quickcheck" @qc,
+} for "wbtest"

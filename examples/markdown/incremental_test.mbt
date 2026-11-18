@@ -5,7 +5,7 @@ fn markdown_incremental_edit_reuse_count(
   source : String,
   edit : @core.Edit,
   new_source : String,
-) -> Int {
+) -> Int32 {
   @loom.assert_incremental_edit_matches_full_parse(
     source_id,
     label,

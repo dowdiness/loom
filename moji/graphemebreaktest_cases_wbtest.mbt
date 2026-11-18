@@ -7,7 +7,7 @@
 /// `GraphemeBreakTest.txt` (Unicode 15.1). Used by the opt-in
 /// conformance test to verify the segmentation algorithm against
 /// the full UAX #29 reference suite.
-let break_test_cases : Array[(String, Array[Int])] = [
+let break_test_cases : Array[(String, Array[Int32])] = [
   ("\u{20}\u{20}", [0, 1, 2]),
   ("\u{20}\u{308}\u{20}", [0, 2, 3]),
   ("\u{20}\u{D}", [0, 1, 2]),

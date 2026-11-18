@@ -12,22 +12,22 @@ pub impl @pretty.Source for Term with fn to_source(self) {
 // the context requires (e.g., lambda inside application position).
 
 ///|
-let prec_top : Int = 0
+let prec_top : Int32 = 0
 
 ///|
-let prec_if : Int = 1
+let prec_if : Int32 = 1
 
 ///|
-let prec_lam : Int = 2
+let prec_lam : Int32 = 2
 
 ///|
-let prec_bop : Int = 3
+let prec_bop : Int32 = 3
 
 ///|
-let prec_app : Int = 4
+let prec_app : Int32 = 4
 
 ///|
-let prec_atom : Int = 5
+let prec_atom : Int32 = 5
 
 ///|
 /// SourceText: compact, minimal-parenthesized source-text interpretation.
@@ -36,11 +36,11 @@ let prec_atom : Int = 5
 /// each node reports its own `prec`; the parent wraps a child via `wrap_source`.
 pub struct SourceText {
   repr : String
-  prec : Int
+  prec : Int32
 }
 
 ///|
-fn wrap_source(child : SourceText, ctx_prec : Int) -> String {
+fn wrap_source(child : SourceText, ctx_prec : Int32) -> String {
   if child.prec < ctx_prec {
     "(" + child.repr + ")"
   } else {
@@ -138,7 +138,7 @@ pub impl TermSym for SourceText with fn hole(_n) {
 /// PrettyLayout: TermSym interpretation producing Layout[SyntaxCategory].
 pub struct PrettyLayout {
   layout : @pretty.Layout[@pretty.SyntaxCategory]
-  prec : Int
+  prec : Int32
 }
 
 // Convention: all leaf text goes through a named wrapper (kw, ident, num,
@@ -187,7 +187,7 @@ fn err_text(s : String) -> @pretty.Layout[@pretty.SyntaxCategory] {
 ///|
 fn wrap_if_needed(
   child : PrettyLayout,
-  ctx_prec : Int,
+  ctx_prec : Int32,
 ) -> @pretty.Layout[@pretty.SyntaxCategory] {
   if child.prec < ctx_prec {
     punc("(") + child.layout + punc(")")

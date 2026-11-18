@@ -5,7 +5,11 @@
 // Baseline: pass=132, xfail=0, skip=0.
 
 ///|
-fn commonmark_emphasis_html_fixture_expected_status_counts() -> (Int, Int, Int) {
+fn commonmark_emphasis_html_fixture_expected_status_counts() -> (
+  Int32,
+  Int32,
+  Int32,
+) {
   (132, 0, 0)
 }
 

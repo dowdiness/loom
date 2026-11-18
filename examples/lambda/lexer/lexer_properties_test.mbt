@@ -1,7 +1,7 @@
 // Property-based tests for incremental lexer/token buffer
 
 ///|
-fn clamp_pos(pos : Int, len : Int) -> Int {
+fn clamp_pos(pos : Int32, len : Int32) -> Int32 {
   if pos < 0 {
     0
   } else if pos > len {
@@ -12,7 +12,7 @@ fn clamp_pos(pos : Int, len : Int) -> Int {
 }
 
 ///|
-fn next_seed(seed : Int) -> Int {
+fn next_seed(seed : Int32) -> Int32 {
   let a = 1103515245
   let c = 12345
   let m = 2147483647
@@ -20,7 +20,7 @@ fn next_seed(seed : Int) -> Int {
 }
 
 ///|
-fn build_source_from_seed(seed : Int, count_raw : Int) -> String {
+fn build_source_from_seed(seed : Int32, count_raw : Int32) -> String {
   let pool = [
     "x", "y", "z", "0", "1", "12", "if", "then", "else", "=>", ",", "(", ")", "+",
     "-", " ",
@@ -38,12 +38,12 @@ fn build_source_from_seed(seed : Int, count_raw : Int) -> String {
 }
 
 ///|
-fn slice_string(s : String, start : Int, end : Int) -> String? {
+fn slice_string(s : String, start : Int32, end : Int32) -> String? {
   Some(s[start:end].to_owned())
 }
 
 ///|
-fn prop_token_buffer_insert(input : (Int, Int, Int, Int)) -> Bool {
+fn prop_token_buffer_insert(input : (Int32, Int32, Int32, Int32)) -> Bool {
   let (seed_base, seed_insert, count_insert, pos_raw) = input
   let base = build_source_from_seed(seed_base, seed_base)
   let insert = build_source_from_seed(seed_insert, count_insert)
@@ -85,7 +85,7 @@ fn prop_token_buffer_insert(input : (Int, Int, Int, Int)) -> Bool {
 }
 
 ///|
-fn prop_token_buffer_delete(input : (Int, Int, Int)) -> Bool {
+fn prop_token_buffer_delete(input : (Int32, Int32, Int32)) -> Bool {
   let (seed_base, start_raw, end_raw) = input
   let base = build_source_from_seed(seed_base, seed_base)
   let base_len = base.length()
@@ -129,7 +129,7 @@ fn prop_token_buffer_delete(input : (Int, Int, Int)) -> Bool {
 }
 
 ///|
-fn prop_token_buffer_replace(input : (Int, Int, Int, Int)) -> Bool {
+fn prop_token_buffer_replace(input : (Int32, Int32, Int32, Int32)) -> Bool {
   let (seed_base, seed_insert, start_raw, end_raw) = input
   let base = build_source_from_seed(seed_base, seed_base)
   let insert = build_source_from_seed(seed_insert, seed_insert)

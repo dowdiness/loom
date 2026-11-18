@@ -16,8 +16,8 @@ pub struct MarkdownDocumentUpdates {
   priv extensions : MarkdownExtensions
   priv mut previous : CachedMarkdownDocument?
   priv domain : Ref[Unit]
-  priv mut next_sequence : Int
-  priv mut previous_sequence : Int?
+  priv mut next_sequence : Int32
+  priv mut previous_sequence : Int32?
 }
 
 ///|
@@ -27,7 +27,7 @@ pub struct MarkdownDocumentUpdates {
 /// a distinct update domain even when it observes the same parser and source.
 pub fn MarkdownDocumentUpdates::MarkdownDocumentUpdates(
   parser : @loom.SyntaxParser,
-  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
+  extensions~ : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> MarkdownDocumentUpdates {
   {
     parser,
@@ -43,7 +43,7 @@ pub fn MarkdownDocumentUpdates::MarkdownDocumentUpdates(
 fn MarkdownDocumentUpdates::direct_document(
   self : MarkdownDocumentUpdates,
   snapshot : @loom.SyntaxSnapshot,
-) -> (MarkdownIR, Array[Int?], CachedMarkdownDocument) {
+) -> (MarkdownIR, Array[Int32?], CachedMarkdownDocument) {
   let root = reactive_markdown_document_root(snapshot.syntax)
   let document = experimental_markdown_ir_from_syntax_snapshot(
     snapshot,
@@ -153,7 +153,7 @@ fn MarkdownDocumentUpdates::next_document(
   self : MarkdownDocumentUpdates,
   snapshot : @loom.SyntaxSnapshot,
   previous : CachedMarkdownDocument,
-) -> (MarkdownIR, Array[Int?], CachedMarkdownDocument) {
+) -> (MarkdownIR, Array[Int32?], CachedMarkdownDocument) {
   let current_root = reactive_markdown_document_root(snapshot.syntax)
   if previous.diagnostics_clean &&
     snapshot.diagnostics.is_empty() &&
@@ -188,7 +188,7 @@ fn MarkdownDocumentUpdates::next_document(
   if previous_layout.blocks.length() != block_count {
     return self.direct_document(snapshot)
   }
-  fn reusable(index : Int) -> Bool {
+  fn reusable(index : Int32) -> Bool {
     let before = previous_layout.blocks[index]
     let after = current_layout.blocks[index]
     physical_equal(before.cst, after.cst) &&
@@ -208,7 +208,7 @@ fn MarkdownDocumentUpdates::next_document(
   }
   let current_children = current_syntax.children()
   let children : Array[MarkdownIR] = []
-  let matches : Array[Int?] = []
+  let matches : Array[Int32?] = []
   for index, slot in current_layout.blocks {
     if reusable(index) {
       let before = previous_layout.blocks[index]
@@ -259,9 +259,9 @@ fn MarkdownDocumentUpdates::next_document(
 /// The local boolean array is temporary validation state. It avoids exposing or
 /// retaining a general-purpose identity map in the update boundary.
 fn validated_document_update_matches(
-  matches : Array[Int?],
-  previous_block_count : Int?,
-) -> Array[Int?] {
+  matches : Array[Int32?],
+  previous_block_count : Int32?,
+) -> Array[Int32?] {
   guard previous_block_count is Some(count) else {
     return Array::make(matches.length(), None)
   }

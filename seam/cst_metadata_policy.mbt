@@ -7,11 +7,11 @@ pub struct CstMetadataPolicy {
   priv trivia_kinds : Array[RawKind]
   priv error_kind : RawKind?
   priv incomplete_kind : RawKind?
-  priv semantic_hash : Int
+  priv semantic_hash : Int32
 }
 
 ///|
-fn hash_optional_kind(hash : Int, kind : RawKind?) -> Int {
+fn hash_optional_kind(hash : Int32, kind : RawKind?) -> Int32 {
   match kind {
     None => combine_hash(hash, 0)
     Some(RawKind(value)) => combine_hash(combine_hash(hash, 1), value)
@@ -23,7 +23,7 @@ fn compute_policy_hash(
   trivia_kinds : Array[RawKind],
   error_kind : RawKind?,
   incomplete_kind : RawKind?,
-) -> Int {
+) -> Int32 {
   let mut hash = combine_hash(1129534544, trivia_kinds.length())
   for raw_kind in trivia_kinds {
     let RawKind(kind) = raw_kind
@@ -61,8 +61,8 @@ let unclassified_policy : CstMetadataPolicy = {
 /// empty policy canonicalizes to the package-level unclassified value.
 pub fn CstMetadataPolicy::new(
   trivia_kinds : Array[RawKind],
-  error_kind? : RawKind? = None,
-  incomplete_kind? : RawKind? = None,
+  error_kind~ : RawKind? = None,
+  incomplete_kind~ : RawKind? = None,
 ) -> CstMetadataPolicy {
   let canonical = canonical_trivia_kinds(trivia_kinds)
   if canonical.is_empty() && error_kind is None && incomplete_kind is None {

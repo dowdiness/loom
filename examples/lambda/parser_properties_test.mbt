@@ -65,7 +65,7 @@ test "property: repeated characters are safe" {
 ///|
 /// Property: Valid integers parse as Int terms
 test "property: integers parse as Int terms" {
-  let nums : Array[Int] = @quickcheck.samples(20)
+  let nums : Array[Int32] = @quickcheck.samples(20)
   for n in nums {
     let input = n.abs().to_string()
     try {
@@ -100,7 +100,7 @@ test "property: whitespace doesn't break parser" {
 ///|
 /// Property: Parentheses don't cause crashes
 test "property: parentheses are safe" {
-  let counts : Array[Int] = @quickcheck.samples(15)
+  let counts : Array[Int32] = @quickcheck.samples(15)
   for count in counts {
     let n = count.abs() % 20 // Limit to reasonable size
     let mut input = ""

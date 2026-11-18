@@ -23,8 +23,8 @@ test "parse_rule_string: PrattBinary with prec and skip" {
           ops: ["Plus", "Minus"],
           skip: Some("Newline"),
           app_kind: None,
-        }
-      )
+        },
+      ),
     ) => ()
     Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
     Err(m) => abort("parse failed: " + m)
@@ -158,8 +158,8 @@ test "parse_rule_string: @native(ident) in Seq" {
           Star(Sym("Attr")),
           Native("parse_children_or_void"),
           Sym("CloseTag"),
-        ]
-      )
+        ],
+      ),
     ) => ()
     Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
     Err(m) => abort("parse failed: " + m)

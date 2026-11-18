@@ -1,5 +1,5 @@
 ///|
-fn renderer_test_range(start : Int, end : Int) -> TextRange {
+fn renderer_test_range(start : Int32, end : Int32) -> TextRange {
   try TextRange::from_offsets(start, end) catch {
     _ => abort("expected valid renderer test range")
   } noraise {
@@ -11,8 +11,8 @@ fn renderer_test_range(start : Int, end : Int) -> TextRange {
 fn renderer_test_label(
   style : LabelStyle,
   source_id : SourceId,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   message : String,
 ) -> DiagnosticLabel {
   DiagnosticLabel(
@@ -24,7 +24,7 @@ fn renderer_test_label(
 
 ///|
 struct RendererTestDisplay {
-  padding : Int
+  padding : Int32
 }
 
 ///|
@@ -296,7 +296,7 @@ test "plain diagnostic array renderer resolves each source once per render" {
 ///|
 test "plain diagnostic renderer reports typed source boundary failures" {
   let source_id = SourceId("boundary")
-  let diagnostic_for : (Int, Int) -> Diagnostic = (start, end) => {
+  let diagnostic_for : (Int32, Int32) -> Diagnostic = (start, end) => {
     Diagnostic(
       origin=DiagnosticOrigin("parser"),
       severity=Error,

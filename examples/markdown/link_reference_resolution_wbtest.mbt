@@ -215,7 +215,7 @@ fn assert_inline_image_surface(
 test "CommonMark images 574 and 575 retain typed nested label semantics" {
   let cases : Array[
     (
-      Int,
+      Int32,
       String,
       MarkdownIROrigin,
       MarkdownIROrigin,
@@ -357,7 +357,7 @@ test "CommonMark image 590 keeps the nested reference label literal" {
 
 ///|
 fn assert_links_recovered_prefix_html(
-  example : Int,
+  example : Int32,
   source : String,
   expected : String,
 ) -> Unit raise {
@@ -375,7 +375,7 @@ fn assert_links_recovered_prefix_html(
 
 ///|
 test "link recovery prefixes become literal before typed inline siblings" {
-  let cases : Array[(Int, String, String)] = [
+  let cases : Array[(Int32, String, String)] = [
     (514, "[link [bar](/uri)\n", "<p>[link <a href=\"/uri\">bar</a></p>\n"),
     (524, "[foo <bar attr=\"](baz)\">\n", "<p>[foo <bar attr=\"](baz)\"></p>\n"),
     (525, "[foo`](/uri)`\n", "<p>[foo<code>](/uri)</code></p>\n"),
@@ -411,7 +411,7 @@ test "typed inline before an unclosed bracket stays literal" {
 
 ///|
 fn deep_unclosed_shortcut_fixture(
-  depth : Int,
+  depth : Int32,
 ) -> (Array[MarkdownIR], MarkdownIRLoweringContext) {
   let source_id = @core.SourceId("deep-unclosed-shortcut")
   let source = "[".repeat(depth) + "x"
@@ -586,7 +586,7 @@ test "final lowering counts CRLF as one reference label character" {
 }
 
 ///|
-fn deep_unclosed_parenthesis_fixture(depth : Int) -> Array[MarkdownIR] {
+fn deep_unclosed_parenthesis_fixture(depth : Int32) -> Array[MarkdownIR] {
   let source_id = @core.SourceId("deep-unclosed-parenthesis")
   let children : Array[MarkdownIR] = []
   for offset = 0; offset < depth; offset = offset + 1 {
@@ -607,7 +607,7 @@ fn deep_unclosed_parenthesis_fixture(depth : Int) -> Array[MarkdownIR] {
 
 ///|
 fn deep_balanced_shortcut_fixture(
-  depth : Int,
+  depth : Int32,
 ) -> (Array[MarkdownIR], MarkdownIRLoweringContext) {
   let source_id = @core.SourceId("deep-balanced-shortcut")
   let source = "[".repeat(depth) + "x" + "]".repeat(depth)
@@ -642,7 +642,7 @@ fn deep_balanced_shortcut_fixture(
 }
 
 ///|
-fn deep_balanced_parenthesis_fixture(depth : Int) -> Array[MarkdownIR] {
+fn deep_balanced_parenthesis_fixture(depth : Int32) -> Array[MarkdownIR] {
   let source_id = @core.SourceId("deep-balanced-parenthesis")
   let children : Array[MarkdownIR] = []
   for offset = 0; offset < depth; offset = offset + 1 {
@@ -764,7 +764,7 @@ test "literal outer link finds a nested link through two emphasis layers" {
 }
 
 ///|
-fn benchmark_deep_unclosed_shortcut_unwind(b : @bench.T, depth : Int) -> Unit {
+fn benchmark_deep_unclosed_shortcut_unwind(b : @bench.T, depth : Int32) -> Unit {
   let (children, context) = deep_unclosed_shortcut_fixture(depth)
   b.bench(() => b.keep(resolve_shortcut_references(children, context)))
 }
@@ -772,7 +772,7 @@ fn benchmark_deep_unclosed_shortcut_unwind(b : @bench.T, depth : Int) -> Unit {
 ///|
 fn benchmark_deep_unclosed_parenthesis_unwind(
   b : @bench.T,
-  depth : Int,
+  depth : Int32,
 ) -> Unit {
   let children = deep_unclosed_parenthesis_fixture(depth)
   b.bench(() => b.keep(literalize_balanced_raw_parentheses(children)))
@@ -781,7 +781,7 @@ fn benchmark_deep_unclosed_parenthesis_unwind(
 ///|
 fn benchmark_deep_balanced_shortcut_resolution(
   b : @bench.T,
-  depth : Int,
+  depth : Int32,
 ) -> Unit {
   let (children, context) = deep_balanced_shortcut_fixture(depth)
   b.bench(() => b.keep(resolve_shortcut_references(children, context)))
@@ -790,7 +790,7 @@ fn benchmark_deep_balanced_shortcut_resolution(
 ///|
 fn benchmark_deep_balanced_parenthesis_projection(
   b : @bench.T,
-  depth : Int,
+  depth : Int32,
 ) -> Unit {
   let children = deep_balanced_parenthesis_fixture(depth)
   b.bench(() => b.keep(literalize_balanced_raw_parentheses(children)))

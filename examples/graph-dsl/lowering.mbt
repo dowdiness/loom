@@ -1,26 +1,27 @@
 ///|
+#derive(Eq, Debug)
 pub struct SourceReplacement {
-  priv start : Int
-  priv old_len : Int
+  priv start : Int32
+  priv old_len : Int32
   priv new_text : String
-} derive(Eq, Debug)
+}
 
 ///|
 fn SourceReplacement::SourceReplacement(
-  start~ : Int,
-  old_len~ : Int,
+  start~ : Int32,
+  old_len~ : Int32,
   new_text~ : String,
 ) -> SourceReplacement {
   { start, old_len, new_text, }
 }
 
 ///|
-pub fn SourceReplacement::start(self : SourceReplacement) -> Int {
+pub fn SourceReplacement::start(self : SourceReplacement) -> Int32 {
   self.start
 }
 
 ///|
-pub fn SourceReplacement::old_len(self : SourceReplacement) -> Int {
+pub fn SourceReplacement::old_len(self : SourceReplacement) -> Int32 {
   self.old_len
 }
 
@@ -30,7 +31,7 @@ pub fn SourceReplacement::new_text(self : SourceReplacement) -> String {
 }
 
 ///|
-pub fn SourceReplacement::old_end(self : SourceReplacement) -> Int {
+pub fn SourceReplacement::old_end(self : SourceReplacement) -> Int32 {
   self.start + self.old_len
 }
 
@@ -40,11 +41,12 @@ pub fn SourceReplacement::edit(self : SourceReplacement) -> @loom.Edit {
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct LoweredGraphEdit {
   priv replacements : Array[SourceReplacement]
   priv new_source : String
   priv incremental_edit : @loom.Edit?
-} derive(Eq, Debug)
+}
 
 ///|
 fn LoweredGraphEdit::LoweredGraphEdit(
@@ -78,7 +80,7 @@ pub fn LoweredGraphEdit::incremental_edit(
 fn compare_replacement_start(
   a : SourceReplacement,
   b : SourceReplacement,
-) -> Int {
+) -> Int32 {
   if a.start < b.start {
     -1
   } else if a.start > b.start {
@@ -96,7 +98,7 @@ fn compare_replacement_start(
 fn compare_replacement_start_desc(
   a : SourceReplacement,
   b : SourceReplacement,
-) -> Int {
+) -> Int32 {
   0 - compare_replacement_start(a, b)
 }
 
@@ -226,7 +228,7 @@ fn horizontal_space(code_unit : UInt16) -> Bool {
 }
 
 ///|
-fn param_start_after_lparen_space(source : String, start : Int) -> Int {
+fn param_start_after_lparen_space(source : String, start : Int32) -> Int32 {
   let mut cursor = start
   while cursor > 0 && horizontal_space(source[cursor - 1]) {
     cursor -= 1
@@ -239,7 +241,7 @@ fn param_start_after_lparen_space(source : String, start : Int) -> Int {
 }
 
 ///|
-fn param_end_before_rparen_space(source : String, end : Int) -> Int {
+fn param_end_before_rparen_space(source : String, end : Int32) -> Int32 {
   let mut cursor = end
   while cursor < source.length() && horizontal_space(source[cursor]) {
     cursor += 1
@@ -260,7 +262,7 @@ fn param_end_before_rparen_space(source : String, end : Int) -> Int {
 }
 
 ///|
-fn graph_param_text_end(param : GraphParam) -> Int? {
+fn graph_param_text_end(param : GraphParam) -> Int32? {
   if param.value_tokens.is_empty() {
     return None
   }
@@ -289,7 +291,7 @@ fn connection_param_index(
   params : Array[GraphParam],
   parameter : String,
   input_ref : String,
-) -> Int? {
+) -> Int32? {
   for index, param in params {
     if param.name == parameter &&
       graph_param_input_reference(param) == Some(input_ref) {
@@ -303,7 +305,7 @@ fn connection_param_index(
 fn removal_replacement_for_param(
   source : String,
   params : Array[GraphParam],
-  index : Int,
+  index : Int32,
 ) -> SourceReplacement? {
   if index < 0 || index >= params.length() {
     return None

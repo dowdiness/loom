@@ -4,7 +4,7 @@
 // publication costs without mixing in container or delimiter adversaries.
 
 ///|
-fn perf_paragraph_doc(count : Int) -> String {
+fn perf_paragraph_doc(count : Int32) -> String {
   let out = StringBuilder()
   out.write_string("# Document Title\n\n")
   for i = 0; i < count; i = i + 1 {
@@ -17,7 +17,7 @@ fn perf_paragraph_doc(count : Int) -> String {
 }
 
 ///|
-fn perf_find_from(source : String, target : String, start : Int) -> Int {
+fn perf_find_from(source : String, target : String, start : Int32) -> Int32 {
   for i = start; i < source.length() - target.length() + 1; i = i + 1 {
     if source[i:i + target.length()].to_owned() == target {
       return i
@@ -48,7 +48,7 @@ fn perf_syntax(source : String) -> @seam.SyntaxNode {
 }
 
 ///|
-fn bench_perf_tokenize(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_tokenize(b : @bench.T, count : Int32) -> Unit {
   let source = perf_paragraph_doc(count)
   b.bench(fn() {
     let tokens = @markdown.tokenize(source) catch { _ => abort("lex failed") }
@@ -57,7 +57,7 @@ fn bench_perf_tokenize(b : @bench.T, count : Int) -> Unit {
 }
 
 ///|
-fn bench_perf_cst(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_cst(b : @bench.T, count : Int32) -> Unit {
   let source = perf_paragraph_doc(count)
   b.bench(fn() {
     let (cst, diagnostics) = @markdown.parse_cst(
@@ -72,7 +72,7 @@ fn bench_perf_cst(b : @bench.T, count : Int) -> Unit {
 }
 
 ///|
-fn bench_perf_ast(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_ast(b : @bench.T, count : Int32) -> Unit {
   let source = perf_paragraph_doc(count)
   b.bench(fn() {
     b.keep(
@@ -85,7 +85,7 @@ fn bench_perf_ast(b : @bench.T, count : Int) -> Unit {
 }
 
 ///|
-fn bench_perf_fold(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_fold(b : @bench.T, count : Int32) -> Unit {
   let syntax = perf_syntax(perf_paragraph_doc(count))
   b.bench(fn() {
     let fold = @core.CstFold::new(@markdown.markdown_fold_node)
@@ -94,7 +94,7 @@ fn bench_perf_fold(b : @bench.T, count : Int) -> Unit {
 }
 
 ///|
-fn bench_perf_ir(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_ir(b : @bench.T, count : Int32) -> Unit {
   let syntax = perf_syntax(perf_paragraph_doc(count))
   b.bench(fn() {
     b.keep(
@@ -107,7 +107,7 @@ fn bench_perf_ir(b : @bench.T, count : Int) -> Unit {
 }
 
 ///|
-fn bench_perf_imperative_ast_cycle(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_imperative_ast_cycle(b : @bench.T, count : Int32) -> Unit {
   let source = perf_paragraph_doc(count)
   let (edited, edit) = perf_middle_edit(source)
   let parser = @loom.new_imperative_parser(
@@ -123,7 +123,7 @@ fn bench_perf_imperative_ast_cycle(b : @bench.T, count : Int) -> Unit {
 }
 
 ///|
-fn bench_perf_reactive_syntax_cycle(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_reactive_syntax_cycle(b : @bench.T, count : Int32) -> Unit {
   let source = perf_paragraph_doc(count)
   let (edited, edit) = perf_middle_edit(source)
   let parser = try! @loom.new_syntax_parser(
@@ -142,7 +142,7 @@ fn bench_perf_reactive_syntax_cycle(b : @bench.T, count : Int) -> Unit {
 }
 
 ///|
-fn bench_perf_reactive_ast_cycle(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_reactive_ast_cycle(b : @bench.T, count : Int32) -> Unit {
   let source = perf_paragraph_doc(count)
   let (edited, edit) = perf_middle_edit(source)
   let parser = try! @loom.new_parser(

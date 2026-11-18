@@ -5,17 +5,19 @@
 // Incremental rows report one delimiter edit plus its same-length restore.
 
 ///|
+#derive(Eq)
 priv struct DelimiterPerformanceFixture {
   source : String
   edited : String
   edit : @core.Edit
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct DelimiterPerformanceWorkloads {
   delimiter_heavy : DelimiterPerformanceFixture
   plain_control : DelimiterPerformanceFixture
-} derive(Eq)
+}
 
 ///|
 fn delimiter_performance_motifs() -> Array[String] {
@@ -55,7 +57,7 @@ fn delimiter_performance_plain_control(source : String) -> String {
 // as a token-count control rather than an equivalent Markdown-shape control:
 // the extra closing brackets are part of the measured recovery workload.
 fn delimiter_performance_code_conflict_workloads(
-  repeat_count : Int,
+  repeat_count : Int32,
 ) -> (String, String) {
   guard repeat_count > 0 else {
     abort("delimiter performance conflict repeat count must be positive")
@@ -73,7 +75,7 @@ fn delimiter_performance_code_conflict_workloads(
 ///|
 fn delimiter_performance_replace_one(
   source : String,
-  start : Int,
+  start : Int32,
   replacement : String,
 ) -> String {
   source[:start].to_owned() + replacement + source[start + 1:].to_owned()
@@ -81,7 +83,7 @@ fn delimiter_performance_replace_one(
 
 ///|
 fn delimiter_performance_workloads(
-  repeat_count : Int,
+  repeat_count : Int32,
 ) -> DelimiterPerformanceWorkloads {
   guard repeat_count > 0 else {
     abort("delimiter performance repeat count must be positive")
@@ -129,12 +131,12 @@ fn delimiter_performance_workloads(
 ///|
 fn delimiter_performance_push_run(
   events : Array[DelimiterResolverEvent],
-  start : Int,
+  start : Int32,
   marker : EmphasisDelimiterMarker,
-  length : Int,
+  length : Int32,
   can_open : Bool,
   can_close : Bool,
-) -> Int {
+) -> Int32 {
   events.push(
     DelimiterRunEvent({ marker, start, length, can_open, can_close, }),
   )
@@ -144,9 +146,9 @@ fn delimiter_performance_push_run(
 ///|
 fn delimiter_performance_push_runs(
   events : Array[DelimiterResolverEvent],
-  start : Int,
-  runs : Array[(EmphasisDelimiterMarker, Int, Bool, Bool)],
-) -> Int {
+  start : Int32,
+  runs : Array[(EmphasisDelimiterMarker, Int32, Bool, Bool)],
+) -> Int32 {
   let mut position = start
   for run in runs {
     let (marker, length, can_open, can_close) = run
@@ -159,7 +161,7 @@ fn delimiter_performance_push_runs(
 
 ///|
 fn delimiter_performance_resolver_event_bank(
-  repeat_count : Int,
+  repeat_count : Int32,
 ) -> Array[DelimiterResolverEvent] {
   guard repeat_count > 0 else {
     abort("delimiter resolver event-bank repeat count must be positive")
@@ -301,7 +303,7 @@ fn assert_delimiter_performance_incremental_parity(
 }
 
 ///|
-fn markdown_adversarial_unmatched_opener_source(size : Int) -> String {
+fn markdown_adversarial_unmatched_opener_source(size : Int32) -> String {
   guard size > 0 else {
     abort("unmatched-opener fixture size must be positive")
   }
@@ -309,13 +311,13 @@ fn markdown_adversarial_unmatched_opener_source(size : Int) -> String {
 }
 
 ///|
-fn markdown_adversarial_plain_control_source(size : Int) -> String {
+fn markdown_adversarial_plain_control_source(size : Int32) -> String {
   guard size > 0 else { abort("plain-control fixture size must be positive") }
   "x".repeat(size)
 }
 
 ///|
-fn markdown_adversarial_nested_link_source(depth : Int) -> String {
+fn markdown_adversarial_nested_link_source(depth : Int32) -> String {
   guard depth > 0 else { abort("nested-link fixture depth must be positive") }
   "[".repeat(depth) + "a" + "](/u)".repeat(depth)
 }
@@ -505,7 +507,7 @@ test "delimiter performance incremental edit and restore match fresh parses" {
 
 ///|
 test "delimiter performance resolver operation counts stay linear" {
-  let checks : Array[Int] = []
+  let checks : Array[Int32] = []
   for repeat_count in [64, 256] {
     let events = delimiter_performance_resolver_event_bank(repeat_count)
     let plan = resolve_delimiter_events(events)

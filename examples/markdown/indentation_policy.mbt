@@ -4,13 +4,13 @@
 const COMMONMARK_TAB_STOP = 4
 
 ///|
-fn next_tab_stop(col : Int) -> Int {
+fn next_tab_stop(col : Int32) -> Int32 {
   (col / COMMONMARK_TAB_STOP + 1) * COMMONMARK_TAB_STOP
 }
 
 ///|
 /// Count visual indentation columns with CommonMark 4-column tab stops.
-fn count_indent_columns(input : String, start : Int, end : Int) -> Int {
+fn count_indent_columns(input : String, start : Int32, end : Int32) -> Int32 {
   input[start:end].fold(init=0, (col, ch) => {
     match ch {
       ' ' => col + 1
@@ -23,9 +23,9 @@ fn count_indent_columns(input : String, start : Int, end : Int) -> Int {
 ///|
 fn leading_indent_end_offset_and_column(
   text : String,
-  pos : Int,
-  start_col : Int,
-) -> (Int, Int) {
+  pos : Int32,
+  start_col : Int32,
+) -> (Int32, Int32) {
   for i = pos, col = start_col; i < text.length(); {
     match char_at(text, i) {
       Some(' ') => continue @core.next_char_offset(text, i), col + 1
@@ -38,7 +38,7 @@ fn leading_indent_end_offset_and_column(
 }
 
 ///|
-fn leading_indent_columns_from(text : StringView, start_col : Int) -> Int {
+fn leading_indent_columns_from(text : StringView, start_col : Int32) -> Int32 {
   for ch in text; col = start_col {
     match ch {
       ' ' => continue col + 1
@@ -53,12 +53,12 @@ fn leading_indent_columns_from(text : StringView, start_col : Int) -> Int {
 ///|
 /// Count visual columns of leading whitespace using CommonMark 4-column tab
 /// stops. Stops at the first non-space, non-tab character.
-fn count_leading_indent(text : StringView) -> Int {
+fn count_leading_indent(text : StringView) -> Int32 {
   leading_indent_columns_from(text, 0)
 }
 
 ///|
-fn marker_start_after_optional_indent(text : String, pos : Int) -> Int? {
+fn marker_start_after_optional_indent(text : String, pos : Int32) -> Int32? {
   let (offset, _) = leading_indent_end_offset_and_column(text, pos, 0)
   Some(offset)
 }
@@ -66,14 +66,14 @@ fn marker_start_after_optional_indent(text : String, pos : Int) -> Int? {
 ///|
 fn marker_indent_columns_after_optional_indent(
   text : String,
-  pos : Int,
-) -> Int? {
+  pos : Int32,
+) -> Int32? {
   let (_, col) = leading_indent_end_offset_and_column(text, pos, 0)
   Some(col)
 }
 
 ///|
-fn list_marker_body_end_offset(text : String, ordered~ : Bool) -> Int? {
+fn list_marker_body_end_offset(text : String, ordered~ : Bool) -> Int32? {
   guard marker_start_after_optional_indent(text, 0) is Some(start) else {
     return None
   }
@@ -87,7 +87,7 @@ fn list_marker_body_end_offset(text : String, ordered~ : Bool) -> Int? {
 }
 
 ///|
-fn block_quote_marker_gt_offset(text : String) -> Int? {
+fn block_quote_marker_gt_offset(text : String) -> Int32? {
   for i = 0; i < text.length(); {
     match char_at(text, i) {
       Some('>') => break Some(i)
@@ -100,7 +100,7 @@ fn block_quote_marker_gt_offset(text : String) -> Int? {
 }
 
 ///|
-fn line_start_offset_before(source : String, offset : Int) -> Int {
+fn line_start_offset_before(source : String, offset : Int32) -> Int32 {
   for i = offset - 1 {
     guard i >= 0 else { break 0 }
     match char_at(source, i) {
@@ -111,15 +111,15 @@ fn line_start_offset_before(source : String, offset : Int) -> Int {
 }
 
 ///|
-fn visual_column_at_offset(source : String, offset : Int) -> Int {
+fn visual_column_at_offset(source : String, offset : Int32) -> Int32 {
   count_indent_columns(source, line_start_offset_before(source, offset), offset)
 }
 
 ///|
 fn strip_visual_columns(
   text : String,
-  start_col : Int,
-  columns : Int,
+  start_col : Int32,
+  columns : Int32,
 ) -> String {
   let buf = StringBuilder()
   let target = start_col + columns

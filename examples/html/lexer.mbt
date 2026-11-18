@@ -21,12 +21,12 @@ fn ascii_lower_tag_name(name : String) -> String {
 ///|
 fn is_alpha(c : Char) -> Bool {
   let n = c.to_int()
-  n is ('a'..='z') || n is ('A'..='Z')
+  n is ('a'..<='z') || n is ('A'..<='Z')
 }
 
 ///|
 fn is_digit_char(c : Char) -> Bool {
-  c.to_int() is ('0'..='9')
+  c.to_int() is ('0'..<='9')
 }
 
 ///|
@@ -144,7 +144,10 @@ fn read_close_tag_body(cursor : @core.LexCursor) -> String {
 }
 
 ///|
-fn html_step_lexer(source : String, start : Int) -> @core.LexStep[@token.Token] {
+fn html_step_lexer(
+  source : String,
+  start : Int32,
+) -> @core.LexStep[@token.Token] {
   let cursor = @core.LexCursor::new(source, start)
   if cursor.is_done() {
     return Done
@@ -221,10 +224,11 @@ fn html_step_lexer(source : String, start : Int) -> @core.LexStep[@token.Token] 
 /// `RawText(tag)` holds the lowercased raw-text tag name being scanned for,
 /// so scanning resumes correctly even with `<script>`/`<style>` nested at
 /// different points in the source.
+#derive(Eq)
 priv enum HtmlLexMode {
   Normal
   RawText(String)
-} derive(Eq)
+}
 
 ///|
 fn is_close_tag_boundary(c : Char?) -> Bool {
@@ -265,7 +269,7 @@ fn matches_raw_text_close(cursor : @core.LexCursor, tag : String) -> Bool {
 /// literally — no nested-tag parsing, matching real raw-text-element
 /// semantics (a stray `<` that isn't part of the exact close sequence is
 /// just raw content).
-fn find_raw_text_close(source : String, start : Int, tag : String) -> Int {
+fn find_raw_text_close(source : String, start : Int32, tag : String) -> Int32 {
   let cursor = @core.LexCursor::new(source, start)
   while !cursor.is_done() {
     if cursor.peek() == Some('<') && matches_raw_text_close(cursor, tag) {
@@ -285,7 +289,7 @@ fn find_raw_text_close(source : String, start : Int, tag : String) -> Int {
 /// mode, lexes it as an ordinary `CloseTag`).
 fn html_mode_lex_step(
   source : String,
-  start : Int,
+  start : Int32,
   mode : HtmlLexMode,
 ) -> (@core.LexStep[@token.Token], HtmlLexMode) {
   match mode {

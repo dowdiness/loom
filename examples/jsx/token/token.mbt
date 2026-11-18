@@ -11,6 +11,7 @@
 /// contain a `{...}` embedded expression requiring a lex-mode switch
 /// mid-tag, so raw content is recovered from the token's source span at
 /// AST-fold time, not stored redundantly on the token itself.
+#derive(Eq, Debug)
 #loom.token
 pub(all) enum Token {
   // `<` — starts a tag or, followed by `Slash`, a close-tag sequence
@@ -93,7 +94,7 @@ pub(all) enum Token {
   #loom.eof
   #loom.recovery("sync")
   EOF
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Token with @moonbitlang/core/debug.Debug::{to_repr}

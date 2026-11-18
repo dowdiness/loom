@@ -47,8 +47,8 @@ pub fn compose_projection_identity_edits(
 ///|
 fn position_before_projection_identity_edit(
   edit : Edit,
-  position_after_edit : Int,
-) -> Int {
+  position_after_edit : Int32,
+) -> Int32 {
   if position_after_edit <= edit.start {
     position_after_edit
   } else if position_after_edit >= edit.new_end() {
@@ -59,7 +59,10 @@ fn position_before_projection_identity_edit(
 }
 
 ///|
-fn clamp_projection_identity_position(position : Int, source_len : Int) -> Int {
+fn clamp_projection_identity_position(
+  position : Int32,
+  source_len : Int32,
+) -> Int32 {
   if position < 0 {
     0
   } else if position > source_len {
@@ -98,7 +101,7 @@ pub fn edit_has_valid_old_range(old_source : String, edit : Edit) -> Bool {
 fn source_prefix_matches(
   old_source : String,
   next_source : String,
-  end : Int,
+  end : Int32,
 ) -> Bool {
   for i in 0..<end {
     if old_source[i] != next_source[i] {
@@ -112,8 +115,8 @@ fn source_prefix_matches(
 fn source_suffix_matches(
   old_source : String,
   next_source : String,
-  old_start : Int,
-  next_start : Int,
+  old_start : Int32,
+  next_start : Int32,
 ) -> Bool {
   let suffix_len = old_source.length() - old_start
   for i in 0..<suffix_len {

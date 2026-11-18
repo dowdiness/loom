@@ -13,7 +13,7 @@ fn heavy_benchmark_source_id() -> @core.SourceId {
 
 ///|
 /// Deterministic PRNG (same as differential fuzz tests).
-fn heavy_next_seed(seed : Int) -> Int {
+fn heavy_next_seed(seed : Int32) -> Int32 {
   (seed * 1103515245 + 12345) % 2147483647
 }
 
@@ -29,7 +29,7 @@ fn make_large_source() -> String {
 }
 
 ///|
-fn make_if_chain(vars : Array[String], depth : Int) -> String {
+fn make_if_chain(vars : Array[String], depth : Int32) -> String {
   if depth >= 4 {
     // Base: arithmetic expression using available vars
     let i = depth % vars.length()
@@ -51,7 +51,7 @@ fn make_if_chain(vars : Array[String], depth : Int) -> String {
 
 ///|
 /// Build a wide arithmetic chain: 1 + 2 + 3 + ... + n
-fn make_wide_arithmetic(n : Int) -> String {
+fn make_wide_arithmetic(n : Int32) -> String {
   let mut s = "1"
   for i = 2; i <= n; i = i + 1 {
     s = s + " + " + i.to_string()
@@ -61,7 +61,7 @@ fn make_wide_arithmetic(n : Int) -> String {
 
 ///|
 /// Build repeated lambda applications: f (f (f (... (f x) ...)))
-fn make_nested_application(depth : Int) -> String {
+fn make_nested_application(depth : Int32) -> String {
   let mut s = "x"
   for _i = 0; _i < depth; _i = _i + 1 {
     s = "f (" + s + ")"
@@ -71,14 +71,14 @@ fn make_nested_application(depth : Int) -> String {
 
 ///|
 /// Apply a single-char insert at a position, returning (new_source, edit).
-fn slice(s : String, start : Int, end : Int) -> String {
+fn slice(s : String, start : Int32, end : Int32) -> String {
   s[start:end].to_owned()
 }
 
 ///|
 fn apply_char_insert(
   source : String,
-  pos : Int,
+  pos : Int32,
   ch : String,
 ) -> (String, @core.Edit) {
   let before = slice(source, 0, pos)
@@ -92,7 +92,7 @@ fn apply_char_insert(
 /// Apply a single-char replacement at a position.
 fn apply_char_replace(
   source : String,
-  pos : Int,
+  pos : Int32,
   ch : String,
 ) -> (String, @core.Edit) {
   let before = slice(source, 0, pos)
@@ -106,9 +106,9 @@ fn apply_char_replace(
 /// Find the nearest position to `near` that is at a token boundary
 /// (both adjacent characters are non-identifier chars), so that inserting
 /// an alphanumeric character won't merge with adjacent tokens.
-fn find_safe_insert_pos(source : String, near : Int) -> Int {
+fn find_safe_insert_pos(source : String, near : Int32) -> Int32 {
   let len = source.length()
-  fn is_id(i : Int) -> Bool {
+  fn is_id(i : Int32) -> Bool {
     let ch = source[i]
     (ch >= 'a' && ch <= 'z') ||
     (ch >= 'A' && ch <= 'Z') ||
@@ -469,7 +469,7 @@ fn bench_full_reparse(source : String, b : @bench.T) -> Unit {
 }
 
 ///|
-fn bench_session_incremental(source : String, n : Int, b : @bench.T) -> Unit {
+fn bench_session_incremental(source : String, n : Int32, b : @bench.T) -> Unit {
   let chars = [" ", "+", " ", "1"]
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
@@ -491,7 +491,7 @@ fn bench_session_incremental(source : String, n : Int, b : @bench.T) -> Unit {
 }
 
 ///|
-fn bench_session_full_reparse(source : String, n : Int, b : @bench.T) -> Unit {
+fn bench_session_full_reparse(source : String, n : Int32, b : @bench.T) -> Unit {
   let chars = [" ", "+", " ", "1"]
   b.bench(fn() {
     let mut s = source

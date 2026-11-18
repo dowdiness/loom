@@ -11,7 +11,7 @@ fn fold_benchmark_source_id() -> @core.SourceId {
 /// Find the byte offset of the tail literal in a let-chain source.
 /// make_let_chain(n, lit) ends with "let x{n-1} = {lit}\nx{n-1}".
 /// Returns the position of the first character of {lit}.
-fn tail_literal_offset(source : String) -> Int {
+fn tail_literal_offset(source : String) -> Int32 {
   // The literal is at "= X\n" before the final variable reference.
   // Search backwards for "= " and return the position after it.
   let mut i = source.length() - 1

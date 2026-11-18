@@ -9,9 +9,9 @@
 
 ///|
 pub(all) enum LexStep[T] {
-  Produced(TokenInfo[T], next_offset~ : Int)
-  Invalid(at~ : Int, width~ : Int, message~ : String)
-  Incomplete(at~ : Int, expected~ : String)
+  Produced(TokenInfo[T], next_offset~ : Int32)
+  Invalid(at~ : Int32, width~ : Int32, message~ : String)
+  Incomplete(at~ : Int32, expected~ : String)
   Done
 }
 
@@ -20,13 +20,13 @@ pub(all) enum LexStep[T] {
 /// Use this instead of a trait because MoonBit traits cannot be
 /// generic over arbitrary token type T in the way we need.
 pub(all) struct PrefixLexer[T] {
-  lex_step : (String, Int) -> LexStep[T]
+  lex_step : (String, Int32) -> LexStep[T]
 }
 
 ///|
 /// Create a PrefixLexer from a stepping function.
 pub fn[T] PrefixLexer::new(
-  lex_step~ : (String, Int) -> LexStep[T],
+  lex_step~ : (String, Int32) -> LexStep[T],
 ) -> PrefixLexer[T] {
   { lex_step, }
 }
@@ -37,7 +37,7 @@ pub fn[T] PrefixLexer::new(
 pub fn[T] PrefixLexer::lex_all(
   self : PrefixLexer[T],
   source : String,
-  start : Int,
+  start : Int32,
 ) -> Array[LexStep[T]] {
   let result : Array[LexStep[T]] = []
   let len = source.length()
@@ -64,10 +64,10 @@ pub fn[T] PrefixLexer::lex_all(
 /// Return the next offset after a malformed or invalid step report.
 fn lex_step_recovery_offset(
   source : String,
-  pos : Int,
-  at : Int,
-  width : Int,
-) -> Int {
+  pos : Int32,
+  at : Int32,
+  width : Int32,
+) -> Int32 {
   let len = source.length()
   let current = clamp_offset(pos, len)
   let error_start = clamp_offset(if at > current { at } else { current }, len)
@@ -87,7 +87,7 @@ fn lex_step_recovery_offset(
 /// Return `pos` unless it lands inside a surrogate pair; in that case snap to
 /// the next scalar boundary. This keeps recovered token spans slice-safe even
 /// when a lexer reports `Invalid(width=1)` for a non-BMP character.
-fn next_safe_char_boundary(source : String, pos : Int) -> Int {
+fn next_safe_char_boundary(source : String, pos : Int32) -> Int32 {
   let len = source.length()
   let current = clamp_offset(pos, len)
   if current <= 0 || current >= len {

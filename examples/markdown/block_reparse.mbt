@@ -379,7 +379,7 @@ fn html_block_has_terminator_at_end(
 ///|
 fn html_newline_run_continues_in_stream(
   tokens : Array[@core.TokenInfo[Token]],
-  start : Int,
+  start : Int32,
 ) -> Bool {
   for j = start {
     if j >= tokens.length() {
@@ -541,7 +541,7 @@ fn list_item_reparser(
 fn unordered_list_context_allows_reparse(
   ctx : @core.ParserContext[Token, SyntaxKind],
   opening_marker : UnorderedListMarker,
-  min_indent : Int,
+  min_indent : Int32,
 ) -> Bool {
   ctx.lookahead(() => {
     let mut result = true
@@ -596,7 +596,7 @@ fn unordered_list_context_allows_reparse(
 fn parse_unordered_list_if_unchanged(
   ctx : @core.ParserContext[Token, SyntaxKind],
   opening_marker : UnorderedListMarker,
-  min_indent : Int,
+  min_indent : Int32,
 ) -> Unit {
   if list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) &&
     unordered_list_context_allows_reparse(ctx, opening_marker, min_indent) {

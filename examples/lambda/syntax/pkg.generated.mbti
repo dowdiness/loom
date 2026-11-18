@@ -52,6 +52,7 @@ pub fn LambdaExprProj::cast(@seam.SyntaxNode) -> Self?
 pub fn LambdaExprProj::syntax_node(Self) -> @seam.SyntaxNode
 pub impl @seam.AstView for LambdaExprProj
 
+#derive(Eq, @debug.Debug)
 pub(all) enum SyntaxKind {
   LambdaToken
   DotToken
@@ -100,7 +101,7 @@ pub(all) enum SyntaxKind {
   IfThen
   IfElse
   LambdaBody
-} derive(Eq, @debug.Debug)
+}
 pub fn SyntaxKind::equal(Self, Self) -> Bool
 pub fn SyntaxKind::from_raw(@seam.RawKind) -> Self
 pub fn SyntaxKind::is_error(Self) -> Bool

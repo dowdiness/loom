@@ -7,13 +7,13 @@ pub struct MarkdownLexSession {
   priv detached_cache : Ref[DetachedCodeBlockIndentCache?]
   priv same_line_cache : Ref[SameLineListItemPrefixFacts?]
   priv source_ref : Ref[String?]
-  priv line_end_cache_start : Ref[Int]
-  priv line_end_cache_end : Ref[Int]
-  priv opening_indent : Ref[Int?]
-  priv opening_quote_indents : Ref[Array[Int]?]
-  priv continuation_start : Ref[Int?]
-  priv continuation_pos : Ref[Int?]
-  priv continuation_fence_length : Ref[Int?]
+  priv line_end_cache_start : Ref[Int32]
+  priv line_end_cache_end : Ref[Int32]
+  priv opening_indent : Ref[Int32?]
+  priv opening_quote_indents : Ref[Array[Int32]?]
+  priv continuation_start : Ref[Int32?]
+  priv continuation_pos : Ref[Int32?]
+  priv continuation_fence_length : Ref[Int32?]
   priv continuation_fence_character : Ref[Char?]
 }
 
@@ -54,7 +54,7 @@ pub fn MarkdownLexSession::reset(self : MarkdownLexSession) -> Unit {
 fn MarkdownLexSession::ensure_source(
   self : MarkdownLexSession,
   input : String,
-  pos : Int,
+  pos : Int32,
 ) -> Unit {
   let same_source = match self.source_ref.val {
     Some(source) => physical_equal(source, input)
@@ -98,9 +98,9 @@ fn MarkdownLexSession::ensure_source(
 fn MarkdownLexSession::line_end_hint(
   self : MarkdownLexSession,
   input : String,
-  pos : Int,
+  pos : Int32,
   mode : MarkdownLexMode,
-) -> Int? {
+) -> Int32? {
   let should_cache_line_end = pos < input.length() &&
     (match mode {
       LineStart => char_at(input, pos) == Some('>')
@@ -126,10 +126,10 @@ fn MarkdownLexSession::line_end_hint(
 fn MarkdownLexSession::detached_fence_context(
   self : MarkdownLexSession,
   input : String,
-  pos : Int,
-  fence_length : Int,
+  pos : Int32,
+  fence_length : Int32,
   fence_character : Char,
-) -> (Int, Array[Int]?) {
+) -> (Int32, Array[Int32]?) {
   match self.detached_cache.val {
     Some(cache) if cache.next_pos == pos &&
       cache.fence_length == fence_length &&
@@ -186,11 +186,11 @@ fn MarkdownLexSession::detached_fence_context(
 fn MarkdownLexSession::remember_detached(
   self : MarkdownLexSession,
   input : String,
-  fence_length : Int,
+  fence_length : Int32,
   fence_character : Char,
-  opening_indent : Int,
-  quote_indents : Array[Int]?,
-  next_pos : Int,
+  opening_indent : Int32,
+  quote_indents : Array[Int32]?,
+  next_pos : Int32,
 ) -> Unit {
   if input.length() > DETACHED_CODE_BLOCK_CACHE_MAX_SOURCE_LENGTH ||
     next_pos >= input.length() {
@@ -229,7 +229,7 @@ fn MarkdownLexSession::remember_detached(
 pub fn MarkdownLexSession::step(
   self : MarkdownLexSession,
   input : String,
-  pos : Int,
+  pos : Int32,
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   self.ensure_source(input, pos)

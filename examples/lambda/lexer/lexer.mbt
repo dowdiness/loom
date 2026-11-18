@@ -1,22 +1,22 @@
 // Lexer for Lambda Calculus
 
 ///|
-fn is_big_alphabet(code : Int) -> Bool {
+fn is_big_alphabet(code : Int32) -> Bool {
   code >= 65 && code <= 90
 }
 
 ///|
-fn is_small_alphabet(code : Int) -> Bool {
+fn is_small_alphabet(code : Int32) -> Bool {
   code >= 97 && code <= 122
 }
 
 ///|
-fn is_alphabet(code : Int) -> Bool {
+fn is_alphabet(code : Int32) -> Bool {
   is_big_alphabet(code) || is_small_alphabet(code)
 }
 
 ///|
-fn is_numeric(code : Int) -> Bool {
+fn is_numeric(code : Int32) -> Bool {
   code >= 48 && code <= 57
 }
 
@@ -59,7 +59,7 @@ fn tokenize_via_steps(
 /// When ~layout=true, newlines are separate Newline tokens.
 fn step_lex(
   input : String,
-  pos : Int,
+  pos : Int32,
   layout~ : Bool,
 ) -> @core.LexStep[@token.Token] {
   let cursor = @core.LexCursor::new(input, pos)
@@ -186,7 +186,7 @@ fn step_lex(
 /// PrefixLexer for the lambda grammar (newlines as separate tokens).
 pub fn lambda_step_lexer(
   source : String,
-  start : Int,
+  start : Int32,
 ) -> @core.LexStep[@token.Token] {
   step_lex(source, start, layout=true)
 }
@@ -195,8 +195,8 @@ pub fn lambda_step_lexer(
 /// Tokenize a slice of the input string and return tokens without EOF.
 pub fn tokenize_range(
   input : String,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
   let slice = input[start:end]
   let tokens = tokenize(slice.to_owned())

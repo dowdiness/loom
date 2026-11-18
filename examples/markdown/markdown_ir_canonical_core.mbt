@@ -1,20 +1,22 @@
 ///|
 /// Opaque MarkdownIR kinds that the checked canonical formatter cannot prove
 /// semantically round-trippable.
+#derive(Eq, Debug)
 pub(all) enum MarkdownIRCanonicalOpaqueKind {
   Raw
   Recovered
   Unsupported
-} derive(Eq, Debug)
+}
 
 ///|
 /// Structured failure returned by checked canonical MarkdownIR formatting.
+#derive(Eq, Debug)
 pub(all) enum MarkdownIRCanonicalFormatFailure {
   ExpectedDocument
   OpaqueNode(MarkdownIRCanonicalOpaqueKind, MarkdownIROrigin?)
   Unrepresentable
-  SearchLimitExceeded(observed~ : Int, limit~ : Int)
-} derive(Eq, Debug)
+  SearchLimitExceeded(observed~ : Int32, limit~ : Int32)
+}
 
 ///|
 fn MarkdownIRCanonicalOpaqueKind::label(
@@ -62,13 +64,14 @@ fn MarkdownIRCanonicalFormatFailure::diagnostic(
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum MarkdownIRCanonicalSemantic {
   SemanticDocument(Array[MarkdownIRCanonicalSemantic])
-  SemanticHeading(Int, Array[MarkdownIRCanonicalSemantic])
+  SemanticHeading(Int32, Array[MarkdownIRCanonicalSemantic])
   SemanticParagraph(Array[MarkdownIRCanonicalSemantic])
   SemanticBlockQuote(Array[MarkdownIRCanonicalSemantic])
   SemanticUnorderedList(Array[MarkdownIRCanonicalSemantic], Bool)
-  SemanticOrderedList(Array[MarkdownIRCanonicalSemantic], Bool, Int)
+  SemanticOrderedList(Array[MarkdownIRCanonicalSemantic], Bool, Int32)
   SemanticListItem(Array[MarkdownIRCanonicalSemantic], Bool, Bool?)
   SemanticOrderedListItem(Array[MarkdownIRCanonicalSemantic], Bool, Bool?)
   SemanticCodeBlock(String, String)
@@ -84,7 +87,7 @@ priv enum MarkdownIRCanonicalSemantic {
   SemanticInlineHtml(String)
   SemanticSoftBreak
   SemanticHardBreak
-} derive(Eq, Debug)
+}
 
 ///|
 fn markdown_ir_canonical_semantic_children(
@@ -265,10 +268,10 @@ fn markdown_ir_first_canonical_opaque(
 
 ///|
 priv struct MarkdownIRCanonicalFormatLimits {
-  max_container_candidates : Int
-  max_container_expansions : Int
-  max_document_candidates_per_container : Int
-  max_document_expansions_per_container : Int
+  max_container_candidates : Int32
+  max_container_expansions : Int32
+  max_document_candidates_per_container : Int32
+  max_document_expansions_per_container : Int32
 }
 
 ///|
@@ -295,10 +298,10 @@ fn markdown_ir_canonical_default_limits() -> MarkdownIRCanonicalFormatLimits {
 
 ///|
 fn markdown_ir_canonical_limits(
-  max_container_candidates~ : Int,
-  max_container_expansions~ : Int,
-  max_document_candidates_per_container~ : Int,
-  max_document_expansions_per_container~ : Int,
+  max_container_candidates~ : Int32,
+  max_container_expansions~ : Int32,
+  max_document_candidates_per_container~ : Int32,
+  max_document_expansions_per_container~ : Int32,
 ) -> MarkdownIRCanonicalFormatLimits {
   guard max_container_candidates > 0 &&
     max_container_expansions > 0 &&
@@ -317,17 +320,17 @@ fn markdown_ir_canonical_limits(
 ///|
 priv struct MarkdownIRCanonicalChoiceAlternative {
   value : String
-  growth : Int
-  encoding_rank : Int
-  marker_rank : Int
+  growth : Int32
+  encoding_rank : Int32
+  marker_rank : Int32
 }
 
 ///|
 fn markdown_ir_canonical_choice(
   value : String,
-  growth? : Int = 0,
-  encoding_rank? : Int = 0,
-  marker_rank? : Int = 0,
+  growth~ : Int32 = 0,
+  encoding_rank~ : Int32 = 0,
+  marker_rank~ : Int32 = 0,
 ) -> MarkdownIRCanonicalChoiceAlternative {
   { value, growth, encoding_rank, marker_rank, }
 }
@@ -343,7 +346,7 @@ fn markdown_ir_canonical_append_choice(
 }
 
 ///|
-fn markdown_ir_canonical_hex_digit(value : Int) -> Char {
+fn markdown_ir_canonical_hex_digit(value : Int32) -> Char {
   match value {
     0 => '0'
     1 => '1'
@@ -417,7 +420,7 @@ fn markdown_ir_canonical_reference_text(value : String) -> String {
 fn markdown_ir_canonical_compare_choice(
   left : MarkdownIRCanonicalChoiceAlternative,
   right : MarkdownIRCanonicalChoiceAlternative,
-) -> Int {
+) -> Int32 {
   let growth = left.growth.compare(right.growth)
   if growth != 0 {
     return growth
@@ -482,16 +485,16 @@ fn markdown_ir_canonical_bold_choices() -> Array[
 
 ///|
 priv struct MarkdownIRCanonicalChoicePlan {
-  containers : Array[Array[Int]]
+  containers : Array[Array[Int32]]
   container_nodes : Array[MarkdownIR]
-  radices : Array[Int]
-  site_container_indices : Array[Int]
+  radices : Array[Int32]
+  site_container_indices : Array[Int32]
 }
 
 ///|
 fn markdown_ir_collect_inline_choice_radices(
   ir : MarkdownIR,
-  radices : Array[Int],
+  radices : Array[Int32],
 ) -> Unit {
   match ir.node {
     Text(value) => {
@@ -551,12 +554,12 @@ fn markdown_ir_collect_inline_choice_radices(
 ///|
 fn markdown_ir_collect_block_choice_containers(
   ir : MarkdownIR,
-  containers : Array[Array[Int]],
+  containers : Array[Array[Int32]],
   container_nodes : Array[MarkdownIR],
 ) -> Unit {
   match ir.node {
     Heading(_, children, _) | Paragraph(children, _) => {
-      let radices : Array[Int] = []
+      let radices : Array[Int32] = []
       for child in children {
         markdown_ir_collect_inline_choice_radices(child, radices)
       }
@@ -585,7 +588,7 @@ fn markdown_ir_collect_block_choice_containers(
     | InlineHtml(_, _)
     | SoftBreak(_)
     | HardBreak(_, _) => {
-      let radices : Array[Int] = []
+      let radices : Array[Int32] = []
       markdown_ir_collect_inline_choice_radices(ir, radices)
       containers.push(radices)
       container_nodes.push(ir)
@@ -603,11 +606,11 @@ fn markdown_ir_collect_block_choice_containers(
 fn markdown_ir_canonical_choice_plan(
   ir : MarkdownIR,
 ) -> MarkdownIRCanonicalChoicePlan {
-  let containers : Array[Array[Int]] = []
+  let containers : Array[Array[Int32]] = []
   let container_nodes : Array[MarkdownIR] = []
   markdown_ir_collect_block_choice_containers(ir, containers, container_nodes)
-  let radices : Array[Int] = []
-  let site_container_indices : Array[Int] = []
+  let radices : Array[Int32] = []
+  let site_container_indices : Array[Int32] = []
   for container_index, container in containers {
     for radix in container {
       radices.push(radix)
@@ -619,10 +622,10 @@ fn markdown_ir_canonical_choice_plan(
 
 ///|
 fn markdown_ir_canonical_limited_product(
-  left : Int,
-  right : Int,
-  limit : Int,
-) -> Int {
+  left : Int32,
+  right : Int32,
+  limit : Int32,
+) -> Int32 {
   if left > limit / right {
     limit + 1
   } else {
@@ -634,7 +637,7 @@ fn markdown_ir_canonical_limited_product(
 fn markdown_ir_canonical_document_search_limits(
   plan : MarkdownIRCanonicalChoicePlan,
   limits : MarkdownIRCanonicalFormatLimits,
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   let container_count = if plan.containers.length() > 0 {
     plan.containers.length()
   } else {
@@ -655,16 +658,16 @@ fn markdown_ir_canonical_document_search_limits(
 
 ///|
 priv struct MarkdownIRCanonicalAssignmentReader {
-  assignment : Array[Int]
-  mut index : Int
-  mut growth : Int
-  mut encoding_rank : Int
-  mut marker_rank : Int
+  assignment : Array[Int32]
+  mut index : Int32
+  mut growth : Int32
+  mut encoding_rank : Int32
+  mut marker_rank : Int32
 }
 
 ///|
 fn MarkdownIRCanonicalAssignmentReader::MarkdownIRCanonicalAssignmentReader(
-  assignment : Array[Int],
+  assignment : Array[Int32],
 ) -> MarkdownIRCanonicalAssignmentReader {
   { assignment, index: 0, growth: 0, encoding_rank: 0, marker_rank: 0, }
 }
@@ -987,16 +990,16 @@ fn markdown_ir_canonical_candidate_format_with_list_marker(
 ///|
 priv struct MarkdownIRCanonicalCandidate {
   markdown : String
-  growth : Int
-  encoding_rank : Int
-  marker_rank : Int
+  growth : Int32
+  encoding_rank : Int32
+  marker_rank : Int32
 }
 
 ///|
 fn markdown_ir_canonical_compare_candidate(
   left : MarkdownIRCanonicalCandidate,
   right : MarkdownIRCanonicalCandidate,
-) -> Int {
+) -> Int32 {
   let growth = left.growth.compare(right.growth)
   if growth != 0 {
     return growth
@@ -1013,11 +1016,12 @@ fn markdown_ir_canonical_compare_candidate(
 }
 
 ///|
+#derive(Eq)
 priv struct MarkdownIRCanonicalPrimary {
-  growth : Int
-  encoding_rank : Int
-  marker_rank : Int
-} derive(Eq)
+  growth : Int32
+  encoding_rank : Int32
+  marker_rank : Int32
+}
 
 ///|
 fn MarkdownIRCanonicalCandidate::primary(
@@ -1034,7 +1038,7 @@ fn MarkdownIRCanonicalCandidate::primary(
 fn markdown_ir_canonical_compare_primary(
   left : MarkdownIRCanonicalPrimary,
   right : MarkdownIRCanonicalPrimary,
-) -> Int {
+) -> Int32 {
   let growth = left.growth.compare(right.growth)
   if growth != 0 {
     return growth
@@ -1048,9 +1052,9 @@ fn markdown_ir_canonical_compare_primary(
 
 ///|
 fn markdown_ir_canonical_compare_assignment(
-  left : Array[Int],
-  right : Array[Int],
-) -> Int {
+  left : Array[Int32],
+  right : Array[Int32],
+) -> Int32 {
   let common = left.length().min(right.length())
   for index = 0; index < common; index = index + 1 {
     let compared = left[index].compare(right[index])
@@ -1063,7 +1067,7 @@ fn markdown_ir_canonical_compare_assignment(
 
 ///|
 priv struct MarkdownIRCanonicalSearchNode {
-  assignment : Array[Int]
+  assignment : Array[Int32]
   candidate : MarkdownIRCanonicalCandidate
 }
 
@@ -1071,7 +1075,7 @@ priv struct MarkdownIRCanonicalSearchNode {
 fn markdown_ir_canonical_compare_search_node(
   left : MarkdownIRCanonicalSearchNode,
   right : MarkdownIRCanonicalSearchNode,
-) -> Int {
+) -> Int32 {
   let candidate = markdown_ir_canonical_compare_candidate(
     left.candidate,
     right.candidate,
@@ -1097,7 +1101,7 @@ fn markdown_ir_canonical_frontier_last_has_primary(
 fn markdown_ir_canonical_render_search_node(
   ir : MarkdownIR,
   plan : MarkdownIRCanonicalChoicePlan,
-  assignment : Array[Int],
+  assignment : Array[Int32],
 ) -> MarkdownIRCanonicalSearchNode {
   let reader = MarkdownIRCanonicalAssignmentReader::MarkdownIRCanonicalAssignmentReader(
     assignment,
@@ -1123,19 +1127,19 @@ fn markdown_ir_canonical_render_search_node(
 
 ///|
 fn markdown_ir_canonical_assignment_seen(
-  assignments : Array[Array[Int]],
-  assignment : Array[Int],
+  assignments : Array[Array[Int32]],
+  assignment : Array[Int32],
 ) -> Bool {
   assignments.any(existing => existing == assignment)
 }
 
 ///|
 fn markdown_ir_canonical_project_assignment(
-  assignment : Array[Int],
-  site_container_indices : Array[Int],
-  container_index : Int,
-) -> Array[Int] {
-  let projected : Array[Int] = []
+  assignment : Array[Int32],
+  site_container_indices : Array[Int32],
+  container_index : Int32,
+) -> Array[Int32] {
+  let projected : Array[Int32] = []
   for site_index, site_container_index in site_container_indices {
     if site_container_index == container_index {
       projected.push(assignment[site_index])
@@ -1147,8 +1151,8 @@ fn markdown_ir_canonical_project_assignment(
 ///|
 fn markdown_ir_canonical_render_container_markdown(
   plan : MarkdownIRCanonicalChoicePlan,
-  container_index : Int,
-  projected_assignment : Array[Int],
+  container_index : Int32,
+  projected_assignment : Array[Int32],
 ) -> String {
   let reader = MarkdownIRCanonicalAssignmentReader::MarkdownIRCanonicalAssignmentReader(
     projected_assignment,
@@ -1166,8 +1170,8 @@ fn markdown_ir_canonical_render_container_markdown(
 
 ///|
 fn markdown_ir_canonical_copy_assignment_sets(
-  sets : Array[Array[Array[Int]]],
-) -> Array[Array[Array[Int]]] {
+  sets : Array[Array[Array[Int32]]],
+) -> Array[Array[Array[Int32]]] {
   sets.map(set => set.copy())
 }
 
@@ -1210,14 +1214,14 @@ fn markdown_ir_canonical_record_blocked(
 priv struct MarkdownIRCanonicalSearchState {
   plan : MarkdownIRCanonicalChoicePlan
   frontier : Array[MarkdownIRCanonicalSearchNode]
-  seen_assignments : Array[Array[Int]]
+  seen_assignments : Array[Array[Int32]]
   container_seen_markdown : Array[Array[String]]
-  container_expanded_assignments : Array[Array[Array[Int]]]
+  container_expanded_assignments : Array[Array[Array[Int32]]]
   seen_markdown : Array[String]
-  expansions : Int
-  document_expansion_limit : Int
-  max_container_candidates : Int
-  max_container_expansions : Int
+  expansions : Int32
+  document_expansion_limit : Int32
+  max_container_candidates : Int32
+  max_container_expansions : Int32
   blocked : MarkdownIRCanonicalBlockedSearch?
 }
 
@@ -1225,12 +1229,12 @@ priv struct MarkdownIRCanonicalSearchState {
 priv enum MarkdownIRCanonicalSearchStep {
   CandidateLayer(
     MarkdownIRCanonicalSearchState,
-    Array[MarkdownIRCanonicalCandidate]
+    Array[MarkdownIRCanonicalCandidate],
   )
   Exhausted(MarkdownIRCanonicalSearchState)
   ExpansionLimited(
     MarkdownIRCanonicalSearchState,
-    MarkdownIRCanonicalFormatFailure
+    MarkdownIRCanonicalFormatFailure,
   )
 }
 
@@ -1246,7 +1250,7 @@ fn markdown_ir_canonical_search_start(
   let assignment = Array::make(plan.radices.length(), 0)
   let root = markdown_ir_canonical_render_search_node(ir, plan, assignment)
   let container_seen_markdown : Array[Array[String]] = []
-  let container_expanded_assignments : Array[Array[Array[Int]]] = []
+  let container_expanded_assignments : Array[Array[Array[Int32]]] = []
   for container_index, container in plan.containers {
     let seen : Array[String] = []
     if container.length() > 0 {
@@ -1283,11 +1287,11 @@ fn markdown_ir_canonical_search_start(
 fn markdown_ir_canonical_search_state(
   base : MarkdownIRCanonicalSearchState,
   frontier : Array[MarkdownIRCanonicalSearchNode],
-  seen_assignments : Array[Array[Int]],
+  seen_assignments : Array[Array[Int32]],
   container_seen_markdown : Array[Array[String]],
-  container_expanded_assignments : Array[Array[Array[Int]]],
+  container_expanded_assignments : Array[Array[Array[Int32]]],
   seen_markdown : Array[String],
-  expansions : Int,
+  expansions : Int32,
   blocked : MarkdownIRCanonicalBlockedSearch?,
 ) -> MarkdownIRCanonicalSearchState {
   {

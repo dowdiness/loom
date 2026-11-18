@@ -1,5 +1,5 @@
 ///|
-fn fix_test_offset(value : Int) -> TextOffset {
+fn fix_test_offset(value : Int32) -> TextOffset {
   try TextOffset(value) catch {
     _ => abort("expected valid test offset")
   } noraise {
@@ -8,7 +8,7 @@ fn fix_test_offset(value : Int) -> TextOffset {
 }
 
 ///|
-fn fix_test_range(start : Int, end : Int) -> TextRange {
+fn fix_test_range(start : Int32, end : Int32) -> TextRange {
   try TextRange(fix_test_offset(start), fix_test_offset(end)) catch {
     _ => abort("expected valid test range")
   } noraise {
@@ -24,8 +24,8 @@ fn fix_test_source(value : String) -> SourceId {
 ///|
 fn fix_test_replacement(
   source_id : SourceId,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   replacement : String,
 ) -> TextReplacement {
   TextReplacement(
@@ -74,9 +74,7 @@ fn fix_test_reference_apply(
     builder.write_string(edit.replacement())
     range.end().value()
   })
-  builder.write_stringview(
-    source.view(start_offset=cursor, end_offset=source.length()),
-  )
+  builder.write_stringview(source.view(start_offset=cursor))
   builder.to_string()
 }
 
@@ -336,7 +334,7 @@ test "diagnostic transforms preserve snapshot-bound fixes without remapping" {
 ///|
 test "property: normalized reverse application matches forward reference" {
   let source_id = fix_test_source("main")
-  let seeds : Array[Int] = @quickcheck.samples(64)
+  let seeds : Array[Int32] = @quickcheck.samples(64)
   for seed in seeds {
     let magnitude = if seed < 0 { -(seed + 1) } else { seed }
     let first_start = magnitude % 2

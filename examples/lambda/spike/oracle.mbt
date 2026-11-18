@@ -1,5 +1,6 @@
 ///|
 /// One edit step in an oracle fixture sequence.
+#derive(Debug)
 pub struct EditStep {
   label : String
   /// Source text before the edit (for record_failed_input context).
@@ -8,7 +9,7 @@ pub struct EditStep {
   after : String
   /// The edit describing what changed (use Edit::new with lengths).
   edit : @core.Edit
-} derive(Debug)
+}
 
 ///|
 /// Oracle result for one edit step. All four oracle booleans must be true
@@ -17,6 +18,7 @@ pub struct EditStep {
 /// message_strings_matched: when D2a passes (structural fields equal), whether
 /// diagnostic message strings also matched. A false here with d2a_ok=true
 /// indicates a ReplicationResidual (wording difference, not a GO blocker).
+#derive(Debug, Eq)
 pub(all) struct OracleStepResult {
   label : String
   d1_ok : Bool
@@ -25,9 +27,9 @@ pub(all) struct OracleStepResult {
   reuse_parity_ok : Bool
   diagnostics_empty : Bool
   message_strings_matched : Bool
-  a_reuse_count : Int
-  b_reuse_count : Int
-} derive(Debug, Eq)
+  a_reuse_count : Int32
+  b_reuse_count : Int32
+}
 
 ///|
 /// Compare two DiagnosticSets structurally (producer, severity, code, and the
@@ -367,9 +369,10 @@ pub fn is_go_verdict(results : Array[OracleStepResult]) -> Bool {
 /// placeholders it. So a NoDivergence outcome is *parity bought with a
 /// spike-local mechanism*, the residue that argues §5/§8's migration bar, not
 /// evidence the minimal contract subsumes lambda's newline mode.
+#derive(Debug)
 pub struct NewlineAppProbeResult {
   divergence : DivergenceClass
-} derive(Debug)
+}
 
 ///|
 /// Task 8: classify the `ManualNewlineAppExpr` residue with oracle evidence.
@@ -391,12 +394,13 @@ pub fn run_newline_application_reification_probe(
 
 ///|
 /// Aggregate D1/D2a/D2b result for the reified-IR oracle (Task 9).
+#derive(Debug)
 pub struct ReifiedIrOracleResult {
   d1_passed : Bool
   d2a_passed : Bool
   d2b_passed : Bool
   divergence : DivergenceClass
-} derive(Debug)
+}
 
 ///|
 /// Task 9: re-validate D1/D2a/D2b against the REIFIED `@grammar` IR.

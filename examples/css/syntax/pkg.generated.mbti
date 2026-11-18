@@ -11,6 +11,7 @@ import {
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum SyntaxKind {
   IdentToken
   ColonToken
@@ -26,7 +27,7 @@ pub(all) enum SyntaxKind {
   Decls
   Decl
   ErrorNode
-} derive(Eq, @debug.Debug)
+}
 pub fn SyntaxKind::equal(Self, Self) -> Bool
 pub fn SyntaxKind::from_raw(@seam.RawKind) -> Self
 pub fn SyntaxKind::is_error(Self) -> Bool

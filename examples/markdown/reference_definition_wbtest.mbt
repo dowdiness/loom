@@ -41,16 +41,16 @@ fn reference_definition_node_texts(source : String) -> Array[String] {
 
 ///|
 fn reference_definition_equality_fixture(
-  normalized_label? : String = "foo",
-  destination_value? : String = "/url",
-  title_value? : String? = Some("title"),
-  definition_origin? : MarkdownIROrigin = MarkdownIROrigin(start=0, end=20),
-  label_value_origin? : MarkdownIROrigin = MarkdownIROrigin(start=1, end=4),
-  destination_value_origin? : MarkdownIROrigin = MarkdownIROrigin(
+  normalized_label~ : String = "foo",
+  destination_value~ : String = "/url",
+  title_value~ : String? = Some("title"),
+  definition_origin~ : MarkdownIROrigin = MarkdownIROrigin(start=0, end=20),
+  label_value_origin~ : MarkdownIROrigin = MarkdownIROrigin(start=1, end=4),
+  destination_value_origin~ : MarkdownIROrigin = MarkdownIROrigin(
     start=7,
     end=11,
   ),
-  title_value_origin? : MarkdownIROrigin? = Some(
+  title_value_origin~ : MarkdownIROrigin? = Some(
     MarkdownIROrigin(start=12, end=19),
   ),
 ) -> LinkReferenceDefinition {

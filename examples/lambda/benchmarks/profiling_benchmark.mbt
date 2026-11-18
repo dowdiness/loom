@@ -23,7 +23,7 @@ let profiling_cst_policy : @seam.CstMetadataPolicy = @seam.CstMetadataPolicy::ne
 )
 
 ///|
-fn make_profile_source(n : Int, tail : String) -> String {
+fn make_profile_source(n : Int32, tail : String) -> String {
   let segments : Array[String] = []
   for i = 0; i < n - 1; i = i + 1 {
     segments.push("let x\{i} = 0")
@@ -289,7 +289,7 @@ test "profile: 320 lets - tree build (ReuseNode events)" (b : @bench.T) {
 ///|
 /// Generate N LetDefs with complex init expressions (deeper subtrees).
 /// Each init is a nested binary expression: "1 + 2 + 3 + ... + depth"
-fn make_deep_let_chain(n : Int, depth : Int, tail : String) -> String {
+fn make_deep_let_chain(n : Int32, depth : Int32, tail : String) -> String {
   let segments : Array[String] = []
   for i = 0; i < n; i = i + 1 {
     let mut expr = "1"
@@ -433,7 +433,7 @@ test "profile: closure call overhead - 960 calls" (b : @bench.T) {
   let source = make_profile_source(320, "1")
   let tokens = @lexer.tokenize(source) catch { _ => abort("lex failed") }
   let starts = @core.build_starts(tokens)
-  let get_start : (Int) -> Int = fn(i) { starts[i] }
+  let get_start : (Int32) -> Int32 = fn(i) { starts[i] }
   let n = tokens.length()
   b.bench(fn() {
     let mut sum = 0

@@ -1,4 +1,5 @@
 ///|
+#derive(Eq, Debug)
 #loom.token
 pub(all) enum Token {
   #loom.punct("λ")
@@ -66,7 +67,7 @@ pub(all) enum Token {
   #loom.eof
   #loom.recovery("sync")
   EOF // end of input
-} derive(Eq, Debug)
+}
 
 ///|
 pub using @core {type TokenInfo}

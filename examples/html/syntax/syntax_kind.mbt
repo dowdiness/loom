@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum SyntaxKind {
   OpenTagToken
   CloseTagToken
@@ -36,7 +37,7 @@ pub(all) enum SyntaxKind {
   RawTextLeaf
   ErrorNode
   RootNode
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for SyntaxKind with fn output(self, logger) {
@@ -64,7 +65,7 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
 
 ///|
 pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
-  let n : Int = match self {
+  let n : Int32 = match self {
     OpenTagToken => 0
     CloseTagToken => 1
     EqToken => 2

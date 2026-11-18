@@ -9,15 +9,16 @@ import {
 pub fn compute_text_change(String, String) -> TextChange
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror ChangeSetError {
   NegativeSourceLength
-  NegativeRange(index~ : Int, start~ : Int, delete_len~ : Int)
-  ReplaceAll(index~ : Int)
-  Unordered(index~ : Int)
-  Overlapping(index~ : Int)
-  OutOfBounds(index~ : Int, end~ : Int, source_length~ : Int)
-  ResultLengthOverflow(index~ : Int)
-} derive(Eq, @debug.Debug)
+  NegativeRange(index~ : Int32, start~ : Int32, delete_len~ : Int32)
+  ReplaceAll(index~ : Int32)
+  Unordered(index~ : Int32)
+  Overlapping(index~ : Int32)
+  OutOfBounds(index~ : Int32, end~ : Int32, source_length~ : Int32)
+  ResultLengthOverflow(index~ : Int32)
+}
 pub fn ChangeSetError::equal(Self, Self) -> Bool
 pub fn ChangeSetError::not_equal(Self, Self) -> Bool
 pub fn ChangeSetError::to_repr(Self) -> @debug.Repr
@@ -26,18 +27,19 @@ pub fn ChangeSetError::to_repr(Self) -> @debug.Repr
 pub(all) struct ChangeSet {
   // private fields
 }
-pub fn ChangeSet::ChangeSet(source_length~ : Int, changes~ : Array[TextChange]) -> Self raise ChangeSetError
+pub fn ChangeSet::ChangeSet(source_length~ : Int32, changes~ : Array[TextChange]) -> Self raise ChangeSetError
 pub fn ChangeSet::apply(Self, String) -> String?
 pub fn ChangeSet::each(Self, (TextChange) -> Unit raise?) -> Unit raise?
-pub fn ChangeSet::empty(Int) -> Self raise ChangeSetError
+pub fn ChangeSet::empty(Int32) -> Self raise ChangeSetError
 pub fn ChangeSet::is_empty(Self) -> Bool
-pub fn ChangeSet::result_length(Self) -> Int
-pub fn ChangeSet::source_length(Self) -> Int
+pub fn ChangeSet::result_length(Self) -> Int32
+pub fn ChangeSet::source_length(Self) -> Int32
 
+#derive(Eq, @debug.Debug)
 pub(all) enum TextChange {
-  ReplaceRange(start~ : Int, delete_len~ : Int, inserted~ : String)
+  ReplaceRange(start~ : Int32, delete_len~ : Int32, inserted~ : String)
   ReplaceAll(String)
-} derive(Eq, @debug.Debug)
+}
 pub fn TextChange::apply(Self, String) -> String?
 pub fn TextChange::equal(Self, Self) -> Bool
 pub fn TextChange::is_noop(Self) -> Bool

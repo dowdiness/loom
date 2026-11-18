@@ -42,7 +42,7 @@ fn read_number(cursor : @core.LexCursor) -> Unit {
 }
 
 ///|
-fn read_string(cursor : @core.LexCursor) -> (String, Int)? {
+fn read_string(cursor : @core.LexCursor) -> (String, Int32)? {
   ignore(cursor.consume_char('"'))
   while !cursor.is_done() {
     match cursor.peek() {
@@ -67,7 +67,7 @@ fn read_string(cursor : @core.LexCursor) -> (String, Int)? {
 }
 
 ///|
-fn invalid_width(input : String, start : Int, end : Int) -> Int {
+fn invalid_width(input : String, start : Int32, end : Int32) -> Int32 {
   let bounded_end = if end < start {
     start
   } else if end > input.length() {
@@ -84,7 +84,7 @@ fn invalid_width(input : String, start : Int, end : Int) -> Int {
 }
 
 ///|
-fn graph_step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
+fn graph_step_lex(input : String, pos : Int32) -> @core.LexStep[Token] {
   let cursor = @core.LexCursor::new(input, pos)
   if cursor.is_done() {
     return Done
@@ -153,7 +153,7 @@ fn graph_step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
 }
 
 ///|
-fn graph_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
+fn graph_step_lexer(source : String, start : Int32) -> @core.LexStep[Token] {
   graph_step_lex(source, start)
 }
 

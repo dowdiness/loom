@@ -1,6 +1,6 @@
 ///|
 fn assert_commonmark_list_regression(
-  example : Int,
+  example : Int32,
   source : String,
   expected_html : String,
 ) -> Unit raise {
@@ -29,7 +29,7 @@ fn assert_commonmark_list_regression(
 
 ///|
 test "CommonMark list regressions 254 280 286 287 288 290" {
-  let cases : Array[(Int, String, String)] = [
+  let cases : Array[(Int32, String, String)] = [
     (
       254,
       "1.  A paragraph\n" +
@@ -105,7 +105,7 @@ test "CommonMark list regressions 254 280 286 287 288 290" {
 
 ///|
 test "CommonMark list regressions: structural first children keep continuation" {
-  let cases : Array[(Int, String, String)] = [
+  let cases : Array[(Int32, String, String)] = [
     (
       39401, "- > a\n\n  b\n", "<ul>\n<li>\n<blockquote>\n<p>a</p>\n</blockquote>\n<p>b</p>\n</li>\n</ul>\n",
     ),

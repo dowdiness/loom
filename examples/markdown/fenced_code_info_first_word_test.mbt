@@ -1,6 +1,6 @@
 ///|
 fn assert_commonmark_fenced_info_first_word(
-  example : Int,
+  example : Int32,
   source : String,
   expected_html : String,
 ) -> Unit raise {

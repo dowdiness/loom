@@ -2,22 +2,22 @@
 using @core {type Edit}
 
 ///|
-fn test_make_string_id(key : String, occurrence : Int) -> String {
+fn test_make_string_id(key : String, occurrence : Int32) -> String {
   "mini:" + key + ":" + occurrence.to_string()
 }
 
 ///|
 struct TestProjectionItem {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   family : String
   text : String
 }
 
 ///|
 struct TestStableProjectionItem {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   family : String
   text : String
   id : String
@@ -25,8 +25,8 @@ struct TestStableProjectionItem {
 
 ///|
 fn test_item(
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   family : String,
   text : String,
 ) -> TestProjectionItem {

@@ -3,8 +3,8 @@
 /// from annotation metadata.
 pub fn make_lambda_spec(
   parse_root : (@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit,
-  reuse_size_threshold? : Int = 64,
-  incomplete_kind? : @syntax.SyntaxKind = @syntax.ErrorToken,
+  reuse_size_threshold~ : Int32 = 64,
+  incomplete_kind~ : @syntax.SyntaxKind = @syntax.ErrorToken,
 ) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind] {
   @core.LanguageSpec::new(
     @syntax.WhitespaceToken,

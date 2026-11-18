@@ -206,7 +206,7 @@ fn markdown_ir_legacy_unresolved_full_reference_children(
   let mut index = 0
   while index < children.length() {
     let opener = children[index]
-    let mut matched : (MarkdownIR, Int)? = None
+    let mut matched : (MarkdownIR, Int32)? = None
     if markdown_ir_legacy_bracket(opener, "[", source) {
       let mut label_end = index + 1
       let mut valid_label = true
@@ -574,7 +574,7 @@ fn markdown_ir_legacy_block_text(
 ///|
 fn markdown_ir_require_source_origin(
   origin : MarkdownIROrigin?,
-  source_length : Int,
+  source_length : Int32,
 ) -> Unit {
   match origin {
     Some(origin) => {
@@ -589,7 +589,7 @@ fn markdown_ir_require_source_origin(
 ///|
 fn markdown_ir_require_source_coverage(
   ir : MarkdownIR,
-  source_length : Int,
+  source_length : Int32,
 ) -> Unit {
   markdown_ir_require_source_origin(Some(ir.origin()), source_length)
   markdown_ir_require_source_origin(ir.content_origin(), source_length)
@@ -741,7 +741,7 @@ fn diagnostics_json(diagnostics : Array[@core.Diagnostic]) -> Json {
 }
 
 ///|
-fn unist_point_json(point : @core.LineCol, offset : Int) -> Json {
+fn unist_point_json(point : @core.LineCol, offset : Int32) -> Json {
   { "line": point.line + 1, "column": point.column + 1, "offset": offset }
 }
 
@@ -786,7 +786,7 @@ fn origin_without_trailing_line_endings(
 fn code_fence_close_marker_end(
   origin : MarkdownIROrigin,
   source : String,
-) -> Int? {
+) -> Int32? {
   match code_fence_close_line_start(origin, source) {
     Some(line_start) => Some(line_end_offset(source, line_start, origin.end()))
     None => None

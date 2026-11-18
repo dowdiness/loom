@@ -753,7 +753,7 @@ fn full_enums_of(src : String) -> (EnumDecl, EnumDecl) {
 /// of `fn NAME`), matching braces so nested bodies are included. Order-independent:
 /// the result is the single function that begins at `start`, regardless of where
 /// it sits relative to other functions.
-fn extract_fn_block(src : String, start : Int) -> String {
+fn extract_fn_block(src : String, start : Int32) -> String {
   let rel = src[start:].find("{")
   guard rel is Some(r) else { return "" }
   let mut depth = 0

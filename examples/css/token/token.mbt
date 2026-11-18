@@ -1,6 +1,7 @@
 ///|
 /// CSS token enum for the #610 CSS parser capstone.
 /// Exercises #loom.rule operators ~ (Emit), ! (EmitOr), @until (ErrorUntil).
+#derive(Eq, Debug)
 #loom.token
 pub(all) enum Token {
   #loom.ident
@@ -21,7 +22,7 @@ pub(all) enum Token {
   Error(String) // lexer error
   #loom.eof
   EOF // end of input
-} derive(Eq, Debug)
+}
 
 ///|
 pub using @core {type TokenInfo}

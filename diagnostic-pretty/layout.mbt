@@ -1,21 +1,22 @@
 ///|
 /// Presentation failures preserve the typed source or display-width cause.
+#derive(Eq, Debug)
 pub(all) suberror DiagnosticPrettyError {
   Diagnostic(@diagnostic.DiagnosticRenderError)
   DisplayWidth(@moji.DisplayWidthError)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Explicit display policy for one diagnostic layout.
 pub struct DiagnosticPrettyOptions {
-  priv tab_width_ : Int
+  priv tab_width_ : Int32
   priv ambiguous_width_ : @moji.AmbiguousWidth
 }
 
 ///|
 pub fn DiagnosticPrettyOptions::DiagnosticPrettyOptions(
-  tab_width? : Int = 4,
-  ambiguous_width? : @moji.AmbiguousWidth = @moji.AmbiguousWidth::Narrow,
+  tab_width~ : Int32 = 4,
+  ambiguous_width~ : @moji.AmbiguousWidth = @moji.AmbiguousWidth::Narrow,
 ) -> DiagnosticPrettyOptions raise DiagnosticPrettyError {
   guard tab_width > 0 else {
     raise DisplayWidth(@moji.InvalidTabWidth(tab_width))
@@ -25,6 +26,7 @@ pub fn DiagnosticPrettyOptions::DiagnosticPrettyOptions(
 
 ///|
 /// Semantic presentation roles carried by the returned pretty layout.
+#derive(Eq, Debug)
 pub(all) enum DiagnosticStyle {
   Severity(@diagnostic.DiagnosticSeverity)
   Code
@@ -33,7 +35,7 @@ pub(all) enum DiagnosticStyle {
   Primary
   Secondary
   Note
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct ResolvedSource {
@@ -57,8 +59,8 @@ priv struct SourceGroup {
 
 ///|
 priv struct SourceLine {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
 }
 
 ///|
@@ -83,7 +85,7 @@ fn[T] display_error(
 fn measured_text(
   text : String,
   options : DiagnosticPrettyOptions,
-  start_column? : Int = 0,
+  start_column~ : Int32 = 0,
 ) -> @pretty.Layout[DiagnosticStyle] raise DiagnosticPrettyError {
   let width = display_error(() => {
     @moji.display_width(
@@ -142,7 +144,7 @@ fn source_lines(text : String) -> Array[SourceLine] {
 ///|
 fn display_units(
   text : String,
-  start_column : Int,
+  start_column : Int32,
   options : DiagnosticPrettyOptions,
 ) -> Array[@moji.DisplayUnit] raise DiagnosticPrettyError {
   display_error(() => {
@@ -179,8 +181,8 @@ fn render_source_text(
 fn report_text(
   text : String,
   options : DiagnosticPrettyOptions,
-  first_column? : Int = 0,
-  continuation_column? : Int = 0,
+  first_column~ : Int32 = 0,
+  continuation_column~ : Int32 = 0,
 ) -> @pretty.Layout[DiagnosticStyle] raise DiagnosticPrettyError {
   let source_line_bounds = source_lines(text)
   let lines = Array::makei(source_line_bounds.length(), index => {
@@ -208,10 +210,10 @@ fn contains_tab(text : String) -> Bool {
 fn projected_marker_cells(
   text : String,
   units : Array[@moji.DisplayUnit],
-  start_column : Int,
-  utf16_start : Int,
-  utf16_end : Int,
-) -> (Int, Int) {
+  start_column : Int32,
+  utf16_start : Int32,
+  utf16_end : Int32,
+) -> (Int32, Int32) {
   let line_cell_end = match units.last() {
     Some(unit) => unit.cell_end()
     None => start_column
@@ -411,7 +413,7 @@ fn label_header_layout(
 ///|
 fn source_and_marker_layout(
   validated : ValidatedLabel,
-  line : Int,
+  line : Int32,
   lines : Array[SourceLine],
   options : DiagnosticPrettyOptions,
 ) -> @pretty.Layout[DiagnosticStyle] raise DiagnosticPrettyError {

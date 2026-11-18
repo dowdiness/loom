@@ -121,7 +121,7 @@ test "SyntaxParser exposes its runtime for downstream derived cells" {
     syntax_test_language(),
   )
   let rt = parser.runtime()
-  let echo_derived : @incr.Derived[Int] = @incr.Derived(
+  let echo_derived : @incr.Derived[Int32] = @incr.Derived(
     rt,
     () => parser.source().get_or_abort().length(),
     label="syntax-echo-length",
@@ -134,7 +134,7 @@ test "SyntaxParser exposes its runtime for downstream derived cells" {
 ///|
 #warnings("-unused_error_type")
 fn syntax_test_language_with_counter(
-  parse_count : Ref[Int],
+  parse_count : Ref[Int32],
 ) -> @incremental.ImperativeLanguage[Unit] {
   let full_parse = fn(_source_id : @core.SourceId, s : String) raise Failure {
     parse_count.val = parse_count.val + 1
@@ -158,7 +158,7 @@ fn syntax_test_language_with_counter(
 
 ///|
 test "SyntaxParser::apply_changes delegates one validated transition" {
-  let parse_count : Ref[Int] = Ref(0)
+  let parse_count : Ref[Int32] = Ref(0)
   let parser = @pipeline.SyntaxParser::new(
     @core.SourceId("pipeline-syntax-multi-range"),
     "abcd",
@@ -176,7 +176,7 @@ test "SyntaxParser::apply_changes delegates one validated transition" {
 
 ///|
 test "SyntaxParser::set_source is a no-op when source is unchanged" {
-  let parse_count : Ref[Int] = Ref(0)
+  let parse_count : Ref[Int32] = Ref(0)
   let source_id = @core.SourceId("pipeline-syntax-noop-source")
   let parser = @pipeline.SyntaxParser::new(
     source_id,

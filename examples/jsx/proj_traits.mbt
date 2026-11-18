@@ -11,7 +11,7 @@
 // tests expect exactly "Element".
 
 ///|
-const LABEL_MAX : Int = 30
+const LABEL_MAX : Int32 = 30
 
 ///|
 /// Truncate by scalar characters, not UTF-16 code units — a code-unit

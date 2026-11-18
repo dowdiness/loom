@@ -2,39 +2,42 @@
 // Reuses TestTok/TestKind from parser_wbtest.mbt.
 
 ///|
+#derive(Debug, Eq)
 enum ZeroWidthReuseShape {
   RegularNodes
   RepeatGroups
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum ZeroWidthOldTreeMode {
   PlainOldTree
   TokenInternedOldTree
   FullyInternedOldTree
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum ZeroWidthEditKind {
   EditItemDigit
   GrowBoundaryTrivia
   ShrinkBoundaryTrivia
-} derive(Debug, Eq)
+}
 
 ///|
 struct ZeroWidthBoundaryCase {
   shape : ZeroWidthReuseShape
   old_tree_mode : ZeroWidthOldTreeMode
   edit_kind : ZeroWidthEditKind
-  item_count : Int
-  edit_index : Int
-  synthetic_count : Int
-  old_values : Array[Int]
-  new_values : Array[Int]
-  old_gaps : Array[Int]
-  new_gaps : Array[Int]
-  old_boundary_counts : Array[Int]
-  new_boundary_counts : Array[Int]
+  item_count : Int32
+  edit_index : Int32
+  synthetic_count : Int32
+  old_values : Array[Int32]
+  new_values : Array[Int32]
+  old_gaps : Array[Int32]
+  new_gaps : Array[Int32]
+  old_boundary_counts : Array[Int32]
+  new_boundary_counts : Array[Int32]
 }
 
 ///|
@@ -46,7 +49,7 @@ fn zero_width_shape_uses_repeat_groups(shape : ZeroWidthReuseShape) -> Bool {
 }
 
 ///|
-fn zero_width_record_repeat_hit(counter : Array[Int]?) -> Unit {
+fn zero_width_record_repeat_hit(counter : Array[Int32]?) -> Unit {
   match counter {
     None => ()
     Some(values) => {
@@ -61,7 +64,7 @@ fn zero_width_record_repeat_hit(counter : Array[Int]?) -> Unit {
 ///|
 fn zero_width_parse_item_body(
   ctx : ParserContext[TestTok, TestKind],
-  synthetic_count : Int,
+  synthetic_count : Int32,
 ) -> Unit {
   ctx.emit_token(KNum)
   while ctx.at(TestTok::Plus) {
@@ -76,8 +79,8 @@ fn zero_width_parse_item_body(
 fn zero_width_parse_items(
   ctx : ParserContext[TestTok, TestKind],
   use_repeat_groups : Bool,
-  synthetic_count : Int,
-  repeat_group_hits : Array[Int]?,
+  synthetic_count : Int32,
+  repeat_group_hits : Array[Int32]?,
 ) -> Unit {
   let mut parsed_repeat_prefix = false
   while !ctx.at_eof() {
@@ -106,8 +109,8 @@ fn zero_width_parse_items(
 ///|
 fn zero_width_boundary_spec(
   use_repeat_groups : Bool,
-  synthetic_count : Int,
-  repeat_group_hits? : Array[Int]? = None,
+  synthetic_count : Int32,
+  repeat_group_hits~ : Array[Int32]? = None,
 ) -> LanguageSpec[TestTok, TestKind] {
   LanguageSpec::new(
     KWs,
@@ -125,7 +128,7 @@ fn zero_width_boundary_spec(
 }
 
 ///|
-fn zero_width_source(values : Array[Int], gaps : Array[Int]) -> String {
+fn zero_width_source(values : Array[Int32], gaps : Array[Int32]) -> String {
   if values.length() == 0 {
     abort("zero-width property case must contain at least one item")
   }
@@ -155,7 +158,7 @@ fn zero_width_source(values : Array[Int], gaps : Array[Int]) -> String {
 ///|
 fn zero_width_tokenize_with_boundaries(
   src : String,
-  boundary_counts : Array[Int],
+  boundary_counts : Array[Int32],
 ) -> Array[TokenInfo[TestTok]] {
   let result : Array[TokenInfo[TestTok]] = []
   let mut i = 0
@@ -261,7 +264,7 @@ fn zero_width_build_tree_from_events(
 ///|
 fn zero_width_parse_old_tree(
   source : String,
-  boundary_counts : Array[Int],
+  boundary_counts : Array[Int32],
   spec : LanguageSpec[TestTok, TestKind],
   mode : ZeroWidthOldTreeMode,
 ) -> @seam.CstNode {
@@ -279,10 +282,10 @@ fn zero_width_parse_old_tree(
 ///|
 fn zero_width_parse_indexed(
   source : String,
-  boundary_counts : Array[Int],
+  boundary_counts : Array[Int32],
   spec : LanguageSpec[TestTok, TestKind],
-  cursor? : ReuseCursor[TestTok, TestKind]? = None,
-) -> (@seam.CstNode, DiagnosticSet, Int) {
+  cursor~ : ReuseCursor[TestTok, TestKind]? = None,
+) -> (@seam.CstNode, DiagnosticSet, Int32) {
   let tokens = zero_width_tokenize_with_boundaries(source, boundary_counts)
   let starts = build_starts(tokens)
   try! parse_tokens_indexed(
@@ -301,7 +304,7 @@ fn zero_width_parse_indexed(
 fn zero_width_new_cursor(
   old_tree : @seam.CstNode,
   new_src : String,
-  new_boundary_counts : Array[Int],
+  new_boundary_counts : Array[Int32],
   edit : Edit,
   spec : LanguageSpec[TestTok, TestKind],
 ) -> ReuseCursor[TestTok, TestKind] {
@@ -407,7 +410,7 @@ fn zero_width_validate_case(case : ZeroWidthBoundaryCase) -> Unit {
 }
 
 ///|
-fn zero_width_check_case(case : ZeroWidthBoundaryCase) -> (Int, Int) {
+fn zero_width_check_case(case : ZeroWidthBoundaryCase) -> (Int32, Int32) {
   zero_width_validate_case(case)
   let old_src = zero_width_source(case.old_values, case.old_gaps)
   let new_src = zero_width_source(case.new_values, case.new_gaps)
@@ -475,7 +478,7 @@ fn zero_width_check_case(case : ZeroWidthBoundaryCase) -> (Int, Int) {
 }
 
 ///|
-fn zero_width_next_seed(seed : Int) -> Int {
+fn zero_width_next_seed(seed : Int32) -> Int32 {
   let a = 1103515245
   let c = 12345
   let m = 2147483647
@@ -483,7 +486,7 @@ fn zero_width_next_seed(seed : Int) -> Int {
 }
 
 ///|
-fn zero_width_pick(seed : Int, salt : Int, modulo : Int) -> Int {
+fn zero_width_pick(seed : Int32, salt : Int32, modulo : Int32) -> Int32 {
   if modulo <= 0 {
     abort("zero_width_pick requires a positive modulo")
   }
@@ -493,11 +496,11 @@ fn zero_width_pick(seed : Int, salt : Int, modulo : Int) -> Int {
 
 ///|
 fn zero_width_values_from_seed(
-  seed : Int,
-  item_count : Int,
-  salt : Int,
-) -> Array[Int] {
-  let values : Array[Int] = []
+  seed : Int32,
+  item_count : Int32,
+  salt : Int32,
+) -> Array[Int32] {
+  let values : Array[Int32] = []
   for i in 0..<item_count {
     values.push(zero_width_pick(seed, salt + i, 10))
   }
@@ -506,11 +509,11 @@ fn zero_width_values_from_seed(
 
 ///|
 fn zero_width_gaps_from_seed(
-  seed : Int,
-  item_count : Int,
-  salt : Int,
-) -> Array[Int] {
-  let gaps : Array[Int] = []
+  seed : Int32,
+  item_count : Int32,
+  salt : Int32,
+) -> Array[Int32] {
+  let gaps : Array[Int32] = []
   for i in 0..<(item_count - 1) {
     gaps.push(1 + zero_width_pick(seed, salt + i, 3))
   }
@@ -519,11 +522,11 @@ fn zero_width_gaps_from_seed(
 
 ///|
 fn zero_width_boundary_counts_from_seed(
-  seed : Int,
-  item_count : Int,
-  salt : Int,
-) -> Array[Int] {
-  let counts : Array[Int] = []
+  seed : Int32,
+  item_count : Int32,
+  salt : Int32,
+) -> Array[Int32] {
+  let counts : Array[Int32] = []
   for i in 0..<item_count {
     counts.push(zero_width_pick(seed, salt + i, 5))
   }
@@ -531,7 +534,10 @@ fn zero_width_boundary_counts_from_seed(
 }
 
 ///|
-fn zero_width_gap_index_for_edit(edit_index : Int, item_count : Int) -> Int {
+fn zero_width_gap_index_for_edit(
+  edit_index : Int32,
+  item_count : Int32,
+) -> Int32 {
   if item_count <= 1 {
     abort("gap edit cases need at least two items")
   }
@@ -544,10 +550,10 @@ fn zero_width_gap_index_for_edit(edit_index : Int, item_count : Int) -> Int {
 
 ///|
 fn zero_width_changed_boundary_count(
-  seed : Int,
-  index : Int,
-  current : Int,
-) -> Int {
+  seed : Int32,
+  index : Int32,
+  current : Int32,
+) -> Int32 {
   let replacement = zero_width_pick(seed, 400 + index, 5)
   if replacement == current {
     (replacement + 1) % 5
@@ -557,7 +563,7 @@ fn zero_width_changed_boundary_count(
 }
 
 ///|
-fn zero_width_case_from_seed(seed : Int) -> ZeroWidthBoundaryCase {
+fn zero_width_case_from_seed(seed : Int32) -> ZeroWidthBoundaryCase {
   let shape = if zero_width_pick(seed, 1, 2) == 0 {
     ZeroWidthReuseShape::RegularNodes
   } else {
@@ -634,8 +640,8 @@ fn zero_width_case_from_seed(seed : Int) -> ZeroWidthBoundaryCase {
 }
 
 ///|
-fn zero_width_default_values(item_count : Int) -> Array[Int] {
-  let values : Array[Int] = []
+fn zero_width_default_values(item_count : Int32) -> Array[Int32] {
+  let values : Array[Int32] = []
   for i in 0..<item_count {
     values.push((i + 1) % 10)
   }
@@ -643,8 +649,11 @@ fn zero_width_default_values(item_count : Int) -> Array[Int] {
 }
 
 ///|
-fn zero_width_default_gaps(item_count : Int, gap_width : Int) -> Array[Int] {
-  let gaps : Array[Int] = []
+fn zero_width_default_gaps(
+  item_count : Int32,
+  gap_width : Int32,
+) -> Array[Int32] {
+  let gaps : Array[Int32] = []
   for _ in 0..<(item_count - 1) {
     gaps.push(gap_width)
   }
@@ -656,10 +665,10 @@ fn zero_width_basis_case(
   shape : ZeroWidthReuseShape,
   old_tree_mode : ZeroWidthOldTreeMode,
   edit_kind : ZeroWidthEditKind,
-  synthetic_count : Int,
-  old_boundary_counts : Array[Int],
-  new_boundary_counts : Array[Int],
-  edit_index? : Int? = None,
+  synthetic_count : Int32,
+  old_boundary_counts : Array[Int32],
+  new_boundary_counts : Array[Int32],
+  edit_index~ : Int32? = None,
 ) -> ZeroWidthBoundaryCase {
   let item_count = old_boundary_counts.length()
   if item_count == 0 || new_boundary_counts.length() != item_count {
@@ -787,7 +796,7 @@ fn zero_width_basis_cases() -> Array[ZeroWidthBoundaryCase] {
 }
 
 ///|
-fn zero_width_count_class(count : Int) -> Int {
+fn zero_width_count_class(count : Int32) -> Int32 {
   if count < 0 {
     abort("boundary count class requires a non-negative count")
   }
@@ -801,7 +810,7 @@ fn zero_width_count_class(count : Int) -> Int {
 ///|
 test "property: repeated zero-width boundary-token reuse matches full reparse" {
   let cases = zero_width_basis_cases()
-  let seeds : Array[Int] = @quickcheck.samples(96)
+  let seeds : Array[Int32] = @quickcheck.samples(96)
   for seed in seeds {
     cases.push(zero_width_case_from_seed(seed))
   }

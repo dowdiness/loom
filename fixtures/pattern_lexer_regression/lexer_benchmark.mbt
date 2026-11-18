@@ -1,5 +1,5 @@
 ///|
-fn repeated_lexer_input(unit : String, count : Int) -> String {
+fn repeated_lexer_input(unit : String, count : Int32) -> String {
   let builder = StringBuilder()
   for _ in 0..<count {
     builder.write_string(unit)

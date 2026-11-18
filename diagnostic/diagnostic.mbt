@@ -1,32 +1,34 @@
 ///|
 /// Type-safe UTF-16 code-unit offset into a source string.
+#derive(Eq, Debug, Hash, Compare)
 pub struct TextOffset {
-  priv value : Int
-} derive(Eq, Debug, Hash, Compare)
+  priv value : Int32
+}
 
 ///|
+#derive(Debug)
 pub(all) suberror DiagnosticBuildError {
-  NegativeTextOffset(Int)
-  InvalidTextRange(Int, Int)
-} derive(Debug)
+  NegativeTextOffset(Int32)
+  InvalidTextRange(Int32, Int32)
+}
 
 ///|
 pub fn TextOffset::TextOffset(
-  value : Int,
+  value : Int32,
 ) -> TextOffset raise DiagnosticBuildError {
   guard value >= 0 else { raise NegativeTextOffset(value) }
   { value, }
 }
 
 ///|
-pub fn TextOffset::value(self : TextOffset) -> Int {
+pub fn TextOffset::value(self : TextOffset) -> Int32 {
   self.value
 }
 
 ///|
 pub fn TextOffset::offset_by(
   self : TextOffset,
-  delta : Int,
+  delta : Int32,
 ) -> TextOffset raise DiagnosticBuildError {
   TextOffset(self.value + delta)
 }
@@ -34,7 +36,7 @@ pub fn TextOffset::offset_by(
 ///|
 fn TextOffset::offset_if_at_or_after(
   self : TextOffset,
-  delta : Int,
+  delta : Int32,
   after : TextOffset,
 ) -> TextOffset raise DiagnosticBuildError {
   if self.value >= after.value {
@@ -46,10 +48,11 @@ fn TextOffset::offset_if_at_or_after(
 
 ///|
 /// Half-open UTF-16 code-unit source range `[start, end)`.
+#derive(Eq, Debug, Hash, Compare)
 pub struct TextRange {
   priv start : TextOffset
   priv end : TextOffset
-} derive(Eq, Debug, Hash, Compare)
+}
 
 ///|
 pub fn TextRange::TextRange(
@@ -64,8 +67,8 @@ pub fn TextRange::TextRange(
 
 ///|
 pub fn TextRange::from_offsets(
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> TextRange raise DiagnosticBuildError {
   TextRange(TextOffset(start), TextOffset(end))
 }
@@ -81,14 +84,14 @@ pub fn TextRange::end(self : TextRange) -> TextOffset {
 }
 
 ///|
-pub fn TextRange::length(self : TextRange) -> Int {
+pub fn TextRange::length(self : TextRange) -> Int32 {
   self.end.value - self.start.value
 }
 
 ///|
 pub fn TextRange::offset_by(
   self : TextRange,
-  delta : Int,
+  delta : Int32,
   after : TextOffset,
 ) -> TextRange raise DiagnosticBuildError {
   if delta == 0 {
@@ -106,12 +109,13 @@ fn format_line_col(pos : LineCol) -> String {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum DiagnosticSeverity {
   Error
   Warning
   Info
   Hint
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn DiagnosticSeverity::all() -> Array[DiagnosticSeverity] {
@@ -120,9 +124,10 @@ pub fn DiagnosticSeverity::all() -> Array[DiagnosticSeverity] {
 
 ///|
 /// Identifies the subsystem or domain that produced a diagnostic.
+#derive(Eq, Debug, Hash)
 pub struct DiagnosticOrigin {
   priv name : String
-} derive(Eq, Debug, Hash)
+}
 
 ///|
 pub fn DiagnosticOrigin::DiagnosticOrigin(name : String) -> DiagnosticOrigin {
@@ -135,9 +140,10 @@ pub fn DiagnosticOrigin::name(self : DiagnosticOrigin) -> String {
 }
 
 ///|
+#derive(Eq, Debug, Hash)
 pub struct DiagnosticCode {
   priv value : String
-} derive(Eq, Debug, Hash)
+}
 
 ///|
 pub fn DiagnosticCode::DiagnosticCode(value : String) -> DiagnosticCode {
@@ -151,9 +157,10 @@ pub fn DiagnosticCode::value(self : DiagnosticCode) -> String {
 
 ///|
 /// Stable identity of source text within a resolver snapshot.
+#derive(Eq, Debug, Hash)
 pub struct SourceId {
   priv value : String
-} derive(Eq, Debug, Hash)
+}
 
 ///|
 pub fn SourceId::SourceId(value : String) -> SourceId {
@@ -167,10 +174,11 @@ pub fn SourceId::value(self : SourceId) -> String {
 
 ///|
 /// Source-qualified half-open UTF-16 code-unit range.
+#derive(Eq, Debug, Hash)
 pub struct SourceSpan {
   priv source_id : SourceId
   priv range : TextRange
-} derive(Eq, Debug, Hash)
+}
 
 ///|
 pub fn SourceSpan::SourceSpan(
@@ -194,7 +202,7 @@ pub fn SourceSpan::range(self : SourceSpan) -> TextRange {
 fn SourceSpan::offset_by(
   self : SourceSpan,
   edited_source : SourceId,
-  delta : Int,
+  delta : Int32,
   after : TextOffset,
 ) -> SourceSpan raise DiagnosticBuildError {
   if self.source_id != edited_source || delta == 0 {
@@ -205,17 +213,19 @@ fn SourceSpan::offset_by(
 }
 
 ///|
+#derive(Eq, Debug, Hash)
 pub(all) enum LabelStyle {
   Primary
   Secondary
-} derive(Eq, Debug, Hash)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct DiagnosticLabel {
   priv style : LabelStyle
   priv span : SourceSpan
   priv message : String?
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn DiagnosticLabel::DiagnosticLabel(
@@ -245,7 +255,7 @@ pub fn DiagnosticLabel::message(self : DiagnosticLabel) -> String? {
 fn DiagnosticLabel::offset_by(
   self : DiagnosticLabel,
   edited_source : SourceId,
-  delta : Int,
+  delta : Int32,
   after : TextOffset,
 ) -> DiagnosticLabel raise DiagnosticBuildError {
   DiagnosticLabel(
@@ -257,6 +267,7 @@ fn DiagnosticLabel::offset_by(
 
 ///|
 /// Canonical structured diagnostic value for tools and applications.
+#derive(Eq, Debug)
 pub struct Diagnostic {
   priv origin : DiagnosticOrigin
   priv severity : DiagnosticSeverity
@@ -265,17 +276,17 @@ pub struct Diagnostic {
   priv labels : Array[DiagnosticLabel]
   priv notes : Array[String]
   priv fixes : Array[DiagnosticFix]
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn Diagnostic::Diagnostic(
   origin~ : DiagnosticOrigin,
   severity~ : DiagnosticSeverity,
   message~ : String,
-  code? : DiagnosticCode? = None,
-  labels? : Array[DiagnosticLabel] = [],
-  notes? : Array[String] = [],
-  fixes? : Array[DiagnosticFix] = [],
+  code~ : DiagnosticCode? = None,
+  labels~ : Array[DiagnosticLabel] = [],
+  notes~ : Array[String] = [],
+  fixes~ : Array[DiagnosticFix] = [],
 ) -> Diagnostic {
   {
     origin,
@@ -380,7 +391,7 @@ pub fn Diagnostic::format_with_line_col(
 pub fn Diagnostic::offset_by(
   self : Diagnostic,
   edited_source : SourceId,
-  delta : Int,
+  delta : Int32,
   after : TextOffset,
 ) -> Diagnostic raise DiagnosticBuildError {
   if delta == 0 {

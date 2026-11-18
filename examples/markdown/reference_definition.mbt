@@ -1,15 +1,16 @@
 ///|
 priv struct LinkReferenceDefinitionMatch {
-  end : Int
-  label_start : Int
-  label_end : Int
-  destination_start : Int
-  destination_end : Int
-  title_start : Int?
-  title_end : Int?
+  end : Int32
+  label_start : Int32
+  label_end : Int32
+  destination_start : Int32
+  destination_end : Int32
+  title_start : Int32?
+  title_end : Int32?
 }
 
 ///|
+#derive(Eq)
 #warnings("-unused_field")
 priv struct LinkReferenceDefinition {
   normalized_label : String
@@ -19,12 +20,13 @@ priv struct LinkReferenceDefinition {
   label_value_origin : MarkdownIROrigin
   destination_value_origin : MarkdownIROrigin
   title_value_origin : MarkdownIROrigin?
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct LinkReferenceDefinitionTable {
   entries : @hashmap.HashMap[String, LinkReferenceDefinition]
-} derive(Eq)
+}
 
 ///|
 fn LinkReferenceDefinitionTable::empty() -> LinkReferenceDefinitionTable {
@@ -43,7 +45,7 @@ fn LinkReferenceDefinitionTable::lookup(
 #warnings("-unused_value")
 fn LinkReferenceDefinitionTable::length(
   self : LinkReferenceDefinitionTable,
-) -> Int {
+) -> Int32 {
   self.entries.length()
 }
 
@@ -60,7 +62,7 @@ fn LinkReferenceDefinitionTable::insert_first(
 }
 
 ///|
-fn skip_reference_spaces(input : String, start : Int) -> Int {
+fn skip_reference_spaces(input : String, start : Int32) -> Int32 {
   let mut cursor = start
   while cursor < input.length() {
     match char_at(input, cursor) {
@@ -72,7 +74,7 @@ fn skip_reference_spaces(input : String, start : Int) -> Int {
 }
 
 ///|
-fn reference_backslash_escape_end(input : String, start : Int) -> Int? {
+fn reference_backslash_escape_end(input : String, start : Int32) -> Int32? {
   guard char_at(input, start) is Some('\\') && start + 1 < input.length() else {
     return None
   }
@@ -84,7 +86,7 @@ fn reference_backslash_escape_end(input : String, start : Int) -> Int? {
 }
 
 ///|
-fn consume_reference_destination(input : String, start : Int) -> Int? {
+fn consume_reference_destination(input : String, start : Int32) -> Int32? {
   guard start < input.length() else { return None }
   if char_at(input, start) is Some('<') {
     let mut cursor = start + 1
@@ -134,7 +136,7 @@ fn consume_reference_destination(input : String, start : Int) -> Int? {
 }
 
 ///|
-fn consume_reference_title(input : String, start : Int) -> Int? {
+fn consume_reference_title(input : String, start : Int32) -> Int32? {
   let open = match char_at(input, start) {
     Some('\"') => '\"'
     Some('\'') => '\''
@@ -170,7 +172,7 @@ fn consume_reference_title(input : String, start : Int) -> Int? {
 }
 
 ///|
-fn reference_line_ending_end(input : String, start : Int) -> Int? {
+fn reference_line_ending_end(input : String, start : Int32) -> Int32? {
   match input.view(start_offset=start) {
     ['\r', '\n', ..] => Some(start + 2)
     ['\r', ..] | ['\n', ..] => Some(start + 1)
@@ -185,18 +187,18 @@ fn reference_line_ending_end(input : String, start : Int) -> Int? {
 /// piece is inspected at most once. `inspected` is retained as a deterministic
 /// work measure for the private adversarial test.
 priv struct ReferenceDefinitionCursor {
-  piece_at : (Int) -> StringView?
-  mut piece_index : Int
+  piece_at : (Int32) -> StringView?
+  mut piece_index : Int32
   mut piece : StringView
-  mut piece_offset : Int
-  mut offset : Int
-  mut inspected : Int
+  mut piece_offset : Int32
+  mut offset : Int32
+  mut inspected : Int32
   mut exhausted : Bool
 }
 
 ///|
 fn new_reference_definition_cursor(
-  piece_at : (Int) -> StringView?,
+  piece_at : (Int32) -> StringView?,
 ) -> ReferenceDefinitionCursor {
   {
     piece_at,
@@ -283,7 +285,7 @@ fn ReferenceDefinitionCursor::consume_line_ending(
 ///|
 fn ReferenceDefinitionCursor::consume_backslash_escape(
   self : ReferenceDefinitionCursor,
-) -> Int {
+) -> Int32 {
   guard self.peek() is Some('\\') else { return 0 }
   ignore(self.advance())
   match self.peek() {
@@ -298,7 +300,7 @@ fn ReferenceDefinitionCursor::consume_backslash_escape(
 ///|
 fn ReferenceDefinitionCursor::consume_label(
   self : ReferenceDefinitionCursor,
-) -> (Int, Int, Bool)? {
+) -> (Int32, Int32, Bool)? {
   guard self.peek() is Some('[') else { return None }
   ignore(self.advance())
   let label_start = self.offset
@@ -341,7 +343,7 @@ fn ReferenceDefinitionCursor::consume_label(
 ///|
 fn ReferenceDefinitionCursor::consume_destination(
   self : ReferenceDefinitionCursor,
-) -> (Int, Int, Bool)? {
+) -> (Int32, Int32, Bool)? {
   let start = self.offset
   guard self.peek() is Some(_) else { return None }
   if self.peek() is Some('<') {
@@ -389,7 +391,7 @@ fn ReferenceDefinitionCursor::consume_destination(
 ///|
 fn ReferenceDefinitionCursor::consume_title(
   self : ReferenceDefinitionCursor,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   let open = match self.peek() {
     Some('\"') => '\"'
     Some('\'') => '\''
@@ -424,7 +426,7 @@ fn ReferenceDefinitionCursor::consume_title(
 ///|
 fn ReferenceDefinitionCursor::finish_line(
   self : ReferenceDefinitionCursor,
-) -> Int? {
+) -> Int32? {
   self.skip_spaces()
   if self.consume_line_ending() || self.peek() is None {
     Some(self.offset)
@@ -435,13 +437,13 @@ fn ReferenceDefinitionCursor::finish_line(
 
 ///|
 fn reference_definition_match(
-  end : Int,
-  label_start : Int,
-  label_end : Int,
-  destination_start : Int,
-  destination_end : Int,
-  title_start : Int?,
-  title_end : Int?,
+  end : Int32,
+  label_start : Int32,
+  label_end : Int32,
+  destination_start : Int32,
+  destination_end : Int32,
+  title_start : Int32?,
+  title_end : Int32?,
 ) -> LinkReferenceDefinitionMatch {
   {
     end,

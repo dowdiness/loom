@@ -1,23 +1,24 @@
 ///|
 /// Ephemeral positioned view over a `CstToken`.
 /// Mirrors `SyntaxNode` but for leaf tokens.
+#derive(Debug)
 pub struct SyntaxToken {
   cst : CstToken
-  offset : Int
-} derive(Debug)
+  offset : Int32
+}
 
 ///|
-pub fn SyntaxToken::new(cst : CstToken, offset : Int) -> SyntaxToken {
+pub fn SyntaxToken::new(cst : CstToken, offset : Int32) -> SyntaxToken {
   { cst, offset, }
 }
 
 ///|
-pub fn SyntaxToken::start(self : SyntaxToken) -> Int {
+pub fn SyntaxToken::start(self : SyntaxToken) -> Int32 {
   self.offset
 }
 
 ///|
-pub fn SyntaxToken::end(self : SyntaxToken) -> Int {
+pub fn SyntaxToken::end(self : SyntaxToken) -> Int32 {
   self.offset + self.cst.text_len()
 }
 
@@ -49,10 +50,11 @@ pub impl Show for SyntaxToken with fn output(self, logger) {
 
 ///|
 /// A child element — either an interior node or a leaf token, both positioned.
+#derive(Debug)
 pub(all) enum SyntaxElement {
   Node(SyntaxNode)
   Token(SyntaxToken)
-} derive(Debug)
+}
 
 ///|
 /// Result of a position query on a syntax tree.
@@ -63,14 +65,15 @@ pub(all) enum SyntaxElement {
 /// - `Between`: offset sits exactly on the boundary between two adjacent tokens
 ///   (`left.end() == offset == right.start()`). The IDE caller should prefer
 ///   the right token for most completion/hover uses.
+#derive(Debug)
 pub enum TokenAtOffset {
   None
   Single(SyntaxToken)
   Between(SyntaxToken, SyntaxToken)
-} derive(Debug)
+}
 
 ///|
-pub fn SyntaxElement::start(self : SyntaxElement) -> Int {
+pub fn SyntaxElement::start(self : SyntaxElement) -> Int32 {
   match self {
     Node(n) => n.start()
     Token(t) => t.start()
@@ -78,7 +81,7 @@ pub fn SyntaxElement::start(self : SyntaxElement) -> Int {
 }
 
 ///|
-pub fn SyntaxElement::end(self : SyntaxElement) -> Int {
+pub fn SyntaxElement::end(self : SyntaxElement) -> Int32 {
   match self {
     Node(n) => n.end()
     Token(t) => t.end()
@@ -93,11 +96,12 @@ pub fn SyntaxElement::end(self : SyntaxElement) -> Int {
 /// `SyntaxNode` values are created on demand and are not cached or shared.
 ///
 /// **Invariant:** `offset + cst.text_len` is the exclusive end offset.
+#derive(Debug(ignore=[SyntaxNode]))
 pub struct SyntaxNode {
   priv cst : CstNode
   priv parent : SyntaxNode?
-  priv offset : Int
-} derive(Debug(ignore=[SyntaxNode]))
+  priv offset : Int32
+}
 
 ///|
 /// Full constructor. `parent` is `None` for root nodes.
@@ -105,7 +109,7 @@ pub struct SyntaxNode {
 fn SyntaxNode::new(
   cst : CstNode,
   parent : SyntaxNode?,
-  offset : Int,
+  offset : Int32,
 ) -> SyntaxNode {
   { cst, parent, offset, }
 }
@@ -117,7 +121,7 @@ fn SyntaxNode::new(
 /// defaulting to 0. Use a non-zero offset when the CST originates from a
 /// sub-range of a larger source (for example, embedding a partial parse result
 /// at a known position). The created node has no parent.
-pub fn SyntaxNode::from_cst(cst : CstNode, offset? : Int = 0) -> SyntaxNode {
+pub fn SyntaxNode::from_cst(cst : CstNode, offset~ : Int32 = 0) -> SyntaxNode {
   SyntaxNode::new(cst, None, offset)
 }
 
@@ -153,13 +157,13 @@ pub fn SyntaxNode::first_token(self : SyntaxNode) -> SyntaxToken? {
 
 ///|
 /// Absolute UTF-16 code-unit offset of this node's start in the source.
-pub fn SyntaxNode::start(self : SyntaxNode) -> Int {
+pub fn SyntaxNode::start(self : SyntaxNode) -> Int32 {
   self.offset
 }
 
 ///|
 /// Exclusive UTF-16 code-unit offset of this node's end in the source (`start + text_len`).
-pub fn SyntaxNode::end(self : SyntaxNode) -> Int {
+pub fn SyntaxNode::end(self : SyntaxNode) -> Int32 {
   self.offset + self.cst.text_len
 }
 
@@ -213,7 +217,7 @@ pub fn SyntaxNode::children(self : SyntaxNode) -> Array[SyntaxNode] {
 /// Negative `start` is treated as 0.
 pub fn SyntaxNode::children_from(
   self : SyntaxNode,
-  start : Int,
+  start : Int32,
 ) -> Array[SyntaxNode] {
   self
   .direct_elements_iter()
@@ -272,7 +276,7 @@ pub fn SyntaxNode::all_children(self : SyntaxNode) -> Array[SyntaxElement] {
 /// where nodes are operands and tokens are operators.
 pub fn SyntaxNode::nodes_and_tokens(
   self : SyntaxNode,
-  trivia_kind? : RawKind? = None,
+  trivia_kind~ : RawKind? = None,
 ) -> (Array[SyntaxNode], Array[SyntaxToken]) {
   let nodes : Array[SyntaxNode] = []
   let tokens : Array[SyntaxToken] = []
@@ -344,7 +348,7 @@ fn apply_group_op(groups : Array[Array[SyntaxElement]], op : GroupOp) -> Unit {
 pub fn SyntaxNode::direct_elements_grouped_by(
   self : SyntaxNode,
   separator : RawKind,
-  trivia_kind? : RawKind? = None,
+  trivia_kind~ : RawKind? = None,
 ) -> Array[Array[SyntaxElement]] {
   // Builder state: groups grows append-only while streaming the element iter.
   let groups : Array[Array[SyntaxElement]] = [[]]
@@ -488,8 +492,8 @@ pub fn SyntaxNode::tokens_of_kind(
 /// Interior `CstNode` children are never treated as trivia.
 pub fn SyntaxNode::tight_span(
   self : SyntaxNode,
-  trivia_kind? : RawKind? = None,
-) -> (Int, Int) {
+  trivia_kind~ : RawKind? = None,
+) -> (Int32, Int32) {
   self
   .direct_elements_iter()
   .filter(elem => {
@@ -498,7 +502,7 @@ pub fn SyntaxNode::tight_span(
       Node(_) => true
     }
   })
-  .fold(init=(None : (Int, Int)?), (range, e) => {
+  .fold(init=(None : (Int32, Int32)?), (range, e) => {
     match range {
       None => Some((e.start(), e.end()))
       Some((s, _)) => Some((s, e.end()))
@@ -542,19 +546,19 @@ pub impl ToJson for SyntaxNode with fn to_json(self) -> Json {
           let RawKind(tk) = t.kind()
           (
             {
-              "kind": (tk : Int),
+              "kind": (tk : Int32),
               "text": t.text(),
-              "start": (t.start() : Int),
-              "end": (t.end() : Int),
+              "start": (t.start() : Int32),
+              "end": (t.end() : Int32),
             } : Json)
         }
       }
     })
     .collect()
   {
-    "kind": (k : Int),
-    "start": (self.offset : Int),
-    "end": (self.end() : Int),
+    "kind": (k : Int32),
+    "start": (self.offset : Int32),
+    "end": (self.end() : Int32),
     "children": children_json,
   }
 }
@@ -562,7 +566,7 @@ pub impl ToJson for SyntaxNode with fn to_json(self) -> Json {
 ///|
 /// Return the nth interior-node child (0-indexed, skipping token children).
 /// Returns None if there are fewer than n+1 interior children.
-pub fn SyntaxNode::nth_child(self : SyntaxNode, n : Int) -> SyntaxNode? {
+pub fn SyntaxNode::nth_child(self : SyntaxNode, n : Int32) -> SyntaxNode? {
   guard n >= 0 else { None }
   self
   .direct_elements_iter()
@@ -605,7 +609,7 @@ pub fn SyntaxNode::child_of_kind(
 /// the function returns `self` without recursing. Callers querying a
 /// well-formed tree should ensure the offset is within the root's span;
 /// out-of-range offsets will silently produce the root rather than a deep node.
-pub fn SyntaxNode::find_at(self : SyntaxNode, offset : Int) -> SyntaxNode {
+pub fn SyntaxNode::find_at(self : SyntaxNode, offset : Int32) -> SyntaxNode {
   self
   .direct_elements_iter()
   .filter_map(elem => {
@@ -634,7 +638,7 @@ pub fn SyntaxNode::find_at(self : SyntaxNode, offset : Int) -> SyntaxNode {
 /// when you want a conservative fallback for IDE traversal.
 pub fn SyntaxNode::find_at_checked(
   self : SyntaxNode,
-  offset : Int,
+  offset : Int32,
 ) -> SyntaxNode? {
   if offset < self.start() || offset >= self.end() {
     None
@@ -668,9 +672,9 @@ pub fn SyntaxNode::contains_errors(
 /// exclusive `end`, so no forward prefix-sum pass or temporary array is
 /// needed.
 fn push_positioned_reversed(
-  stack : Array[(CstElement, Int)],
+  stack : Array[(CstElement, Int32)],
   children : Array[CstElement],
-  end : Int,
+  end : Int32,
 ) -> Unit {
   let mut pos = end
   for i = children.length() - 1; i >= 0; i = i - 1 {
@@ -693,7 +697,7 @@ fn push_positioned_reversed(
 /// pull is O(1) amortized regardless of tree depth — a recursive
 /// `flat_map` formulation benchmarked 11-25x slower on this hot path.
 pub fn SyntaxNode::deep_tokens_iter(self : SyntaxNode) -> Iter[SyntaxToken] {
-  let stack : Array[(CstElement, Int)] = []
+  let stack : Array[(CstElement, Int32)] = []
   push_positioned_reversed(stack, self.cst.children, self.end())
   Iter::new(() => {
     for ;; {
@@ -724,7 +728,7 @@ pub fn SyntaxNode::deep_tokens_iter(self : SyntaxNode) -> Iter[SyntaxToken] {
 /// slower (see syntax_node_bench_wbtest.mbt, which guards this path).
 pub fn SyntaxNode::token_at_offset(
   self : SyntaxNode,
-  offset : Int,
+  offset : Int32,
 ) -> TokenAtOffset {
   let mut left : SyntaxToken? = None
   let mut right : SyntaxToken? = None

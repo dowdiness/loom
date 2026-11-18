@@ -71,7 +71,7 @@ pub fn DamageTracker::is_damaged(
 /// Check if a position is damaged
 pub fn DamageTracker::is_position_damaged(
   self : DamageTracker,
-  pos : Int,
+  pos : Int32,
 ) -> Bool {
   for damaged in self.damaged_ranges {
     if damaged.contains(pos) {
@@ -88,8 +88,8 @@ pub fn DamageTracker::is_position_damaged(
 /// If a node overlaps the damaged region, mark it as damaged
 pub fn DamageTracker::expand_for_node(
   self : DamageTracker,
-  node_start : Int,
-  node_end : Int,
+  node_start : Int32,
+  node_end : Int32,
 ) -> Unit {
   let node_range = @core.Range::new(node_start, node_end)
 

@@ -27,11 +27,11 @@ fn test_parse_item_tree(src : String) -> @seam.CstNode {
 fn test_reuse_cursor(
   old_tree : @seam.CstNode,
   new_src : String,
-  damage_start : Int,
-  damage_end : Int,
-  new_damage_end? : Int = damage_end,
-  allow_left_adjacent_reuse? : Bool = false,
-  reuse_size_threshold? : Int = 0,
+  damage_start : Int32,
+  damage_end : Int32,
+  new_damage_end~ : Int32 = damage_end,
+  allow_left_adjacent_reuse~ : Bool = false,
+  reuse_size_threshold~ : Int32 = 0,
 ) -> ReuseCursor[TestTok, TestKind] {
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   ReuseCursor::new(
@@ -1035,7 +1035,7 @@ test "flush_trivia: emits trivia tokens with their actual raw kind" {
   //   Ws " "      @ 5-6
   //   Num "42"    @ 6-8
   let token_count = 3
-  let get_token : (Int) -> TestTok = fn(i) {
+  let get_token : (Int32) -> TestTok = fn(i) {
     match i {
       0 => TestTok::Comment
       1 => TestTok::Ws
@@ -1043,7 +1043,7 @@ test "flush_trivia: emits trivia tokens with their actual raw kind" {
       _ => TestTok::TokEof
     }
   }
-  let get_start : (Int) -> Int = fn(i) {
+  let get_start : (Int32) -> Int32 = fn(i) {
     match i {
       0 => 0
       1 => 5
@@ -1051,7 +1051,7 @@ test "flush_trivia: emits trivia tokens with their actual raw kind" {
       _ => 0
     }
   }
-  let get_end : (Int) -> Int = fn(i) {
+  let get_end : (Int32) -> Int32 = fn(i) {
     match i {
       0 => 5
       1 => 6

@@ -11,10 +11,10 @@
 /// walk discards the separators.
 pub struct DirectElementGroup {
   priv parent : SyntaxNode
-  priv index : Int
+  priv index : Int32
   priv elements : Array[SyntaxElement]
-  priv start : Int
-  priv end : Int
+  priv start : Int32
+  priv end : Int32
 }
 
 ///|
@@ -22,10 +22,10 @@ pub struct DirectElementGroup {
 /// extent, empty groups span the slot between the surrounding boundaries.
 fn DirectElementGroup::DirectElementGroup(
   parent : SyntaxNode,
-  index : Int,
+  index : Int32,
   elements : Array[SyntaxElement],
-  slot_start : Int,
-  slot_end : Int,
+  slot_start : Int32,
+  slot_end : Int32,
 ) -> DirectElementGroup {
   let (start, end) = if elements.length() == 0 {
     (slot_start, slot_end)
@@ -37,7 +37,7 @@ fn DirectElementGroup::DirectElementGroup(
 
 ///|
 /// Zero-based position of this group among the N+1 slots of its parent walk.
-pub fn DirectElementGroup::index(self : DirectElementGroup) -> Int {
+pub fn DirectElementGroup::index(self : DirectElementGroup) -> Int32 {
   self.index
 }
 
@@ -55,13 +55,13 @@ pub fn DirectElementGroup::elements(
 
 ///|
 /// Absolute start of the group span (element extent, or slot span when empty).
-pub fn DirectElementGroup::start(self : DirectElementGroup) -> Int {
+pub fn DirectElementGroup::start(self : DirectElementGroup) -> Int32 {
   self.start
 }
 
 ///|
 /// Absolute end of the group span (element extent, or slot span when empty).
-pub fn DirectElementGroup::end(self : DirectElementGroup) -> Int {
+pub fn DirectElementGroup::end(self : DirectElementGroup) -> Int32 {
   self.end
 }
 
@@ -85,7 +85,7 @@ pub fn DirectElementGroup::is_empty(self : DirectElementGroup) -> Bool {
 pub fn SyntaxNode::direct_element_groups_by(
   self : SyntaxNode,
   separator : RawKind,
-  trivia_kind? : RawKind? = None,
+  trivia_kind~ : RawKind? = None,
 ) -> Array[DirectElementGroup] {
   // Builder state: a group closes at each separator token, whose span is the
   // only place the enclosing slot boundaries are visible.

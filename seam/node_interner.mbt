@@ -60,7 +60,7 @@ pub fn NodeInterner::intern_node(
 
 ///|
 /// Number of distinct CstNode structures currently interned.
-pub fn NodeInterner::size(self : NodeInterner) -> Int {
+pub fn NodeInterner::size(self : NodeInterner) -> Int32 {
   self.0.length()
 }
 

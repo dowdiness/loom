@@ -5,6 +5,7 @@
 /// trivia/error/EOF kinds and coarse top-level item nodes are kept separate.
 /// Raw values for the original skeleton nodes are preserved, while official
 /// token raw values start at 100 in the `TokenKind` declaration order.
+#derive(Eq, Debug)
 pub(all) enum MoonbitSyntaxKind {
   // Synthetic token kinds
   TriviaToken
@@ -148,6 +149,8 @@ pub(all) enum MoonbitSyntaxKind {
   VarToken
   ErrdeferToken
   NocancelToken
+  StarToken
+  BytesRegexLiteralToken
   // Node kinds
   SourceFileNode
   SourceItemNode
@@ -168,7 +171,7 @@ pub(all) enum MoonbitSyntaxKind {
   MatchExprNode
   ForExprNode
   BinExprNode
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for MoonbitSyntaxKind with fn output(self, logger) {
@@ -318,6 +321,8 @@ pub impl @seam.ToRawKind for MoonbitSyntaxKind with fn to_raw(self) {
       VarToken => 232
       ErrdeferToken => 233
       NocancelToken => 234
+      StarToken => 235
+      BytesRegexLiteralToken => 236
       SourceFileNode => 10
       SourceItemNode => 11
       LetItemNode => 12
@@ -500,6 +505,8 @@ pub impl @seam.FromRawKind for MoonbitSyntaxKind with fn from_raw(raw) {
     232 => VarToken
     233 => ErrdeferToken
     234 => NocancelToken
+    235 => StarToken
+    236 => BytesRegexLiteralToken
     _ => ErrorToken
   }
 }
@@ -569,7 +576,6 @@ fn MoonbitSyntaxKind::from_token_kind(
     TK_FAT_ARROW => FatArrowToken
     TK_FLOAT => FloatToken
     TK_FN => FnToken
-    TK_FNALIAS => FnaliasToken
     TK_FOR => ForToken
     TK_FORALL => ForallToken
     TK_GUARD => GuardToken
@@ -591,7 +597,6 @@ fn MoonbitSyntaxKind::from_token_kind(
     TK_VAR => VarToken
     TK_LETREC => LetrecToken
     TK_LEXMATCH => LexmatchToken
-    TK_LEXMATCH_QUESTION => LexmatchQuestionToken
     TK_LIDENT => LidentToken
     TK_LOOP => LoopToken
     TK_LPAREN => LparenToken
@@ -605,6 +610,8 @@ fn MoonbitSyntaxKind::from_token_kind(
     TK_NOBREAK => NobreakToken
     TK_NORAISE => NoraiseToken
     TK_NOCANCEL => NocancelToken
+    TK_STAR => StarToken
+    TK_BYTES_REGEX_LITERAL => BytesRegexLiteralToken
     TK_PACKAGE => PackageToken
     TK_PACKAGE_NAME => PackageNameToken
     TK_PIPE => PipeToken
@@ -638,13 +645,11 @@ fn MoonbitSyntaxKind::from_token_kind(
     TK_THIN_ARROW => ThinArrowToken
     TK_THROW => ThrowToken
     TK_TRAIT => TraitToken
-    TK_TRAITALIAS => TraitaliasToken
     TK_TRUE => TrueToken
     TK_TRY => TryToken
     TK_TRY_EXCLAMATION => TryExclamationToken
     TK_TRY_QUESTION => TryQuestionToken
     TK_TYPE => TypeToken
-    TK_TYPEALIAS => TypealiasToken
     TK_UIDENT => UidentToken
     TK_UNDERSCORE => UnderscoreToken
     TK_USING => UsingToken

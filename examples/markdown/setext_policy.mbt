@@ -1,5 +1,5 @@
 ///|
-fn text_has_min_leading_spaces(text : StringView, min_indent : Int) -> Bool {
+fn text_has_min_leading_spaces(text : StringView, min_indent : Int32) -> Bool {
   let spaces = for ch in text; count = 0 {
     match ch {
       ' ' => continue count + 1
@@ -14,7 +14,7 @@ fn text_has_min_leading_spaces(text : StringView, min_indent : Int) -> Bool {
 ///|
 fn current_token_text_has_min_leading_spaces(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  min_indent : Int,
+  min_indent : Int32,
 ) -> Bool {
   text_has_min_leading_spaces(ctx.current_token_text(), min_indent)
 }
@@ -37,8 +37,8 @@ fn setext_list_marker_line_ends_after_marker(
 fn setext_underline_depth_at_current_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
   allow_list_marker~ : Bool,
-  min_indent~ : Int,
-) -> Int? {
+  min_indent~ : Int32,
+) -> Int32? {
   match ctx.peek() {
     Text(text) if text_has_min_leading_spaces(text.view(), min_indent) =>
       parse_setext_underline_depth(text.view())
@@ -56,8 +56,8 @@ fn setext_underline_depth_at_current_line(
 fn setext_underline_depth_after_newline(
   ctx : @core.ParserContext[Token, SyntaxKind],
   allow_list_marker~ : Bool,
-  min_indent~ : Int,
-) -> Int? {
+  min_indent~ : Int32,
+) -> Int32? {
   ctx.lookahead(() => {
     ctx.emit_token(NewlineToken)
     match ctx.peek() {
@@ -87,7 +87,7 @@ fn setext_underline_depth_after_newline(
 ///|
 fn quoted_setext_underline_depth_after_newline(
   ctx : @core.ParserContext[Token, SyntaxKind],
-) -> Int? {
+) -> Int32? {
   ctx.lookahead(() => {
     ctx.emit_token(NewlineToken)
     match ctx.peek() {

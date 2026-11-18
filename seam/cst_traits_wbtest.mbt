@@ -83,7 +83,10 @@ test "accept_transform_fold[NodeCount]: empty node counts itself" {
 
 ///|
 /// Build a large tree for benchmarking: depth levels, branching children per node.
-fn generate_large_cst(depth : Int, branching : Int) -> CstElement raise Failure {
+fn generate_large_cst(
+  depth : Int32,
+  branching : Int32,
+) -> CstElement raise Failure {
   if depth <= 0 {
     CstElement::Token(CstToken::CstToken(RawKind(9), "leaf"))
   } else {
@@ -97,7 +100,7 @@ fn generate_large_cst(depth : Int, branching : Int) -> CstElement raise Failure 
 }
 
 ///|
-fn hand_written_text_len(elem : CstElement) -> Int {
+fn hand_written_text_len(elem : CstElement) -> Int32 {
   match elem {
     Token(t) => t.text().length()
     Node(node) =>
@@ -110,7 +113,7 @@ fn hand_written_text_len(elem : CstElement) -> Int {
 }
 
 ///|
-fn hand_written_node_count(elem : CstElement) -> Int {
+fn hand_written_node_count(elem : CstElement) -> Int32 {
   match elem {
     Token(_) => 1
     Node(node) =>

@@ -10,10 +10,10 @@
 ///|
 /// Internal cache entry for one goal-directed token result.
 priv struct GoalCacheEntry[T] {
-  offset : Int
-  goal : Int
+  offset : Int32
+  goal : Int32
   token : T
-  end_offset : Int
+  end_offset : Int32
 }
 
 ///|
@@ -40,9 +40,9 @@ fn[T] GoalCache::invalidate(self : GoalCache[T]) -> Unit {
 /// Returns None on cache miss.
 fn[T] GoalCache::lookup(
   self : GoalCache[T],
-  offset : Int,
-  goal : Int,
-) -> (T, Int)? {
+  offset : Int32,
+  goal : Int32,
+) -> (T, Int32)? {
   self.entries
   .iter()
   .find_first(fn(entry) { entry.offset == offset && entry.goal == goal })
@@ -53,10 +53,10 @@ fn[T] GoalCache::lookup(
 /// Insert a goal-directed token result into the cache.
 fn[T] GoalCache::insert(
   self : GoalCache[T],
-  offset : Int,
-  goal : Int,
+  offset : Int32,
+  goal : Int32,
   token : T,
-  end_offset : Int,
+  end_offset : Int32,
 ) -> Unit {
   self.entries.push({ offset, goal, token, end_offset, })
 }
@@ -67,8 +67,8 @@ fn[T] GoalCache::insert(
 /// O(N) in cache size — cache is bounded by goal queries per parse pass.
 fn[T] GoalCache::goal_span_containing(
   self : GoalCache[T],
-  offset : Int,
-) -> (Int, Int)? {
+  offset : Int32,
+) -> (Int32, Int32)? {
   self.entries
   .iter()
   .find_first(fn(entry) { offset >= entry.offset && offset < entry.end_offset })

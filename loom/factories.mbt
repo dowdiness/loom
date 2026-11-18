@@ -17,8 +17,8 @@ fn[T : Eq] create_buffer(
   source : String,
   lex : (@core.SourceId, String) -> @core.LexResult[T],
   eof_token : T,
-  incremental_relex_enabled? : Bool = true,
-  mode_relex? : @core.ModeRelexFactory[T]? = None,
+  incremental_relex_enabled~ : Bool = true,
+  mode_relex~ : @core.ModeRelexFactory[T]? = None,
 ) -> @core.TokenBuffer[T] {
   let lex_current = source => lex(source_id, source)
   if !incremental_relex_enabled {
@@ -59,7 +59,7 @@ fn[T : Eq] create_buffer(
 fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperative_language_from_syntax_grammar(
   grammar : SyntaxGrammar[T, K],
   to_ast : (@seam.SyntaxNode) -> Ast,
-  get_fold_stats? : (() -> @core.FoldStats)? = None,
+  get_fold_stats~ : (() -> @core.FoldStats)? = None,
 ) -> @incremental.ImperativeLanguage[Ast] {
   let spec = grammar.spec
   let lex = grammar.lex
@@ -141,7 +141,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
             @text_change.TextChange::ReplaceRange(
               start~,
               delete_len~,
-              inserted~
+              inserted~,
             ) =>
               if edit_count > 32 || delete_len != inserted.length() {
                 applicable = false

@@ -391,7 +391,7 @@ test "transform_fold: empty node returns init" {
 ///|
 test "transform: empty node" {
   let node = CstNode::new_unclassified(RawKind(20), [])
-  let result : Int = CstElement::Node(node).transform(_token => 1, (
+  let result : Int32 = CstElement::Node(node).transform(_token => 1, (
     _kind,
     children,
   ) => {

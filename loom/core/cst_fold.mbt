@@ -5,11 +5,12 @@
 // verification. Unchanged subtrees are skipped at O(1) per subtree.
 
 ///|
+#derive(Debug)
 pub struct FoldStats {
-  mut reused : Int
-  mut recomputed : Int
-  mut unvisited : Int
-} derive(Debug)
+  mut reused : Int32
+  mut recomputed : Int32
+  mut unvisited : Int32
+}
 
 ///|
 pub fn FoldStats::zero() -> FoldStats {
@@ -19,7 +20,7 @@ pub fn FoldStats::zero() -> FoldStats {
 ///|
 /// Rebuild the cache often enough to bound stale edit-generation retention,
 /// while amortizing the O(current tree) reachability walk across folds.
-let cst_fold_compaction_interval : Int = 64
+let cst_fold_compaction_interval : Int32 = 64
 
 ///|
 /// Memoized catamorphism over CstNode.
@@ -32,7 +33,7 @@ let cst_fold_compaction_interval : Int = 64
 pub struct CstFold[Ast] {
   algebra : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
   priv mut cache : Map[@seam.CstNode, Ast]
-  priv mut folds_since_compaction : Int
+  priv mut folds_since_compaction : Int32
   mut stats : FoldStats
 }
 
@@ -100,7 +101,7 @@ fn[Ast] CstFold::fold_node(self : CstFold[Ast], node : @seam.SyntaxNode) -> Ast 
   }
   // Cache miss — call algebra with tracked recurse function
   // Key by (start, end) to distinguish siblings at the same offset (e.g. zero-length nodes)
-  let visited : Map[(Int, Int), Unit] = Map([])
+  let visited : Map[(Int32, Int32), Unit] = Map([])
   let recurse = fn(child : @seam.SyntaxNode) -> Ast {
     visited[(child.start(), child.end())] = ()
     self.fold_node(child)

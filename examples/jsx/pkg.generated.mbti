@@ -16,7 +16,7 @@ pub let jsx_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, JsxNode]
 
 pub fn lex(@diagnostic.SourceId, String) -> @core.LexResult[@token.Token]
 
-pub fn make_jsx_spec((@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : @syntax.SyntaxKind) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]
+pub fn make_jsx_spec((@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit, reuse_size_threshold? : Int32, incomplete_kind? : @syntax.SyntaxKind) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]
 
 pub fn parse_ast(@diagnostic.SourceId, String) -> (JsxNode, @core.DiagnosticSet) raise
 
@@ -25,24 +25,27 @@ pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.Diagnost
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub struct JsxAttr {
   name : String
   value : JsxAttrValue
-} derive(Eq, @debug.Debug)
+}
 pub fn JsxAttr::JsxAttr(name~ : String, value~ : JsxAttrValue) -> Self
 pub fn JsxAttr::equal(Self, Self) -> Bool
 pub fn JsxAttr::not_equal(Self, Self) -> Bool
 pub fn JsxAttr::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum JsxAttrValue {
   StringLit(String)
   ExprSpan(raw~ : String)
   Bare
-} derive(Eq, @debug.Debug)
+}
 pub fn JsxAttrValue::equal(Self, Self) -> Bool
 pub fn JsxAttrValue::not_equal(Self, Self) -> Bool
 pub fn JsxAttrValue::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum JsxNode {
   Root(children~ : Array[JsxNode])
   Element(tag~ : String, attrs~ : Array[JsxAttr], children~ : Array[JsxNode])
@@ -50,7 +53,7 @@ pub(all) enum JsxNode {
   Text(String)
   ExprSpan(raw~ : String)
   Error(String)
-} derive(Eq, @debug.Debug)
+}
 pub fn JsxNode::children(Self) -> Array[Self]
 pub fn JsxNode::equal(Self, Self) -> Bool
 pub fn JsxNode::kind_tag(Self) -> String

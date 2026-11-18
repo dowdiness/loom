@@ -10,7 +10,7 @@ test "subscribe fires the listener on set_source" {
     source_id,
     SAMPLE_SOURCE,
   )
-  let count : Ref[Int] = { val: 0, }
+  let count : Ref[Int32] = { val: 0, }
   let _sub = attachment.subscribe(() => count.val = count.val + 1)
   attachment.set_source("osc = sine(freq: 880Hz)")
   inspect(count.val, content="1")
@@ -29,7 +29,7 @@ test "subscribe fires the listener on apply_edit" {
     Some(edit) => edit
     None => abort("expected exact edit")
   }
-  let count : Ref[Int] = { val: 0, }
+  let count : Ref[Int32] = { val: 0, }
   let _sub = attachment.subscribe(() => count.val = count.val + 1)
   attachment.apply_edit(edit, lowered.new_source())
   inspect(count.val, content="1")
@@ -42,7 +42,7 @@ test "the constructor settle does not fire listeners subscribed afterwards" {
     source_id,
     SAMPLE_SOURCE,
   )
-  let count : Ref[Int] = { val: 0, }
+  let count : Ref[Int32] = { val: 0, }
   let _sub = attachment.subscribe(() => count.val = count.val + 1)
   inspect(count.val, content="0")
 }
@@ -54,8 +54,8 @@ test "every listener fires on a single settle" {
     source_id,
     SAMPLE_SOURCE,
   )
-  let a : Ref[Int] = { val: 0, }
-  let b : Ref[Int] = { val: 0, }
+  let a : Ref[Int32] = { val: 0, }
+  let b : Ref[Int32] = { val: 0, }
   let _s1 = attachment.subscribe(() => a.val = a.val + 1)
   let _s2 = attachment.subscribe(() => b.val = b.val + 1)
   attachment.set_source("osc = sine(freq: 880Hz)")
@@ -70,7 +70,7 @@ test "the listener fires when the new source is parser-blocked" {
     source_id,
     SAMPLE_SOURCE,
   )
-  let count : Ref[Int] = { val: 0, }
+  let count : Ref[Int32] = { val: 0, }
   let _sub = attachment.subscribe(() => count.val = count.val + 1)
   attachment.set_source("osc = sine(freq: )")
   inspect(attachment.state(), content="ParserBlocked")
@@ -84,7 +84,7 @@ test "a listener may unsubscribe itself during notification" {
     source_id,
     SAMPLE_SOURCE,
   )
-  let count : Ref[Int] = { val: 0, }
+  let count : Ref[Int32] = { val: 0, }
   let holder : Ref[@graph-dsl.GraphAttachmentSubscription?] = { val: None, }
   let sub = attachment.subscribe(() => {
     count.val = count.val + 1
@@ -109,7 +109,7 @@ test "the listener fires even when the new source is projection-blocked" {
     source_id,
     SAMPLE_SOURCE,
   )
-  let count : Ref[Int] = { val: 0, }
+  let count : Ref[Int32] = { val: 0, }
   let _sub = attachment.subscribe(() => count.val = count.val + 1)
   attachment.set_source("osc = sine(input: missing)")
   inspect(attachment.state(), content="ProjectionBlocked")
@@ -123,7 +123,7 @@ test "unsubscribe stops notifications" {
     source_id,
     SAMPLE_SOURCE,
   )
-  let count : Ref[Int] = { val: 0, }
+  let count : Ref[Int32] = { val: 0, }
   let sub = attachment.subscribe(() => count.val = count.val + 1)
   attachment.set_source("osc = sine(freq: 880Hz)")
   inspect(count.val, content="1")
@@ -139,7 +139,7 @@ test "unsubscribe is idempotent" {
     source_id,
     SAMPLE_SOURCE,
   )
-  let count : Ref[Int] = { val: 0, }
+  let count : Ref[Int32] = { val: 0, }
   let sub = attachment.subscribe(() => count.val = count.val + 1)
   sub.unsubscribe()
   sub.unsubscribe()
@@ -154,8 +154,8 @@ test "one listener detaching does not affect the others" {
     source_id,
     SAMPLE_SOURCE,
   )
-  let a : Ref[Int] = { val: 0, }
-  let b : Ref[Int] = { val: 0, }
+  let a : Ref[Int32] = { val: 0, }
+  let b : Ref[Int32] = { val: 0, }
   let s1 = attachment.subscribe(() => a.val = a.val + 1)
   let _s2 = attachment.subscribe(() => b.val = b.val + 1)
   s1.unsubscribe()
@@ -171,7 +171,7 @@ test "dispose clears listeners and unsubscribe stays safe afterwards" {
     source_id,
     SAMPLE_SOURCE,
   )
-  let count : Ref[Int] = { val: 0, }
+  let count : Ref[Int32] = { val: 0, }
   let sub = attachment.subscribe(() => count.val = count.val + 1)
   attachment.dispose()
   sub.unsubscribe()

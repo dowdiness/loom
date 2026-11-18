@@ -12,9 +12,9 @@
 /// rather than on an extracted key field.
 priv trait OffsetIndexed {
   /// Total number of elements in the sorted sequence.
-  fn length(Self) -> Int
+  fn length(Self) -> Int32
   /// The sort key (code-unit offset) at index i. Must be non-decreasing in i.
-  fn offset_at(Self, Int) -> Int
+  fn offset_at(Self, Int32) -> Int32
 }
 
 ///|
@@ -30,7 +30,7 @@ priv trait OffsetIndexed {
 ///
 /// Note: uses < rather than subtraction for comparison to avoid integer
 /// overflow on large offsets.
-fn[S : OffsetIndexed] lower_bound(source : S, target : Int) -> Int {
+fn[S : OffsetIndexed] lower_bound(source : S, target : Int32) -> Int32 {
   let mut lo = 0
   let mut hi = source.length()
   while lo < hi {
@@ -78,7 +78,7 @@ pub struct LanguageSpec[T, K] {
   /// Canonical CST metadata domain shared by every tree built from this spec.
   priv cst_metadata_policy : @seam.CstMetadataPolicy
   parse_root : (ParserContext[T, K]) -> Unit
-  reuse_size_threshold : Int
+  reuse_size_threshold : Int32
   /// Record grammar observations separately from CST structure. Reuse without
   /// the previous snapshot's dependency information fails closed.
   track_reuse_dependencies : Bool
@@ -91,11 +91,11 @@ pub fn[T, K : @seam.ToRawKind] LanguageSpec::new(
   error_kind : K,
   root_kind : K,
   eof_token : T,
-  incomplete_kind? : K = error_kind,
-  parse_root? : (ParserContext[T, K]) -> Unit = _ => (),
-  reuse_size_threshold? : Int = 64,
-  trivia_kinds_spec? : Array[K] = [whitespace_kind],
-  track_reuse_dependencies? : Bool = false,
+  incomplete_kind~ : K = error_kind,
+  parse_root~ : (ParserContext[T, K]) -> Unit = _ => (),
+  reuse_size_threshold~ : Int32 = 64,
+  trivia_kinds_spec~ : Array[K] = [whitespace_kind],
+  track_reuse_dependencies~ : Bool = false,
 ) -> LanguageSpec[T, K] {
   let owned_trivia_kinds = trivia_kinds_spec.copy()
   let cst_metadata_policy = @seam.CstMetadataPolicy::new(
@@ -133,16 +133,16 @@ pub fn[T, K : @seam.ToRawKind] LanguageSpec::new(
 pub struct ParserContext[T, K] {
   priv spec : LanguageSpec[T, K]
   priv source_id : SourceId
-  priv token_count : Int
-  priv get_token : (Int) -> T
-  priv get_start : (Int) -> Int
-  priv get_end : (Int) -> Int
+  priv token_count : Int32
+  priv get_token : (Int32) -> T
+  priv get_start : (Int32) -> Int32
+  priv get_end : (Int32) -> Int32
   priv source : String
-  priv mut position : Int
+  priv mut position : Int32
   priv events : @seam.EventBuffer
   priv diagnostics : DiagnosticSet
-  priv mut error_count : Int
-  priv mut open_nodes : Int
+  priv mut error_count : Int32
+  priv mut open_nodes : Int32
   /// Stack of currently open node kinds, parallel to open_nodes count.
   /// Used by current_node_kind() and finish_nodes_until().
   priv mut node_stack : Array[K]
@@ -151,17 +151,17 @@ pub struct ParserContext[T, K] {
   // Diagnostics from the previous parse (optional). When present, reuse hits
   // replay matching diagnostics by code-unit span to preserve exact messages.
   priv mut reuse_diagnostics : DiagnosticSet?
-  priv mut reuse_count : Int
+  priv mut reuse_count : Int32
   // Goal-directed token source. None by default; set via set_goal_source().
   // Closure: (offset: Int, goal: Int) -> (token: T, end_exclusive: Int)
   // Supplied explicitly by the caller; standard factories do not install it.
-  priv mut goal_source : ((Int, Int) -> (T, Int))?
+  priv mut goal_source : ((Int32, Int32) -> (T, Int32))?
   // Goal subsumption check. Set alongside goal_source.
   // Closure: (offset: Int, baseline_len: Int) -> Bool
   // True if offset falls inside a goal-produced token span AND the span
   // exceeds the baseline token length — meaning the goal token subsumes
   // multiple baseline positions and reuse must be skipped.
-  priv mut goal_subsumption_check : ((Int, Int) -> Bool)?
+  priv mut goal_subsumption_check : ((Int32, Int32) -> Bool)?
   priv mut dependency_builder : DependencyBuilder?
   priv mut reuse_context : ReuseContext?
 }
@@ -170,13 +170,13 @@ pub struct ParserContext[T, K] {
 /// Opaque snapshot of checkpointed parser execution state.
 /// Create with checkpoint(), restore with restore().
 pub(all) struct Checkpoint[T, K] {
-  priv position : Int
+  priv position : Int32
   priv events : @seam.EventCheckpoint
   priv node_stack_snapshot : Array[K]
-  priv error_count : Int
-  priv open_nodes : Int
+  priv error_count : Int32
+  priv open_nodes : Int32
   priv reuse_cursor : ReuseCursor[T, K]?
-  priv reuse_count : Int
+  priv reuse_count : Int32
   priv dependencies : DependencyCheckpoint?
   priv reuse_context : ReuseContext?
 }

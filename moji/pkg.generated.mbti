@@ -8,71 +8,75 @@ import {
 // Values
 pub const ZERO_WIDTH_SPACE : String = "​"
 
-pub fn decode_codepoint_at(String, Int) -> (Int, Int)
+pub fn decode_codepoint_at(String, Int32) -> (Int32, Int32)
 
-pub fn display_units(String, start_column? : Int, tab_width? : Int, ambiguous_width? : AmbiguousWidth) -> Array[DisplayUnit] raise DisplayWidthError
+pub fn display_units(String, start_column? : Int32, tab_width? : Int32, ambiguous_width? : AmbiguousWidth) -> Array[DisplayUnit] raise DisplayWidthError
 
-pub fn display_width(String, start_column? : Int, tab_width? : Int, ambiguous_width? : AmbiguousWidth) -> Int raise DisplayWidthError
+pub fn display_width(String, start_column? : Int32, tab_width? : Int32, ambiguous_width? : AmbiguousWidth) -> Int32 raise DisplayWidthError
 
-pub let display_width_unicode_version : (Int, Int, Int)
+pub let display_width_unicode_version : (Int32, Int32, Int32)
 
-pub fn gcb_of(Int) -> GCB
+pub fn gcb_of(Int32) -> GCB
 
-pub fn grapheme_boundaries(String) -> Array[Int]
+pub fn grapheme_boundaries(String) -> Array[Int32]
 
-pub fn grapheme_clusters(String) -> Iter[(Int, Int)]
+pub fn grapheme_clusters(String) -> Iter[(Int32, Int32)]
 
-pub fn incb_of(Int) -> InCB
+pub fn incb_of(Int32) -> InCB
 
-pub fn is_default_ignorable_code_point(Int) -> Bool
+pub fn is_default_ignorable_code_point(Int32) -> Bool
 
-pub fn is_extended_pictographic(Int) -> Bool
+pub fn is_extended_pictographic(Int32) -> Bool
 
-pub fn is_grapheme_boundary(String, Int) -> Bool
+pub fn is_grapheme_boundary(String, Int32) -> Bool
 
-pub fn is_trailing_surrogate_at(String, Int) -> Bool
+pub fn is_trailing_surrogate_at(String, Int32) -> Bool
 
-pub fn next_grapheme_boundary(String, Int) -> Int
+pub fn next_grapheme_boundary(String, Int32) -> Int32
 
-pub fn next_word_boundary(String, Int) -> Int
+pub fn next_word_boundary(String, Int32) -> Int32
 
-pub fn prev_grapheme_boundary(String, Int) -> Int
+pub fn prev_grapheme_boundary(String, Int32) -> Int32
 
-pub fn prev_word_boundary(String, Int) -> Int
+pub fn prev_word_boundary(String, Int32) -> Int32
 
-pub fn wb_of(Int) -> WB
+pub fn wb_of(Int32) -> WB
 
-pub fn word_boundaries(String) -> Array[Int]
+pub fn word_boundaries(String) -> Array[Int32]
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror DisplayWidthError {
-  InvalidStartColumn(Int)
-  InvalidTabWidth(Int)
-} derive(Eq, @debug.Debug)
+  InvalidStartColumn(Int32)
+  InvalidTabWidth(Int32)
+}
 pub fn DisplayWidthError::equal(Self, Self) -> Bool
 pub fn DisplayWidthError::not_equal(Self, Self) -> Bool
 pub fn DisplayWidthError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum AmbiguousWidth {
   Narrow
   Wide
-} derive(Eq, @debug.Debug)
+}
 pub fn AmbiguousWidth::equal(Self, Self) -> Bool
 pub fn AmbiguousWidth::not_equal(Self, Self) -> Bool
 pub fn AmbiguousWidth::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct DisplayUnit {
   // private fields
-} derive(Eq, @debug.Debug)
-pub fn DisplayUnit::cell_end(Self) -> Int
-pub fn DisplayUnit::cell_start(Self) -> Int
+}
+pub fn DisplayUnit::cell_end(Self) -> Int32
+pub fn DisplayUnit::cell_start(Self) -> Int32
 pub fn DisplayUnit::equal(Self, Self) -> Bool
 pub fn DisplayUnit::not_equal(Self, Self) -> Bool
 pub fn DisplayUnit::to_repr(Self) -> @debug.Repr
-pub fn DisplayUnit::utf16_end(Self) -> Int
-pub fn DisplayUnit::utf16_start(Self) -> Int
+pub fn DisplayUnit::utf16_end(Self) -> Int32
+pub fn DisplayUnit::utf16_start(Self) -> Int32
 
+#derive(Eq)
 pub enum GCB {
   Other
   CR
@@ -88,19 +92,21 @@ pub enum GCB {
   T
   LV
   LVT
-} derive(Eq)
+}
 pub fn GCB::equal(Self, Self) -> Bool
 pub fn GCB::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub enum InCB {
   IcbNone
   IcbConsonant
   IcbExtend
   IcbLinker
-} derive(Eq)
+}
 pub fn InCB::equal(Self, Self) -> Bool
 pub fn InCB::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub enum WB {
   WbOther
   WbCR
@@ -121,7 +127,7 @@ pub enum WB {
   WbNumeric
   WbExtendNumLet
   WbWSegSpace
-} derive(Eq)
+}
 pub fn WB::equal(Self, Self) -> Bool
 pub fn WB::not_equal(Self, Self) -> Bool
 

@@ -12,11 +12,12 @@
 ///   deviation.
 ///
 /// NoDivergence: all oracle booleans are true.
+#derive(Eq, Debug)
 pub enum DivergenceClass {
   NoDivergence
   ReplicationResidual(String)
   WrongModelStop(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for DivergenceClass with fn to_string(self) {

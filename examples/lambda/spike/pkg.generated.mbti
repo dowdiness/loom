@@ -30,7 +30,7 @@ pub fn combined_fixture() -> (String, Array[EditStep])
 
 pub fn diagnostics_structurally_equal(@core.DiagnosticSet, @core.DiagnosticSet) -> Bool
 
-pub fn e1_coverage_ratio(E1Measurement) -> (Int, Int)
+pub fn e1_coverage_ratio(E1Measurement) -> (Int32, Int32)
 
 pub fn e3_follow_up_gate() -> (Bool, String)
 
@@ -77,11 +77,12 @@ pub fn top_level_reuse_fixture() -> (String, Array[EditStep])
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub enum DivergenceClass {
   NoDivergence
   ReplicationResidual(String)
   WrongModelStop(String)
-} derive(Eq, @debug.Debug)
+}
 pub fn DivergenceClass::equal(Self, Self) -> Bool
 pub fn DivergenceClass::not_equal(Self, Self) -> Bool
 pub fn DivergenceClass::output(Self, &Logger) -> Unit
@@ -89,36 +90,41 @@ pub fn DivergenceClass::to_repr(Self) -> @debug.Repr
 pub fn DivergenceClass::to_string(Self) -> String
 pub impl Show for DivergenceClass
 
+#derive(Eq, @debug.Debug)
 pub struct E1Measurement {
-  total_rules : Int
-  declarative_rules : Int
-  hardcoded_rules : Int
-  escape_hatch_rules : Int
-} derive(Eq, @debug.Debug)
+  total_rules : Int32
+  declarative_rules : Int32
+  hardcoded_rules : Int32
+  escape_hatch_rules : Int32
+}
 pub fn E1Measurement::equal(Self, Self) -> Bool
 pub fn E1Measurement::not_equal(Self, Self) -> Bool
 pub fn E1Measurement::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub struct E2Measurement {
-  residue_count : Int
+  residue_count : Int32
   residues : Array[(String, String)]
   grown_nodes : Array[String]
-} derive(@debug.Debug)
+}
 pub fn E2Measurement::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub struct EditStep {
   label : String
   before : String
   after : String
   edit : @core.Edit
-} derive(@debug.Debug)
+}
 pub fn EditStep::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub struct NewlineAppProbeResult {
   divergence : DivergenceClass
-} derive(@debug.Debug)
+}
 pub fn NewlineAppProbeResult::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct OracleStepResult {
   label : String
   d1_ok : Bool
@@ -127,27 +133,29 @@ pub(all) struct OracleStepResult {
   reuse_parity_ok : Bool
   diagnostics_empty : Bool
   message_strings_matched : Bool
-  a_reuse_count : Int
-  b_reuse_count : Int
-} derive(Eq, @debug.Debug)
+  a_reuse_count : Int32
+  b_reuse_count : Int32
+}
 pub fn OracleStepResult::equal(Self, Self) -> Bool
 pub fn OracleStepResult::not_equal(Self, Self) -> Bool
 pub fn OracleStepResult::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub struct ReifiedIrOracleResult {
   d1_passed : Bool
   d2a_passed : Bool
   d2b_passed : Bool
   divergence : DivergenceClass
-} derive(@debug.Debug)
+}
 pub fn ReifiedIrOracleResult::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub struct ReuseProbePlan {
   target_grammar : String
   required_extensions : Array[String]
   expected_oracle_result : String
   gate_condition : String
-} derive(@debug.Debug)
+}
 pub fn ReuseProbePlan::to_repr(Self) -> @debug.Repr
 
 // Type aliases

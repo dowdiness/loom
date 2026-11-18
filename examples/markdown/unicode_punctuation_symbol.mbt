@@ -7,7 +7,7 @@
 // Ranges are sorted, non-overlapping `[start, end, ...]` code-point pairs.
 
 ///|
-let unicode_punctuation_symbol_ranges : Array[Int] = [
+let unicode_punctuation_symbol_ranges : Array[Int32] = [
   0x21, 0x2F, 0x3A, 0x40, 0x5B, 0x60, 0x7B, 0x7E, 0xA1, 0xA9, 0xAB, 0xAC, 0xAE, 0xB1,
   0xB4, 0xB4, 0xB6, 0xB8, 0xBB, 0xBB, 0xBF, 0xBF, 0xD7, 0xD7, 0xF7, 0xF7, 0x2C2,
   0x2C5, 0x2D2, 0x2DF, 0x2E5, 0x2EB, 0x2ED, 0x2ED, 0x2EF, 0x2FF, 0x375, 0x375, 0x37E,
@@ -82,7 +82,7 @@ let unicode_punctuation_symbol_ranges : Array[Int] = [
 ]
 
 ///|
-fn is_unicode_punctuation_or_symbol_codepoint(codepoint : Int) -> Bool {
+fn is_unicode_punctuation_or_symbol_codepoint(codepoint : Int32) -> Bool {
   let range_count = unicode_punctuation_symbol_ranges.length() / 2
   let mut low = 0
   let mut high = range_count

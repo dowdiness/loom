@@ -4,7 +4,7 @@ priv struct MojiTextDisplay {}
 ///|
 fn diagnostic_display_units(
   text : String,
-  start_column : Int,
+  start_column : Int32,
 ) -> Array[@moji.DisplayUnit] {
   try @moji.display_units(text, start_column~, tab_width=4) catch {
     _ => abort("diagnostic display-width context must be valid")
@@ -14,7 +14,7 @@ fn diagnostic_display_units(
 }
 
 ///|
-fn render_display_line(text : String, start_column : Int) -> String {
+fn render_display_line(text : String, start_column : Int32) -> String {
   let builder = StringBuilder()
   diagnostic_display_units(text, start_column).each(unit => {
     let view = text.view(
@@ -33,10 +33,10 @@ fn render_display_line(text : String, start_column : Int) -> String {
 ///|
 fn marker_cells(
   text : String,
-  start_column : Int,
-  utf16_start : Int,
-  utf16_end : Int,
-) -> (Int, Int) {
+  start_column : Int32,
+  utf16_start : Int32,
+  utf16_end : Int32,
+) -> (Int32, Int32) {
   let units = diagnostic_display_units(text, start_column)
   let line_cell_end = match units.last() {
     Some(unit) => unit.cell_end()

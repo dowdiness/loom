@@ -41,8 +41,8 @@ fn derive_kind_name(
 fn build_kind_entries(
   enum_decl : EnumDecl,
   registry : RawKindRegistry,
-) -> Array[(String, Int)] {
-  let kinds : Array[(String, Int)] = []
+) -> Array[(String, Int32)] {
+  let kinds : Array[(String, Int32)] = []
   let seen : @hashset.HashSet[String] = @hashset.HashSet([])
   let first_role : Map[String, SyntaxRole] = Map([])
   for variant in enum_decl.variants {
@@ -82,12 +82,12 @@ fn build_kind_entries(
 
 ///|
 fn emit_syntax_kind(
-  token_kinds : Array[(String, Int)],
-  term_kinds : Array[(String, Int)],
+  token_kinds : Array[(String, Int32)],
+  term_kinds : Array[(String, Int32)],
   trivia_set : @hashset.HashSet[String],
   error_set : @hashset.HashSet[String],
   error_node_name : String?,
-  retired_rawns : Array[Int],
+  retired_rawns : Array[Int32],
 ) -> String {
   let all = token_kinds + term_kinds
   let b = StringBuilder()

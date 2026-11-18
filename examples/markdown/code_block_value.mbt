@@ -20,7 +20,7 @@ fn list_item_marker_token(node : @seam.SyntaxNode) -> @seam.SyntaxToken? {
 fn list_item_content_column_from_node(
   node : @seam.SyntaxNode,
   source : String,
-) -> Int? {
+) -> Int32? {
   guard list_item_marker_token(node) is Some(marker) else { return None }
   let kind : SyntaxKind = @seam.FromRawKind::from_raw(marker.kind())
   let ordered = match kind {
@@ -53,7 +53,7 @@ fn list_item_content_column_from_node(
 fn block_quote_content_column_from_node(
   node : @seam.SyntaxNode,
   source : String,
-) -> Int? {
+) -> Int32? {
   guard node.direct_token_of_kind(BlockQuoteMarkerToken.to_raw())
     is Some(marker) else {
     return None
@@ -77,7 +77,7 @@ fn block_quote_content_column_from_node(
 fn nearest_container_content_column(
   node : @seam.SyntaxNode,
   source : String,
-) -> Int {
+) -> Int32 {
   for current = node.parent() {
     match current {
       Some(parent) => {
@@ -210,7 +210,7 @@ fn fenced_code_block_is_list_owned(node : @seam.SyntaxNode) -> Bool {
 fn fenced_code_block_structural_indent(
   node : @seam.SyntaxNode,
   source : String,
-) -> Int {
+) -> Int32 {
   match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
     Some(opening) => visual_column_at_offset(source, opening.start())
     None => 0

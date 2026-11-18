@@ -11,13 +11,13 @@
 struct ZeroWidthBoundaryBenchmarkFixture {
   shape : ZeroWidthReuseShape
   mode : ZeroWidthOldTreeMode
-  item_count : Int
-  boundary_count : Int
+  item_count : Int32
+  boundary_count : Int32
   source : String
   old_tree : @seam.CstNode
   edit : Edit
   tokens : Array[TokenInfo[TestTok]]
-  starts : Array[Int]
+  starts : Array[Int32]
   cache : OldTokenCache
   use_repeat_groups : Bool
 }
@@ -41,7 +41,7 @@ fn zero_width_bench_warm_cache(
   old_tree : @seam.CstNode,
   edit : Edit,
   tokens : Array[TokenInfo[TestTok]],
-  starts : Array[Int],
+  starts : Array[Int32],
   source : String,
   spec : LanguageSpec[TestTok, TestKind],
 ) -> OldTokenCache {
@@ -67,8 +67,8 @@ fn zero_width_bench_warm_cache(
 fn zero_width_bench_case(
   shape : ZeroWidthReuseShape,
   mode : ZeroWidthOldTreeMode,
-  item_count : Int,
-  boundary_count : Int,
+  item_count : Int32,
+  boundary_count : Int32,
 ) -> ZeroWidthBoundaryCase {
   guard item_count > 0 else {
     abort("zero-width boundary benchmark requires at least one item")
@@ -103,8 +103,8 @@ fn zero_width_bench_case(
 fn zero_width_bench_fixture(
   shape : ZeroWidthReuseShape,
   mode : ZeroWidthOldTreeMode,
-  item_count : Int,
-  boundary_count : Int,
+  item_count : Int32,
+  boundary_count : Int32,
 ) -> ZeroWidthBoundaryBenchmarkFixture {
   let case = zero_width_bench_case(shape, mode, item_count, boundary_count)
   let old_src = zero_width_source(case.old_values, case.old_gaps)
@@ -177,7 +177,7 @@ fn zero_width_bench_cursor(
 ///|
 fn zero_width_bench_parse_events(
   fixture : ZeroWidthBoundaryBenchmarkFixture,
-) -> (Int, Int, Int) {
+) -> (Int32, Int32, Int32) {
   let repeat_group_hits = [0]
   let spec = zero_width_boundary_spec(
     fixture.use_repeat_groups,
@@ -210,8 +210,8 @@ fn zero_width_bench_boundary_reuse(
   b : @bench.T,
   shape : ZeroWidthReuseShape,
   mode : ZeroWidthOldTreeMode,
-  item_count : Int,
-  boundary_count : Int,
+  item_count : Int32,
+  boundary_count : Int32,
 ) -> Unit {
   let fixture = zero_width_bench_fixture(
     shape, mode, item_count, boundary_count,

@@ -4,14 +4,15 @@
 // Goal-specific test token type — unique name to avoid collision with TestKind.
 
 ///|
+#derive(Eq, Debug)
 priv enum GoalTestTok {
   GTSlash
   GTRegex(String)
   GTIdent(String)
-  GTNumber(Int)
+  GTNumber(Int32)
   GTWs
   GTEof
-} derive(Eq, Debug)
+}
 
 ///|
 impl Show for GoalTestTok with fn output(self, logger) {
@@ -42,13 +43,14 @@ impl @seam.ToRawKind for GoalTestTok with fn to_raw(self) {
 }
 
 ///|
+#derive(Debug)
 enum GoalTestKind {
   GTKRegex
   GTKWs
   GTKErr
   GTKRoot
   GTKIncomplete
-} derive(Debug)
+}
 
 ///|
 impl @seam.ToRawKind for GoalTestKind with fn to_raw(self) {
@@ -68,8 +70,8 @@ impl @seam.ToRawKind for GoalTestKind with fn to_raw(self) {
 /// Goal 1 = RegExpGoal: '/.../' → Regex(body)
 fn goal_lex_step(
   source : String,
-  pos : Int,
-  goal : Int,
+  pos : Int32,
+  goal : Int32,
 ) -> LexStep[GoalTestTok] {
   if pos >= source.length() {
     return Done
@@ -171,7 +173,11 @@ fn baseline_tokenize(source : String) -> LexResult[GoalTestTok] {
 
 ///|
 /// Goal-aware lex step for TokenBuffer.
-fn goal_step_fn(source : String, pos : Int, goal : Int) -> LexStep[GoalTestTok] {
+fn goal_step_fn(
+  source : String,
+  pos : Int32,
+  goal : Int32,
+) -> LexStep[GoalTestTok] {
   goal_lex_step(source, pos, goal)
 }
 

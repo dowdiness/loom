@@ -2,20 +2,21 @@
 /// An exact, immutable grammar-entry context. Tags distinguish grammar-defined
 /// meanings; a parent shares enclosing context without copying or hashing it.
 /// Use with a LanguageSpec that enables track_reuse_dependencies.
+#derive(Eq)
 pub struct ReuseContext {
-  priv tag : Int
-  priv value : Int
+  priv tag : Int32
+  priv value : Int32
   priv parent : ReuseContext?
-} derive(Eq)
+}
 
 ///|
 pub extend ReuseContext with Eq::{equal, not_equal}
 
 ///|
 pub fn ReuseContext::new(
-  tag : Int,
-  value : Int,
-  parent? : ReuseContext? = None,
+  tag : Int32,
+  value : Int32,
+  parent~ : ReuseContext? = None,
 ) -> ReuseContext {
   { tag, value, parent, }
 }
@@ -32,41 +33,41 @@ pub struct ReuseDependencies {
 ///|
 priv struct NodeDependency {
   kind : @seam.RawKind
-  text_len : Int
+  text_len : Int32
   context : ReuseContext?
-  read_start : Int
-  read_end : Int
+  read_start : Int32
+  read_end : Int32
   children : Array[DependencyChild]
 }
 
 ///|
 priv struct DependencyChild {
-  offset : Int
+  offset : Int32
   // Only interpreted while the containing frame is being built. A reused
   // subtree receives a new placement event; its immutable children stay shared.
-  event : Int
+  event : Int32
   node : NodeDependency
 }
 
 ///|
 priv struct DependencyFrame {
   kind : @seam.RawKind
-  start : Int
-  event : Int
+  start : Int32
+  event : Int32
   context : ReuseContext?
   // Ancestor child lists stay frozen while a descendant is current. Save their
   // lengths on entry so checkpoints only need the current frame's child count.
   parent : DependencyFrame?
-  parent_children_len : Int
-  mut read_start : Int
-  mut read_end : Int
+  parent_children_len : Int32
+  mut read_start : Int32
+  mut read_end : Int32
   children : Array[DependencyChild]
 }
 
 ///|
 priv struct DependencyWrapUndo {
   parent : DependencyFrame
-  first_child : Int
+  first_child : Int32
   children : Array[DependencyChild]
 }
 
@@ -74,37 +75,37 @@ priv struct DependencyWrapUndo {
 priv struct DependencyBuilder {
   root : DependencyFrame
   mut frame : DependencyFrame
-  marks : Map[Int, Int]
-  mark_events : Array[Int]
+  marks : Map[Int32, Int32]
+  mark_events : Array[Int32]
   wrap_undos : Array[DependencyWrapUndo]
   mut observation : DependencyObservation?
-  mut next_observation : Int
-  mut pending_token_start : Int
-  mut pending_token_end : Int
+  mut next_observation : Int32
+  mut pending_token_start : Int32
+  mut pending_token_end : Int32
 }
 
 ///|
 priv struct DependencyCheckpoint {
   frame : DependencyFrame
-  children_len : Int
-  marks_len : Int
-  wraps_len : Int
+  children_len : Int32
+  marks_len : Int32
+  wraps_len : Int32
   observation : DependencyObservation
 }
 
 ///|
 priv struct DependencyObservation {
-  id : Int
+  id : Int32
   parent : DependencyObservation?
-  mut start : Int
-  mut end : Int
+  mut start : Int32
+  mut end : Int32
 }
 
 ///|
 fn DependencyObservation::observe(
   self : DependencyObservation,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Unit {
   self.start = self.start.min(start)
   self.end = self.end.max(end)
@@ -141,8 +142,8 @@ fn DependencyBuilder::new(kind : @seam.RawKind) -> DependencyBuilder {
 /// Convert only their extrema before either changes, not on every grammar peek.
 fn DependencyBuilder::flush_tokens(
   self : DependencyBuilder,
-  get_start : (Int) -> Int,
-  get_end : (Int) -> Int,
+  get_start : (Int32) -> Int32,
+  get_end : (Int32) -> Int32,
 ) -> Unit {
   if self.pending_token_end >= 0 {
     self.observe(
@@ -162,8 +163,8 @@ fn DependencyBuilder::current(self : DependencyBuilder) -> DependencyFrame {
 ///|
 fn DependencyFrame::observe(
   self : DependencyFrame,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Unit {
   self.read_start = self.read_start.min(start)
   self.read_end = self.read_end.max(end)
@@ -172,8 +173,8 @@ fn DependencyFrame::observe(
 ///|
 fn DependencyBuilder::observe(
   self : DependencyBuilder,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Unit {
   self.current().observe(start, end)
   match self.observation {
@@ -186,8 +187,8 @@ fn DependencyBuilder::observe(
 fn DependencyBuilder::start_node(
   self : DependencyBuilder,
   kind : @seam.RawKind,
-  start : Int,
-  event : Int,
+  start : Int32,
+  event : Int32,
   context : ReuseContext?,
 ) -> Unit {
   let parent = self.frame
@@ -208,8 +209,8 @@ fn DependencyBuilder::start_node(
 fn DependencyBuilder::place(
   self : DependencyBuilder,
   node : NodeDependency,
-  start : Int,
-  event : Int,
+  start : Int32,
+  event : Int32,
 ) -> Unit {
   let parent = self.current()
   self.observe(start + node.read_start, start + node.read_end)
@@ -217,7 +218,10 @@ fn DependencyBuilder::place(
 }
 
 ///|
-fn DependencyBuilder::finish_node(self : DependencyBuilder, end : Int) -> Unit {
+fn DependencyBuilder::finish_node(
+  self : DependencyBuilder,
+  end : Int32,
+) -> Unit {
   let frame = self.frame
   guard frame.parent is Some(parent) else { return }
   self.frame = parent
@@ -239,8 +243,8 @@ fn DependencyBuilder::finish_node(self : DependencyBuilder, end : Int) -> Unit {
 ///|
 fn DependencyBuilder::mark(
   self : DependencyBuilder,
-  event : Int,
-  start : Int,
+  event : Int32,
+  start : Int32,
 ) -> Unit {
   self.marks[event] = start
   self.mark_events.push(event)
@@ -249,7 +253,7 @@ fn DependencyBuilder::mark(
 ///|
 fn DependencyBuilder::start_at(
   self : DependencyBuilder,
-  mark : Int,
+  mark : Int32,
   kind : @seam.RawKind,
   context : ReuseContext?,
 ) -> Unit {
@@ -375,7 +379,7 @@ fn DependencyBuilder::end_lookahead(
 fn DependencyBuilder::finish(
   self : DependencyBuilder,
   kind : @seam.RawKind,
-  text_len : Int,
+  text_len : Int32,
 ) -> ReuseDependencies {
   let frame = self.root
   let root = if frame.children.length() == 1 &&
@@ -432,8 +436,8 @@ fn ReuseDependencies::combined_edit(
 ///|
 fn ReuseDependencies::base_offset(
   self : ReuseDependencies,
-  offset : Int,
-) -> Int? {
+  offset : Int32,
+) -> Int32? {
   match self.pending_edit {
     None => Some(offset)
     Some(edit) =>
@@ -472,9 +476,9 @@ fn NodeDependency::has_nested_match(
 ///|
 fn NodeDependency::find(
   self : NodeDependency,
-  offset : Int,
+  offset : Int32,
   kind : @seam.RawKind,
-  text_len : Int,
+  text_len : Int32,
 ) -> NodeDependency? {
   if offset == 0 && self.kind == kind && self.text_len == text_len {
     // Same-kind wrappers can share a consumed span. Without an unambiguous
@@ -522,8 +526,8 @@ pub fn[T, K, R] ParserContext::with_reuse_context(
 /// a boundary (including EOF); insertion there invalidates the dependency.
 pub fn[T, K] ParserContext::observe_source_range(
   self : ParserContext[T, K],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Unit {
   match self.dependency_builder {
     Some(builder) => builder.observe(start, end)
@@ -534,7 +538,7 @@ pub fn[T, K] ParserContext::observe_source_range(
 ///|
 fn[T, K] ParserContext::observe_token(
   self : ParserContext[T, K],
-  pos : Int,
+  pos : Int32,
 ) -> Unit {
   match self.dependency_builder {
     None => ()
@@ -550,7 +554,7 @@ fn[T, K] ParserContext::observe_token(
 }
 
 ///|
-fn[T, K] ParserContext::source_position(self : ParserContext[T, K]) -> Int {
+fn[T, K] ParserContext::source_position(self : ParserContext[T, K]) -> Int32 {
   if self.position < self.token_count {
     (self.get_start)(self.position)
   } else {
@@ -562,7 +566,7 @@ fn[T, K] ParserContext::source_position(self : ParserContext[T, K]) -> Int {
 fn[T, K] ReuseCursor::dependencies_match(
   self : ReuseCursor[T, K],
   node : @seam.CstNode,
-  old_offset : Int,
+  old_offset : Int32,
   context : ReuseContext?,
 ) -> Bool {
   self.last_dependency = None
@@ -596,8 +600,8 @@ fn[T, K] ReuseCursor::dependencies_match(
 fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse_in_context(
   self : ReuseCursor[T, K],
   kind : @seam.RawKind,
-  offset : Int,
-  token_pos : Int,
+  offset : Int32,
+  token_pos : Int32,
   context : ReuseContext?,
 ) -> @seam.CstNode? {
   match self.try_reuse_checked(kind, offset, token_pos, context~) {

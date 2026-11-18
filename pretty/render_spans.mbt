@@ -1,10 +1,10 @@
 ///|
 pub fn[A] render_spans(
   layout : Layout[A],
-  width? : Int = 80,
+  width~ : Int32 = 80,
 ) -> Array[(Span, A)] {
   let spans : Array[(Span, A)] = []
-  let ann_stack : Array[(A, Int)] = []
+  let ann_stack : Array[(A, Int32)] = []
   for cmd in resolve(width, layout); offset = 0 {
     match cmd {
       CText(s) => continue offset + s.length()

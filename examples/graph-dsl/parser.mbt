@@ -1,5 +1,5 @@
 ///|
-const MAX_ERRORS : Int = 50
+const MAX_ERRORS : Int32 = 50
 
 ///|
 fn is_statement_start(token : Token) -> Bool {

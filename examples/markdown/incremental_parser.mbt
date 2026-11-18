@@ -1,8 +1,9 @@
 ///|
 /// A supplied change hint does not describe the authoritative updated source.
+#derive(Eq, Debug)
 pub suberror MarkdownUpdateError {
   ChangeSetMismatch
-} derive(Eq, Debug)
+}
 
 ///|
 /// Mutable owner of one Markdown source and its latest detached snapshot.
@@ -17,8 +18,8 @@ pub(all) struct IncrementalParser {
 /// Create an incremental parser with a private parser lifetime.
 pub fn IncrementalParser::IncrementalParser(
   source : String,
-  source_id? : @core.SourceId = @core.SourceId("markdown"),
-  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
+  source_id~ : @core.SourceId = @core.SourceId("markdown"),
+  extensions~ : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> IncrementalParser raise Failure {
   let document = parse(source, source_id~, extensions~)
   { source_id, extensions, source, document, }

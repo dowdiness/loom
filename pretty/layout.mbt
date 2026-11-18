@@ -7,28 +7,29 @@
 /// Every variant carries a cached `fw` (flat-width): the width when rendered flat,
 /// or -1 if the subtree contains HardLine (cannot be flattened). Precomputed at
 /// construction, so `Group` decisions are O(1).
+#derive(Debug, Eq)
 pub enum Layout[A] {
   /// Identity for Concat — produces no output. fw=0.
-  Empty(Int)
+  Empty(Int32)
   /// Literal text — rendered as-is. Must not contain newlines. The cached
   /// width is either s.length() or an explicit measured layout-column width.
-  Text(String, Int)
+  Text(String, Int32)
   /// Soft break: space in Flat mode, newline + indent in Break mode. fw=1.
-  Line(Int)
+  Line(Int32)
   /// Unconditional newline regardless of mode. fw = -1 (cannot be flattened).
-  HardLine(Int)
+  HardLine(Int32)
   /// Increase indentation by `Int` spaces for nested content. fw = doc.fw.
-  Nest(Int, Layout[A], Int)
+  Nest(Int32, Layout[A], Int32)
   /// Sequential composition — render left then right. fw = combine(l.fw, r.fw).
-  Concat(Layout[A], Layout[A], Int)
+  Concat(Layout[A], Layout[A], Int32)
   /// Layout decision point: try rendering content flat. fw = doc.fw.
-  Group(Layout[A], Int)
+  Group(Layout[A], Int32)
   /// Attach a semantic tag to content. fw = doc.fw.
-  Annotate(A, Layout[A], Int)
-} derive(Debug, Eq)
+  Annotate(A, Layout[A], Int32)
+}
 
 ///|
-pub fn[A] layout_fw(layout : Layout[A]) -> Int {
+pub fn[A] layout_fw(layout : Layout[A]) -> Int32 {
   match layout {
     Empty(fw)
     | Text(_, fw)
@@ -42,7 +43,7 @@ pub fn[A] layout_fw(layout : Layout[A]) -> Int {
 }
 
 ///|
-fn combine_fws(a : Int, b : Int) -> Int {
+fn combine_fws(a : Int32, b : Int32) -> Int32 {
   if a < 0 || b < 0 {
     -1
   } else {

@@ -7,15 +7,15 @@ extern "js" fn block_boundary_bench_now_ms() -> Double =
 #cfg(target="js")
 priv struct BoundaryBenchFixture {
   source : String
-  starts : Array[Int]
+  starts : Array[Int32]
 }
 
 ///|
 #cfg(target="js")
-fn boundary_bench_fixture(block_count : Int) -> BoundaryBenchFixture {
+fn boundary_bench_fixture(block_count : Int32) -> BoundaryBenchFixture {
   let units = block_count / 2
   let builder = StringBuilder()
-  let starts : Array[Int] = []
+  let starts : Array[Int32] = []
   let mut offset = 0
   for i in 0..<units {
     let heading = "## Section " + i.to_string() + "\n\n"
@@ -35,7 +35,7 @@ fn boundary_bench_fixture(block_count : Int) -> BoundaryBenchFixture {
 #cfg(target="js")
 fn boundary_bench_replace(
   source : String,
-  position : Int,
+  position : Int32,
   text : String,
 ) -> String {
   source[:position].to_owned() + text + source[position + 1:].to_owned()
@@ -51,7 +51,7 @@ fn boundary_bench_p95(sorted : Array[Double]) -> Double {
 ///|
 #cfg(target="js")
 fn boundary_bench_report(
-  block_count : Int,
+  block_count : Int32,
   path : String,
   samples : Array[Double],
 ) -> Unit {
@@ -107,9 +107,9 @@ fn assert_boundary_benchmark_paths(
 ///|
 #cfg(target="js")
 fn run_boundary_parser_benchmark(
-  block_count : Int,
+  block_count : Int32,
   path : String,
-  offset : Int,
+  offset : Int32,
   replacement : String,
 ) -> Unit raise {
   let fixture = boundary_bench_fixture(block_count)
@@ -143,7 +143,7 @@ fn run_boundary_parser_benchmark(
 #cfg(target="js")
 fn benchmark_markdown_ancestor_of_kind(
   syntax : @seam.SyntaxNode,
-  position : Int,
+  position : Int32,
   kind : @seam.RawKind,
 ) -> @seam.SyntaxNode {
   let mut current : @seam.SyntaxNode? = Some(syntax.find_at(position))
@@ -158,14 +158,14 @@ fn benchmark_markdown_ancestor_of_kind(
 
 ///|
 #cfg(target="js")
-fn run_boundary_phase_benchmark(block_count : Int) -> Unit raise {
+fn run_boundary_phase_benchmark(block_count : Int32) -> Unit raise {
   let fixture = boundary_bench_fixture(block_count)
   let source_id = @core.SourceId("markdown-block-boundary-phase-benchmark")
   let (old_cst, old_diagnostics) = try! parse_cst(source_id, fixture.source)
   let old_syntax = @seam.SyntaxNode::from_cst(old_cst)
   let locations = 16
-  let updates : Array[(Int, String, @core.Edit, @core.LexResult[Token])] = []
-  let splice_inputs : Array[(Array[Int], @seam.CstNode)] = []
+  let updates : Array[(Int32, String, @core.Edit, @core.LexResult[Token])] = []
+  let splice_inputs : Array[(Array[Int32], @seam.CstNode)] = []
   for slot in 0..<locations {
     let fixture_index = slot * fixture.starts.length() / locations
     let position = fixture.starts[fixture_index]

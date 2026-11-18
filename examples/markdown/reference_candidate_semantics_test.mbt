@@ -1,7 +1,7 @@
 ///|
 fn reference_candidate_semantics_ir(
   source : String,
-  extensions? : @markdown.MarkdownExtensions = @markdown.MarkdownExtensions::none(),
+  extensions~ : @markdown.MarkdownExtensions = @markdown.MarkdownExtensions::none(),
 ) -> @markdown.MarkdownIR raise {
   let source_id = @core.SourceId("markdown-reference-candidate-semantics")
   let parser = try! @loom.new_syntax_parser(

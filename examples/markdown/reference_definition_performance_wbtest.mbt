@@ -1,5 +1,5 @@
 ///|
-fn consecutive_reference_definitions_source(count : Int) -> String {
+fn consecutive_reference_definitions_source(count : Int32) -> String {
   let builder = StringBuilder::StringBuilder()
   for i = 0; i < count; i = i + 1 {
     builder.write_string("[label-")
@@ -14,7 +14,7 @@ fn consecutive_reference_definitions_source(count : Int) -> String {
 ///|
 fn benchmark_consecutive_reference_definition_tokenize(
   b : @bench.T,
-  count : Int,
+  count : Int32,
 ) -> Unit {
   let source = consecutive_reference_definitions_source(count)
   b.bench(fn() {
@@ -26,7 +26,7 @@ fn benchmark_consecutive_reference_definition_tokenize(
 ///|
 fn benchmark_consecutive_reference_definition_parse(
   b : @bench.T,
-  count : Int,
+  count : Int32,
 ) -> Unit {
   let source = consecutive_reference_definitions_source(count)
   let source_id = @core.SourceId("markdown-reference-definition-performance")
@@ -40,8 +40,8 @@ fn benchmark_consecutive_reference_definition_parse(
 
 ///|
 fn consecutive_reference_definition_lookahead_work(
-  count : Int,
-) -> (Int, Int, Int) raise {
+  count : Int32,
+) -> (Int32, Int32, Int32) raise {
   let source = consecutive_reference_definitions_source(count)
   let tokens = tokenize(source)
   let starts = @core.build_starts(tokens)

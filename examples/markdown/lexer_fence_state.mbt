@@ -1,18 +1,18 @@
 ///|
 priv struct SourceFenceCandidate {
-  marker_start : Int
-  run_len : Int
+  marker_start : Int32
+  run_len : Int32
 }
 
 ///|
 priv struct SourceListMarkerFacts {
-  marker_indent : Int
-  content_indent : Int
-  content_start : Int
+  marker_indent : Int32
+  content_indent : Int32
+  content_start : Int32
 }
 
 ///|
-fn previous_source_line_start(input : String, line_start : Int) -> Int? {
+fn previous_source_line_start(input : String, line_start : Int32) -> Int32? {
   guard line_start > 0 else { return None }
   let break_start = if line_start >= 2 &&
     char_at(input, line_start - 2) == Some('\r') &&
@@ -31,9 +31,9 @@ fn previous_source_line_start(input : String, line_start : Int) -> Int? {
 ///|
 fn source_line_list_marker_facts(
   input : String,
-  line_start : Int,
-  line_end : Int,
-  start_column? : Int = 0,
+  line_start : Int32,
+  line_end : Int32,
+  start_column~ : Int32 = 0,
 ) -> SourceListMarkerFacts? {
   let (marker_start, marker_indent) = leading_indent_end_offset_and_column(
     input, line_start, start_column,
@@ -82,8 +82,8 @@ fn source_line_list_marker_facts(
 /// fences nested below a list marker still need their opening column recovered.
 fn source_line_is_list_owned(
   input : String,
-  line_start : Int,
-  line_indent : Int,
+  line_start : Int32,
+  line_indent : Int32,
 ) -> Bool {
   let mut cursor = line_start
   let mut required_indent = line_indent
@@ -122,9 +122,9 @@ fn source_line_is_list_owned(
 /// opening column when it enters CodeBlock mode.
 fn source_fence_candidate(
   input : String,
-  line_start : Int,
-  line_end : Int,
-  fence_len : Int,
+  line_start : Int32,
+  line_end : Int32,
+  fence_len : Int32,
   fence_character : Char,
 ) -> SourceFenceCandidate? {
   let (start, leading_indent) = leading_indent_end_offset_and_column(
@@ -185,7 +185,7 @@ fn source_fence_candidate(
 }
 
 ///|
-fn quote_marker_count(prefix : StringView) -> Int {
+fn quote_marker_count(prefix : StringView) -> Int32 {
   let mut depth = 0
   for offset = 0; offset < prefix.length(); offset = offset + 1 {
     if prefix.get_char(offset) is Some('>') {
@@ -200,10 +200,10 @@ fn quote_marker_count(prefix : StringView) -> Int {
 /// Stop at an enclosing-quote exit or unindented content, not at a blank line.
 fn source_quote_marker_list_indent(
   input : String,
-  line_start : Int,
-  outer_indents : Array[Int],
-  marker_indent : Int,
-) -> Int {
+  line_start : Int32,
+  outer_indents : Array[Int32],
+  marker_indent : Int32,
+) -> Int32 {
   let mut line = line_start
   while previous_source_line_start(input, line) is Some(previous) {
     line = previous
@@ -259,11 +259,11 @@ fn source_quote_marker_list_indent(
 /// at the opening fence; quote-local optional indentation remains a 0..3 band.
 fn source_fence_quote_indents(
   input : String,
-  line_start : Int,
-  fence_start : Int,
-) -> Array[Int]? {
+  line_start : Int32,
+  fence_start : Int32,
+) -> Array[Int32]? {
   guard input[line_start:fence_start].contains(">") else { return None }
-  let indents : Array[Int] = []
+  let indents : Array[Int32] = []
   let mut cursor = line_start
   let mut owned_indent = 0
   let mut column = 0
@@ -327,9 +327,9 @@ fn source_fence_quote_indents(
 /// End of an exact physical quote prefix; following markers are code content.
 fn quoted_code_prefix_end(
   input : String,
-  start : Int,
-  quote_indents : Array[Int]?,
-) -> Int? {
+  start : Int32,
+  quote_indents : Array[Int32]?,
+) -> Int32? {
   let depth = match quote_indents {
     Some(indents) => indents.length()
     None => 1
@@ -369,7 +369,7 @@ fn quoted_code_prefix_end(
 ///|
 /// The closing fence may be preceded by up to three literal spaces, or by
 /// the opening indentation when that indentation is deeper.
-fn code_block_max_leading_spaces(opening_indent : Int?) -> Int {
+fn code_block_max_leading_spaces(opening_indent : Int32?) -> Int32 {
   match opening_indent {
     Some(indent) if indent >= 4 => indent
     _ => 3
@@ -381,10 +381,10 @@ fn code_block_max_leading_spaces(opening_indent : Int?) -> Int {
 /// only literal leading spaces are skipped, and the fence tail must be blank.
 fn source_code_block_close_candidate(
   input : String,
-  line_start : Int,
-  fence_len : Int,
+  line_start : Int32,
+  fence_len : Int32,
   fence_character : Char,
-  opening_indent : Int,
+  opening_indent : Int32,
 ) -> Bool {
   let max_leading_spaces = code_block_max_leading_spaces(Some(opening_indent))
   let mut fence_start = line_start

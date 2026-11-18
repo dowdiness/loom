@@ -25,7 +25,7 @@ fn block_reparse_benchmark_source_id() -> @core.SourceId {
 ///   f(N-1) 0
 ///
 /// Each definition exercises ParamList, BlockExpr, and arithmetic.
-fn make_block_let_chain(n : Int) -> String {
+fn make_block_let_chain(n : Int32) -> String {
   let segments : Array[String] = []
   for i = 0; i < n; i = i + 1 {
     segments.push("fn f\{i}(x) { let a = x + \{i}; a }\n")
@@ -37,7 +37,7 @@ fn make_block_let_chain(n : Int) -> String {
 ///|
 /// Find the byte position of the number in "x + N" inside the block at index `block_idx`.
 /// Returns the start position of the digit(s) of N.
-fn find_block_number_pos(source : String, block_idx : Int) -> Int {
+fn find_block_number_pos(source : String, block_idx : Int32) -> Int32 {
   // Search for the pattern "x + <digits>;" — each block has exactly one.
   // We find the (block_idx+1)-th occurrence of "x + " and return the position
   // after it (where the digits start).
@@ -59,7 +59,7 @@ fn find_block_number_pos(source : String, block_idx : Int) -> Int {
 
 ///|
 /// Length of the decimal representation of a non-negative integer.
-fn digit_len(n : Int) -> Int {
+fn digit_len(n : Int32) -> Int32 {
   if n < 10 {
     1
   } else if n < 100 {

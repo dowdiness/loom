@@ -1,8 +1,8 @@
 ///|
 fn atomic_multi_edit_benchmark_changes(
   source : String,
-  block_count : Int,
-  edit_count : Int,
+  block_count : Int32,
+  edit_count : Int32,
   inserted : String,
 ) -> @text_change.ChangeSet {
   let changes : Array[@text_change.TextChange] = []
@@ -21,7 +21,7 @@ fn atomic_multi_edit_benchmark_changes(
 ///|
 fn bench_atomic_multi_edit(
   b : @bench.T,
-  edit_count : Int,
+  edit_count : Int32,
   source_id : String,
 ) -> Unit {
   let block_count = 2500

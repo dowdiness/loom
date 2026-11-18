@@ -253,7 +253,7 @@ pub fn[F : Finder] CstElement::find(self : CstElement, f : F) -> CstElement? {
 pub fn CstElement::token_count(
   self : CstElement,
   trivia_kinds : Array[RawKind],
-) -> Int {
+) -> Int32 {
   match self {
     Token(t) => if trivia_kinds.contains(t.kind) { 0 } else { 1 }
     Node({ children, .. }) =>

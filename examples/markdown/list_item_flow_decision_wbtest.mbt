@@ -13,9 +13,9 @@ fn list_item_flow_decision_name(decision : ListItemFlowDecision) -> String {
 fn assert_list_item_flow_decision(
   current : Token,
   next : Token,
-  indent : Int?,
+  indent : Int32?,
   context : ListItemFlowContext,
-  code_indent : Int,
+  code_indent : Int32,
   expected : String,
 ) -> Unit raise {
   inspect(
@@ -32,9 +32,9 @@ fn assert_list_item_flow_decision(
 fn assert_prefixed_list_item_block_decision(
   current : Token,
   next : Token,
-  indent : Int,
+  indent : Int32,
   context : ListItemFlowContext,
-  code_indent : Int,
+  code_indent : Int32,
   expected : String,
 ) -> Unit raise {
   inspect(

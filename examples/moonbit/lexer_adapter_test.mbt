@@ -49,8 +49,16 @@ test "official lexer diagnostics retain supplied source IDs independently of nam
   let source = "let x = `"
   let source_a = @core.SourceId::SourceId("moonbit-lexer-a")
   let source_b = @core.SourceId::SourceId("moonbit-lexer-b")
-  let result_a = @moonbit-example.lex_moonbit(source_a, source, name="first.mbt")
-  let result_b = @moonbit-example.lex_moonbit(source_b, source, name="second.mbt")
+  let result_a = @moonbit-example.lex_moonbit(
+    source_a,
+    source,
+    name="first.mbt",
+  )
+  let result_b = @moonbit-example.lex_moonbit(
+    source_b,
+    source,
+    name="second.mbt",
+  )
   let diagnostic_a = result_a.diagnostics().items()[0]
   let diagnostic_b = result_b.diagnostics().items()[0]
   inspect(diagnostic_a.origin().name(), content="lexer")

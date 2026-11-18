@@ -31,15 +31,15 @@ fn token_is_inline_end(token : Token, policy : InlineParsePolicy) -> Bool {
 
 ///|
 priv struct CodeSpanDelimiterIndex {
-  eligible_openers : Map[Int, Bool]
-  successors : Map[Int, Int]
+  eligible_openers : Map[Int32, Bool]
+  successors : Map[Int32, Int32]
   mut has_angle_open : Bool
 }
 
 ///|
 priv struct InlineDelimiterPlanCursor {
   events : ReadOnlyArray[DelimiterPlanEvent]
-  mut event_index : Int
+  mut event_index : Int32
   emphasis_stack : Array[ResolvedEmphasisKind]
 }
 
@@ -72,6 +72,7 @@ fn last_char_in_inline_text(text : StringView) -> Char? {
 }
 
 ///|
+#derive(Eq)
 priv enum InlineAnalysisTokenKind {
   AnalysisAsterisk
   AnalysisUnderscore
@@ -84,15 +85,15 @@ priv enum InlineAnalysisTokenKind {
   AnalysisAngleClose
   AnalysisLineBoundary
   AnalysisOther
-} derive(Eq)
+}
 
 ///|
 priv struct InlineAnalysisToken {
   kind : InlineAnalysisTokenKind
   // Borrowed from the parser's immutable source for this analysis pass.
   text : StringView
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   first : Char?
   last : Char?
   ends_with_odd_backslashes : Bool
@@ -102,13 +103,13 @@ priv struct InlineAnalysisToken {
 priv struct InlineLinkDelimiterIndex {
   candidates : Array[InlineLinkCandidate]
   autolinks : InlineAutolinkIndex?
-  bracket_matches : Map[Int, InlineBracketMatch]
-  candidate_by_opener : Map[Int, Int]
-  candidate_by_suffix : Map[Int, Int]
-  candidate_by_label_closer : Map[Int, Int]
-  code_conflict_openers : Map[Int, Bool]
-  code_conflict_closers : Map[Int, Bool]
-  code_conflict_parens : Map[Int, Bool]
+  bracket_matches : Map[Int32, InlineBracketMatch]
+  candidate_by_opener : Map[Int32, Int32]
+  candidate_by_suffix : Map[Int32, Int32]
+  candidate_by_label_closer : Map[Int32, Int32]
+  code_conflict_openers : Map[Int32, Bool]
+  code_conflict_closers : Map[Int32, Bool]
+  code_conflict_parens : Map[Int32, Bool]
 }
 
 ///|
@@ -120,13 +121,13 @@ priv enum InlineLinkSyntacticForm {
 
 ///|
 priv struct InlineBracketFrame {
-  index : Int
-  code_conflict_generation : Int
+  index : Int32
+  code_conflict_generation : Int32
 }
 
 ///|
 priv struct InlineBracketMatch {
-  closer_index : Int
+  closer_index : Int32
   code_conflict : Bool
 }
 
@@ -138,10 +139,10 @@ priv enum InlineLinkCandidateDisposition {
 
 ///|
 priv struct InlineLinkCandidate {
-  opener_start : Int
-  label_closer_start : Int
-  suffix_start : Int
-  suffix_end : Int
+  opener_start : Int32
+  label_closer_start : Int32
+  suffix_start : Int32
+  suffix_end : Int32
   form : InlineLinkSyntacticForm
   mut disposition : InlineLinkCandidateDisposition
   is_image : Bool
@@ -151,8 +152,8 @@ priv struct InlineLinkCandidate {
 ///|
 priv struct InlineAutolinkCandidate {
   kind : InlineAngleKind
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   mut active : Bool
 }
 
@@ -165,7 +166,7 @@ priv struct InlineAutolinkIndex {
 
 ///|
 priv struct InlineLinkLabelFrame {
-  candidate_index : Int
+  candidate_index : Int32
   mut contains_qualifying_descendant : Bool
 }
 
@@ -180,7 +181,7 @@ fn register_inline_link_candidate(
 ///|
 fn inline_link_candidate_is_image(
   tokens : Array[InlineAnalysisToken],
-  opener_index : Int,
+  opener_index : Int32,
 ) -> Bool {
   guard opener_index > 0 else { return false }
   let previous = tokens[opener_index - 1]
@@ -228,8 +229,8 @@ fn finalize_inline_link_candidates(
   links : InlineLinkDelimiterIndex,
   tokens : Array[InlineAnalysisToken],
 ) -> Unit {
-  let destination_starts : Map[Int, Int] = Map([])
-  let destination_ends : Map[Int, Int] = Map([])
+  let destination_starts : Map[Int32, Int32] = Map([])
+  let destination_ends : Map[Int32, Int32] = Map([])
   for candidate in links.candidates {
     destination_starts[candidate.suffix_start] = destination_starts
       .get(candidate.suffix_start)
@@ -308,7 +309,7 @@ fn finalize_inline_link_candidates(
 ///|
 fn inline_link_candidate_for_opener(
   links : InlineLinkDelimiterIndex,
-  opener_start : Int,
+  opener_start : Int32,
 ) -> InlineLinkCandidate? {
   links.candidate_by_opener
   .get(opener_start)
@@ -318,7 +319,7 @@ fn inline_link_candidate_for_opener(
 ///|
 fn inline_link_candidate_for_label_closer(
   links : InlineLinkDelimiterIndex,
-  label_closer_start : Int,
+  label_closer_start : Int32,
 ) -> InlineLinkCandidate? {
   links.candidate_by_label_closer
   .get(label_closer_start)
@@ -328,7 +329,7 @@ fn inline_link_candidate_for_label_closer(
 ///|
 fn inline_link_candidate_for_suffix(
   links : InlineLinkDelimiterIndex,
-  suffix_start : Int,
+  suffix_start : Int32,
 ) -> InlineLinkCandidate? {
   links.candidate_by_suffix
   .get(suffix_start)
@@ -338,8 +339,8 @@ fn inline_link_candidate_for_suffix(
 ///|
 fn inline_autolink_candidate_index_for_opener(
   autolinks : InlineAutolinkIndex,
-  opener_start : Int,
-) -> Int? {
+  opener_start : Int32,
+) -> Int32? {
   match
     autolinks.candidates[:].binary_search_by(candidate => {
       candidate.start.compare(opener_start)
@@ -352,7 +353,7 @@ fn inline_autolink_candidate_index_for_opener(
 ///|
 fn inline_autolink_candidate_at(
   autolinks : InlineAutolinkIndex,
-  opener_start : Int,
+  opener_start : Int32,
 ) -> InlineAutolinkCandidate? {
   inline_autolink_candidate_index_for_opener(autolinks, opener_start).map(index => {
     autolinks.candidates[index]
@@ -362,7 +363,7 @@ fn inline_autolink_candidate_at(
 ///|
 fn inline_autolink_candidate_for_opener(
   links : InlineLinkDelimiterIndex,
-  opener_start : Int,
+  opener_start : Int32,
 ) -> InlineAutolinkCandidate? {
   links.autolinks.bind(autolinks => {
     inline_autolink_candidate_at(autolinks, opener_start)
@@ -484,7 +485,7 @@ fn source_view_is_line_ending(view : StringView) -> Bool {
 /// that span wider and deliberately select fallback reconstruction.
 fn contiguous_inline_analysis_source(
   tokens : Array[InlineAnalysisToken],
-) -> (StringView, Int)? {
+) -> (StringView, Int32)? {
   guard tokens.length() > 0 else { return None }
   let first = tokens[0]
   guard first.kind != AnalysisLineBoundary else { return None }
@@ -528,8 +529,8 @@ fn index_inline_autolinks(
   } else {
     None
   }
-  let logical_starts : Array[Int] = []
-  let logical_ends : Array[Int] = []
+  let logical_starts : Array[Int32] = []
+  let logical_ends : Array[Int32] = []
   let reconstructed_source = if has_exposed_angle && contiguous_source is None {
     let buf = StringBuilder::StringBuilder()
     let mut logical_end = 0
@@ -619,9 +620,9 @@ fn index_inline_autolinks(
 ///|
 fn analysis_code_closer_index(
   tokens : Array[InlineAnalysisToken],
-  index : Int,
+  index : Int32,
   code_delimiters : CodeSpanDelimiterIndex,
-) -> Int? {
+) -> Int32? {
   let token = tokens[index]
   guard token.kind == AnalysisBacktick &&
     code_delimiters.eligible_openers.get(token.start).unwrap_or(false) &&
@@ -638,20 +639,20 @@ fn analysis_code_closer_index(
 
 ///|
 priv enum InlineDestinationBoundary {
-  Complete(Int)
-  Literal(Int)
+  Complete(Int32)
+  Literal(Int32)
 }
 
 ///|
 priv struct InlineDestinationFrame {
-  opener : Int
+  opener : Int32
   mut prefix_pending : Bool
   mut in_angle : Bool
   mut angle_seen : Bool
   mut angle_line_break : Bool
   mut escaped : Bool
   mut content_seen : Bool
-  mut nested_paren_count : Int
+  mut nested_paren_count : Int32
   mut has_backtick : Bool
   mut literal_queued : Bool
   mut closed : Bool
@@ -660,8 +661,8 @@ priv struct InlineDestinationFrame {
 ///|
 fn queue_inline_destination_literal_if_eligible(
   frames : Array[InlineDestinationFrame],
-  frame_index : Int,
-  queued : Array[Int],
+  frame_index : Int32,
+  queued : Array[Int32],
 ) -> Unit {
   let frame = frames[frame_index]
   if !frame.literal_queued &&
@@ -680,11 +681,11 @@ fn queue_inline_destination_literal_if_eligible(
 /// only the selected opener/label/suffix disposition.
 fn index_inline_destinations(
   tokens : Array[InlineAnalysisToken],
-) -> Map[Int, InlineDestinationBoundary] {
-  let boundaries : Map[Int, InlineDestinationBoundary] = Map([])
+) -> Map[Int32, InlineDestinationBoundary] {
+  let boundaries : Map[Int32, InlineDestinationBoundary] = Map([])
   let frames : Array[InlineDestinationFrame] = []
-  let open_frames : Array[Int] = []
-  let queued_frames : Array[Int] = []
+  let open_frames : Array[Int32] = []
+  let queued_frames : Array[Int32] = []
   let mut previous_end = 0
   for index = 0; index < tokens.length(); index = index + 1 {
     let token = tokens[index]
@@ -866,8 +867,8 @@ fn inline_analysis_token_is_spaces(token : InlineAnalysisToken) -> Bool {
 ///|
 fn inline_link_target_disposition(
   tokens : Array[InlineAnalysisToken],
-  content_start : Int,
-  content_end : Int,
+  content_start : Int32,
+  content_end : Int32,
 ) -> InlineLinkCandidateDisposition {
   let mut first_content = content_start
   while first_content < content_end &&
@@ -893,16 +894,16 @@ fn index_inline_links(
   tokens : Array[InlineAnalysisToken],
   code_delimiters : CodeSpanDelimiterIndex,
 ) -> InlineLinkDelimiterIndex {
-  let bracket_matches : Map[Int, InlineBracketMatch] = Map([])
+  let bracket_matches : Map[Int32, InlineBracketMatch] = Map([])
   let bracket_stack : Array[InlineBracketFrame] = []
   // A bracket opened before an opaque code span cannot be closed by a right
   // bracket inside that span. Keep this fact in the same indexed authority so
   // the parser can emit the opener literally when no later source closer
   // makes the label valid. A generation records the fact without walking all
   // open brackets for every code span.
-  let code_conflict_openers : Map[Int, Bool] = Map([])
-  let code_conflict_closers : Map[Int, Bool] = Map([])
-  let code_conflict_parens : Map[Int, Bool] = Map([])
+  let code_conflict_openers : Map[Int32, Bool] = Map([])
+  let code_conflict_closers : Map[Int32, Bool] = Map([])
+  let code_conflict_parens : Map[Int32, Bool] = Map([])
   let autolinks = if code_delimiters.has_angle_open {
     Some(index_inline_autolinks(tokens, code_delimiters))
   } else {
@@ -1106,12 +1107,12 @@ fn resolve_inline_autolink_link_conflicts(
 ) -> Unit {
   guard links.autolinks is Some(autolinks) else { return }
   guard links.candidates.length() > 0 else { return }
-  let destination_starts : Map[Int, Int] = Map([])
-  let destination_ends : Map[Int, Int] = Map([])
-  let literal_destination_starts : Map[Int, Int] = Map([])
-  let literal_destination_ends : Map[Int, Int] = Map([])
-  let candidate_by_opener : Map[Int, Int] = Map([])
-  let candidate_by_label_closer : Map[Int, Int] = Map([])
+  let destination_starts : Map[Int32, Int32] = Map([])
+  let destination_ends : Map[Int32, Int32] = Map([])
+  let literal_destination_starts : Map[Int32, Int32] = Map([])
+  let literal_destination_ends : Map[Int32, Int32] = Map([])
+  let candidate_by_opener : Map[Int32, Int32] = Map([])
+  let candidate_by_label_closer : Map[Int32, Int32] = Map([])
   for index, candidate in links.candidates {
     match candidate.disposition {
       ValidLinkDisposition => {
@@ -1138,7 +1139,7 @@ fn resolve_inline_autolink_link_conflicts(
     candidate_by_opener[candidate.opener_start] = index
     candidate_by_label_closer[candidate.label_closer_start] = index
   }
-  let label_stack : Array[Int] = []
+  let label_stack : Array[Int32] = []
   let mut destination_coverage = 0
   let mut literal_destination_coverage = 0
   for token in tokens {
@@ -1428,7 +1429,10 @@ fn try_emit_planned_delimiter(
 }
 
 ///|
-fn delimiter_event_is_ready(current_start~ : Int, event_start~ : Int) -> Bool {
+fn delimiter_event_is_ready(
+  current_start~ : Int32,
+  event_start~ : Int32,
+) -> Bool {
   guard event_start >= current_start else {
     abort("delimiter plan event was skipped by parser emission")
   }
@@ -1437,9 +1441,9 @@ fn delimiter_event_is_ready(current_start~ : Int, event_start~ : Int) -> Bool {
 
 ///|
 fn validate_delimiter_cursor_completion(
-  event_index~ : Int,
-  event_count~ : Int,
-  emphasis_depth~ : Int,
+  event_index~ : Int32,
+  event_count~ : Int32,
+  emphasis_depth~ : Int32,
 ) -> Unit {
   guard event_index == event_count else {
     abort("inline container ended with unconsumed delimiter plan events")
@@ -1465,9 +1469,9 @@ fn text_ends_with_odd_backslashes(text : StringView) -> Bool {
 ///|
 fn index_code_span_delimiter_run(
   index : CodeSpanDelimiterIndex,
-  previous_by_length : Map[Int, Int],
-  start : Int,
-  run_length : Int,
+  previous_by_length : Map[Int32, Int32],
+  start : Int32,
+  run_length : Int32,
   eligible_opener : Bool,
 ) -> Unit {
   index.eligible_openers[start] = eligible_opener
@@ -1487,7 +1491,7 @@ fn build_code_span_delimiter_index(
     successors: Map([]),
     has_angle_open: false,
   }
-  let previous_by_length : Map[Int, Int] = Map([])
+  let previous_by_length : Map[Int32, Int32] = Map([])
   let mut preceding_text_ends_escaped = false
   for token in tokens {
     if token.kind == AnalysisAngleOpen {

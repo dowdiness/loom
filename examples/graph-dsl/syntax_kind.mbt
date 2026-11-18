@@ -1,4 +1,5 @@
 ///|
+#derive(Eq, Debug)
 pub enum SyntaxKind {
   // Token kinds
   IdentifierToken
@@ -20,7 +21,7 @@ pub enum SyntaxKind {
   ArgumentNode
   ValueNode
   OutputNode
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for SyntaxKind with fn output(self, logger) {
@@ -29,7 +30,7 @@ pub impl Show for SyntaxKind with fn output(self, logger) {
 
 ///|
 pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
-  let n : Int = match self {
+  let n : Int32 = match self {
     IdentifierToken => 0
     NumberToken => 1
     StringToken => 2

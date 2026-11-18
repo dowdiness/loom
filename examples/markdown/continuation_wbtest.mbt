@@ -230,7 +230,7 @@ fn assert_root_setext_candidate_is_complete(
 fn list_item_setext_body_context(
   source_id : @core.SourceId,
   source : String,
-) -> (@core.ParserContext[Token, SyntaxKind], Int) {
+) -> (@core.ParserContext[Token, SyntaxKind], Int32) {
   let ctx = continuation_context(source_id, source)
   let marker_start_column = consume_list_item_prefix(ctx)
   let content_indent = current_list_item_content_indent(

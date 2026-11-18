@@ -97,7 +97,7 @@ pub fn[
 ] ParserContext::consume_while_emit_mapped(
   self : ParserContext[T, K],
   delims : Array[(T, K)],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   while !self.at_eof() {
     match delims.iter().find_first(d => d.0 == self.peek()) {
@@ -181,7 +181,7 @@ pub fn[T, K] ParserContext::finish_node(self : ParserContext[T, K]) -> Unit {
 ///|
 /// Reserve a placeholder that can later be claimed by start_at.
 /// Used for retroactive wrapping (e.g. binary expressions, applications).
-pub fn[T, K] ParserContext::mark(self : ParserContext[T, K]) -> Int {
+pub fn[T, K] ParserContext::mark(self : ParserContext[T, K]) -> Int32 {
   let mark = self.events.mark()
   match self.dependency_builder {
     Some(builder) => builder.mark(mark, self.source_position())
@@ -288,7 +288,7 @@ pub fn[T, K, R] ParserContext::lookahead(
 /// Retroactively open a node at a previously marked position.
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(
   self : ParserContext[T, K],
-  mark : Int,
+  mark : Int32,
   kind : K,
 ) -> Unit {
   match self.dependency_builder {

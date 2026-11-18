@@ -3,7 +3,7 @@
 // -- Test lexer: produces one char-token per code unit --
 
 ///|
-fn char_step_lexer(source : String, start : Int) -> LexStep[String] {
+fn char_step_lexer(source : String, start : Int32) -> LexStep[String] {
   if start >= source.length() {
     return Done
   }
@@ -14,7 +14,7 @@ fn char_step_lexer(source : String, start : Int) -> LexStep[String] {
 // -- Test lexer: reports Invalid for '@' characters --
 
 ///|
-fn char_with_error_lexer(source : String, start : Int) -> LexStep[String] {
+fn char_with_error_lexer(source : String, start : Int32) -> LexStep[String] {
   if start >= source.length() {
     return Done
   }
@@ -29,7 +29,7 @@ fn char_with_error_lexer(source : String, start : Int) -> LexStep[String] {
 // -- Test lexer: reports Incomplete for unterminated quote --
 
 ///|
-fn incomplete_lexer(source : String, start : Int) -> LexStep[String] {
+fn incomplete_lexer(source : String, start : Int32) -> LexStep[String] {
   if start >= source.length() {
     return Done
   }
@@ -44,7 +44,7 @@ fn incomplete_lexer(source : String, start : Int) -> LexStep[String] {
 // -- Test lexer: Invalid with width=0 (must be corrected to 1) --
 
 ///|
-fn zero_width_invalid_lexer(source : String, start : Int) -> LexStep[String] {
+fn zero_width_invalid_lexer(source : String, start : Int32) -> LexStep[String] {
   if start >= source.length() {
     return Done
   }
@@ -60,7 +60,7 @@ fn zero_width_invalid_lexer(source : String, start : Int) -> LexStep[String] {
 ///|
 fn zero_width_invalid_all_lexer(
   source : String,
-  start : Int,
+  start : Int32,
 ) -> LexStep[String] {
   if start >= source.length() {
     return Done
@@ -71,7 +71,10 @@ fn zero_width_invalid_all_lexer(
 // -- Test lexer: reports one-code-unit Invalid at every offset --
 
 ///|
-fn width_one_invalid_all_lexer(source : String, start : Int) -> LexStep[String] {
+fn width_one_invalid_all_lexer(
+  source : String,
+  start : Int32,
+) -> LexStep[String] {
   if start >= source.length() {
     return Done
   }
@@ -81,7 +84,7 @@ fn width_one_invalid_all_lexer(source : String, start : Int) -> LexStep[String] 
 // -- Test lexer: Produced with next_offset == start (violates progress) --
 
 ///|
-fn no_progress_lexer(source : String, start : Int) -> LexStep[String] {
+fn no_progress_lexer(source : String, start : Int32) -> LexStep[String] {
   if start >= source.length() {
     return Done
   }
@@ -91,7 +94,7 @@ fn no_progress_lexer(source : String, start : Int) -> LexStep[String] {
 // -- Test lexer: reports stale token lengths despite correct next_offset --
 
 ///|
-fn stale_len_lexer(source : String, start : Int) -> LexStep[String] {
+fn stale_len_lexer(source : String, start : Int32) -> LexStep[String] {
   if start >= source.length() {
     return Done
   }
@@ -102,7 +105,7 @@ fn stale_len_lexer(source : String, start : Int) -> LexStep[String] {
 // -- Test lexer: reports an error after a valid prefix in the same step --
 
 ///|
-fn late_invalid_lexer(source : String, start : Int) -> LexStep[String] {
+fn late_invalid_lexer(source : String, start : Int32) -> LexStep[String] {
   if start >= source.length() {
     return Done
   }
@@ -121,7 +124,7 @@ fn late_invalid_lexer(source : String, start : Int) -> LexStep[String] {
 fn verify_lex_contract(
   lexer : PrefixLexer[String],
   source : String,
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   let len = source.length()
   let mut pos = 0
   let mut token_count = 0
@@ -541,7 +544,7 @@ test "lex_all: zero-width Invalid fallback keeps non-BMP scalar whole" {
 // ============ QuickCheck Property Tests ============
 
 ///|
-fn next_seed(seed : Int) -> Int {
+fn next_seed(seed : Int32) -> Int32 {
   let a = 1103515245
   let c = 12345
   let m = 2147483647
@@ -550,7 +553,7 @@ fn next_seed(seed : Int) -> Int {
 
 ///|
 /// Build a random source string with occasional '@' chars for error testing.
-fn build_lex_source(seed : Int) -> String {
+fn build_lex_source(seed : Int32) -> String {
   let pool = ["a", "b", "c", "1", "2", " ", "@", "x", "y", "(", ")"]
   let buf = StringBuilder()
   let count = seed.abs() % 30 + 1
@@ -566,7 +569,7 @@ fn build_lex_source(seed : Int) -> String {
 
 ///|
 /// Property: new_from_steps always terminates and produces tokens ending with EOF.
-fn prop_step_terminates_with_eof(seed : Int) -> Bool {
+fn prop_step_terminates_with_eof(seed : Int32) -> Bool {
   let source = build_lex_source(seed)
   let lexer : PrefixLexer[String] = { lex_step: char_with_error_lexer, }
   let buf = TokenBuffer::new_from_steps(
@@ -585,7 +588,7 @@ fn prop_step_terminates_with_eof(seed : Int) -> Bool {
 
 ///|
 /// Property: step-based tokens cover the entire source with no gaps or overlaps.
-fn prop_step_tokens_cover_source(seed : Int) -> Bool {
+fn prop_step_tokens_cover_source(seed : Int32) -> Bool {
   let source = build_lex_source(seed)
   let lexer : PrefixLexer[String] = { lex_step: char_with_error_lexer, }
   let buf = TokenBuffer::new_from_steps(
@@ -612,7 +615,7 @@ fn prop_step_tokens_cover_source(seed : Int) -> Bool {
 
 ///|
 /// Property: step-based result matches char-by-char full lex for clean inputs.
-fn prop_step_matches_full_for_clean(seed : Int) -> Bool {
+fn prop_step_matches_full_for_clean(seed : Int32) -> Bool {
   let source = build_lex_source(seed.abs())
   // Remove '@' to get a clean input
   let buf = StringBuilder()
@@ -641,7 +644,7 @@ fn prop_step_matches_full_for_clean(seed : Int) -> Bool {
 
 ///|
 /// Property: determinism — building from steps twice gives same result.
-fn prop_step_deterministic(seed : Int) -> Bool {
+fn prop_step_deterministic(seed : Int32) -> Bool {
   let source = build_lex_source(seed)
   let lexer : PrefixLexer[String] = { lex_step: char_with_error_lexer, }
   let buf1 = TokenBuffer::new_from_steps(

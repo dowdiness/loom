@@ -65,7 +65,7 @@ fn test_tokenize_with_two_zero_width_boundaries(
 ///|
 fn test_tokenize_numbers_with_zero_width_boundaries(
   src : String,
-  boundary_count : Int,
+  boundary_count : Int32,
 ) -> Array[TokenInfo[TestTok]] {
   let result : Array[TokenInfo[TestTok]] = []
   let mut i = 0

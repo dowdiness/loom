@@ -3,6 +3,7 @@
 ///
 /// These roles are intentionally local to the JSON example. They describe CST
 /// token roles for highlighting/projection, not JSON domain graph roles.
+#derive(Eq, Debug)
 pub(all) enum JsonRole {
   PropertyKey
   StringValue
@@ -11,7 +12,7 @@ pub(all) enum JsonRole {
   NullLiteral
   Punctuation
   Error
-} derive(Eq, Debug)
+}
 
 ///|
 /// Stable lower-kebab role name used by editor-neutral exports.
@@ -29,17 +30,18 @@ pub fn JsonRole::export_name(self : JsonRole) -> String {
 
 ///|
 /// A role assigned to a UTF-16 source span.
+#derive(Eq, Debug)
 pub struct JsonRoleSpan {
   priv role : JsonRole
-  priv start : Int
-  priv end : Int
-} derive(Eq, Debug)
+  priv start : Int32
+  priv end : Int32
+}
 
 ///|
 pub fn JsonRoleSpan::JsonRoleSpan(
   role~ : JsonRole,
-  start~ : Int,
-  end~ : Int,
+  start~ : Int32,
+  end~ : Int32,
 ) -> JsonRoleSpan {
   { role, start, end, }
 }
@@ -50,12 +52,12 @@ pub fn JsonRoleSpan::role(self : JsonRoleSpan) -> JsonRole {
 }
 
 ///|
-pub fn JsonRoleSpan::start(self : JsonRoleSpan) -> Int {
+pub fn JsonRoleSpan::start(self : JsonRoleSpan) -> Int32 {
   self.start
 }
 
 ///|
-pub fn JsonRoleSpan::end(self : JsonRoleSpan) -> Int {
+pub fn JsonRoleSpan::end(self : JsonRoleSpan) -> Int32 {
   self.end
 }
 
@@ -74,28 +76,29 @@ fn JsonRoleSpan::to_export(self : JsonRoleSpan) -> JsonRoleSpanExport {
 ///
 /// `start` and `end` are UTF-16 source offsets. `role` is one of the stable
 /// lower-kebab names returned by `JsonRole::export_name`.
+#derive(Eq, Debug)
 pub struct JsonRoleSpanExport {
-  priv start : Int
-  priv end : Int
+  priv start : Int32
+  priv end : Int32
   priv role : String
-} derive(Eq, Debug)
+}
 
 ///|
 fn JsonRoleSpanExport::JsonRoleSpanExport(
-  start~ : Int,
-  end~ : Int,
+  start~ : Int32,
+  end~ : Int32,
   role~ : String,
 ) -> JsonRoleSpanExport {
   { start, end, role, }
 }
 
 ///|
-pub fn JsonRoleSpanExport::start(self : JsonRoleSpanExport) -> Int {
+pub fn JsonRoleSpanExport::start(self : JsonRoleSpanExport) -> Int32 {
   self.start
 }
 
 ///|
-pub fn JsonRoleSpanExport::end(self : JsonRoleSpanExport) -> Int {
+pub fn JsonRoleSpanExport::end(self : JsonRoleSpanExport) -> Int32 {
   self.end
 }
 
@@ -106,7 +109,11 @@ pub fn JsonRoleSpanExport::role(self : JsonRoleSpanExport) -> String {
 
 ///|
 pub impl ToJson for JsonRoleSpanExport with fn to_json(self) -> Json {
-  { "start": (self.start : Int), "end": (self.end : Int), "role": self.role }
+  {
+    "start": (self.start : Int32),
+    "end": (self.end : Int32),
+    "role": self.role,
+  }
 }
 
 ///|

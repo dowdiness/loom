@@ -14,15 +14,15 @@
 ///|
 pub struct PerfStats {
   enabled : Ref[Bool]
-  try_reuse_calls : Ref[Int]
-  try_reuse_hits : Ref[Int]
-  fast_path_skips : Ref[Int]
-  size_threshold_skips : Ref[Int]
-  leading_checks : Ref[Int]
-  trailing_checks : Ref[Int]
-  find_node_calls : Ref[Int]
-  find_node_steps : Ref[Int]
-  count_tokens_calls : Ref[Int]
+  try_reuse_calls : Ref[Int32]
+  try_reuse_hits : Ref[Int32]
+  fast_path_skips : Ref[Int32]
+  size_threshold_skips : Ref[Int32]
+  leading_checks : Ref[Int32]
+  trailing_checks : Ref[Int32]
+  find_node_calls : Ref[Int32]
+  find_node_steps : Ref[Int32]
+  count_tokens_calls : Ref[Int32]
 }
 
 ///|
@@ -98,7 +98,7 @@ pub fn perf_report() -> String {
 ///|
 /// Instrumented version of count_tokens_in_node for profiling.
 /// Uses the cached `token_count` field (O(1)) rather than a recursive traversal.
-pub fn count_tokens_in_node_instrumented(node : @seam.CstNode) -> Int {
+pub fn count_tokens_in_node_instrumented(node : @seam.CstNode) -> Int32 {
   if perf_stats.enabled.val {
     perf_stats.count_tokens_calls.val = perf_stats.count_tokens_calls.val + 1
   }

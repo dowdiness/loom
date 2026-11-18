@@ -7,12 +7,12 @@
 /// `TokenInfo.len`, `TokenBuffer` starts, and `Edit` ranges.
 pub struct LexCursor {
   priv source : String
-  priv start : Int
-  priv mut position : Int
+  priv start : Int32
+  priv mut position : Int32
 }
 
 ///|
-pub fn LexCursor::new(source : String, start : Int) -> LexCursor {
+pub fn LexCursor::new(source : String, start : Int32) -> LexCursor {
   let pos = lex_cursor_clamp_offset(start, source.length())
   { source, start: pos, position: pos, }
 }
@@ -23,22 +23,22 @@ pub fn LexCursor::source(self : LexCursor) -> String {
 }
 
 ///|
-pub fn LexCursor::start(self : LexCursor) -> Int {
+pub fn LexCursor::start(self : LexCursor) -> Int32 {
   self.start
 }
 
 ///|
-pub fn LexCursor::position(self : LexCursor) -> Int {
+pub fn LexCursor::position(self : LexCursor) -> Int32 {
   self.position
 }
 
 ///|
-pub fn LexCursor::set_position(self : LexCursor, position : Int) -> Unit {
+pub fn LexCursor::set_position(self : LexCursor, position : Int32) -> Unit {
   self.position = lex_cursor_clamp_offset(position, self.source.length())
 }
 
 ///|
-pub fn LexCursor::len(self : LexCursor) -> Int {
+pub fn LexCursor::len(self : LexCursor) -> Int32 {
   self.position - self.start
 }
 
@@ -72,7 +72,7 @@ pub fn LexCursor::peek_code_unit(self : LexCursor) -> UInt16? {
 }
 
 ///|
-pub fn LexCursor::advance_code_units(self : LexCursor, width : Int) -> Unit {
+pub fn LexCursor::advance_code_units(self : LexCursor, width : Int32) -> Unit {
   if width <= 0 {
     return
   }
@@ -106,7 +106,7 @@ pub fn LexCursor::advance_char(self : LexCursor) -> Bool {
 /// lexers that scan with local integer offsets. If `pos` is at EOF it returns
 /// EOF. If `pos` splits a surrogate pair, it advances one code unit so callers
 /// still make progress on malformed boundaries.
-pub fn next_char_offset(source : String, pos : Int) -> Int {
+pub fn next_char_offset(source : String, pos : Int32) -> Int32 {
   let len = source.length()
   let current = lex_cursor_clamp_offset(pos, len)
   if current >= len {
@@ -129,7 +129,7 @@ pub fn next_char_offset(source : String, pos : Int) -> Int {
 pub fn LexCursor::take_while(
   self : LexCursor,
   predicate : (Char) -> Bool,
-) -> Int {
+) -> Int32 {
   let before = self.position
   while self.position < self.source.length() {
     match self.peek() {
@@ -186,7 +186,7 @@ pub fn[T] LexCursor::produced(self : LexCursor, token : T) -> LexStep[T] {
 pub fn[T] LexCursor::invalid(
   self : LexCursor,
   message : String,
-  width? : Int = 1,
+  width~ : Int32 = 1,
 ) -> LexStep[T] {
   Invalid(at=self.position, width~, message~)
 }
@@ -200,7 +200,7 @@ pub fn[T] LexCursor::incomplete(
 }
 
 ///|
-fn lex_cursor_clamp_offset(pos : Int, length : Int) -> Int {
+fn lex_cursor_clamp_offset(pos : Int32, length : Int32) -> Int32 {
   if pos < 0 {
     0
   } else if pos > length {

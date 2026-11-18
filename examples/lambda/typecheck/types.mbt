@@ -1,12 +1,13 @@
 // Type definitions for the bidirectional type checker.
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum Type {
   TInt
   TArrow(Type, Type)
   TUnit
   TError
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for Type with fn output(self, logger) {
@@ -31,11 +32,12 @@ pub impl Show for Type with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct TypeDiagnostic {
   message : String
   def_name : String?
   range : @core.Range?
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for TypeDiagnostic with fn output(self, logger) {
@@ -51,16 +53,18 @@ pub impl Show for TypeDiagnostic with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct TypeResult {
   typ : Type
   had_error : Bool
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum TypeEnv {
   Empty
   Bind(TypeEnv, String, Type)
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn TypeEnv::lookup(self : TypeEnv, name : String) -> Type? {
@@ -76,8 +80,9 @@ pub fn TypeEnv::bind(self : TypeEnv, name : String, typ : Type) -> TypeEnv {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum TypedTerm {
-  Int(Int)
+  Int(Int32)
   Unit
   Var(String)
   Lam(String, Type?, TypedTerm)
@@ -87,8 +92,8 @@ pub(all) enum TypedTerm {
   Module(Array[(String, TypedTerm)], TypedTerm)
   Unbound(String)
   Error(String)
-  Hole(Int)
-} derive(Eq, Debug)
+  Hole(Int32)
+}
 
 ///|
 pub impl Show for TypedTerm with fn output(self, logger) {
@@ -101,22 +106,25 @@ pub impl Show for TypedTerm with fn output(self, logger) {
 /// does not invalidate existing `DefId`s minted for subsequent defs.
 /// Position lookup is done through `PipelineState::name_to_idx` maintained
 /// by `rebuild_chain`. Invariant: one def per name in a module.
+#derive(Eq, Hash, Debug)
 pub(all) struct DefEntry {
   name : String
-} derive(Eq, Hash, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct ResolvedModule {
   defs : Array[(String, TypedTerm)]
   body : TypedTerm
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct ModuleTypeResult {
   body_type : TypeResult
   def_types : Array[(String, TypeResult)]
   all_diagnostics : Array[TypeDiagnostic]
-} derive(Eq, Debug)
+}
 
 ///|
 /// Return value from `build_typecheck_pipeline_with_index`.

@@ -26,18 +26,20 @@
 /// A file-level token: either a reused `#loom.rule` body token, or the `=` that
 /// separates a production name from its body. Kept distinct from `RuleTok` so the
 /// shared notation token type is not polluted with a file-only separator.
+#derive(Eq, Debug)
 enum GFileTok {
   GRule(RuleTok)
   GAssign
-} derive(Eq, Debug)
+}
 
 ///|
 /// A lexed file token tagged with its 1-based source line, for file-position
 /// diagnostics.
+#derive(Eq, Debug)
 struct GFileLexed {
   tok : GFileTok
-  line : Int
-} derive(Eq, Debug)
+  line : Int32
+}
 
 ///|
 suberror GrammarFileError {
@@ -47,7 +49,7 @@ suberror GrammarFileError {
 ///|
 /// `"line N: "` — the file-position prefix shared by every `.loomgrammar`
 /// diagnostic. (The file path is prepended by the caller, which knows it.)
-fn grammar_file_loc(line : Int) -> String {
+fn grammar_file_loc(line : Int32) -> String {
   "line " + line.to_string() + ": "
 }
 
@@ -167,7 +169,7 @@ fn tokenize_grammar_file(
 /// Whether `lexed[k]` begins a new production header — an `IDENT` immediately
 /// followed by `=`. This two-token lookahead is what delimits one production's
 /// body from the next, and is unambiguous because `=` never appears inside a body.
-fn is_header_at(lexed : Array[GFileLexed], k : Int) -> Bool {
+fn is_header_at(lexed : Array[GFileLexed], k : Int32) -> Bool {
   k + 1 < lexed.length() &&
   lexed[k].tok is GRule(TIdent(_)) &&
   lexed[k + 1].tok == GAssign
@@ -176,7 +178,7 @@ fn is_header_at(lexed : Array[GFileLexed], k : Int) -> Bool {
 ///|
 /// Whether `lexed[k]` is the first token on its physical source line.
 /// Indentation is allowed; only the line transition matters.
-fn is_first_token_on_line(lexed : Array[GFileLexed], k : Int) -> Bool {
+fn is_first_token_on_line(lexed : Array[GFileLexed], k : Int32) -> Bool {
   k == 0 || lexed[k - 1].line < lexed[k].line
 }
 
@@ -185,7 +187,7 @@ fn is_first_token_on_line(lexed : Array[GFileLexed], k : Int) -> Bool {
 /// A physical-line boundary takes precedence over whole-file parenthesis
 /// matching, so malformed parentheses cannot attribute a later production to
 /// the preceding one.
-fn is_body_boundary_at(lexed : Array[GFileLexed], k : Int) -> Bool {
+fn is_body_boundary_at(lexed : Array[GFileLexed], k : Int32) -> Bool {
   is_first_token_on_line(lexed, k) && is_header_at(lexed, k)
 }
 
@@ -196,7 +198,7 @@ fn is_body_boundary_at(lexed : Array[GFileLexed], k : Int) -> Bool {
 /// is preserved so downstream GrammarIr emission is deterministic.
 fn parse_grammar_file(
   src : String,
-) -> Result[Array[(String, RuleAst, Int)], String] {
+) -> Result[Array[(String, RuleAst, Int32)], String] {
   let lexed = tokenize_grammar_file(src) catch {
     GrammarFileError(m) => return Err(m)
   }
@@ -205,7 +207,7 @@ fn parse_grammar_file(
       "grammar file has no productions (expected at least one 'Name = body')",
     )
   }
-  let prods : Array[(String, RuleAst, Int)] = []
+  let prods : Array[(String, RuleAst, Int32)] = []
   let seen : @hashset.HashSet[String] = @hashset.HashSet([])
   let mut i = 0
   let n = lexed.length()

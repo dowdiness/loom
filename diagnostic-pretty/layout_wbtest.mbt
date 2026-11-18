@@ -13,8 +13,8 @@ impl @diagnostic.SourceResolver for PrettyTestResolver with fn resolve_source(
 
 ///|
 fn pretty_test_options(
-  tab_width? : Int = 4,
-  ambiguous_width? : @moji.AmbiguousWidth = @moji.AmbiguousWidth::Narrow,
+  tab_width~ : Int32 = 4,
+  ambiguous_width~ : @moji.AmbiguousWidth = @moji.AmbiguousWidth::Narrow,
 ) -> DiagnosticPrettyOptions {
   try DiagnosticPrettyOptions(tab_width~, ambiguous_width~) catch {
     _ => abort("expected valid diagnostic pretty test options")
@@ -24,7 +24,7 @@ fn pretty_test_options(
 }
 
 ///|
-fn pretty_test_range(start : Int, end : Int) -> @diagnostic.TextRange {
+fn pretty_test_range(start : Int32, end : Int32) -> @diagnostic.TextRange {
   try @diagnostic.TextRange::from_offsets(start, end) catch {
     _ => abort("expected valid diagnostic pretty test range")
   } noraise {
@@ -36,9 +36,9 @@ fn pretty_test_range(start : Int, end : Int) -> @diagnostic.TextRange {
 fn pretty_test_label(
   style : @diagnostic.LabelStyle,
   source_id : @diagnostic.SourceId,
-  start : Int,
-  end : Int,
-  message? : String? = None,
+  start : Int32,
+  end : Int32,
+  message~ : String? = None,
 ) -> @diagnostic.DiagnosticLabel {
   @diagnostic.DiagnosticLabel(
     style,
@@ -385,7 +385,7 @@ test "layout preserves empty EOF multiline and line terminator ranges" {
 ///|
 test "layout wraps every source validation failure without clamping" {
   let source_id = @diagnostic.SourceId("bad")
-  let diagnostic_for : (Int, Int) -> @diagnostic.Diagnostic = (start, end) => {
+  let diagnostic_for : (Int32, Int32) -> @diagnostic.Diagnostic = (start, end) => {
     @diagnostic.Diagnostic(
       origin=@diagnostic.DiagnosticOrigin("test"),
       severity=@diagnostic.DiagnosticSeverity::Error,

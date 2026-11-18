@@ -16,7 +16,7 @@ fn make_ident_token(text : String) -> @seam.CstToken {
 }
 
 ///|
-fn make_flat_ident_node(count : Int) -> @seam.CstNode {
+fn make_flat_ident_node(count : Int32) -> @seam.CstNode {
   let children : Array[@seam.CstElement] = []
   for i = 0; i < count; i = i + 1 {
     children.push(
@@ -183,7 +183,7 @@ test "build_tree_interned - x + 1, warm interner" (b : @bench.T) {
 }
 
 ///|
-fn make_repeated_ident_events(count : Int) -> Array[@seam.ParseEvent] {
+fn make_repeated_ident_events(count : Int32) -> Array[@seam.ParseEvent] {
   let events : Array[@seam.ParseEvent] = []
   for i = 0; i < count; i = i + 1 {
     events.push(@seam.ParseEvent::Token(@seam.RawKind(9), "x"))

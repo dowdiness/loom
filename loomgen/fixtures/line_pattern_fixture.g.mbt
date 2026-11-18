@@ -15,7 +15,7 @@ fn generated_lex_line_start(source : String, pos : Int) -> (@core.LexStep[Token]
       _ => line_end = line_end + 1
     }
   }
-  let rest = source[pos:line_end].view()
+  let rest = source[pos:line_end]
 
   // HeadingMarker
   if rest =~ (re"^(?:#{1,6} )", after=after) {
