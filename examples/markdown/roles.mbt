@@ -3,6 +3,7 @@
 ///
 /// These roles remain local to the Markdown example while the parser-backed
 /// shape is being evaluated against nested inline syntax and links.
+#derive(Eq, Debug)
 pub(all) enum MarkdownRole {
   HeadingMarker
   HeadingText
@@ -18,7 +19,7 @@ pub(all) enum MarkdownRole {
   LinkDestination
   Punctuation
   Error
-} derive(Eq, Debug)
+}
 
 ///|
 /// Stable lower-kebab role name used by editor-neutral exports.
@@ -43,17 +44,18 @@ fn MarkdownRole::export_name(self : MarkdownRole) -> String {
 
 ///|
 /// A Markdown role assigned to a UTF-16 source span.
+#derive(Eq, Debug)
 pub struct MarkdownRoleSpan {
   priv role : MarkdownRole
-  priv start : Int
-  priv end : Int
-} derive(Eq, Debug)
+  priv start : Int32
+  priv end : Int32
+}
 
 ///|
 fn MarkdownRoleSpan::MarkdownRoleSpan(
   role~ : MarkdownRole,
-  start~ : Int,
-  end~ : Int,
+  start~ : Int32,
+  end~ : Int32,
 ) -> MarkdownRoleSpan {
   { role, start, end, }
 }
@@ -64,20 +66,20 @@ pub fn MarkdownRoleSpan::role(self : MarkdownRoleSpan) -> MarkdownRole {
 }
 
 ///|
-pub fn MarkdownRoleSpan::start(self : MarkdownRoleSpan) -> Int {
+pub fn MarkdownRoleSpan::start(self : MarkdownRoleSpan) -> Int32 {
   self.start
 }
 
 ///|
-pub fn MarkdownRoleSpan::end(self : MarkdownRoleSpan) -> Int {
+pub fn MarkdownRoleSpan::end(self : MarkdownRoleSpan) -> Int32 {
   self.end
 }
 
 ///|
 fn markdown_role_span_to_json(span : MarkdownRoleSpan) -> Json {
   {
-    "start": (span.start : Int),
-    "end": (span.end : Int),
+    "start": (span.start : Int32),
+    "end": (span.end : Int32),
     "role": span.role.export_name(),
   }
 }
@@ -151,12 +153,13 @@ fn markdown_link_span(
 
 ///|
 /// Link phases are driven by ordered direct elements, not reconstructed text.
+#derive(Eq)
 priv enum MarkdownLinkPhase {
   Label
   AfterLabel
   Destination
   Complete
-} derive(Eq)
+}
 
 ///|
 /// Walk a LinkNode with the state needed to distinguish its outer delimiters

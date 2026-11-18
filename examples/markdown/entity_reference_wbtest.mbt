@@ -138,7 +138,7 @@ test "CommonMark entities: code content and raw HTML do not decode" {
   )
   match experimental_markdown_ir_to_block(ir) {
     Document(
-      [CodeBlock(info, code), Paragraph([InlineCode(inline)]), HtmlBlock(html)]
+      [CodeBlock(info, code), Paragraph([InlineCode(inline)]), HtmlBlock(html)],
     ) => {
       inspect(info, content="föö")
       inspect(code, content="f&ouml;")
@@ -151,7 +151,7 @@ test "CommonMark entities: code content and raw HTML do not decode" {
 
 ///|
 test "CommonMark entities: owned examples 25-31 and 34-40 match mdast" {
-  let cases : Array[(Int, String, String)] = [
+  let cases : Array[(Int32, String, String)] = [
     (
       25, "&nbsp; &amp; &copy; &AElig; &Dcaron;\n&frac34; &HilbertSpace; &DifferentialD;\n&ClockwiseContourIntegral; &ngE;\n",
       "{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"  & © Æ Ď\\n¾ ℋ ⅆ\\n∲ ≧̸\"}]}]}",

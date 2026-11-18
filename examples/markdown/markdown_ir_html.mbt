@@ -14,7 +14,7 @@ fn html_escape_text(value : String) -> String {
 }
 
 ///|
-fn markdown_ir_html_href_hex_digit(value : Int) -> Char {
+fn markdown_ir_html_href_hex_digit(value : Int32) -> Char {
   if value < 10 {
     (value + 48).unsafe_to_char()
   } else {
@@ -25,7 +25,7 @@ fn markdown_ir_html_href_hex_digit(value : Int) -> Char {
 ///|
 fn markdown_ir_html_write_percent_encoded_byte(
   buf : StringBuilder,
-  value : Int,
+  value : Int32,
 ) -> Unit {
   buf.write_char('%')
   buf.write_char(markdown_ir_html_href_hex_digit(value >> 4))
@@ -40,9 +40,9 @@ fn markdown_ir_html_escape_href(value : String) -> String {
     match ch {
       '&' => buf.write_string("&amp;")
       '\'' => buf.write_string("&#x27;")
-      'A'..='Z'
-      | 'a'..='z'
-      | '0'..='9'
+      'A'..<='Z'
+      | 'a'..<='z'
+      | '0'..<='9'
       | '-'
       | '.'
       | '_'
@@ -112,23 +112,26 @@ fn markdown_ir_html_escape_href(value : String) -> String {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum RawHtmlPolicy {
   Escape
   Omit
   Reject
   Passthrough
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum RawHtmlSurface {
   RawHtmlBlock
   RawHtmlInline
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum MarkdownIRHtmlRenderError {
   RawHtmlRejected(RawHtmlSurface, MarkdownIROrigin)
-} derive(Eq, Debug)
+}
 
 ///|
 fn render_valid_raw_html(

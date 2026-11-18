@@ -251,7 +251,7 @@ fn make_token_source() -> String {
 }
 
 ///|
-fn make_token_source_replace(target : Int) -> String {
+fn make_token_source_replace(target : Int32) -> String {
   let mut s = if target == 1 { "99" } else { "1" }
   for i = 2; i <= 55; i = i + 1 {
     s = s + " + " + (if i == target { "99" } else { i.to_string() })

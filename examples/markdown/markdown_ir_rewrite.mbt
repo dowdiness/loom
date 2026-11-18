@@ -61,7 +61,7 @@ fn local_transform_inline_text(
 }
 
 ///|
-fn max_fence_run(value : String, fence_character : Char) -> Int {
+fn max_fence_run(value : String, fence_character : Char) -> Int32 {
   let mut max_run = 0
   let mut current_run = 0
   for i = 0; i < value.length(); i = i + 1 {
@@ -81,9 +81,9 @@ fn max_fence_run(value : String, fence_character : Char) -> Int {
 ///|
 fn code_block_fence_width(
   value : String,
-  minimum_width : Int,
+  minimum_width : Int32,
   fence_character : Char,
-) -> Int {
+) -> Int32 {
   let run_width = max_fence_run(value, fence_character)
   let required_width = if run_width >= 3 { run_width + 1 } else { 3 }
   if minimum_width > required_width {
@@ -98,7 +98,7 @@ fn local_code_block_suffix(
   source : String,
   origin : MarkdownIROrigin,
   content_origin : MarkdownIROrigin,
-  fence_width : Int,
+  fence_width : Int32,
   fence_character : Char,
 ) -> String {
   match code_fence_close_line_start(origin, source) {

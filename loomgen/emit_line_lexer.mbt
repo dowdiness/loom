@@ -31,7 +31,7 @@ fn collect_line_patterns(token_enum : EnumDecl) -> Array[VariantDecl]? {
 /// Lexicographic (codepoint) comparator for mode names. MoonBit's built-in
 /// string ordering is not guaranteed to be lexicographic, so compare explicitly
 /// for a stable, well-defined order.
-fn compare_mode_names(a : String, b : String) -> Int {
+fn compare_mode_names(a : String, b : String) -> Int32 {
   let n = if a.length() < b.length() { a.length() } else { b.length() }
   for i = 0; i < n; i = i + 1 {
     let ca = a[i].to_int()
@@ -106,7 +106,7 @@ fn emit_mode_line_lexer(
   b.write_string("      \"\\r\" | \"\\n\" => break\n")
   b.write_string("      _ => line_end = line_end + 1\n")
   b.write_string("    }\n  }\n")
-  b.write_string("  let rest = source[pos:line_end].view()\n\n")
+  b.write_string("  let rest = source[pos:line_end]\n\n")
   // Emit each line_pattern check in declaration order.
   // Only emit candidates whose lexmode_name matches the enclosing mode (or
   // candidates with no lexmode_name, which apply to all line_mode modes).

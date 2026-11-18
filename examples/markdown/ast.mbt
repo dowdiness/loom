@@ -1,7 +1,8 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum Block {
   Document(Array[Block])
-  Heading(Int, Array[Inline])
+  Heading(Int32, Array[Inline])
   Paragraph(Array[Inline])
   UnorderedList(Array[Block])
   OrderedList(Array[Block], OrderedListMarker?)
@@ -10,7 +11,7 @@ pub(all) enum Block {
   CodeBlock(String, String)
   HtmlBlock(String)
   Error(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for Block with fn output(self, logger) {
@@ -18,6 +19,7 @@ pub impl Show for Block with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum Inline {
   Text(String)
   Bold(Array[Inline])
@@ -25,7 +27,7 @@ pub(all) enum Inline {
   InlineCode(String)
   Link(Array[Inline], String)
   Error(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for Inline with fn output(self, logger) {

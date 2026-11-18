@@ -11,7 +11,7 @@ extern "js" fn atomic_retention_collect() -> Unit =
 
 ///|
 #cfg(target="js")
-extern "js" fn atomic_retention_heap_used() -> Int =
+extern "js" fn atomic_retention_heap_used() -> Int32 =
   #| () => process.memoryUsage().heapUsed
 
 ///|

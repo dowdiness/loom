@@ -7,7 +7,7 @@ fn assert_block_container_incremental_parity(
   source : String,
   edit : @core.Edit,
   updated : String,
-) -> Int raise {
+) -> Int32 raise {
   let source_id = @core.SourceId("markdown-block-container-decision-core")
   let incremental = @loom.new_parser(
     source_id, source, @markdown.markdown_grammar,

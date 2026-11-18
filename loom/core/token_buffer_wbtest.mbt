@@ -15,7 +15,7 @@ test "TokenBuffer::update updates internal state without a return value" {
 }
 
 ///|
-fn bang_offset(source : String) -> Int? {
+fn bang_offset(source : String) -> Int32? {
   for i = 0; i < source.length(); i = i + 1 {
     if source.code_unit_at(i).to_int() == 33 {
       return Some(i)
@@ -43,7 +43,7 @@ fn explicit_start_lex(source : String) -> LexResult[String] {
       )
     None => {
       let tokens : Array[TokenInfo[String]] = []
-      let starts : Array[Int] = []
+      let starts : Array[Int32] = []
       for i = 0; i < source.length(); i = i + 1 {
         tokens.push(TokenInfo::new("char", 1))
         starts.push(i)
@@ -65,7 +65,7 @@ fn invalid_range_eof_lex(source : String) -> LexResult[String] {
     )
   }
   let tokens : Array[TokenInfo[String]] = []
-  let starts : Array[Int] = []
+  let starts : Array[Int32] = []
   for i = 0; i < source.length(); i = i + 1 {
     tokens.push(TokenInfo::new("char", 1))
     starts.push(i)

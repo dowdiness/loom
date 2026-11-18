@@ -9,7 +9,7 @@ priv struct IndexedParserCorpus {
 
 ///|
 /// Covers token payloads, recovery, delimiters, and nested block ownership.
-fn indexed_parser_corpora(scale : Int) -> Array[IndexedParserCorpus] {
+fn indexed_parser_corpora(scale : Int32) -> Array[IndexedParserCorpus] {
   guard scale > 0 else { abort("indexed-parser corpus scale must be positive") }
   let delimiter = delimiter_performance_workloads(scale)
   let mixed_section = "## Section\n\nParagraph with **bold**, *italic*, `code`, and [link](/url).\n" +

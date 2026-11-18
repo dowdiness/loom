@@ -7,7 +7,7 @@ fn assert_block_boundary_reparse_parity(
   source : String,
   edit : @core.Edit,
   updated : String,
-) -> Int raise {
+) -> Int32 raise {
   let source_id = @core.SourceId("markdown-block-boundary-reparse")
   let incremental = @loom.new_parser(source_id, source, markdown_grammar)
   incremental.apply_edit(edit, updated)

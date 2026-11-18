@@ -26,13 +26,13 @@ pub fn json_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> JsonValue) -> Json
 
 pub let json_grammar : @loom.Grammar[Token, SyntaxKind, JsonValue]
 
-pub fn json_step_lexer(String, Int) -> @core.LexStep[Token]
+pub fn json_step_lexer(String, Int32) -> @core.LexStep[Token]
 
 pub fn lex(@diagnostic.SourceId, String) -> @core.LexResult[Token]
 
-pub fn make_json_spec((@core.ParserContext[Token, SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : SyntaxKind) -> @core.LanguageSpec[Token, SyntaxKind]
+pub fn make_json_spec((@core.ParserContext[Token, SyntaxKind]) -> Unit, reuse_size_threshold? : Int32, incomplete_kind? : SyntaxKind) -> @core.LanguageSpec[Token, SyntaxKind]
 
-pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[Token]], String, old_token_cache? : @core.OldTokenCache, allow_left_adjacent_reuse? : Bool, new_damage_end? : Int) -> @core.ReuseCursor[Token, SyntaxKind]
+pub fn make_reuse_cursor(@seam.CstNode, Int32, Int32, Array[@core.TokenInfo[Token]], String, old_token_cache? : @core.OldTokenCache, allow_left_adjacent_reuse? : Bool, new_damage_end? : Int32) -> @core.ReuseCursor[Token, SyntaxKind]
 
 pub fn make_reuse_cursor_with_edit(@seam.CstNode, @core.Edit, Array[@core.TokenInfo[Token]], String, old_token_cache? : @core.OldTokenCache, allow_left_adjacent_reuse? : Bool) -> @core.ReuseCursor[Token, SyntaxKind]
 
@@ -42,7 +42,7 @@ pub fn parse_array(@core.ParserContext[Token, SyntaxKind]) -> Unit
 
 pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise
 
-pub fn parse_cst_recover_with_tokens(@diagnostic.SourceId, String, Array[@core.TokenInfo[Token]], @core.ReuseCursor[Token, SyntaxKind]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int) raise Failure
+pub fn parse_cst_recover_with_tokens(@diagnostic.SourceId, String, Array[@core.TokenInfo[Token]], @core.ReuseCursor[Token, SyntaxKind]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int32) raise Failure
 
 pub fn parse_json(@diagnostic.SourceId, String) -> (JsonValue, @core.DiagnosticSet) raise
 
@@ -68,6 +68,7 @@ pub suberror ParseError {
 }
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum JsonRole {
   PropertyKey
   StringValue
@@ -76,34 +77,36 @@ pub(all) enum JsonRole {
   NullLiteral
   Punctuation
   Error
-} derive(Eq, @debug.Debug)
+}
 pub fn JsonRole::equal(Self, Self) -> Bool
 pub fn JsonRole::export_name(Self) -> String
 pub fn JsonRole::not_equal(Self, Self) -> Bool
 pub fn JsonRole::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct JsonRoleSpan {
   // private fields
-} derive(Eq, @debug.Debug)
-pub fn JsonRoleSpan::JsonRoleSpan(role~ : JsonRole, start~ : Int, end~ : Int) -> Self
-pub fn JsonRoleSpan::end(Self) -> Int
+}
+pub fn JsonRoleSpan::JsonRoleSpan(role~ : JsonRole, start~ : Int32, end~ : Int32) -> Self
+pub fn JsonRoleSpan::end(Self) -> Int32
 pub fn JsonRoleSpan::equal(Self, Self) -> Bool
 pub fn JsonRoleSpan::not_equal(Self, Self) -> Bool
 pub fn JsonRoleSpan::role(Self) -> JsonRole
-pub fn JsonRoleSpan::start(Self) -> Int
+pub fn JsonRoleSpan::start(Self) -> Int32
 pub fn JsonRoleSpan::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct JsonRoleSpanExport {
   // private fields
-} derive(Eq, @debug.Debug)
-pub fn JsonRoleSpanExport::end(Self) -> Int
+}
+pub fn JsonRoleSpanExport::end(Self) -> Int32
 pub fn JsonRoleSpanExport::equal(Self, Self) -> Bool
 pub fn JsonRoleSpanExport::not_equal(Self, Self) -> Bool
 pub fn JsonRoleSpanExport::role(Self) -> String
-pub fn JsonRoleSpanExport::start(Self) -> Int
-pub fn JsonRoleSpanExport::to_json(Self) -> Json
+pub fn JsonRoleSpanExport::start(Self) -> Int32
+pub fn JsonRoleSpanExport::to_json(Self) -> @moonbitlang/core/json.Json
 pub fn JsonRoleSpanExport::to_repr(Self) -> @debug.Repr
-pub impl ToJson for JsonRoleSpanExport
+pub impl @moonbitlang/core/json.ToJson for JsonRoleSpanExport
 
 pub struct JsonRoleSpansAttachment {
   // private fields
@@ -112,6 +115,7 @@ pub fn JsonRoleSpansAttachment::dispose(Self) -> Unit
 pub fn JsonRoleSpansAttachment::export_spans(Self) -> Array[JsonRoleSpanExport]
 pub fn JsonRoleSpansAttachment::spans(Self) -> Array[JsonRoleSpan]
 
+#derive(Eq, @debug.Debug, @moonbitlang/core/json.ToJson)
 pub(all) enum JsonValue {
   Null
   Bool(Bool)
@@ -120,7 +124,7 @@ pub(all) enum JsonValue {
   Array(Array[JsonValue])
   Object(Array[(String, JsonValue)])
   Error(String)
-} derive(Eq, ToJson, @debug.Debug)
+}
 pub fn JsonValue::canonical(Self) -> Self
 pub fn JsonValue::children(Self) -> Array[Self]
 pub fn JsonValue::equal(Self, Self) -> Bool
@@ -130,7 +134,7 @@ pub fn JsonValue::not_equal(Self, Self) -> Bool
 pub fn JsonValue::output(Self, &Logger) -> Unit
 pub fn JsonValue::placeholder(Self) -> String
 pub fn JsonValue::same_kind(Self, Self) -> Bool
-pub fn JsonValue::to_json(Self) -> Json
+pub fn JsonValue::to_json(Self) -> @moonbitlang/core/json.Json
 pub fn JsonValue::to_layout(Self) -> @pretty.Layout[@pretty.SyntaxCategory]
 pub fn JsonValue::to_repr(Self) -> @debug.Repr
 pub fn JsonValue::to_source(Self) -> String
@@ -144,6 +148,7 @@ pub impl @pretty.Printable for JsonValue
 pub impl @pretty.Source for JsonValue
 pub impl Show for JsonValue
 
+#derive(Eq, @debug.Debug)
 pub(all) enum SyntaxKind {
   LBraceToken
   RBraceToken
@@ -168,7 +173,7 @@ pub(all) enum SyntaxKind {
   NullValue
   ErrorNode
   RootNode
-} derive(Eq, @debug.Debug)
+}
 pub fn SyntaxKind::equal(Self, Self) -> Bool
 pub fn SyntaxKind::from_raw(@seam.RawKind) -> Self
 pub fn SyntaxKind::is_error(Self) -> Bool
@@ -185,6 +190,7 @@ pub impl @seam.IsTrivia for SyntaxKind
 pub impl @seam.ToRawKind for SyntaxKind
 pub impl Show for SyntaxKind
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Token {
   LBrace
   RBrace
@@ -200,7 +206,7 @@ pub(all) enum Token {
   Whitespace
   Error(String)
   EOF
-} derive(Eq, @debug.Debug)
+}
 pub fn Token::equal(Self, Self) -> Bool
 pub fn Token::is_eof(Self) -> Bool
 pub fn Token::is_trivia(Self) -> Bool

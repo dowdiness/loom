@@ -20,7 +20,7 @@ fn realistic_benchmark_source_id() -> @core.SourceId {
 ///|
 /// Generate a realistic definition with all grammar features.
 /// Each definition has ~20-40 tokens (vs ~4 for `let x = 0`).
-fn make_realistic_def(i : Int) -> String {
+fn make_realistic_def(i : Int32) -> String {
   match i % 5 {
     // Block expression with nested lets
     0 =>
@@ -39,7 +39,7 @@ fn make_realistic_def(i : Int) -> String {
 ///|
 /// Generate a realistic source file with n definitions.
 /// Returns (source, edit_pos) where edit_pos points to the last definition's value.
-fn make_realistic_source(n : Int, tail_value : String) -> String {
+fn make_realistic_source(n : Int32, tail_value : String) -> String {
   let segments : Array[String] = []
   for i = 0; i < n - 1; i = i + 1 {
     segments.push(make_realistic_def(i))
@@ -53,7 +53,7 @@ fn make_realistic_source(n : Int, tail_value : String) -> String {
 /// Find the byte position of the LAST single-char tail value in the source.
 /// The source ends with "let result = <tail>\nresult", so the tail char
 /// is at len - 1 - "result".length() - 1 (newline) = len - 8.
-fn find_tail_edit_pos(source : String) -> Int {
+fn find_tail_edit_pos(source : String) -> Int32 {
   // "let result = X\nresult" — X is at len - 8
   source.length() - "\nresult".length() - 1
 }
@@ -63,7 +63,7 @@ fn find_tail_edit_pos(source : String) -> Int {
 /// "let a0 = 0 + 1" (the first block def's first operand).
 /// The pattern is: "let f0 = {\n  let a0 = 0 + "
 /// We search for the offset of the "1" after "0 + " in the first definition.
-fn find_head_edit_pos(_source : String) -> Int {
+fn find_head_edit_pos(_source : String) -> Int32 {
   // First def is "let f0 = {\n  let a0 = 0 + 1\n  ..."
   // "let f0 = {\n  let a0 = 0 + " has length ~28
   // Find "0 + 1" — the "1" is what we edit
@@ -74,7 +74,7 @@ fn find_head_edit_pos(_source : String) -> Int {
 ///|
 /// Find byte position inside a middle block def's nested let.
 /// For n defs, the middle block is at index (n/2) rounded to nearest %5==0.
-fn find_middle_block_edit_pos(_source : String, n : Int) -> Int {
+fn find_middle_block_edit_pos(_source : String, n : Int32) -> Int32 {
   // Sum up lengths of defs before the target
   let target_idx = n / 2 / 5 * 5 // nearest block def (i%5==0)
   let mut pos = 0
@@ -89,7 +89,11 @@ fn find_middle_block_edit_pos(_source : String, n : Int) -> Int {
 
 ///|
 /// Helper: replace one byte at pos in source string.
-fn replace_char_at(source : String, pos : Int, replacement : String) -> String {
+fn replace_char_at(
+  source : String,
+  pos : Int32,
+  replacement : String,
+) -> String {
   source[:pos].to_owned() + replacement + source[pos + 1:].to_owned()
 }
 

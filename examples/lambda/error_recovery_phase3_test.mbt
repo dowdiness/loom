@@ -182,7 +182,7 @@ test "phase3: nested errors" {
 // These tests use only lexer-valid tokens to test parser-level error recovery.
 
 ///|
-fn phase3_lcg_next(seed : Int) -> Int {
+fn phase3_lcg_next(seed : Int32) -> Int32 {
   let a = 1664525
   let c = 1013904223
   // Use a mask to keep within positive 31-bit range
@@ -190,7 +190,7 @@ fn phase3_lcg_next(seed : Int) -> Int {
 }
 
 ///|
-fn phase3_random_token(seed : Int) -> (String, Int) {
+fn phase3_random_token(seed : Int32) -> (String, Int32) {
   let next = phase3_lcg_next(seed)
   // Pool of valid tokens (no invalid chars that would fail lexer)
   let tokens = [
@@ -202,7 +202,7 @@ fn phase3_random_token(seed : Int) -> (String, Int) {
 }
 
 ///|
-fn phase3_random_string(seed : Int, token_count : Int) -> String {
+fn phase3_random_string(seed : Int32, token_count : Int32) -> String {
   let mut s = seed
   let mut result = ""
   for _i = 0; _i < token_count; _i = _i + 1 {

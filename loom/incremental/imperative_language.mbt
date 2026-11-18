@@ -4,13 +4,14 @@
 /// `ParseSnapshot` keeps the source text, recovered CST, folded AST,
 /// structured diagnostics, and incremental reuse count together so parser
 /// consumers cannot observe mismatched side-channel state.
+#derive(Eq, Debug)
 pub struct ParseSnapshot[Ast] {
   source : String
   syntax : @seam.SyntaxNode
   ast : Ast
   diagnostics : @core.DiagnosticSet
-  reuse_count : Int
-} derive(Eq, Debug)
+  reuse_count : Int32
+}
 
 ///|
 /// Copy a parse snapshot, cloning its mutable diagnostic collection.
@@ -48,20 +49,20 @@ pub struct ImperativeLanguage[Ast] {
   priv full_parse : (@core.SourceId, String) -> (
     @seam.SyntaxNode,
     @core.DiagnosticSet,
-    Int,
+    Int32,
   ) raise Failure
   priv incremental_parse : (
     @core.SourceId,
     String,
     @seam.SyntaxNode,
     @core.Edit,
-  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) raise Failure
+  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int32) raise Failure
   priv atomic_parse : ((
     @core.SourceId,
     String,
     @seam.SyntaxNode,
     @text_change.ChangeSet,
-  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int)? raise Failure)?
+  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int32)? raise Failure)?
   priv to_ast : (@seam.SyntaxNode) -> Ast
   priv get_fold_stats : (() -> @core.FoldStats)?
 }
@@ -72,21 +73,21 @@ pub fn[Ast] ImperativeLanguage::new(
   full_parse~ : (@core.SourceId, String) -> (
     @seam.SyntaxNode,
     @core.DiagnosticSet,
-    Int,
+    Int32,
   ) raise Failure,
   incremental_parse~ : (@core.SourceId, String, @seam.SyntaxNode, @core.Edit) -> (
     @seam.SyntaxNode,
     @core.DiagnosticSet,
-    Int,
+    Int32,
   ) raise Failure,
-  atomic_parse? : ((
+  atomic_parse~ : ((
     @core.SourceId,
     String,
     @seam.SyntaxNode,
     @text_change.ChangeSet,
-  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int)? raise Failure)? = None,
+  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int32)? raise Failure)? = None,
   to_ast~ : (@seam.SyntaxNode) -> Ast,
-  get_fold_stats? : (() -> @core.FoldStats)? = None,
+  get_fold_stats~ : (() -> @core.FoldStats)? = None,
 ) -> ImperativeLanguage[Ast] {
   { full_parse, incremental_parse, atomic_parse, to_ast, get_fold_stats, }
 }

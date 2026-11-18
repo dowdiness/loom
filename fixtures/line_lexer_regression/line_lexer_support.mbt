@@ -2,8 +2,8 @@
 /// Extract the number of leading `#` characters from the generated match.
 fn lex_heading_marker(
   _source : String,
-  pos : Int,
-  len : Int,
+  pos : Int32,
+  len : Int32,
 ) -> (@core.LexStep[Token], LexMode) {
   (
     Produced(

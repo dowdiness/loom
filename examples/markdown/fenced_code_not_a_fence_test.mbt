@@ -1,6 +1,6 @@
 ///|
 fn assert_commonmark_fenced_not_a_fence(
-  example : Int,
+  example : Int32,
   source : String,
   expected_html : String,
 ) -> Unit raise {

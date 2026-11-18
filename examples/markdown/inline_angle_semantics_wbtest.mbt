@@ -57,7 +57,7 @@ test "URI autolink lowers through the public IR and HTML seams" {
               "http://foo.bar.baz",
               "http://foo.bar.baz",
               Some(display_origin),
-              Some(destination_origin)
+              Some(destination_origin),
             ) => assert_eq(display_origin, destination_origin)
             _ => inspect("unexpected", content="typed URI autolink")
           }
@@ -293,7 +293,7 @@ test "email autolinks retain typed display and destination origins" {
               "foo@bar.example.com",
               "mailto:foo@bar.example.com",
               Some(_),
-              None
+              None,
             ) => ()
             _ => inspect("unexpected", content="typed email autolink")
           }

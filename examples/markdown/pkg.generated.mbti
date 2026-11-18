@@ -9,6 +9,7 @@ import {
   "dowdiness/seam",
   "dowdiness/text_change",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -36,11 +37,11 @@ pub fn experimental_markdown_ir_to_commonmark_html(MarkdownIR) -> String
 
 pub fn experimental_markdown_ir_to_commonmark_html_with_raw_html_policy(MarkdownIR, RawHtmlPolicy) -> Result[String, MarkdownIRHtmlRenderError]
 
-pub fn experimental_markdown_ir_to_mdast_json(MarkdownIR) -> Json
+pub fn experimental_markdown_ir_to_mdast_json(MarkdownIR) -> @json.Json
 
-pub fn experimental_markdown_ir_to_mdast_json_with_positions(MarkdownIR, String) -> Json
+pub fn experimental_markdown_ir_to_mdast_json_with_positions(MarkdownIR, String) -> @json.Json
 
-pub fn export_markdown_role_spans(Array[MarkdownRoleSpan]) -> Json
+pub fn export_markdown_role_spans(Array[MarkdownRoleSpan]) -> @json.Json
 
 pub fn html(MarkdownDocument) -> String
 
@@ -48,7 +49,7 @@ pub fn markdown_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> Block) -> Bloc
 
 pub let markdown_grammar : @loom.Grammar[Token, SyntaxKind, Block]
 
-pub fn markdown_lex_step(String, Int, MarkdownLexMode) -> (@core.LexStep[Token], MarkdownLexMode)
+pub fn markdown_lex_step(String, Int32, MarkdownLexMode) -> (@core.LexStep[Token], MarkdownLexMode)
 
 pub let markdown_mode_lexer : @core.ModeLexer[Token, MarkdownLexMode]
 
@@ -58,7 +59,7 @@ pub fn markdown_semantic_read_preserve_rewrite(MarkdownSemanticRead) -> String
 
 pub fn markdown_semantic_read_to_block(MarkdownSemanticRead) -> Block
 
-pub fn markdown_semantic_read_to_mdast_json_with_positions(MarkdownSemanticRead) -> Json
+pub fn markdown_semantic_read_to_mdast_json_with_positions(MarkdownSemanticRead) -> @json.Json
 
 pub let markdown_spec : @core.LanguageSpec[Token, SyntaxKind]
 
@@ -73,17 +74,19 @@ pub fn project_markdown_roles(@seam.SyntaxNode) -> Array[MarkdownRoleSpan]
 pub fn tokenize(String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub suberror MarkdownUpdateError {
   ChangeSetMismatch
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownUpdateError::equal(Self, Self) -> Bool
 pub fn MarkdownUpdateError::not_equal(Self, Self) -> Bool
 pub fn MarkdownUpdateError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum Block {
   Document(Array[Block])
-  Heading(Int, Array[Inline])
+  Heading(Int32, Array[Inline])
   Paragraph(Array[Inline])
   UnorderedList(Array[Block])
   OrderedList(Array[Block], OrderedListMarker?)
@@ -92,7 +95,7 @@ pub(all) enum Block {
   CodeBlock(String, String)
   HtmlBlock(String)
   Error(String)
-} derive(Eq, @debug.Debug)
+}
 pub fn Block::children(Self) -> Array[Self]
 pub fn Block::equal(Self, Self) -> Bool
 pub fn Block::kind_tag(Self) -> String
@@ -115,6 +118,7 @@ pub fn IncrementalParser::IncrementalParser(String, source_id? : @diagnostic.Sou
 pub fn IncrementalParser::snapshot(Self) -> MarkdownDocument
 pub fn IncrementalParser::update(Self, String, changes? : @text_change.ChangeSet) -> Unit raise
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Inline {
   Text(String)
   Bold(Array[Inline])
@@ -122,7 +126,7 @@ pub(all) enum Inline {
   InlineCode(String)
   Link(Array[Inline], String)
   Error(String)
-} derive(Eq, @debug.Debug)
+}
 pub fn Inline::children(Self) -> Array[Self]
 pub fn Inline::equal(Self, Self) -> Bool
 pub fn Inline::kind_tag(Self) -> String
@@ -138,10 +142,11 @@ pub impl @core.Renderable for Inline
 pub impl @core.TreeNode for Inline
 pub impl Show for Inline
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownAutolinkKind {
   Uri
   Email
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownAutolinkKind::equal(Self, Self) -> Bool
 pub fn MarkdownAutolinkKind::not_equal(Self, Self) -> Bool
 pub fn MarkdownAutolinkKind::to_repr(Self) -> @debug.Repr
@@ -172,32 +177,35 @@ pub struct MarkdownDocumentUpdates {
 pub fn MarkdownDocumentUpdates::MarkdownDocumentUpdates(@pipeline.SyntaxParser, extensions? : MarkdownExtensions) -> Self
 pub fn MarkdownDocumentUpdates::document_update(Self) -> MarkdownDocumentUpdate
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownExtensions {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownExtensions::equal(Self, Self) -> Bool
 pub fn MarkdownExtensions::none() -> Self
 pub fn MarkdownExtensions::not_equal(Self, Self) -> Bool
 pub fn MarkdownExtensions::task_list() -> Self
 pub fn MarkdownExtensions::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownHardBreakForm {
-  TrailingSpaces(Int)
+  TrailingSpaces(Int32)
   Backslash
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownHardBreakForm::equal(Self, Self) -> Bool
 pub fn MarkdownHardBreakForm::not_equal(Self, Self) -> Bool
 pub fn MarkdownHardBreakForm::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownIR {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownIR::children(Self) -> Array[Self]
 pub fn MarkdownIR::content_origin(Self) -> MarkdownIROrigin?
 pub fn MarkdownIR::destination_origin(Self) -> MarkdownIROrigin?
 pub fn MarkdownIR::diagnostics(Self) -> Array[@diagnostic.Diagnostic]
 pub fn MarkdownIR::equal(Self, Self) -> Bool
-pub fn MarkdownIR::heading_depth(Self) -> Int?
+pub fn MarkdownIR::heading_depth(Self) -> Int32?
 pub fn MarkdownIR::is_raw(Self) -> Bool
 pub fn MarkdownIR::is_recovered(Self) -> Bool
 pub fn MarkdownIR::is_unsupported(Self) -> Bool
@@ -211,90 +219,100 @@ pub fn MarkdownIR::text_value(Self) -> String?
 pub fn MarkdownIR::to_repr(Self) -> @debug.Repr
 pub fn MarkdownIR::view(Self) -> MarkdownIRView
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownIRAutolinkKind {
   UriAutolink
   EmailAutolink
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownIRAutolinkKind::equal(Self, Self) -> Bool
 pub fn MarkdownIRAutolinkKind::not_equal(Self, Self) -> Bool
 pub fn MarkdownIRAutolinkKind::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownIRCanonicalFormatFailure {
   ExpectedDocument
   OpaqueNode(MarkdownIRCanonicalOpaqueKind, MarkdownIROrigin?)
   Unrepresentable
-  SearchLimitExceeded(observed~ : Int, limit~ : Int)
-} derive(Eq, @debug.Debug)
+  SearchLimitExceeded(observed~ : Int32, limit~ : Int32)
+}
 pub fn MarkdownIRCanonicalFormatFailure::equal(Self, Self) -> Bool
 pub fn MarkdownIRCanonicalFormatFailure::not_equal(Self, Self) -> Bool
 pub fn MarkdownIRCanonicalFormatFailure::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownIRCanonicalOpaqueKind {
   Raw
   Recovered
   Unsupported
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownIRCanonicalOpaqueKind::equal(Self, Self) -> Bool
 pub fn MarkdownIRCanonicalOpaqueKind::not_equal(Self, Self) -> Bool
 pub fn MarkdownIRCanonicalOpaqueKind::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownIRHardBreakSurface {
-  TrailingSpaces(Int)
+  TrailingSpaces(Int32)
   Backslash
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownIRHardBreakSurface::equal(Self, Self) -> Bool
 pub fn MarkdownIRHardBreakSurface::not_equal(Self, Self) -> Bool
 pub fn MarkdownIRHardBreakSurface::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownIRHtmlRenderError {
   RawHtmlRejected(RawHtmlSurface, MarkdownIROrigin)
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownIRHtmlRenderError::equal(Self, Self) -> Bool
 pub fn MarkdownIRHtmlRenderError::not_equal(Self, Self) -> Bool
 pub fn MarkdownIRHtmlRenderError::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownIRLinkReferenceForm {
   InlineLinkForm
   FullReferenceLinkForm
   CollapsedReferenceLinkForm
   ShortcutReferenceLinkForm
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownIRLinkReferenceForm::equal(Self, Self) -> Bool
 pub fn MarkdownIRLinkReferenceForm::not_equal(Self, Self) -> Bool
 pub fn MarkdownIRLinkReferenceForm::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct MarkdownIRLinkSurface {
   form : MarkdownIRLinkReferenceForm
   label_origin : MarkdownIROrigin?
   reference_label_origin : MarkdownIROrigin?
   destination_origin : MarkdownIROrigin?
   title_origin : MarkdownIROrigin?
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownIRLinkSurface::equal(Self, Self) -> Bool
 pub fn MarkdownIRLinkSurface::not_equal(Self, Self) -> Bool
 pub fn MarkdownIRLinkSurface::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownIROrigin {
   // private fields
-} derive(Eq, @debug.Debug)
-pub fn MarkdownIROrigin::end(Self) -> Int
+}
+pub fn MarkdownIROrigin::end(Self) -> Int32
 pub fn MarkdownIROrigin::equal(Self, Self) -> Bool
 pub fn MarkdownIROrigin::not_equal(Self, Self) -> Bool
-pub fn MarkdownIROrigin::start(Self) -> Int
+pub fn MarkdownIROrigin::start(Self) -> Int32
 pub fn MarkdownIROrigin::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownIRTask {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownIRTask::checked(Self) -> Bool
 pub fn MarkdownIRTask::equal(Self, Self) -> Bool
 pub fn MarkdownIRTask::marker_origin(Self) -> MarkdownIROrigin
 pub fn MarkdownIRTask::not_equal(Self, Self) -> Bool
 pub fn MarkdownIRTask::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownIRView {
   Document
-  Heading(depth~ : Int)
+  Heading(depth~ : Int32)
   Paragraph
   BlockQuote
   UnorderedList(spread~ : Bool, marker~ : UnorderedListMarker?)
@@ -317,21 +335,22 @@ pub(all) enum MarkdownIRView {
   Unsupported(message~ : String)
   Raw(value~ : String)
   Recovered(value~ : String)
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownIRView::equal(Self, Self) -> Bool
 pub fn MarkdownIRView::not_equal(Self, Self) -> Bool
 pub fn MarkdownIRView::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownLexMode {
   LineStart
   BlockQuoteLineStart
   Inline
-  CodeBlock(Int, Char)
-  QuotedCodeBlock(Int, Char)
+  CodeBlock(Int32, Char)
+  QuotedCodeBlock(Int32, Char)
   HtmlBlockRaw
   HtmlBlockUntil(String)
   HtmlBlockEndLine
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownLexMode::equal(Self, Self) -> Bool
 pub fn MarkdownLexMode::not_equal(Self, Self) -> Bool
 pub fn MarkdownLexMode::to_repr(Self) -> @debug.Repr
@@ -341,7 +360,7 @@ pub struct MarkdownLexSession {
 }
 pub fn MarkdownLexSession::MarkdownLexSession() -> Self
 pub fn MarkdownLexSession::reset(Self) -> Unit
-pub fn MarkdownLexSession::step(Self, String, Int, MarkdownLexMode) -> (@core.LexStep[Token], MarkdownLexMode)
+pub fn MarkdownLexSession::step(Self, String, Int32, MarkdownLexMode) -> (@core.LexStep[Token], MarkdownLexMode)
 
 pub(all) struct MarkdownNode {
   // private fields
@@ -349,9 +368,10 @@ pub(all) struct MarkdownNode {
 pub fn MarkdownNode::children(Self) -> Array[Self]
 pub fn MarkdownNode::view(Self) -> MarkdownNodeView
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownNodeView {
   Document
-  Heading(depth~ : Int)
+  Heading(depth~ : Int32)
   Paragraph
   BlockQuote
   UnorderedList(spread~ : Bool, marker~ : UnorderedListMarker?)
@@ -374,7 +394,7 @@ pub(all) enum MarkdownNodeView {
   Unsupported(message~ : String)
   Raw(value~ : String)
   Recovered(value~ : String)
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownNodeView::equal(Self, Self) -> Bool
 pub fn MarkdownNodeView::not_equal(Self, Self) -> Bool
 pub fn MarkdownNodeView::to_repr(Self) -> @debug.Repr
@@ -390,16 +410,18 @@ pub fn MarkdownProjectionAttachment::collect(Self) -> Unit
 pub fn MarkdownProjectionAttachment::dispose(Self) -> Unit
 pub fn MarkdownProjectionAttachment::projection(Self) -> Block
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownReferenceForm {
   Inline
   FullReference
   CollapsedReference
   ShortcutReference
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownReferenceForm::equal(Self, Self) -> Bool
 pub fn MarkdownReferenceForm::not_equal(Self, Self) -> Bool
 pub fn MarkdownReferenceForm::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownRole {
   HeadingMarker
   HeadingText
@@ -415,19 +437,20 @@ pub(all) enum MarkdownRole {
   LinkDestination
   Punctuation
   Error
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownRole::equal(Self, Self) -> Bool
 pub fn MarkdownRole::not_equal(Self, Self) -> Bool
 pub fn MarkdownRole::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownRoleSpan {
   // private fields
-} derive(Eq, @debug.Debug)
-pub fn MarkdownRoleSpan::end(Self) -> Int
+}
+pub fn MarkdownRoleSpan::end(Self) -> Int32
 pub fn MarkdownRoleSpan::equal(Self, Self) -> Bool
 pub fn MarkdownRoleSpan::not_equal(Self, Self) -> Bool
 pub fn MarkdownRoleSpan::role(Self) -> MarkdownRole
-pub fn MarkdownRoleSpan::start(Self) -> Int
+pub fn MarkdownRoleSpan::start(Self) -> Int32
 pub fn MarkdownRoleSpan::to_repr(Self) -> @debug.Repr
 
 pub struct MarkdownRoleSpansAttachment {
@@ -455,13 +478,14 @@ pub struct MarkdownSemanticSelection {
   // private fields
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownSemanticSelectionKind {
   WholeNode
   Content
   Destination
   Title
   AutolinkDisplay
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownSemanticSelectionKind::equal(Self, Self) -> Bool
 pub fn MarkdownSemanticSelectionKind::not_equal(Self, Self) -> Bool
 pub fn MarkdownSemanticSelectionKind::to_repr(Self) -> @debug.Repr
@@ -469,46 +493,51 @@ pub fn MarkdownSemanticSelectionKind::to_repr(Self) -> @debug.Repr
 pub struct MarkdownTopLevelBlock {
   // private fields
 }
-pub fn MarkdownTopLevelBlock::matched_previous_block_index(Self) -> Int?
+pub fn MarkdownTopLevelBlock::matched_previous_block_index(Self) -> Int32?
 pub fn MarkdownTopLevelBlock::node(Self) -> MarkdownNode
 
+#derive(Eq, @debug.Debug)
 pub(all) enum OrderedListDelimiter {
   Period
   Paren
-} derive(Eq, @debug.Debug)
+}
 pub fn OrderedListDelimiter::equal(Self, Self) -> Bool
 pub fn OrderedListDelimiter::not_equal(Self, Self) -> Bool
 pub fn OrderedListDelimiter::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct OrderedListMarker {
   // private fields
-} derive(Eq, @debug.Debug)
-pub fn OrderedListMarker::OrderedListMarker(start~ : Int, delimiter~ : OrderedListDelimiter) -> Self
+}
+pub fn OrderedListMarker::OrderedListMarker(start~ : Int32, delimiter~ : OrderedListDelimiter) -> Self
 pub fn OrderedListMarker::delimiter(Self) -> OrderedListDelimiter
 pub fn OrderedListMarker::equal(Self, Self) -> Bool
 pub fn OrderedListMarker::not_equal(Self, Self) -> Bool
-pub fn OrderedListMarker::start(Self) -> Int
+pub fn OrderedListMarker::start(Self) -> Int32
 pub fn OrderedListMarker::text(Self) -> String
 pub fn OrderedListMarker::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum RawHtmlPolicy {
   Escape
   Omit
   Reject
   Passthrough
-} derive(Eq, @debug.Debug)
+}
 pub fn RawHtmlPolicy::equal(Self, Self) -> Bool
 pub fn RawHtmlPolicy::not_equal(Self, Self) -> Bool
 pub fn RawHtmlPolicy::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum RawHtmlSurface {
   RawHtmlBlock
   RawHtmlInline
-} derive(Eq, @debug.Debug)
+}
 pub fn RawHtmlSurface::equal(Self, Self) -> Bool
 pub fn RawHtmlSurface::not_equal(Self, Self) -> Bool
 pub fn RawHtmlSurface::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum SyntaxKind {
   AtxHeadingMarkerToken
   ListMarkerToken
@@ -557,7 +586,7 @@ pub(all) enum SyntaxKind {
   InlineHtmlNode
   TaskListMarkerNode
   ReferenceLinkOpenerNode
-} derive(Eq, @debug.Debug)
+}
 pub fn SyntaxKind::equal(Self, Self) -> Bool
 pub fn SyntaxKind::from_raw(@seam.RawKind) -> Self
 pub fn SyntaxKind::is_token(Self) -> Bool
@@ -570,13 +599,14 @@ pub impl @seam.FromRawKind for SyntaxKind
 pub impl @seam.ToRawKind for SyntaxKind
 pub impl Show for SyntaxKind
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Token {
-  HeadingMarker(Int)
+  HeadingMarker(Int32)
   ListMarker
   OrderedListMarker(OrderedListMarker)
   BlockQuoteMarker
   ThematicBreak
-  CodeFenceOpen(Int, String)
+  CodeFenceOpen(Int32, String)
   CodeFenceClose
   HtmlBlockOpen(String)
   HtmlText(String)
@@ -595,7 +625,7 @@ pub(all) enum Token {
   Newline
   Error(String)
   EOF
-} derive(Eq, @debug.Debug)
+}
 pub fn Token::equal(Self, Self) -> Bool
 pub fn Token::is_eof(Self) -> Bool
 pub fn Token::is_trivia(Self) -> Bool
@@ -609,11 +639,12 @@ pub impl @seam.IsTrivia for Token
 pub impl @seam.ToRawKind for Token
 pub impl Show for Token
 
+#derive(Eq, @debug.Debug)
 pub(all) enum UnorderedListMarker {
   Dash
   Star
   Plus
-} derive(Eq, @debug.Debug)
+}
 pub fn UnorderedListMarker::equal(Self, Self) -> Bool
 pub fn UnorderedListMarker::not_equal(Self, Self) -> Bool
 pub fn UnorderedListMarker::to_repr(Self) -> @debug.Repr

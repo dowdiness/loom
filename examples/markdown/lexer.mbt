@@ -1,5 +1,5 @@
 ///|
-fn char_at(input : String, pos : Int) -> Char? {
+fn char_at(input : String, pos : Int32) -> Char? {
   input.get_char(pos)
 }
 
@@ -22,7 +22,7 @@ fn detach_lexeme(text : StringView) -> String {
 ///|
 fn produced_until(
   token : Token,
-  pos : Int,
+  pos : Int32,
   rest : StringView,
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
@@ -32,7 +32,7 @@ fn produced_until(
 
 ///|
 /// Count consecutive backticks starting at pos.
-fn count_backticks(input : String, pos : Int) -> Int {
+fn count_backticks(input : String, pos : Int32) -> Int32 {
   let mut n = 0
   while pos + n < input.length() {
     match char_at(input, pos + n) {
@@ -46,9 +46,9 @@ fn count_backticks(input : String, pos : Int) -> Int {
 ///|
 fn count_fence_characters(
   input : String,
-  pos : Int,
+  pos : Int32,
   fence_character : Char,
-) -> Int {
+) -> Int32 {
   let mut n = 0
   while pos + n < input.length() {
     match char_at(input, pos + n) {
@@ -61,7 +61,7 @@ fn count_fence_characters(
 
 ///|
 /// Count consecutive '#' starting at pos.
-fn count_hashes(input : String, pos : Int) -> Int {
+fn count_hashes(input : String, pos : Int32) -> Int32 {
   let mut n = 0
   while pos + n < input.length() && n < 6 {
     match char_at(input, pos + n) {
@@ -75,7 +75,7 @@ fn count_hashes(input : String, pos : Int) -> Int {
 ///|
 /// True when the character at `pos` is preceded by an odd-length contiguous
 /// backslash run (CommonMark §6.5: only odd runs escape the following char).
-fn preceded_by_odd_backslashes(input : String, pos : Int) -> Bool {
+fn preceded_by_odd_backslashes(input : String, pos : Int32) -> Bool {
   for i = pos - 1, count = 0; i >= 0; {
     match char_at(input, i) {
       Some('\\') => continue i - 1, count + 1
@@ -87,7 +87,7 @@ fn preceded_by_odd_backslashes(input : String, pos : Int) -> Bool {
 }
 
 ///|
-fn ordered_list_marker_at(input : String, pos : Int) -> OrderedListMarker? {
+fn ordered_list_marker_at(input : String, pos : Int32) -> OrderedListMarker? {
   let digits = count_ordered_marker_digits(input, pos)
   guard digits > 0 else { return None }
   guard char_at(input, pos + digits + 1) is Some(' ' | '\t') else {
@@ -101,7 +101,7 @@ fn ordered_list_marker_at(input : String, pos : Int) -> OrderedListMarker? {
 }
 
 ///|
-fn find_line_end(input : String, pos : Int) -> Int {
+fn find_line_end(input : String, pos : Int32) -> Int32 {
   let mut line_end = pos
   while line_end < input.length() {
     match char_at(input, line_end) {
@@ -113,12 +113,12 @@ fn find_line_end(input : String, pos : Int) -> Int {
 }
 
 ///|
-fn line_is_blank(input : String, pos : Int, line_end : Int) -> Bool {
+fn line_is_blank(input : String, pos : Int32, line_end : Int32) -> Bool {
   input[pos:line_end].is_blank()
 }
 
 ///|
-fn line_end_including_break(input : String, line_end : Int) -> Int {
+fn line_end_including_break(input : String, line_end : Int32) -> Int32 {
   if line_end >= input.length() {
     line_end
   } else {
@@ -140,7 +140,7 @@ fn line_end_including_break(input : String, line_end : Int) -> Int {
 ///|
 fn is_ascii_letter(ch : Char) -> Bool {
   match ch {
-    'A'..='Z' | 'a'..='z' => true
+    'A'..<='Z' | 'a'..<='z' => true
     _ => false
   }
 }
@@ -148,7 +148,7 @@ fn is_ascii_letter(ch : Char) -> Bool {
 ///|
 fn is_html_name_char(ch : Char) -> Bool {
   match ch {
-    'A'..='Z' | 'a'..='z' | '0'..='9' | '-' => true
+    'A'..<='Z' | 'a'..<='z' | '0'..<='9' | '-' => true
     _ => false
   }
 }
@@ -231,7 +231,7 @@ fn is_type6_tag_name(tag : String) -> Bool {
 }
 
 ///|
-fn extract_html_tag_name(line : StringView, pos : Int) -> (String, Int)? {
+fn extract_html_tag_name(line : StringView, pos : Int32) -> (String, Int32)? {
   guard line.get_char(pos).map_or(false, is_ascii_letter) else { return None }
   let mut end = pos
   while end < line.length() {
@@ -244,7 +244,7 @@ fn extract_html_tag_name(line : StringView, pos : Int) -> (String, Int)? {
 }
 
 ///|
-fn html_tag_name_follow_is_valid(line : StringView, tag_end : Int) -> Bool {
+fn html_tag_name_follow_is_valid(line : StringView, tag_end : Int32) -> Bool {
   if tag_end >= line.length() {
     true
   } else {
@@ -375,10 +375,10 @@ fn html_block_mode_after_open(
 ///|
 fn produce_html_block_open(
   input : String,
-  pos : Int,
-  line_end : Int,
+  pos : Int32,
+  line_end : Int32,
   kind : HtmlBlockKind,
-  defer_type6_body? : Bool = false,
+  defer_type6_body~ : Bool = false,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let line : StringView = input[pos:line_end]
   (
@@ -393,8 +393,8 @@ fn produce_html_block_open(
 ///|
 fn produce_token_from(
   token : Token,
-  start : Int,
-  len : Int,
+  start : Int32,
+  len : Int32,
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   (Produced(@core.TokenInfo::new(token, len), next_offset=start + len), mode)
@@ -403,8 +403,8 @@ fn produce_token_from(
 ///|
 fn lex_heading_marker(
   input : String,
-  token_pos : Int,
-  marker_pos : Int,
+  token_pos : Int32,
+  marker_pos : Int32,
   same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   match @payload_lexer.step_lex(input, marker_pos) {
@@ -451,8 +451,8 @@ fn lex_heading_marker(
 /// Lex from LineStart mode. Recognizes block markers at line beginning.
 fn lex_line_start(
   input : String,
-  pos : Int,
-  line_end_hint : Int?,
+  pos : Int32,
+  line_end_hint : Int32?,
   same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
@@ -492,11 +492,11 @@ fn lex_line_start(
     return produced_until(
       ThematicBreak,
       pos,
-      input.view(start_offset=line_end),
+      input.legacy_view(start=line_end),
       LineStart,
     )
   }
-  match input.view(start_offset=pos) {
+  match input.legacy_view(start=pos) {
     ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
       // Empty line = BlankLine
       produced_until(BlankLine, pos, rest, LineStart)
@@ -592,10 +592,10 @@ fn lex_line_start(
 ///|
 fn lex_code_fence(
   input : String,
-  pos : Int,
+  pos : Int32,
   fence_character : Char,
   same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
-  quoted? : Bool = false,
+  quoted~ : Bool = false,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if fence_character == '`' {
     match @payload_lexer.step_lex(input, pos) {
@@ -669,11 +669,11 @@ fn lex_code_fence(
 ///|
 fn lex_block_quote_line_start(
   input : String,
-  pos : Int,
-  line_end_hint : Int?,
+  pos : Int32,
+  line_end_hint : Int32?,
   same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
-  match input.view(start_offset=pos) {
+  match input.legacy_view(start=pos) {
     ['`', ..] => lex_code_fence(input, pos, '`', same_line_cache, quoted=true)
     ['~', ..] => lex_code_fence(input, pos, '~', same_line_cache, quoted=true)
     ['<', ..] => {
@@ -720,7 +720,7 @@ fn is_inline_special(ch : Char) -> Bool {
 /// Lex from Inline mode. Recognizes emphasis, code, links, text runs.
 fn lex_inline(
   input : String,
-  pos : Int,
+  pos : Int32,
   same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
@@ -735,7 +735,7 @@ fn lex_inline(
     pos <= same_line_facts.prefix_end &&
     same_line_list_item_block_start_with_facts(input, pos, same_line_facts) &&
     !same_line_facts.line_is_thematic_break {
-    match input.view(start_offset=pos) {
+    match input.legacy_view(start=pos) {
       ['-' | '*' | '+', ' ' | '\t', .. rest] =>
         produced_until(ListMarker, pos, rest, Inline)
       [ch, ..] if is_decimal_digit(ch) =>
@@ -776,7 +776,7 @@ fn lex_inline(
       _ => lex_inline(input, pos, same_line_cache)
     }
   } else {
-    match input.view(start_offset=pos) {
+    match input.legacy_view(start=pos) {
       ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
         produced_until(Newline, pos, rest, LineStart)
       ['*', .. rest] => produced_until(Star, pos, rest, Inline)
@@ -835,7 +835,7 @@ fn lex_inline(
 }
 
 ///|
-fn line_starts_with_block_quote_marker(input : String, pos : Int) -> Bool {
+fn line_starts_with_block_quote_marker(input : String, pos : Int32) -> Bool {
   let line_end = find_line_end(input, pos)
   let (start, col) = leading_indent_end_offset_and_column(input, pos, 0)
   guard start < line_end && col <= 3 else { return false }
@@ -847,7 +847,7 @@ fn line_starts_with_block_quote_marker(input : String, pos : Int) -> Bool {
 /// for the three cases where content is not a closing fence.
 fn emit_code_text_line(
   input : String,
-  pos : Int,
+  pos : Int32,
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let mut line_end = pos
@@ -870,13 +870,13 @@ fn emit_code_text_line(
 ///|
 fn lex_quoted_code_block_line_prefix(
   input : String,
-  pos : Int,
+  pos : Int32,
   mode : MarkdownLexMode,
-  quote_indents : Array[Int]?,
+  quote_indents : Array[Int32]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode)? {
   let line_start = line_start_offset(input, pos)
   guard input[line_start:pos].is_blank() else { return None }
-  match input.view(start_offset=pos) {
+  match input.legacy_view(start=pos) {
     [' ', ..] | ['\t', ..] => {
       let (end, _) = leading_indent_end_offset_and_column(input, line_start, 0)
       guard end > pos &&
@@ -918,10 +918,10 @@ fn lex_quoted_code_block_line_prefix(
 ///|
 fn lex_code_block_newline(
   input : String,
-  pos : Int,
+  pos : Int32,
   rest : StringView,
   mode : MarkdownLexMode,
-  quote_indents : Array[Int]?,
+  quote_indents : Array[Int32]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let after_newline = rest.start_offset()
   let next_mode = match mode {
@@ -939,10 +939,10 @@ fn lex_code_block_newline(
 ///|
 fn code_fence_close_end(
   input : String,
-  fence_start : Int,
-  fence_len : Int,
+  fence_start : Int32,
+  fence_len : Int32,
   fence_character : Char,
-) -> Int? {
+) -> Int32? {
   let n = count_fence_characters(input, fence_start, fence_character)
   if n < fence_len {
     return None
@@ -956,7 +956,7 @@ fn code_fence_close_end(
     }
   }
   if after < input.length() {
-    match input.view(start_offset=after) {
+    match input.legacy_view(start=after) {
       ['\r', '\n', .. rest] => Some(rest.start_offset())
       ['\r', .. rest] | ['\n', .. rest] => Some(rest.start_offset())
       _ => Some(after)
@@ -969,11 +969,11 @@ fn code_fence_close_end(
 ///|
 fn code_block_close_end_at(
   input : String,
-  pos : Int,
-  fence_len : Int,
+  pos : Int32,
+  fence_len : Int32,
   fence_character : Char,
-  opening_indent : Int?,
-) -> Int? {
+  opening_indent : Int32?,
+) -> Int32? {
   let max_leading_spaces = code_block_max_leading_spaces(opening_indent)
   let mut fence_start = pos
   let mut leading_spaces = 0
@@ -989,12 +989,12 @@ fn code_block_close_end_at(
 /// Shared close-fence + newline + text-line logic for both code block modes.
 fn lex_code_block_body(
   input : String,
-  pos : Int,
-  fence_len : Int,
+  pos : Int32,
+  fence_len : Int32,
   fence_character : Char,
-  opening_indent : Int?,
+  opening_indent : Int32?,
   mode : MarkdownLexMode,
-  quote_indents? : Array[Int]? = None,
+  quote_indents~ : Array[Int32]? = None,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, mode)
@@ -1012,7 +1012,7 @@ fn lex_code_block_body(
         LineStart,
       )
     None =>
-      match input.view(start_offset=pos) {
+      match input.legacy_view(start=pos) {
         ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
           lex_code_block_newline(input, pos, rest, mode, quote_indents)
         _ => emit_code_text_line(input, pos, mode)
@@ -1023,12 +1023,12 @@ fn lex_code_block_body(
 ///|
 fn lex_quoted_code_block(
   input : String,
-  pos : Int,
-  fence_len : Int,
+  pos : Int32,
+  fence_len : Int32,
   fence_character : Char,
-  opening_indent : Int?,
+  opening_indent : Int32?,
   mode : MarkdownLexMode,
-  quote_indents : Array[Int]?,
+  quote_indents : Array[Int32]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, mode)
@@ -1056,9 +1056,9 @@ fn lex_quoted_code_block(
 ///|
 fn lex_html_block_end_line(
   input : String,
-  pos : Int,
+  pos : Int32,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
-  match input.view(start_offset=pos) {
+  match input.legacy_view(start=pos) {
     ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
       produced_until(Newline, pos, rest, LineStart)
     _ => (Done, LineStart)
@@ -1068,8 +1068,8 @@ fn lex_html_block_end_line(
 ///|
 fn emit_html_text_line(
   input : String,
-  pos : Int,
-  line_end : Int,
+  pos : Int32,
+  line_end : Int32,
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let text : StringView = input[pos:line_end]
@@ -1085,7 +1085,7 @@ fn emit_html_text_line(
 ///|
 fn lex_html_block_raw_newline_mode(
   input : String,
-  next_pos : Int,
+  next_pos : Int32,
 ) -> MarkdownLexMode {
   if next_pos >= input.length() {
     HtmlBlockRaw
@@ -1100,13 +1100,13 @@ fn lex_html_block_raw_newline_mode(
 ///|
 fn lex_html_block_raw(
   input : String,
-  pos : Int,
+  pos : Int32,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, HtmlBlockRaw)
   }
   let line_end = find_line_end(input, pos)
-  match input.view(start_offset=pos) {
+  match input.legacy_view(start=pos) {
     ['\r', '\n', .. rest] =>
       produced_until(
         Newline,
@@ -1130,13 +1130,13 @@ fn lex_html_block_raw(
 ///|
 fn lex_html_block_until(
   input : String,
-  pos : Int,
+  pos : Int32,
   delimiter : String,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, HtmlBlockUntil(delimiter))
   }
-  match input.view(start_offset=pos) {
+  match input.legacy_view(start=pos) {
     ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
       produced_until(Newline, pos, rest, HtmlBlockUntil(delimiter))
     _ => {
@@ -1162,12 +1162,12 @@ fn lex_html_block_until(
 /// Mode-aware lex step with private context supplied by the imperative shell.
 fn markdown_lex_step_inner_with_context(
   input : String,
-  pos : Int,
+  pos : Int32,
   mode : MarkdownLexMode,
-  line_end_hint : Int?,
-  opening_indent : Int?,
+  line_end_hint : Int32?,
+  opening_indent : Int32?,
   same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
-  quote_indents? : Array[Int]? = None,
+  quote_indents~ : Array[Int32]? = None,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
     return (Done, mode)
@@ -1212,7 +1212,7 @@ fn markdown_lex_step_inner_with_context(
 }
 
 ///|
-fn next_lex_step_offset(step : @core.LexStep[Token], input : String) -> Int {
+fn next_lex_step_offset(step : @core.LexStep[Token], input : String) -> Int32 {
   match step {
     @core.LexStep::Produced(_, next_offset~) => next_offset
     @core.LexStep::Invalid(at~, width~, ..) => at + width
@@ -1226,7 +1226,7 @@ fn next_lex_step_offset(step : @core.LexStep[Token], input : String) -> Int {
 /// `MarkdownLexSession::step`; this function never mutates cache state.
 pub fn markdown_lex_step(
   input : String,
-  pos : Int,
+  pos : Int32,
   mode : MarkdownLexMode,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   markdown_lex_step_inner_with_context(input, pos, mode, None, None, None)
@@ -1238,7 +1238,7 @@ pub fn markdown_lex_step(
 /// reuse. `ModeRelexFactory` calls this builder once per parser session.
 fn new_markdown_mode_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] {
   let session = MarkdownLexSession()
-  let lex_step = fn(input : String, pos : Int, mode : MarkdownLexMode) {
+  let lex_step = fn(input : String, pos : Int32, mode : MarkdownLexMode) {
     session.step(input, pos, mode)
   }
   { lex_step, initial_mode: LineStart, }

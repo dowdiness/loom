@@ -15,7 +15,7 @@ fn parse_cst_or_fail_recovery(
 }
 
 ///|
-fn diagnostic_start(diag : @core.Diagnostic) -> Int {
+fn diagnostic_start(diag : @core.Diagnostic) -> Int32 {
   guard diag
     .labels()
     .iter()

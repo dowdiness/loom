@@ -1,6 +1,6 @@
 ///|
 fn assert_commonmark_indented_code_regression(
-  example : Int,
+  example : Int32,
   source : String,
   expected_html : String,
 ) -> Unit raise {
@@ -38,7 +38,7 @@ fn assert_commonmark_indented_code_regression(
 
 ///|
 test "CommonMark indented code 107-118 and fence-looking 134" {
-  let cases : Array[(Int, String, String)] = [
+  let cases : Array[(Int32, String, String)] = [
     (
       107, "    a simple\n      indented code block\n", "<pre><code>a simple\n  indented code block\n</code></pre>\n",
     ),

@@ -5,10 +5,10 @@
 
 ///|
 fn same_line_list_facts_benchmark_input(
-  marker_count : Int,
-) -> (String, Array[Int]) {
+  marker_count : Int32,
+) -> (String, Array[Int32]) {
   let source = "- ".repeat(marker_count) + "text\n"
-  let positions : Array[Int] = []
+  let positions : Array[Int32] = []
   for i = 0; i < marker_count; i = i + 1 {
     positions.push(i * 2)
   }
@@ -18,8 +18,8 @@ fn same_line_list_facts_benchmark_input(
 ///|
 fn same_line_list_facts_workload(
   source : String,
-  positions : Array[Int],
-) -> Int {
+  positions : Array[Int32],
+) -> Int32 {
   let session = MarkdownLexSession()
   let mut checksum = 0
   for pos in positions {
@@ -32,8 +32,8 @@ fn same_line_list_facts_workload(
 ///|
 fn same_line_list_facts_stateless_workload(
   source : String,
-  positions : Array[Int],
-) -> Int {
+  positions : Array[Int32],
+) -> Int32 {
   let mut checksum = 0
   for pos in positions {
     let (step, _) = markdown_lex_step(source, pos, Inline)

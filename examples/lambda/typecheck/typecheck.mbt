@@ -22,7 +22,7 @@ priv struct PipelineState {
   // shadowing one — so caches keyed on `DefId` identity stay coherent.
   // Every subsequent duplicate is flagged by a diagnostic in
   // `duplicate_diags` below.
-  mut name_to_idx : @hashmap.HashMap[String, Int]
+  mut name_to_idx : @hashmap.HashMap[String, Int32]
   // Diagnostics produced by duplicate-name detection in `rebuild_chain`.
   // Concatenated into `ModuleTypeResult::all_diagnostics` by
   // `collect_results`. Rebuilt atomically with `name_to_idx`.
@@ -256,7 +256,7 @@ fn rebuild_chain(
   // `DefId` always routes to the original declaration; subsequent
   // same-named defs get flagged in `duplicate_diags` instead of silently
   // aliasing into a later slot.
-  let name_to_idx : @hashmap.HashMap[String, Int] = @hashmap.HashMap([])
+  let name_to_idx : @hashmap.HashMap[String, Int32] = @hashmap.HashMap([])
   let duplicate_diags : Array[TypeDiagnostic] = []
   for i, def in defs {
     match name_to_idx.get(def.0) {

@@ -1,4 +1,5 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum Token {
   PayloadShort(String)
   PayloadLong(String)
@@ -35,7 +36,7 @@ pub(all) enum Token {
   CandidateAE
   CandidateAF
   EOF
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Token with @moonbitlang/core/debug.Debug::{to_repr}

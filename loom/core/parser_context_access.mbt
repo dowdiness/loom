@@ -40,10 +40,10 @@ pub fn[T, K] ParserContext::new(
 /// caller already has tokens in a different layout (e.g. @token.TokenInfo).
 pub fn[T, K] ParserContext::new_indexed(
   source_id : SourceId,
-  token_count : Int,
-  get_token : (Int) -> T,
-  get_start : (Int) -> Int,
-  get_end : (Int) -> Int,
+  token_count : Int32,
+  get_token : (Int32) -> T,
+  get_start : (Int32) -> Int32,
+  get_end : (Int32) -> Int32,
   source : String,
   spec : LanguageSpec[T, K],
 ) -> ParserContext[T, K] {
@@ -92,7 +92,7 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::peek(
 /// Returns eof_token when fewer than n + 1 non-trivia tokens remain.
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_nth(
   self : ParserContext[T, K],
-  n : Int,
+  n : Int32,
 ) -> T {
   if n < 0 {
     return self.peek()
@@ -224,7 +224,9 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(
 /// Grammar runtimes may compare this value before and after an opaque callback
 /// or repetition body to enforce a progress contract. It is intentionally a
 /// read-only accessor; grammar code must not mutate parser position directly.
-pub fn[T, K] ParserContext::cursor_position(self : ParserContext[T, K]) -> Int {
+pub fn[T, K] ParserContext::cursor_position(
+  self : ParserContext[T, K],
+) -> Int32 {
   self.position
 }
 
@@ -235,7 +237,7 @@ pub fn[T, K] ParserContext::cursor_position(self : ParserContext[T, K]) -> Int {
 /// Prefer it over reading `ParserContext.error_count` directly from grammar code.
 pub fn[T, K] ParserContext::too_many_errors(
   self : ParserContext[T, K],
-  max : Int,
+  max : Int32,
 ) -> Bool {
   self.error_count >= max
 }
@@ -244,7 +246,7 @@ pub fn[T, K] ParserContext::too_many_errors(
 /// Return the raw token index of the next non-trivia token.
 fn[T : @seam.IsTrivia, K] ParserContext::current_token_position(
   self : ParserContext[T, K],
-) -> Int? {
+) -> Int32? {
   for pos in self.position..<self.token_count {
     self.observe_token(pos)
     let token = (self.get_token)(pos)
@@ -297,7 +299,7 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::current_token_range(
 /// for CRDT sync fidelity. Surrogate handling is deferred to point-of-use.
 pub fn[T, K] ParserContext::token_text_at(
   self : ParserContext[T, K],
-  pos : Int,
+  pos : Int32,
 ) -> StringView {
   if pos < 0 || pos >= self.token_count {
     self.observe_token(pos)
@@ -309,14 +311,14 @@ pub fn[T, K] ParserContext::token_text_at(
   if start < 0 || end < start || end > self.source.length() {
     return ""
   }
-  self.source.view(start_offset=start, end_offset=end)
+  self.source.legacy_view(start~, end~)
 }
 
 ///|
 /// Extract source text at a token index. Internal alias for token_text_at.
 fn[T, K] ParserContext::text_at(
   self : ParserContext[T, K],
-  pos : Int,
+  pos : Int32,
 ) -> StringView {
   self.token_text_at(pos)
 }
@@ -347,7 +349,7 @@ fn[T, K] ParserContext::text_at(
 /// separators in HTML, indentation in Python).
 pub fn[T, K] ParserContext::peek_index(
   self : ParserContext[T, K],
-  n : Int,
+  n : Int32,
 ) -> T {
   let pos = if n < 0 { self.position } else { self.position + n }
   self.observe_token(pos)
@@ -376,8 +378,8 @@ pub fn[T, K] ParserContext::current_node_kind(self : ParserContext[T, K]) -> K? 
 ///|
 pub fn[T, K] ParserContext::set_goal_source(
   self : ParserContext[T, K],
-  source : (Int, Int) -> (T, Int),
-  subsumption_check? : (Int, Int) -> Bool = fn(_, _) { false },
+  source : (Int32, Int32) -> (T, Int32),
+  subsumption_check~ : (Int32, Int32) -> Bool = fn(_, _) { false },
 ) -> Unit {
   self.goal_source = Some(source)
   self.goal_subsumption_check = Some(subsumption_check)
@@ -389,9 +391,9 @@ pub fn[T, K] ParserContext::set_goal_source(
 /// goal_source is configured.
 pub fn[T, K] ParserContext::token_at(
   self : ParserContext[T, K],
-  offset : Int,
-  goal : Int,
-) -> (T, Int) {
+  offset : Int32,
+  goal : Int32,
+) -> (T, Int32) {
   let result = match self.goal_source {
     Some(source_fn) => source_fn(offset, goal)
     None => self.baseline_token_at(offset)
@@ -406,8 +408,8 @@ pub fn[T, K] ParserContext::token_at(
 /// when no baseline token starts at `offset`.
 fn[T, K] ParserContext::baseline_token_at(
   self : ParserContext[T, K],
-  offset : Int,
-) -> (T, Int) {
+  offset : Int32,
+) -> (T, Int32) {
   let lo = lower_bound(self, offset)
   if lo < self.token_count && (self.get_start)(lo) == offset {
     ((self.get_token)(lo), (self.get_end)(lo))
@@ -420,8 +422,8 @@ fn[T, K] ParserContext::baseline_token_at(
 /// Binary search for the first token index where get_start(i) >= target.
 fn[T, K] ParserContext::lower_bound_offset(
   self : ParserContext[T, K],
-  target : Int,
-) -> Int {
+  target : Int32,
+) -> Int32 {
   lower_bound(self, target)
 }
 
@@ -432,7 +434,7 @@ fn[T, K] ParserContext::lower_bound_offset(
 /// for the combined flush+emit+advance operation.
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::advance_with_goal(
   self : ParserContext[T, K],
-  goal : Int,
+  goal : Int32,
 ) -> T {
   match self.current_token_position() {
     Some(pos) if !@seam.IsEof::is_eof((self.get_token)(pos)) => {
@@ -457,7 +459,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::advance_with_goal(
 /// "/regex/flags"), not just the baseline "/".
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_token_with_goal(
   self : ParserContext[T, K],
-  goal : Int,
+  goal : Int32,
   kind : K,
 ) -> Unit {
   self.flush_trivia()
@@ -465,7 +467,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
     Some(pos) if !@seam.IsEof::is_eof((self.get_token)(pos)) => {
       let offset = (self.get_start)(pos)
       let (_goal_token, end_offset) = self.token_at(offset, goal)
-      let text = self.source.view(start_offset=offset, end_offset~)
+      let text = self.source.legacy_view(start=offset, end=end_offset)
       self.events.push(@seam.ParseEvent::Token(kind.to_raw(), text))
       let new_pos = self.lower_bound_offset(end_offset)
       // Zero-width goal tokens: force advance past current token.

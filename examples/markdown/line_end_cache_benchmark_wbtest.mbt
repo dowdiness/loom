@@ -4,7 +4,7 @@
 // Recreate the production lexer shell without its line-end hint so this
 // benchmark isolates physical-line-end reuse from inline-angle ownership.
 fn line_end_cache_uncached_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] {
-  let lex_step = fn(input : String, pos : Int, mode : MarkdownLexMode) {
+  let lex_step = fn(input : String, pos : Int32, mode : MarkdownLexMode) {
     markdown_lex_step(input, pos, mode)
   }
   { lex_step, initial_mode: LineStart, }
@@ -13,7 +13,7 @@ fn line_end_cache_uncached_lexer() -> @core.ModeLexer[Token, MarkdownLexMode] {
 ///|
 fn bench_line_end_cache_nested_quotes(
   b : @bench.T,
-  depth : Int,
+  depth : Int32,
   cached : Bool,
 ) -> Unit {
   let source = line_end_cache_nested_quote_doc(depth, 100)

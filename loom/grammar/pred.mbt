@@ -9,6 +9,7 @@
 /// a lookahead token while the context remains at the current cursor. Mirrors
 /// `Native(RuleName)` in that the name resolves against host code, not
 /// token-identity data.
+#derive(Eq, Debug)
 pub(all) enum Pred[T] {
   Any
   IsToken(T)
@@ -25,7 +26,7 @@ pub(all) enum Pred[T] {
   /// Both sides must match. Composes token predicates with `HostGuard` at
   /// current-cursor predicate positions.
   All(Pred[T], Pred[T])
-} derive(Eq, Debug)
+}
 
 ///|
 /// Test whether `token` satisfies this predicate.

@@ -5,9 +5,9 @@
 // context construction.
 
 ///|
-fn benchmark_delimiter_index(b : @bench.T, run_count : Int) -> Unit {
-  let starts : Array[Int] = []
-  let lengths : Array[Int] = []
+fn benchmark_delimiter_index(b : @bench.T, run_count : Int32) -> Unit {
+  let starts : Array[Int32] = []
+  let lengths : Array[Int32] = []
   for i in 0..<run_count {
     starts.push(i)
     lengths.push(i + 1)
@@ -18,7 +18,7 @@ fn benchmark_delimiter_index(b : @bench.T, run_count : Int) -> Unit {
       successors: Map([]),
       has_angle_open: false,
     }
-    let previous_by_length : Map[Int, Int] = Map([])
+    let previous_by_length : Map[Int32, Int32] = Map([])
     for i in 0..<run_count {
       index_code_span_delimiter_run(
         index,

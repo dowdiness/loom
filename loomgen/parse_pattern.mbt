@@ -3,32 +3,35 @@
 /// Parse a MoonBit `re`-shaped pattern into a private IR and return the first
 /// malformed/unsupported error by position.
 enum PatternError {
-  Malformed(Int, String)
-  Unsupported(Int, String)
+  Malformed(Int32, String)
+  Unsupported(Int32, String)
 }
 
 ///|
+#derive(Eq, Debug)
 struct PatternSpan {
-  start : Int
-  end : Int
-} derive(Eq, Debug)
+  start : Int32
+  end : Int32
+}
 
 ///|
-fn PatternSpan::PatternSpan(start : Int, end : Int) -> PatternSpan {
+fn PatternSpan::PatternSpan(start : Int32, end : Int32) -> PatternSpan {
   { start, end, }
 }
 
 ///|
+#derive(Eq, Debug)
 enum FirstCodeUnits {
   Finite(Array[(UInt16, UInt16)])
   Any
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 struct FirstInfo {
   units : FirstCodeUnits
   nullable : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 fn FirstInfo::FirstInfo(units : FirstCodeUnits, nullable : Bool) -> FirstInfo {
@@ -56,11 +59,11 @@ enum Pattern {
 ///|
 struct PatternParser {
   pattern : String
-  length : Int
-  mut pos : Int
-  mut group_depth : Int
-  mut first_malformed : Int?
-  mut first_unsupported : Int?
+  length : Int32
+  mut pos : Int32
+  mut group_depth : Int32
+  mut first_malformed : Int32?
+  mut first_unsupported : Int32?
 }
 
 ///|
@@ -76,7 +79,7 @@ fn PatternParser::PatternParser(pattern : String) -> PatternParser {
 }
 
 ///|
-fn PatternParser::note_malformed(self : PatternParser, at : Int) -> Unit {
+fn PatternParser::note_malformed(self : PatternParser, at : Int32) -> Unit {
   match self.first_malformed {
     None => self.first_malformed = Some(at)
     Some(pos) => if at < pos { self.first_malformed = Some(at) }
@@ -84,7 +87,7 @@ fn PatternParser::note_malformed(self : PatternParser, at : Int) -> Unit {
 }
 
 ///|
-fn PatternParser::note_unsupported(self : PatternParser, at : Int) -> Unit {
+fn PatternParser::note_unsupported(self : PatternParser, at : Int32) -> Unit {
   match self.first_unsupported {
     None => self.first_unsupported = Some(at)
     Some(pos) => if at < pos { self.first_unsupported = Some(at) }
@@ -101,16 +104,16 @@ fn PatternParser::peek(self : PatternParser) -> UInt16? {
 }
 
 ///|
-fn PatternParser::bump(self : PatternParser, count : Int) -> Unit {
+fn PatternParser::bump(self : PatternParser, count : Int32) -> Unit {
   self.pos = self.pos + count
 }
 
 ///|
 fn parser_error_reason(
   pattern : String,
-  pos : Int,
+  pos : Int32,
   unsupported : Bool,
-  group_depth : Int,
+  group_depth : Int32,
 ) -> String {
   if unsupported {
     if pos < pattern.length() && pattern[pos] == '|' {

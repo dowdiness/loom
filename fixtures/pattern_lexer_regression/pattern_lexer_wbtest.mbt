@@ -7,8 +7,8 @@ fn fixture_lexer() -> @core.PrefixLexer[Token] {
 fn assert_produced(
   step : @core.LexStep[Token],
   token : Token,
-  len : Int,
-  next_offset : Int,
+  len : Int32,
+  next_offset : Int32,
 ) -> Unit {
   match step {
     Produced(info, next_offset=actual_next) =>

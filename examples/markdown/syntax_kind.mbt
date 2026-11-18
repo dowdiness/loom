@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum SyntaxKind {
   // Token kinds
   AtxHeadingMarkerToken
@@ -49,7 +50,7 @@ pub(all) enum SyntaxKind {
   InlineHtmlNode
   TaskListMarkerNode
   ReferenceLinkOpenerNode
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for SyntaxKind with fn output(self, logger) {

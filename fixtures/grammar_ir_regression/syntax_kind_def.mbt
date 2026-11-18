@@ -1,9 +1,10 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum SyntaxKind {
   Start
   AToken
   BToken
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {

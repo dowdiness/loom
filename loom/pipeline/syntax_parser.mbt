@@ -4,13 +4,14 @@
 /// `SyntaxSnapshot` keeps the source text, recovered CST, structured
 /// diagnostics, and incremental reuse count together for consumers that do not
 /// need an AST fold.
+#derive(Eq, Debug)
 pub struct SyntaxSnapshot {
   source_id : @core.SourceId
   source : String
   syntax : @seam.SyntaxNode
   diagnostics : @core.DiagnosticSet
-  reuse_count : Int
-} derive(Eq, Debug)
+  reuse_count : Int32
+}
 
 ///|
 /// Copy a syntax snapshot, cloning its mutable diagnostic collection.

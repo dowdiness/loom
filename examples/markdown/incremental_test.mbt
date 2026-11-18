@@ -5,7 +5,7 @@ fn markdown_incremental_edit_reuse_count(
   source : String,
   edit : @core.Edit,
   new_source : String,
-) -> Int {
+) -> Int32 {
   @loom.assert_incremental_edit_matches_full_parse(
     source_id,
     label,
@@ -406,7 +406,7 @@ test "incremental: ordered marker delimiter relex matches detached tokenize" {
     let start = full.starts()[i]
     let end = start + full.tokens()[i].len
     inspect(
-      buffer.get_view(i) == new_source.view(start_offset=start, end_offset=end),
+      buffer.get_view(i) == new_source.legacy_view(start~, end~),
       content="true",
     )
   }

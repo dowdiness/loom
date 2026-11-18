@@ -1,6 +1,6 @@
 ///|
 /// Find the largest capture index referenced outside strings/comments.
-fn max_payload_capture_index(source : String) -> Int {
+fn max_payload_capture_index(source : String) -> Int32 {
   let mut max = -1
   let segments = lex_payload_segments(source) catch { _ => return max }
   for segment in segments {

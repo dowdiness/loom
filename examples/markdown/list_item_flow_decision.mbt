@@ -14,9 +14,9 @@ priv enum ListItemFlowDecision {
 fn decide_list_item_indented_flow(
   current : Token,
   next : Token,
-  indent : Int?,
+  indent : Int32?,
   context : ListItemFlowContext,
-  code_indent : Int,
+  code_indent : Int32,
   prefixed_block_start : Bool,
 ) -> ListItemFlowDecision {
   match (current, indent) {

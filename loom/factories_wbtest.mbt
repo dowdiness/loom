@@ -1,10 +1,11 @@
 ///|
+#derive(Eq, Debug)
 enum FTok {
   A
   Ws
   Err
   Eof
-} derive(Eq, Debug)
+}
 
 ///|
 impl @seam.IsTrivia for FTok with fn is_trivia(self) {
@@ -28,18 +29,20 @@ impl @seam.ToRawKind for FTok with fn to_raw(self) {
 }
 
 ///|
+#derive(Debug)
 enum FKind {
   KChar
   KExpr
   KRoot
   KWs
   KErr
-} derive(Debug)
+}
 
 ///|
+#derive(Eq)
 enum FMode {
   FNormal
-} derive(Eq)
+}
 
 ///|
 fn fkind_raw(k : FKind) -> @seam.RawKind {
@@ -96,7 +99,7 @@ fn ftokenize_requires_terminator(
 }
 
 ///|
-fn fstep_lexer(source : String, start : Int) -> @core.LexStep[FTok] {
+fn fstep_lexer(source : String, start : Int32) -> @core.LexStep[FTok] {
   if start >= source.length() {
     return Done
   }
@@ -109,7 +112,7 @@ fn fstep_lexer(source : String, start : Int) -> @core.LexStep[FTok] {
 ///|
 fn fmode_step_lexer(
   source : String,
-  start : Int,
+  start : Int32,
   mode : FMode,
 ) -> (@core.LexStep[FTok], FMode) {
   if start >= source.length() {
@@ -169,7 +172,7 @@ fn flex_recoverable_steps(
 }
 
 ///|
-fn fbang_offset(source : String) -> Int? {
+fn fbang_offset(source : String) -> Int32? {
   for i = 0; i < source.length(); i = i + 1 {
     if source.code_unit_at(i).to_int() == 33 {
       return Some(i)
@@ -275,16 +278,18 @@ fn fsyntax_grammar() -> SyntaxGrammar[FTok, FKind] {
 
 ///|
 struct NonEqAst {
-  payload : (Int) -> Int
+  payload : (Int32) -> Int32
 }
 
 ///|
-fn NonEqAst::apply(self : NonEqAst, x : Int) -> Int {
+fn NonEqAst::apply(self : NonEqAst, x : Int32) -> Int32 {
   (self.payload)(x)
 }
 
 ///|
-fn fnon_eq_ast_grammar(fold_count : Ref[Int]) -> Grammar[FTok, FKind, NonEqAst] {
+fn fnon_eq_ast_grammar(
+  fold_count : Ref[Int32],
+) -> Grammar[FTok, FKind, NonEqAst] {
   let spec = @core.LanguageSpec::new(
     KWs,
     KErr,
@@ -591,7 +596,7 @@ test "new_syntax_parser: lexer diagnostic surfaces and clears on recovery" {
 ///|
 test "new_syntax_parser: accepts syntax facade from non-Eq AST grammar without folding" {
   inspect(({ payload: x => x + 1, } : NonEqAst).apply(1), content="2")
-  let fold_count : Ref[Int] = Ref(0)
+  let fold_count : Ref[Int32] = Ref(0)
   let grammar = fnon_eq_ast_grammar(fold_count).to_syntax_grammar()
   let source_id = @core.SourceId("factory-non-eq-syntax-source")
   let parser = new_syntax_parser(source_id, "aaa", grammar)
@@ -605,7 +610,7 @@ test "new_syntax_parser: accepts syntax facade from non-Eq AST grammar without f
 
 ///|
 test "new_syntax_parser: session-owned mode factory tokenizes initial source once" {
-  let lexer_shells : Ref[Int] = Ref(0)
+  let lexer_shells : Ref[Int32] = Ref(0)
   let mode_factory = @core.erase_mode_lexer_factory(
     () => {
       lexer_shells.val = lexer_shells.val + 1
@@ -614,7 +619,7 @@ test "new_syntax_parser: session-owned mode factory tokenizes initial source onc
     Eof,
     error_token=Err,
   )
-  let detached_lex_calls : Ref[Int] = Ref(0)
+  let detached_lex_calls : Ref[Int32] = Ref(0)
   let lex = (source_id : @core.SourceId, source : String) => {
     detached_lex_calls.val = detached_lex_calls.val + 1
     mode_factory.tokenize(source_id, source)
@@ -640,7 +645,7 @@ test "new_syntax_parser: session-owned mode factory tokenizes initial source onc
 
 ///|
 test "new_syntax_parser: block reparse preserves the token-buffer mode session" {
-  let lexer_shells : Ref[Int] = Ref(0)
+  let lexer_shells : Ref[Int32] = Ref(0)
   let mode_factory = @core.erase_mode_lexer_factory(
     () => {
       lexer_shells.val = lexer_shells.val + 1
@@ -729,7 +734,7 @@ test "create_buffer: mode path never invokes plain lexer" {
     Eof,
     error_token=Err,
   )
-  let lex_calls : Ref[Int] = Ref(0)
+  let lex_calls : Ref[Int32] = Ref(0)
   let lex = (source_id : @core.SourceId, source : String) => {
     lex_calls.val = lex_calls.val + 1
     let result = state.tokenize(source_id, source)

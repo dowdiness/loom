@@ -122,7 +122,7 @@ fn emit_view_accessors(
       b.write_string(property_name)
       b.write_string("(\n  self : ")
       b.write_string(view_struct_name)
-      b.write_string(",\n  message? : String = ")
+      b.write_string(",\n  message~ : String = ")
       b.write_string(default_message)
       b.write_string(",\n) -> ")
       b.write_string(return_wrapper)

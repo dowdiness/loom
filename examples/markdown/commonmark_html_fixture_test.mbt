@@ -1,6 +1,6 @@
 ///|
 struct CommonMarkHtmlFixture {
-  example : Int
+  example : Int32
   section : String
   name : String
   source : String
@@ -88,7 +88,7 @@ fn CommonMarkHtmlFixture::assert_xfail(
 }
 
 ///|
-fn commonmark_html_fixture_actual_status_counts() -> (Int, Int, Int) {
+fn commonmark_html_fixture_actual_status_counts() -> (Int32, Int32, Int32) {
   for fixture in commonmark_html_fixture_cases(); pass = 0, xfail = 0, skip = 0 {
     match fixture.status {
       CommonMarkHtmlPass => continue pass + 1, xfail, skip
@@ -112,7 +112,7 @@ fn commonmark_html_fixture_cases_for_section(
 
 ///|
 fn commonmark_html_fixture_case_by_example(
-  example : Int,
+  example : Int32,
 ) -> CommonMarkHtmlFixture? {
   commonmark_html_fixture_cases()
   .iter()

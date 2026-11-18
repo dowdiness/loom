@@ -1,4 +1,5 @@
 ///|
+#derive(Eq)
 priv struct RawGraphNode {
   binding : String
   binding_token : GraphToken
@@ -6,11 +7,11 @@ priv struct RawGraphNode {
   constructor_token : GraphToken
   params : Array[GraphParam]
   output_tokens : Array[GraphToken]
-  start : Int
-  end : Int
-  argument_insert_offset : Int
+  start : Int32
+  end : Int32
+  argument_insert_offset : Int32
   connection_separator : Bool
-} derive(Eq)
+}
 
 ///|
 fn RawGraphNode::RawGraphNode(
@@ -20,9 +21,9 @@ fn RawGraphNode::RawGraphNode(
   constructor_token~ : GraphToken,
   params~ : Array[GraphParam],
   output_tokens~ : Array[GraphToken],
-  start~ : Int,
-  end~ : Int,
-  argument_insert_offset~ : Int,
+  start~ : Int32,
+  end~ : Int32,
+  argument_insert_offset~ : Int32,
   connection_separator~ : Bool,
 ) -> RawGraphNode {
   {
@@ -40,11 +41,12 @@ fn RawGraphNode::RawGraphNode(
 }
 
 ///|
+#derive(Eq)
 priv struct RawGraphProjection {
   source : String
   nodes : Array[RawGraphNode]
   tokens : Array[GraphToken]
-} derive(Eq)
+}
 
 ///|
 fn RawGraphProjection::RawGraphProjection(
@@ -317,7 +319,7 @@ fn raw_node_to_leaf(raw : RawGraphNode) -> @loom.ProjectionLeaf {
 }
 
 ///|
-fn make_node_id(key : String, occurrence : Int) -> String {
+fn make_node_id(key : String, occurrence : Int32) -> String {
   "node#" + occurrence.to_string() + ":" + key
 }
 

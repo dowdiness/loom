@@ -1,6 +1,7 @@
 ///|
+#derive(Eq, Debug)
 priv enum MarkdownSemanticKey {
-  Heading(Int)
+  Heading(Int32)
   Paragraph
   UnorderedListItem(Bool)
   OrderedListItem(Bool)
@@ -13,13 +14,14 @@ priv enum MarkdownSemanticKey {
   ImageLabel
   ImageDestination(String)
   ImageTitle(String)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 #warnings("-unused_value")
 priv struct MarkdownNodeId {
   value : String
-} derive(Eq, Debug)
+}
 
 ///|
 fn MarkdownNodeId::new(value : String) -> MarkdownNodeId {
@@ -29,7 +31,7 @@ fn MarkdownNodeId::new(value : String) -> MarkdownNodeId {
 ///|
 priv struct MarkdownProjectionIdentityTracker {
   tracker : @projection.ProjectionIdentityTracker[MarkdownNodeId]
-  mut next_id : Int
+  mut next_id : Int32
   mut last_good_candidates : Array[MarkdownIdentityCandidate]?
   mut preview_candidates : Array[MarkdownIdentityCandidate]?
 }
@@ -118,7 +120,7 @@ fn MarkdownIdentityCandidate::projection_leaf(
 fn markdown_candidates_share_context(
   previous : MarkdownIdentityCandidate,
   next : MarkdownIdentityCandidate,
-  previous_parent : Int?,
+  previous_parent : Int32?,
 ) -> Bool {
   previous.leaf.key == next.leaf.key && previous.parent == previous_parent
 }
@@ -127,7 +129,7 @@ fn markdown_candidates_share_context(
 fn markdown_candidates_share_identity(
   previous : MarkdownIdentityCandidate,
   next : MarkdownIdentityCandidate,
-  previous_parent : Int?,
+  previous_parent : Int32?,
 ) -> Bool {
   markdown_candidates_share_context(previous, next, previous_parent) &&
   previous.payload == next.payload
@@ -136,8 +138,8 @@ fn markdown_candidates_share_identity(
 ///|
 fn markdown_matching_previous_parent(
   next : MarkdownIdentityCandidate,
-  matched_previous : Map[Int, Int],
-) -> Int? {
+  matched_previous : Map[Int32, Int32],
+) -> Int32? {
   match next.parent {
     None => None
     Some(parent) => matched_previous.get(parent)
@@ -148,8 +150,8 @@ fn markdown_matching_previous_parent(
 fn markdown_matching_context_candidate_count(
   candidates : Array[MarkdownIdentityCandidate],
   next : MarkdownIdentityCandidate,
-  previous_parent : Int?,
-) -> Int {
+  previous_parent : Int32?,
+) -> Int32 {
   let mut count = 0
   for candidate in candidates {
     if markdown_candidates_share_context(candidate, next, previous_parent) {
@@ -163,8 +165,8 @@ fn markdown_matching_context_candidate_count(
 fn markdown_matching_context_candidate_index(
   candidates : Array[MarkdownIdentityCandidate],
   next : MarkdownIdentityCandidate,
-  previous_parent : Int?,
-) -> Int? {
+  previous_parent : Int32?,
+) -> Int32? {
   for i, candidate in candidates {
     if markdown_candidates_share_context(candidate, next, previous_parent) {
       return Some(i)
@@ -177,8 +179,8 @@ fn markdown_matching_context_candidate_index(
 fn markdown_matching_candidate_count(
   candidates : Array[MarkdownIdentityCandidate],
   next : MarkdownIdentityCandidate,
-  previous_parent : Int?,
-) -> Int {
+  previous_parent : Int32?,
+) -> Int32 {
   let mut count = 0
   for candidate in candidates {
     if markdown_candidates_share_identity(candidate, next, previous_parent) {
@@ -192,8 +194,8 @@ fn markdown_matching_candidate_count(
 fn markdown_matching_candidate_index(
   candidates : Array[MarkdownIdentityCandidate],
   next : MarkdownIdentityCandidate,
-  previous_parent : Int?,
-) -> Int? {
+  previous_parent : Int32?,
+) -> Int32? {
   for i, candidate in candidates {
     if markdown_candidates_share_identity(candidate, next, previous_parent) {
       return Some(i)
@@ -206,7 +208,7 @@ fn markdown_matching_candidate_index(
 fn markdown_stable_id_is_used_elsewhere(
   leaves : Array[@projection.StableProjectionLeaf[MarkdownNodeId]],
   id : MarkdownNodeId,
-  except : Int,
+  except : Int32,
 ) -> Bool {
   for i, leaf in leaves {
     if i != except && leaf.id == id {
@@ -279,7 +281,7 @@ fn apply_markdown_local_identity_overrides(
             return preview
           }
           let result = preview.copy()
-          let matched_previous : Map[Int, Int] = Map([])
+          let matched_previous : Map[Int32, Int32] = Map([])
           for next_index, next_candidate in next {
             let previous_parent = markdown_matching_previous_parent(
               next_candidate, matched_previous,
@@ -367,11 +369,12 @@ fn apply_markdown_local_identity_overrides(
 }
 
 ///|
+#derive(Eq, Debug)
 #warnings("-unused_value")
 priv struct MarkdownIdentityLeaf {
   anchor : MarkdownIROrigin
   key : MarkdownSemanticKey
-} derive(Eq, Debug)
+}
 
 ///|
 fn MarkdownIdentityLeaf::new(
@@ -396,7 +399,7 @@ fn MarkdownIdentityLeaf::projection_leaf(
 priv struct MarkdownIdentityCandidate {
   leaf : MarkdownIdentityLeaf
   payload : String
-  parent : Int?
+  parent : Int32?
 }
 
 ///|
@@ -404,7 +407,7 @@ fn MarkdownIdentityCandidate::new(
   anchor : MarkdownIROrigin,
   key : MarkdownSemanticKey,
   payload : String,
-  parent : Int?,
+  parent : Int32?,
 ) -> MarkdownIdentityCandidate {
   { leaf: MarkdownIdentityLeaf::new(anchor, key), payload, parent, }
 }
@@ -612,8 +615,8 @@ fn append_markdown_identity_candidate(
   origin : MarkdownIROrigin?,
   key : MarkdownSemanticKey,
   payload : String,
-  parent : Int?,
-) -> Int? {
+  parent : Int32?,
+) -> Int32? {
   match origin {
     Some(anchor) => {
       let index = candidates.length()
@@ -627,7 +630,7 @@ fn append_markdown_identity_candidate(
 }
 
 ///|
-fn markdown_identity_child_context(current : Int?, parent : Int?) -> Int? {
+fn markdown_identity_child_context(current : Int32?, parent : Int32?) -> Int32? {
   match current {
     Some(index) => Some(index)
     None => parent
@@ -649,7 +652,7 @@ fn markdown_identity_owned_origin(
 fn collect_markdown_ir_identity_candidates(
   ir : MarkdownIR,
   candidates : Array[MarkdownIdentityCandidate],
-  parent : Int?,
+  parent : Int32?,
 ) -> Unit {
   match ir.node {
     Document(children) =>
@@ -843,7 +846,7 @@ fn collect_markdown_ir_identity_candidates(
 fn collect_markdown_ir_identity_children(
   children : Array[MarkdownIR],
   candidates : Array[MarkdownIdentityCandidate],
-  parent : Int?,
+  parent : Int32?,
 ) -> Unit {
   for child in children {
     collect_markdown_ir_identity_candidates(child, candidates, parent)

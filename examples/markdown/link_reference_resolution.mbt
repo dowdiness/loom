@@ -2,20 +2,20 @@
 priv struct InlineLinkTarget {
   destination : String
   title : String?
-  destination_start : Int
-  destination_end : Int
-  title_start : Int?
-  title_end : Int?
+  destination_start : Int32
+  destination_end : Int32
+  title_start : Int32?
+  title_end : Int32?
 }
 
 ///|
 fn inline_link_target(
   destination : String,
   title : String?,
-  destination_start : Int,
-  destination_end : Int,
-  title_start : Int?,
-  title_end : Int?,
+  destination_start : Int32,
+  destination_end : Int32,
+  title_start : Int32?,
+  title_end : Int32?,
 ) -> InlineLinkTarget {
   {
     destination,
@@ -28,7 +28,7 @@ fn inline_link_target(
 }
 
 ///|
-fn skip_inline_link_target_spaces(input : String, start : Int) -> Int {
+fn skip_inline_link_target_spaces(input : String, start : Int32) -> Int32 {
   let mut cursor = start
   while cursor < input.length() {
     match char_at(input, cursor) {
@@ -200,14 +200,14 @@ priv struct LiteralShortcutSuffixFrame {
   reference : ShortcutReferenceFrame
   closer : MarkdownIR
   atoms : Array[MarkdownIR]
-  mut depth : Int
+  mut depth : Int32
 }
 
 ///|
 priv struct OrphanLiteralShortcutSuffixFrame {
   closer : MarkdownIR
   atoms : Array[MarkdownIR]
-  mut depth : Int
+  mut depth : Int32
 }
 
 ///|
@@ -671,7 +671,7 @@ fn literalize_balanced_raw_parentheses(
   children : Array[MarkdownIR],
 ) -> Array[MarkdownIR] {
   let matched = Array::make(children.length(), false)
-  let open_indices : Array[Int] = []
+  let open_indices : Array[Int32] = []
   for index, child in children {
     match child.node {
       Raw("(", _) => open_indices.push(index)
@@ -739,7 +739,7 @@ fn emphasis_with_literal_reference_open(node : MarkdownIR) -> MarkdownIR? {
 }
 
 ///|
-fn emphasis_reference_open_start(node : MarkdownIR) -> Int? {
+fn emphasis_reference_open_start(node : MarkdownIR) -> Int32? {
   let inner = match node.node {
     Italic(children, _) | Bold(children, _) => Some(children)
     _ => None
@@ -867,7 +867,7 @@ fn inline_image_bang_start(
   previous : MarkdownIR,
   link : MarkdownIR,
   source : String,
-) -> Int? {
+) -> Int32? {
   guard previous.origin().end() == link.origin().start() else { return None }
   guard (previous.node is Text(value) && value.has_suffix("!")) ||
     previous.node is Raw("!", _) else {

@@ -33,7 +33,7 @@ fn let_chain_benchmark_source_id() -> @core.SourceId {
 // ── Source generators ───────────────────────────────────────────────
 
 ///|
-fn make_let_chain(n : Int, tail_literal : String) -> String {
+fn make_let_chain(n : Int32, tail_literal : String) -> String {
   let segments : Array[String] = []
   for i = 0; i < n - 1; i = i + 1 {
     segments.push("let x\{i} = 0\n")
@@ -43,7 +43,7 @@ fn make_let_chain(n : Int, tail_literal : String) -> String {
 }
 
 ///|
-fn make_let_chain_edited(n : Int) -> String {
+fn make_let_chain_edited(n : Int32) -> String {
   make_let_chain(n, "1")
 }
 
@@ -330,7 +330,7 @@ test "let-chain: 320 lets - reuse count for tail edit" {
 // the size-threshold skip: incremental should still win over full reparse here.
 
 ///|
-fn make_lambda_let_chain(count : Int) -> String {
+fn make_lambda_let_chain(count : Int32) -> String {
   let segments : Array[String] = []
   for i = 0; i < count; i = i + 1 {
     segments.push("let x\{i} = ((f, x) => f (f x)) ((g) => g)")

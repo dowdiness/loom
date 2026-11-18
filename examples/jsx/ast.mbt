@@ -12,6 +12,7 @@
 //   the unterminated-literal fact (Design B case 3).
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum JsxNode {
   Root(children~ : Array[JsxNode])
   Element(tag~ : String, attrs~ : Array[JsxAttr], children~ : Array[JsxNode])
@@ -21,15 +22,16 @@ pub(all) enum JsxNode {
   // quote characters — they are expression source text
   ExprSpan(raw~ : String)
   Error(String)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Fields are readable cross-package (`pub` closes construction only);
 /// construct via the JsxAttr::JsxAttr constructor.
+#derive(Eq, Debug)
 pub struct JsxAttr {
   name : String
   value : JsxAttrValue
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn JsxAttr::JsxAttr(name~ : String, value~ : JsxAttrValue) -> JsxAttr {
@@ -37,11 +39,12 @@ pub fn JsxAttr::JsxAttr(name~ : String, value~ : JsxAttrValue) -> JsxAttr {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum JsxAttrValue {
   StringLit(String)
   ExprSpan(raw~ : String)
   Bare
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend JsxAttr with @moonbitlang/core/debug.Debug::{to_repr}

@@ -135,7 +135,7 @@ pub fn[
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::skip_until(
   self : ParserContext[T, K],
   is_sync : (T) -> Bool,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   let needs_wrap = !self.at_eof() && !is_sync(self.peek())
   if needs_wrap {
@@ -158,7 +158,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::skip_until_progress(
   self : ParserContext[T, K],
   is_sync : (T) -> Bool,
-) -> Int {
+) -> Int32 {
   if self.at_eof() {
     return 0
   }
@@ -189,7 +189,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
   self : ParserContext[T, K],
   is_open : (T) -> Bool,
   is_close : (T) -> Bool,
-) -> Int {
+) -> Int32 {
   let mut depth = 0
   let mut count = 0
   let needs_wrap = !self.at_eof() && !is_close(self.peek())

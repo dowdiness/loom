@@ -8,19 +8,21 @@ pub type NativeRule[T, K] = (@core.ParserContext[T, K], NativeDispatcher[T, K]) 
 pub type NativeFactory[T, K] = (NativeCapabilities[T, K]) -> NativeRule[T, K] raise GrammarBindError
 
 ///|
+#derive(Eq, Debug)
 pub suberror GrammarBindError {
   MissingNative(RuleName)
   UnexpectedNative(RuleName)
   MissingGuard(RuleName)
   UnexpectedGuard(RuleName)
   CapabilityRejected(RuleName)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub suberror GrammarBuildError {
   Compile(GrammarCompileError)
   Bind(GrammarBindError)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Fresh identity brand private to one native in one executable binding.
@@ -40,7 +42,7 @@ pub struct RuleCapability[T, K] {
 /// One active rule invocation and the cursor at which it began.
 priv struct RuleFrame {
   slot : RuleSlot
-  position : Int
+  position : Int32
 }
 
 ///|
@@ -91,8 +93,8 @@ pub struct ExecutableGrammar[T, K] {
 /// Bind host factories and guards to a compiled grammar before parsing.
 pub fn[T, K] bind(
   compiled : CompiledGrammar[T, K],
-  natives? : Map[RuleName, NativeFactory[T, K]] = Map([]),
-  guards? : Map[RuleName, HostGuard[T, K]] = Map([]),
+  natives~ : Map[RuleName, NativeFactory[T, K]] = Map([]),
+  guards~ : Map[RuleName, HostGuard[T, K]] = Map([]),
 ) -> ExecutableGrammar[T, K] raise GrammarBindError {
   for name in compiled.native_names {
     guard natives.get(name) is Some(_) else { raise MissingNative(name) }
@@ -213,9 +215,9 @@ pub fn[
   K : @seam.ToRawKind,
 ] interpret(
   ir : GrammarIr[T, K],
-  natives? : Map[RuleName, NativeFactory[T, K]] = Map([]),
-  guards? : Map[RuleName, HostGuard[T, K]] = Map([]),
-  native_rule_refs? : Map[RuleName, Set[RuleName]] = Map([]),
+  natives~ : Map[RuleName, NativeFactory[T, K]] = Map([]),
+  guards~ : Map[RuleName, HostGuard[T, K]] = Map([]),
+  native_rule_refs~ : Map[RuleName, Set[RuleName]] = Map([]),
 ) -> ((@core.ParserContext[T, K]) -> Unit) raise GrammarBuildError {
   let native_names = Set::from_iter(natives.keys())
   let guard_names = Set::from_iter(guards.keys())
@@ -337,7 +339,7 @@ const PRATT_APP_NO_PROGRESS : String = "grammar: PrattApp atom made no progress"
 /// Returns true when the cursor advanced past `before`.
 fn[T : @seam.IsTrivia, K : @seam.ToRawKind] required_progress(
   ctx : @core.ParserContext[T, K],
-  before : Int,
+  before : Int32,
   message : String,
 ) -> Bool {
   if ctx.cursor_position() > before {

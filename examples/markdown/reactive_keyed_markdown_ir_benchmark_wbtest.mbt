@@ -14,7 +14,7 @@ priv struct ReactiveKeyedMarkdownIRBenchmarkInput {
 }
 
 ///|
-fn reactive_keyed_markdown_ir_benchmark_source(block_count : Int) -> String {
+fn reactive_keyed_markdown_ir_benchmark_source(block_count : Int32) -> String {
   let out = StringBuilder::StringBuilder()
   for index = 0; index < block_count; index = index + 1 {
     out.write_string(
@@ -28,7 +28,7 @@ fn reactive_keyed_markdown_ir_benchmark_source(block_count : Int) -> String {
 fn reactive_keyed_markdown_ir_benchmark_find(
   source : String,
   target : String,
-) -> Int {
+) -> Int32 {
   for index = 0; index <= source.length() - target.length(); index = index + 1 {
     if source[index:index + target.length()].to_owned() == target {
       return index
@@ -39,7 +39,7 @@ fn reactive_keyed_markdown_ir_benchmark_find(
 
 ///|
 fn reactive_keyed_markdown_ir_benchmark_input(
-  block_count : Int,
+  block_count : Int32,
 ) -> ReactiveKeyedMarkdownIRBenchmarkInput {
   let source = reactive_keyed_markdown_ir_benchmark_source(block_count)
   let selected_block = block_count / 2
@@ -57,8 +57,8 @@ fn reactive_keyed_markdown_ir_benchmark_input(
 
 ///|
 fn reactive_keyed_markdown_ir_benchmark_loomark_input(
-  unit_count : Int,
-  selected_unit : Int,
+  unit_count : Int32,
+  selected_unit : Int32,
 ) -> ReactiveKeyedMarkdownIRBenchmarkInput {
   let out = StringBuilder::StringBuilder()
   for index = 0; index < unit_count; index = index + 1 {
@@ -111,7 +111,7 @@ fn reactive_keyed_markdown_ir_benchmark_direct_block_read(
 ///|
 fn benchmark_reactive_keyed_markdown_ir_direct(
   b : @bench.T,
-  block_count : Int,
+  block_count : Int32,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
   let parser = try! @loom.new_syntax_parser(
@@ -131,7 +131,7 @@ fn benchmark_reactive_keyed_markdown_ir_direct(
 ///|
 fn benchmark_reactive_keyed_markdown_ir_shell(
   b : @bench.T,
-  block_count : Int,
+  block_count : Int32,
   instrumented : Bool,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
@@ -157,7 +157,7 @@ fn benchmark_reactive_keyed_markdown_ir_shell(
 ///|
 fn benchmark_reactive_keyed_markdown_direct_block(
   b : @bench.T,
-  block_count : Int,
+  block_count : Int32,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
   let parser = try! @loom.new_syntax_parser(
@@ -177,7 +177,7 @@ fn benchmark_reactive_keyed_markdown_direct_block(
 ///|
 fn benchmark_markdown_projection_attachment(
   b : @bench.T,
-  block_count : Int,
+  block_count : Int32,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
   let parser = try! @loom.new_syntax_parser(
@@ -222,7 +222,7 @@ fn benchmark_markdown_semantic_attachment_input(
 ///|
 fn benchmark_markdown_semantic_attachment(
   b : @bench.T,
-  block_count : Int,
+  block_count : Int32,
 ) -> Unit {
   benchmark_markdown_semantic_attachment_input(
     b,
@@ -232,7 +232,10 @@ fn benchmark_markdown_semantic_attachment(
 }
 
 ///|
-fn benchmark_markdown_semantic_direct(b : @bench.T, block_count : Int) -> Unit {
+fn benchmark_markdown_semantic_direct(
+  b : @bench.T,
+  block_count : Int32,
+) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
   let parser = try! @loom.new_parser(
     @core.SourceId("markdown-semantic-direct-benchmark"),
@@ -251,7 +254,7 @@ fn benchmark_markdown_semantic_direct(b : @bench.T, block_count : Int) -> Unit {
 ///|
 fn benchmark_markdown_direct_initial_read(
   b : @bench.T,
-  block_count : Int,
+  block_count : Int32,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
   let parser = try! @loom.new_parser(
@@ -265,7 +268,7 @@ fn benchmark_markdown_direct_initial_read(
 ///|
 fn benchmark_markdown_syntax_direct_initial_read(
   b : @bench.T,
-  block_count : Int,
+  block_count : Int32,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
   let parser = try! @loom.new_syntax_parser(
@@ -279,7 +282,7 @@ fn benchmark_markdown_syntax_direct_initial_read(
 ///|
 fn benchmark_markdown_semantic_initial_read(
   b : @bench.T,
-  block_count : Int,
+  block_count : Int32,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
   let parser = try! @loom.new_parser(
@@ -299,7 +302,7 @@ fn benchmark_markdown_semantic_initial_read(
 ///|
 fn benchmark_markdown_projection_initial_read(
   b : @bench.T,
-  block_count : Int,
+  block_count : Int32,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
   let parser = try! @loom.new_syntax_parser(
@@ -317,7 +320,7 @@ fn benchmark_markdown_projection_initial_read(
 ///|
 fn benchmark_markdown_compatibility_block_parser(
   b : @bench.T,
-  block_count : Int,
+  block_count : Int32,
 ) -> Unit {
   let input = reactive_keyed_markdown_ir_benchmark_input(block_count)
   let parser = try! @loom.new_parser(

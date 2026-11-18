@@ -1,15 +1,15 @@
 ///|
 fn assert_range(
   change : @text_change.TextChange,
-  start : Int,
-  delete_len : Int,
+  start : Int32,
+  delete_len : Int32,
   inserted : String,
 ) -> Unit {
   match change {
     ReplaceRange(
       start=actual_start,
       delete_len=actual_delete_len,
-      inserted=actual_inserted
+      inserted=actual_inserted,
     ) =>
       if actual_start != start ||
         actual_delete_len != delete_len ||

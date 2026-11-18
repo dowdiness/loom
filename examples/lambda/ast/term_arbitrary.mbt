@@ -4,11 +4,11 @@ pub impl @quickcheck.Arbitrary for Term with fn arbitrary(_size, rs) {
 }
 
 ///|
-pub impl @qc.Shrink for Term
+pub impl @shrink.Shrink for Term
 
 ///|
 /// Bounded-depth recursive generator for well-formed lambda terms.
-fn gen_term(rs : @splitmix.RandomState, depth : Int) -> Term {
+fn gen_term(rs : @splitmix.RandomState, depth : Int32) -> Term {
   let names = ["x", "y", "f", "n"]
   let name = names[rs.split().next_uint64().to_int().abs() % names.length()]
   if depth <= 0 {
@@ -55,4 +55,4 @@ fn gen_term(rs : @splitmix.RandomState, depth : Int) -> Term {
 pub extend Term with @moonbitlang/core/quickcheck.Arbitrary::{arbitrary}
 
 ///|
-pub extend Term with @qc.Shrink::{shrink}
+pub extend Term with @shrink.Shrink::{shrink}

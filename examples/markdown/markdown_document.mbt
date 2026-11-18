@@ -18,8 +18,8 @@ pub struct MarkdownDocument {
 /// raised `Failure` indicates an internal parser or tree-construction defect.
 pub fn parse(
   source : String,
-  source_id? : @core.SourceId = @core.SourceId("markdown"),
-  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
+  source_id~ : @core.SourceId = @core.SourceId("markdown"),
+  extensions~ : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> MarkdownDocument raise Failure {
   let (cst, parse_diagnostics) = parse_cst(source_id, source) catch {
     Failure::Failure(_) as failure => raise failure
@@ -113,13 +113,14 @@ pub fn MarkdownSemanticRead::root(self : MarkdownSemanticRead) -> MarkdownNode {
 
 ///|
 /// The semantic region a source-aware consumer may rewrite.
+#derive(Eq, Debug)
 pub(all) enum MarkdownSemanticSelectionKind {
   WholeNode
   Content
   Destination
   Title
   AutolinkDisplay
-} derive(Eq, Debug)
+}
 
 ///|
 /// An opaque source selection retained from one `MarkdownSemanticRead`.

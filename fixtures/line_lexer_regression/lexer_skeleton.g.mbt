@@ -3,7 +3,7 @@
 /// Fill in the mode-specific `lex_*` functions below.
 pub fn lex(
   source : String,
-  pos : Int,
+  pos : Int32,
   mode : LexMode,
 ) -> (@core.LexStep[Token], LexMode) {
   match mode {
@@ -16,7 +16,7 @@ pub fn lex(
 /// Consume the rest of the current line, including its line ending. This is
 /// the handwritten fallback used after a generated line marker consumes its
 /// prefix.
-fn lex_inline(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {
+fn lex_inline(source : String, pos : Int32) -> (@core.LexStep[Token], LexMode) {
   if pos >= source.length() {
     return (Done, LineStart)
   }
@@ -60,7 +60,7 @@ fn lex_inline(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {
 ///|
 fn lex_line_start(
   source : String,
-  pos : Int,
+  pos : Int32,
 ) -> (@core.LexStep[Token], LexMode) {
   generated_lex_line_start(source, pos)
 }

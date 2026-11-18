@@ -18,9 +18,10 @@ pub fn[Item, Id, StableItem] realign_projection_items_with_optional_edit(Project
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub struct ProjectionIdentityBaseline[Id] {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn[Id] ProjectionIdentityBaseline::advance(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : @core.Edit) -> Self[Id]
 pub fn[Id] ProjectionIdentityBaseline::advance_with_optional_edit(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, @core.Edit?) -> Self[Id]
 pub fn[Id : Eq] ProjectionIdentityBaseline::equal(Self[Id], Self[Id]) -> Bool
@@ -43,18 +44,20 @@ pub fn[Id] ProjectionIdentityTracker::realign_success_with_optional_edit(Self[Id
 pub fn[Id] ProjectionIdentityTracker::record_failed_input(Self[Id], String, source_before_edit? : String, edit? : @core.Edit) -> Unit
 pub fn[Id] ProjectionIdentityTracker::record_failed_input_with_optional_edit(Self[Id], String, String?, @core.Edit?) -> Unit
 
-type ProjectionIdentityWindow derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type ProjectionIdentityWindow
 pub fn ProjectionIdentityWindow::equal(Self, Self) -> Bool
 pub fn ProjectionIdentityWindow::not_equal(Self, Self) -> Bool
 pub fn ProjectionIdentityWindow::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct ProjectionLeaf {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   key : String
-} derive(Eq, @debug.Debug)
+}
 pub fn ProjectionLeaf::equal(Self, Self) -> Bool
-pub fn ProjectionLeaf::new(Int, Int, String) -> Self
+pub fn ProjectionLeaf::new(Int32, Int32, String) -> Self
 pub fn ProjectionLeaf::not_equal(Self, Self) -> Bool
 pub fn ProjectionLeaf::to_repr(Self) -> @debug.Repr
 
@@ -62,17 +65,18 @@ pub struct ProjectionStringIdAllocator {
   // private fields
 }
 pub fn ProjectionStringIdAllocator::allocate(Self, ProjectionLeaf) -> String
-pub fn ProjectionStringIdAllocator::from_baseline(ProjectionIdentityBaseline[String], (String, Int) -> String) -> Self
-pub fn ProjectionStringIdAllocator::new((String, Int) -> String) -> Self
+pub fn ProjectionStringIdAllocator::from_baseline(ProjectionIdentityBaseline[String], (String, Int32) -> String) -> Self
+pub fn ProjectionStringIdAllocator::new((String, Int32) -> String) -> Self
 
+#derive(Eq, @debug.Debug)
 pub struct StableProjectionLeaf[Id] {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   key : String
   id : Id
-} derive(Eq, @debug.Debug)
+}
 pub fn[Id : Eq] StableProjectionLeaf::equal(Self[Id], Self[Id]) -> Bool
-pub fn[Id] StableProjectionLeaf::new(Int, Int, String, Id) -> Self[Id]
+pub fn[Id] StableProjectionLeaf::new(Int32, Int32, String, Id) -> Self[Id]
 pub fn[Id : Eq] StableProjectionLeaf::not_equal(Self[Id], Self[Id]) -> Bool
 pub fn[Id : @debug.Debug] StableProjectionLeaf::to_repr(Self[Id]) -> @debug.Repr
 

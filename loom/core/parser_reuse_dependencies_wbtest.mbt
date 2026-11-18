@@ -3,13 +3,13 @@ struct DependencyTestSnapshot {
   source : String
   tree : @seam.CstNode
   dependencies : ReuseDependencies?
-  reused : Int
+  reused : Int32
 }
 
 ///|
 fn dependency_test_spec(
   parse_root : (ParserContext[TestTok, TestKind]) -> Unit,
-  tracking? : Bool = true,
+  tracking~ : Bool = true,
 ) -> LanguageSpec[TestTok, TestKind] {
   LanguageSpec::new(
     KWs,
@@ -38,12 +38,7 @@ fn dependency_parse(
       tokens.length(),
       i => tokens[i].token,
       i => starts[i],
-      i => {
-        source.view(
-          start_offset=starts[i],
-          end_offset=starts[i] + tokens[i].len,
-        )
-      },
+      i => source.legacy_view(start=starts[i], end=starts[i] + tokens[i].len),
       spec,
       dependencies=old.dependencies,
     )

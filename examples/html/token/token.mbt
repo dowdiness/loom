@@ -4,6 +4,7 @@
 /// Variants are annotated with #loom.token metadata for loomgen code generation.
 /// Trait impls (Show, IsTrivia, IsEof, ToRawKind, FromRawKind) are generated
 /// by loomgen into token_impls.g.mbt — do not hand-write them here.
+#derive(Eq, Debug)
 #loom.token
 pub(all) enum Token {
   // `<tag ... >` — full opening tag including name and attributes up to `>`
@@ -45,7 +46,7 @@ pub(all) enum Token {
   #loom.eof
   #loom.recovery("sync")
   EOF
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Token with @moonbitlang/core/debug.Debug::{to_repr}

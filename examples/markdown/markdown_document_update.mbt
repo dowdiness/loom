@@ -3,7 +3,7 @@
 /// update used to match a later result.
 pub struct MarkdownPreviousUpdate {
   priv domain : Ref[Unit]
-  priv sequence : Int
+  priv sequence : Int32
 }
 
 ///|
@@ -11,7 +11,7 @@ pub struct MarkdownPreviousUpdate {
 /// direct previous update.
 pub struct MarkdownTopLevelBlock {
   priv node : MarkdownNode
-  priv matched_previous_block_index : Int?
+  priv matched_previous_block_index : Int32?
 }
 
 ///|
@@ -21,8 +21,8 @@ pub struct MarkdownDocumentUpdate {
   priv document : MarkdownDocument
   priv blocks : Array[MarkdownTopLevelBlock]
   priv domain : Ref[Unit]
-  priv sequence : Int
-  priv previous_sequence : Int?
+  priv sequence : Int32
+  priv previous_sequence : Int32?
 }
 
 ///|
@@ -83,6 +83,6 @@ pub fn MarkdownTopLevelBlock::node(
 /// update, when the producer can prove a safe position-independent match.
 pub fn MarkdownTopLevelBlock::matched_previous_block_index(
   self : MarkdownTopLevelBlock,
-) -> Int? {
+) -> Int32? {
   self.matched_previous_block_index
 }

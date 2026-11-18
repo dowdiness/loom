@@ -7,6 +7,7 @@
 /// Invariant: the event stream must be balanced — every `StartNode`
 /// must have exactly one matching `FinishNode` that follows it.
 /// Unclaimed `Tombstone` slots are silently skipped by `build_tree`.
+#derive(Debug, Eq)
 pub(all) enum ParseEvent {
   /// Begin a new interior node of the given kind.
   StartNode(RawKind)
@@ -26,7 +27,7 @@ pub(all) enum ParseEvent {
   /// should use `EventBuffer::push_parser_reuse_node_rebased` for zero-copy
   /// rebasing.
   ReuseNode(CstNode)
-} derive(Debug, Eq)
+}
 
 ///|
 /// Private event representation used by `EventBuffer`.
@@ -39,6 +40,7 @@ pub(all) enum ParseEvent {
 /// current source and start offset. The unchecked variant is reserved for
 /// parser code that has already validated the reused node against the current
 /// token stream.
+#derive(Debug, Eq)
 enum BufferedEvent {
   BufferedStartNode(RawKind)
   BufferedFinishNode
@@ -46,9 +48,9 @@ enum BufferedEvent {
   BufferedSyntheticZeroWidthToken(RawKind)
   BufferedTombstone
   BufferedReuseNode(CstNode)
-  BufferedReuseNodeAt(CstNode, String, Int)
-  BufferedReuseNodeAtUnchecked(CstNode, String, Int)
-} derive(Debug, Eq)
+  BufferedReuseNodeAt(CstNode, String, Int32)
+  BufferedReuseNodeAtUnchecked(CstNode, String, Int32)
+}
 
 ///|
 fn buffered_event_of_parse_event(event : ParseEvent) -> BufferedEvent {
@@ -71,8 +73,8 @@ fn buffered_events_of_parse_events(
 ///|
 /// A destructive mark claim needed by checkpoints taken before the claim.
 priv struct EventStartAtUndo {
-  position : Int
-  mark : Int
+  position : Int32
+  mark : Int32
 }
 
 ///|
@@ -80,8 +82,8 @@ priv struct EventStartAtUndo {
 ///
 /// Checkpoints are buffer-specific and may only be restored backward.
 pub struct EventCheckpoint {
-  priv events_len : Int
-  priv undo_position : Int
+  priv events_len : Int32
+  priv undo_position : Int32
 }
 
 ///|
@@ -107,7 +109,7 @@ pub struct EventCheckpoint {
 pub struct EventBuffer {
   priv events : Array[BufferedEvent]
   priv start_at_undos : Array[EventStartAtUndo]
-  priv mut next_undo_position : Int
+  priv mut next_undo_position : Int32
 }
 
 ///|
@@ -217,7 +219,7 @@ pub fn EventBuffer::push_parser_reuse_node_rebased(
   self : EventBuffer,
   node : CstNode,
   source : String,
-  source_start : Int,
+  source_start : Int32,
 ) -> Unit {
   self.events.push(BufferedReuseNodeAt(node, source, source_start))
 }
@@ -238,7 +240,7 @@ pub fn EventBuffer::push_parser_reuse_node_rebased_unchecked(
   self : EventBuffer,
   node : CstNode,
   source : String,
-  source_start : Int,
+  source_start : Int32,
 ) -> Unit {
   self.events.push(BufferedReuseNodeAtUnchecked(node, source, source_start))
 }
@@ -269,7 +271,7 @@ pub fn EventBuffer::push_parser_synthetic_zero_width_token(
 /// Reserve a slot and return its index for a possible retroactive node claim.
 /// The slot must either be claimed via start_at() or remain Tombstone
 /// (which build_tree ignores).
-pub fn EventBuffer::mark(self : EventBuffer) -> Int {
+pub fn EventBuffer::mark(self : EventBuffer) -> Int32 {
   let index = self.events.length()
   self.events.push(BufferedTombstone)
   index
@@ -284,7 +286,7 @@ pub fn EventBuffer::mark(self : EventBuffer) -> Int {
 /// Tombstone.
 pub fn EventBuffer::start_at(
   self : EventBuffer,
-  mark : Int,
+  mark : Int32,
   kind : RawKind,
 ) -> Unit {
   if mark < 0 || mark >= self.events.length() {
@@ -311,7 +313,7 @@ pub fn EventBuffer::start_at(
 
 ///|
 /// Current number of events in the buffer.
-pub fn EventBuffer::length(self : EventBuffer) -> Int {
+pub fn EventBuffer::length(self : EventBuffer) -> Int32 {
   self.events.length()
 }
 
@@ -321,7 +323,7 @@ pub fn EventBuffer::length(self : EventBuffer) -> Int {
 ///
 /// Undo entries for removed marks are discarded so a later restore cannot
 /// accidentally modify a different event that reuses the same array index.
-pub fn EventBuffer::truncate(self : EventBuffer, n : Int) -> Unit {
+pub fn EventBuffer::truncate(self : EventBuffer, n : Int32) -> Unit {
   let keep = if n < 0 {
     0
   } else if n > self.events.length() {
@@ -387,7 +389,7 @@ fn rebuild_subtree_owned(
 fn subtree_matches_source(
   node : CstNode,
   source : String,
-  source_start : Int,
+  source_start : Int32,
 ) -> Bool {
   if source_start < 0 || source_start + node.text_len > source.length() {
     return false
@@ -397,7 +399,7 @@ fn subtree_matches_source(
     match child {
       CstElement::Token(t) => {
         let end = offset + t.text_len()
-        if source.view(start_offset=offset, end_offset=end) != t.text() {
+        if source.legacy_view(start=offset, end~) != t.text() {
           return false
         }
         offset = end
@@ -420,7 +422,7 @@ fn subtree_matches_source(
 fn rebase_subtree_to_source_unchecked(
   node : CstNode,
   source : String,
-  source_start : Int,
+  source_start : Int32,
   policy : CstMetadataPolicy,
 ) -> CstNode raise Failure {
   let children : Array[CstElement] = []
@@ -430,10 +432,7 @@ fn rebase_subtree_to_source_unchecked(
       CstElement::Token(t) => {
         let end = offset + t.text_len()
         let token = if t.is_source_backed() {
-          CstToken::CstToken(
-            t.kind,
-            source.view(start_offset=offset, end_offset=end),
-          )
+          CstToken::CstToken(t.kind, source.legacy_view(start=offset, end~))
         } else {
           CstToken::synthetic_zero_width(t.kind)
         }
@@ -458,7 +457,7 @@ fn rebase_subtree_to_source_unchecked(
 fn rebuild_subtree_for_source(
   node : CstNode,
   source : String,
-  source_start : Int,
+  source_start : Int32,
   policy : CstMetadataPolicy,
 ) -> CstNode raise Failure {
   if subtree_matches_source(node, source, source_start) {
@@ -881,7 +880,7 @@ fn build_tree_buffered(
 ///|
 /// Minimum run length to trigger grouping. Runs of same-kind node siblings
 /// shorter than this are left as flat children.
-let balance_threshold : Int = 8
+let balance_threshold : Int32 = 8
 
 ///|
 /// Append an element while recursively expanding RepeatGroup wrappers.
@@ -1015,8 +1014,8 @@ fn balance_children(
 /// Operates on index ranges [start, end) to avoid intermediate array copies.
 fn build_balanced_group(
   elements : Array[CstElement],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   policy : CstMetadataPolicy,
   out : Array[CstElement],
 ) -> Unit raise Failure {

@@ -1,19 +1,21 @@
 ///|
 /// Treatment of Unicode East Asian Ambiguous characters.
+#derive(Eq, Debug)
 pub(all) enum AmbiguousWidth {
   Narrow
   Wide
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror DisplayWidthError {
-  InvalidStartColumn(Int)
-  InvalidTabWidth(Int)
-} derive(Eq, Debug)
+  InvalidStartColumn(Int32)
+  InvalidTabWidth(Int32)
+}
 
 ///|
 /// Unicode data version used by the display-width implementation.
-pub let display_width_unicode_version : (Int, Int, Int) = @unicodewidth.unicode_version
+pub let display_width_unicode_version : (Int32, Int32, Int32) = @unicodewidth.unicode_version
 
 ///|
 fn AmbiguousWidth::is_cjk(self : AmbiguousWidth) -> Bool {
@@ -22,8 +24,8 @@ fn AmbiguousWidth::is_cjk(self : AmbiguousWidth) -> Bool {
 
 ///|
 fn validate_display_width_args(
-  start_column : Int,
-  tab_width : Int,
+  start_column : Int32,
+  tab_width : Int32,
 ) -> Unit raise DisplayWidthError {
   guard start_column >= 0 else { raise InvalidStartColumn(start_column) }
   guard tab_width > 0 else { raise InvalidTabWidth(tab_width) }
@@ -31,19 +33,20 @@ fn validate_display_width_args(
 
 ///|
 /// One terminal display unit with half-open UTF-16 and cell-column ranges.
+#derive(Eq, Debug)
 pub struct DisplayUnit {
-  priv utf16_start_ : Int
-  priv utf16_end_ : Int
-  priv cell_start_ : Int
-  priv cell_end_ : Int
-} derive(Eq, Debug)
+  priv utf16_start_ : Int32
+  priv utf16_end_ : Int32
+  priv cell_start_ : Int32
+  priv cell_end_ : Int32
+}
 
 ///|
 fn DisplayUnit::DisplayUnit(
-  utf16_start : Int,
-  utf16_end : Int,
-  cell_start : Int,
-  cell_end : Int,
+  utf16_start : Int32,
+  utf16_end : Int32,
+  cell_start : Int32,
+  cell_end : Int32,
 ) -> DisplayUnit {
   {
     utf16_start_: utf16_start,
@@ -54,22 +57,22 @@ fn DisplayUnit::DisplayUnit(
 }
 
 ///|
-pub fn DisplayUnit::utf16_start(self : DisplayUnit) -> Int {
+pub fn DisplayUnit::utf16_start(self : DisplayUnit) -> Int32 {
   self.utf16_start_
 }
 
 ///|
-pub fn DisplayUnit::utf16_end(self : DisplayUnit) -> Int {
+pub fn DisplayUnit::utf16_end(self : DisplayUnit) -> Int32 {
   self.utf16_end_
 }
 
 ///|
-pub fn DisplayUnit::cell_start(self : DisplayUnit) -> Int {
+pub fn DisplayUnit::cell_start(self : DisplayUnit) -> Int32 {
   self.cell_start_
 }
 
 ///|
-pub fn DisplayUnit::cell_end(self : DisplayUnit) -> Int {
+pub fn DisplayUnit::cell_end(self : DisplayUnit) -> Int32 {
   self.cell_end_
 }
 
@@ -77,11 +80,11 @@ pub fn DisplayUnit::cell_end(self : DisplayUnit) -> Int {
 /// Append one completed unit and return the next absolute display column.
 fn append_display_unit(
   units : Array[DisplayUnit],
-  utf16_start : Int,
-  utf16_end : Int,
-  width : Int,
-  column : Int,
-) -> Int {
+  utf16_start : Int32,
+  utf16_end : Int32,
+  width : Int32,
+  column : Int32,
+) -> Int32 {
   units.push(DisplayUnit(utf16_start, utf16_end, column, column + width))
   column + width
 }
@@ -93,18 +96,18 @@ fn append_display_unit(
 fn reconcile_display_segment(
   units : Array[DisplayUnit],
   text : String,
-  utf16_start : Int,
-  utf16_end : Int,
-  unit_start : Int,
-  cell_start : Int,
-  column : Int,
+  utf16_start : Int32,
+  utf16_end : Int32,
+  unit_start : Int32,
+  cell_start : Int32,
+  column : Int32,
   ambiguous_width : AmbiguousWidth,
-) -> Int {
+) -> Int32 {
   if utf16_start == utf16_end {
     column
   } else {
     let width = @unicodewidth.str_width(
-      text.view(start_offset=utf16_start, end_offset=utf16_end),
+      text.legacy_view(start=utf16_start, end=utf16_end),
       cjk=ambiguous_width.is_cjk(),
     )
     if width == column - cell_start {
@@ -122,9 +125,9 @@ fn reconcile_display_segment(
 /// makes its complete width differ from the sum of smaller candidate units.
 pub fn display_units(
   text : String,
-  start_column? : Int = 0,
-  tab_width? : Int = 4,
-  ambiguous_width? : AmbiguousWidth = Narrow,
+  start_column~ : Int32 = 0,
+  tab_width~ : Int32 = 4,
+  ambiguous_width~ : AmbiguousWidth = Narrow,
 ) -> Array[DisplayUnit] raise DisplayWidthError {
   validate_display_width_args(start_column, tab_width)
   let units : Array[DisplayUnit] = []
@@ -143,7 +146,7 @@ pub fn display_units(
   let mut segment_cell_start = start_column
   for cluster in grapheme_clusters(text) {
     let (start, end) = cluster
-    let view = text.view(start_offset=start, end_offset=end)
+    let view = text.legacy_view(start~, end~)
     if view.equal_to_string("\t") {
       if has_pending {
         column = append_display_unit(
@@ -174,7 +177,7 @@ pub fn display_units(
         cjk=ambiguous_width.is_cjk(),
       )
       let combined_width = @unicodewidth.str_width(
-        text.view(start_offset=pending_start, end_offset=end),
+        text.legacy_view(start=pending_start, end~),
         cjk=ambiguous_width.is_cjk(),
       )
       if combined_width == pending_width + grapheme_width {
@@ -214,10 +217,10 @@ pub fn display_units(
 /// Return the terminal cells consumed by one display run.
 pub fn display_width(
   text : String,
-  start_column? : Int = 0,
-  tab_width? : Int = 4,
-  ambiguous_width? : AmbiguousWidth = Narrow,
-) -> Int raise DisplayWidthError {
+  start_column~ : Int32 = 0,
+  tab_width~ : Int32 = 4,
+  ambiguous_width~ : AmbiguousWidth = Narrow,
+) -> Int32 raise DisplayWidthError {
   let units = display_units(text, start_column~, tab_width~, ambiguous_width~)
   match units.last() {
     Some(unit) => unit.cell_end() - start_column

@@ -1,32 +1,34 @@
 ///|
 /// A source position expressed as a 0-based line and UTF-16/code-unit column.
+#derive(Eq, Debug)
 pub(all) struct LineCol {
-  line : Int
-  column : Int
-} derive(Eq, Debug)
+  line : Int32
+  column : Int32
+}
 
 ///|
 /// A source range expressed in line/column coordinates.
+#derive(Eq, Debug)
 pub(all) struct LineRange {
   start : LineCol
   end : LineCol
-} derive(Eq, Debug)
+}
 
 ///|
 /// Derived index that maps canonical source offsets to line/column positions.
 pub struct LineIndex {
-  priv line_starts : Array[Int]
-  priv source_len : Int
+  priv line_starts : Array[Int32]
+  priv source_len : Int32
 }
 
 ///|
 pub fn LineIndex::new(source : String) -> LineIndex {
-  let line_starts : Array[Int] = []
+  let line_starts : Array[Int32] = []
   line_starts.push(0)
   let len = source.length()
   let mut pos = 0
   while pos < len {
-    match source.view(start_offset=pos) {
+    match source.legacy_view(start=pos) {
       ['\r', '\n', .. rest] => {
         pos = rest.start_offset()
         line_starts.push(pos)
@@ -53,7 +55,7 @@ pub fn LineIndex::new(source : String) -> LineIndex {
 }
 
 ///|
-pub fn LineIndex::line_col(self : LineIndex, offset : Int) -> LineCol {
+pub fn LineIndex::line_col(self : LineIndex, offset : Int32) -> LineCol {
   let clamped = line_index_clamp_offset(offset, self.source_len)
   let line = line_index_for_offset(self.line_starts, clamped)
   let line_start = self.line_starts[line]
@@ -63,8 +65,8 @@ pub fn LineIndex::line_col(self : LineIndex, offset : Int) -> LineCol {
 ///|
 pub fn LineIndex::line_range(
   self : LineIndex,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> LineRange {
   { start: self.line_col(start), end: self.line_col(end), }
 }
@@ -74,7 +76,7 @@ fn LineIndex::strict_offset(
   self : LineIndex,
   source : String,
   position : LineCol,
-) -> Int? {
+) -> Int32? {
   if !self.matches_source(source) {
     return None
   }
@@ -86,7 +88,7 @@ fn LineIndex::checked_offset(
   self : LineIndex,
   source : String,
   position : LineCol,
-) -> Int? {
+) -> Int32? {
   if position.column < 0 {
     return None
   }
@@ -104,7 +106,7 @@ fn LineIndex::checked_offset(
 }
 
 ///|
-fn line_index_clamp_offset(offset : Int, source_len : Int) -> Int {
+fn line_index_clamp_offset(offset : Int32, source_len : Int32) -> Int32 {
   if offset < 0 {
     0
   } else if offset > source_len {
@@ -115,7 +117,7 @@ fn line_index_clamp_offset(offset : Int, source_len : Int) -> Int {
 }
 
 ///|
-fn line_index_for_offset(line_starts : Array[Int], offset : Int) -> Int {
+fn line_index_for_offset(line_starts : Array[Int32], offset : Int32) -> Int32 {
   let len = line_starts.length()
   if len == 0 {
     return 0

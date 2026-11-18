@@ -11,7 +11,7 @@ fn eval_to_result(env : Env, term : @ast.Term) -> Result[Value, StuckReason] {
 fn eval_to_result_with_fuel(
   env : Env,
   term : @ast.Term,
-  fuel : Int,
+  fuel : Int32,
 ) -> Result[Value, StuckReason] {
   try eval(env, term, fuel~) catch {
     reason => Err(reason)

@@ -1,8 +1,9 @@
 ///|
 /// A supplied change set does not describe the authoritative updated source.
+#derive(Eq, Debug)
 pub suberror ParserUpdateError {
   ChangeSetMismatch
-} derive(Eq, Debug)
+}
 
 ///|
 /// Unified `Parser[Ast]` — wraps `@incremental.ImperativeParser` and publishes

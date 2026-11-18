@@ -4,12 +4,13 @@
 
 // ─── Test Token Type ──────────────────────────────────────────────────────────
 
+#derive(Eq, Debug)
 priv enum QcToken {
   A
   B
   C
   Eof
-} derive(Eq, Debug)
+}
 
 ///|
 impl Show for QcToken with fn output(self, logger) {
@@ -58,12 +59,13 @@ impl @coreqc.Arbitrary for QcToken with fn arbitrary(_size, rs) {
 // ─── Test Kind Type ───────────────────────────────────────────────────────────
 
 ///|
+#derive(Debug)
 priv enum QcKind {
   Root
   NodeA
   NodeB
   Error
-} derive(Debug)
+}
 
 ///|
 impl @seam.ToRawKind for QcKind with fn to_raw(self) {
@@ -105,7 +107,7 @@ fn gen_content_token(rs : @splitmix.RandomState) -> QcToken {
 /// first element) so that `RepeatTopLevel("expr", starts=IsToken(t), …)` has
 /// a token to match.
 fn gen_tokens(
-  num_content : Int,
+  num_content : Int32,
   rs : @splitmix.RandomState,
   content_tok : QcToken,
 ) -> Array[@core.TokenInfo[QcToken]] {
@@ -130,7 +132,7 @@ fn gen_tokens(
 ///|
 /// Generate a safe Expr body (single-rule mode: no Ref/RepeatTopLevel/
 /// PrattApp/PrattBinary — just the core variants).
-fn gen_expr(size : Int, rs : @splitmix.RandomState) -> Expr[QcToken, QcKind] {
+fn gen_expr(size : Int32, rs : @splitmix.RandomState) -> Expr[QcToken, QcKind] {
   gen_expr_impl(size, rs, [], A, QcKind::Root)
 }
 
@@ -145,7 +147,7 @@ fn gen_expr(size : Int, rs : @splitmix.RandomState) -> Expr[QcToken, QcKind] {
 /// predicates can safely reference a token that the body will consume
 /// (guaranteeing loop termination).
 fn gen_expr_impl(
-  size : Int,
+  size : Int32,
   rs : @splitmix.RandomState,
   rule_names : Array[String],
   consumer_tok : QcToken,
@@ -383,7 +385,7 @@ fn shrink_expr(
 
 ///|
 #warnings("-1-2")
-impl @qc.Shrink for GrammarIr[QcToken, QcKind] with fn shrink(_self) -> Iter[
+impl @shrink.Shrink for GrammarIr[QcToken, QcKind] with fn shrink(_self) -> Iter[
   GrammarIr[QcToken, QcKind],
 ] {
   let cands : Array[GrammarIr[QcToken, QcKind]] = []
@@ -442,10 +444,11 @@ impl @qc.Shrink for GrammarIr[QcToken, QcKind] with fn shrink(_self) -> Iter[
 /// predicates.  The atom rule (`"expr"`) is always `Emit(consumer_tok,
 /// consumer_knd)`, so `RepeatTopLevel`/`PrattApp`/`PrattBinary` nodes have a
 /// matching token to consume and do not loop infinitely.
+#derive(Debug)
 struct GrammarWithTokens {
   ir : GrammarIr[QcToken, QcKind]
   tokens : Array[@core.TokenInfo[QcToken]]
-} derive(Debug)
+}
 
 ///|
 impl @coreqc.Arbitrary for GrammarWithTokens with fn arbitrary(size, rs) {
@@ -493,7 +496,7 @@ impl @coreqc.Arbitrary for GrammarWithTokens with fn arbitrary(size, rs) {
 /// counterexamples simpler without changing the structure that caused
 /// the failure.
 #warnings("-1-2")
-impl @qc.Shrink for GrammarWithTokens with fn shrink(self) -> Iter[
+impl @shrink.Shrink for GrammarWithTokens with fn shrink(self) -> Iter[
   GrammarWithTokens,
 ] {
   let tlen = self.tokens.length()

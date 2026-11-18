@@ -29,11 +29,12 @@
 /// - `VClosure` — a function value, capturing the environment where it was
 ///   defined (this is what makes lexical scoping work)
 /// - `VUnit` — the unit value (for definition-only modules with no body)
+#derive(Eq, Debug)
 pub(all) enum Value {
-  VInt(Int)
+  VInt(Int32)
   VClosure(Env, @ast.VarName, @ast.Term)
   VUnit
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for Value with fn output(self, logger) {
@@ -50,13 +51,14 @@ pub impl Show for Value with fn output(self, logger) {
 /// - `Incomplete` — the program contains a hole (placeholder for missing code)
 /// - `ParseError` — the AST contains an error node from the parser
 /// - `Divergence` — evaluation exceeded the fuel limit (probable infinite loop)
+#derive(Debug)
 pub(all) suberror StuckReason {
   Unbound(@ast.VarName)
   TypeMismatch(String)
   Incomplete
   ParseError
   Divergence
-} derive(Debug)
+}
 
 ///|
 pub impl Show for StuckReason with fn output(self, logger) {
@@ -70,9 +72,10 @@ pub impl Show for StuckReason with fn output(self, logger) {
 /// that shadows one binding without mutating the parent. This is essential
 /// for closures — when a closure captures an environment, later mutations
 /// to the "same" scope must not affect the captured bindings.
+#derive(Eq, Debug)
 pub struct Env {
   bindings : Map[String, Value]
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn Env::empty() -> Env {
@@ -114,7 +117,7 @@ pub fn Env::bind(self : Env, name : String, value : Value) -> Env {
 pub fn eval(
   env : Env,
   term : @ast.Term,
-  fuel? : Int = 1000,
+  fuel~ : Int32 = 1000,
 ) -> Value raise StuckReason {
   if fuel <= 0 {
     raise Divergence

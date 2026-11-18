@@ -10,10 +10,11 @@
 // new Resolution to `term_to_dot_resolved` will produce incorrect labels.
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum VarStatus {
-  Bound(depth~ : Int)
+  Bound(depth~ : Int32)
   Free
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for VarStatus with fn output(self, logger) {
@@ -21,14 +22,15 @@ pub impl Show for VarStatus with fn output(self, logger) {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Resolution {
-  vars : Map[Int, VarStatus]
-} derive(Debug, Eq)
+  vars : Map[Int32, VarStatus]
+}
 
 ///|
 pub fn resolve(term : @ast.Term) -> (@ast.Term, Resolution) {
-  let res : Map[Int, VarStatus] = Map([])
-  let env : Map[String, Int] = Map([])
+  let res : Map[Int32, VarStatus] = Map([])
+  let env : Map[String, Int32] = Map([])
   let counter = Ref(0)
   let new_term = resolve_walk(term, env, 0, counter, res)
   (new_term, { vars: res, })
@@ -37,10 +39,10 @@ pub fn resolve(term : @ast.Term) -> (@ast.Term, Resolution) {
 ///|
 fn resolve_walk(
   term : @ast.Term,
-  env : Map[String, Int],
-  depth : Int,
-  counter : Ref[Int],
-  res : Map[Int, VarStatus],
+  env : Map[String, Int32],
+  depth : Int32,
+  counter : Ref[Int32],
+  res : Map[Int32, VarStatus],
 ) -> @ast.Term {
   let node_id = counter.val
   counter.val = counter.val + 1

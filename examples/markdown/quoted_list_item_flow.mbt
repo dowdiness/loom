@@ -26,8 +26,8 @@ fn quoted_list_item_next_line_starts_block(
 fn consume_quoted_list_item_block_prefix(
   ctx : @core.ParserContext[Token, SyntaxKind],
   quote : BlockQuoteLineContext,
-  content_indent : Int,
-) -> (Int, Int)? {
+  content_indent : Int32,
+) -> (Int32, Int32)? {
   if ctx.peek() is Newline {
     ctx.emit_token(NewlineToken)
   }

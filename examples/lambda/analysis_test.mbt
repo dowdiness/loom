@@ -2,7 +2,7 @@
 fn count_lambda_diagnostics(
   diagnostics : Array[@lambda.LambdaDiagnostic],
   phase : @lambda.LambdaDiagnosticPhase,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for diagnostic in diagnostics {
     if diagnostic.phase() == phase {

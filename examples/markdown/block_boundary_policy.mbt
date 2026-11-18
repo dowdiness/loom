@@ -18,7 +18,7 @@ fn is_block_boundary(token : Token) -> Bool {
 ///|
 /// Type 7 HTML block opens do not interrupt paragraphs; Types 1–6 do.
 fn html_block_open_interrupts_paragraph(line : String) -> Bool {
-  match classify_html_block_opening(line.view()) {
+  match classify_html_block_opening(line[:]) {
     Some(kind) => kind.interrupts_paragraph()
     None => true
   }

@@ -3,14 +3,15 @@
 
 ///|
 // Test language: integers and '+' only (with whitespace)
+#derive(Eq, Debug)
 enum TestTok {
-  Num(Int)
+  Num(Int32)
   Plus
   Ws
   Comment
   TokEof
   TokEofAlias
-} derive(Eq, Debug)
+}
 
 ///|
 impl Show for TestTok with fn output(self, logger) {
@@ -40,6 +41,7 @@ impl @seam.ToRawKind for TestTok with fn to_raw(self) {
 }
 
 ///|
+#derive(Debug)
 enum TestKind {
   KNum
   KPlus
@@ -49,7 +51,7 @@ enum TestKind {
   KComment
   KErr
   KIncomplete
-} derive(Debug)
+}
 
 ///|
 fn test_kind_raw(k : TestKind) -> @seam.RawKind {
@@ -114,7 +116,7 @@ fn test_tokenize(src : String) -> Array[TokenInfo[TestTok]] {
 /// Tokenize and compute starts in one call.
 fn test_tokenize_with_starts(
   src : String,
-) -> (Array[TokenInfo[TestTok]], Array[Int]) {
+) -> (Array[TokenInfo[TestTok]], Array[Int32]) {
   let toks = test_tokenize(src)
   let starts = build_starts(toks)
   (toks, starts)

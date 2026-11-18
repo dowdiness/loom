@@ -9,12 +9,13 @@
 /// (`ManualDefinition`) and ParamList (`ManualParamList`) — reified into ordinary
 /// nodes (`Choice`/`Node`/`Seq` for Definition; `WrapIfNext` + a `Choice`/
 /// `RepeatWhile` comma-loop for ParamList; spec §5.3).
+#derive(Debug, Eq)
 pub struct E1Measurement {
-  total_rules : Int
-  declarative_rules : Int
-  hardcoded_rules : Int
-  escape_hatch_rules : Int
-} derive(Debug, Eq)
+  total_rules : Int32
+  declarative_rules : Int32
+  hardcoded_rules : Int32
+  escape_hatch_rules : Int32
+}
 
 ///|
 /// E2 ergonomics measurement (NODE granularity): the residue behaviors the
@@ -22,16 +23,17 @@ pub struct E1Measurement {
 /// to eliminate the rule-level hatches. Distinct from E1: a rule can be a fully
 /// declarative IR value (counted declarative in E1) while still containing a node
 /// whose behavior is held spike-local (counted here).
+#derive(Debug)
 pub struct E2Measurement {
   /// Node-level residues held in the spike-local probe (`probe_interpreter.mbt`).
-  residue_count : Int
+  residue_count : Int32
   /// (residue name, why it does not reduce to the minimal `@grammar` contract).
   residues : Array[(String, String)]
   /// `@grammar.Expr` nodes grown from the spike's escape hatches to reach
   /// E1 = 7/7 (spec §5.3). Each reifies an existing, tested `ParserContext`
   /// method — IR surface grew, parser behavior did not.
   grown_nodes : Array[String]
-} derive(Debug)
+}
 
 ///|
 /// Measure E1 rule coverage for the reified lambda grammar IR
@@ -92,7 +94,7 @@ pub fn measure_e2() -> E2Measurement {
 ///|
 /// Coverage ratio for reporting: declarative_rules / total_rules.
 /// Expressed as (numerator, denominator) to avoid floating point.
-pub fn e1_coverage_ratio(m : E1Measurement) -> (Int, Int) {
+pub fn e1_coverage_ratio(m : E1Measurement) -> (Int32, Int32) {
   (m.declarative_rules, m.total_rules)
 }
 
@@ -106,6 +108,7 @@ pub fn e1_coverage_ratio(m : E1Measurement) -> (Int, Int) {
 /// with ZERO residues and drives `@grammar.interpret` DIRECTLY — no spike-local
 /// probe. Lambda needs the probe; JSON does not, which is exactly the evidence
 /// that the residues are lambda-specific and the minimal contract stands alone.
+#derive(Debug)
 pub struct ReuseProbePlan {
   /// Description of the second grammar built for the E3 probe.
   target_grammar : String
@@ -116,7 +119,7 @@ pub struct ReuseProbePlan {
   expected_oracle_result : String
   /// Gate condition: E3 is meaningful when this holds.
   gate_condition : String
-} derive(Debug)
+}
 
 ///|
 /// Return the E3 follow-up probe plan.

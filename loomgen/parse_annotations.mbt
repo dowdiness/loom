@@ -34,7 +34,7 @@ struct VariantDecl {
   name : String
   role : SyntaxRole?
   attrs : Array[@attribute.Attribute]
-  arg_count : Int
+  arg_count : Int32
   kind_override : String?
   display : String?
   tag_name : String?
@@ -144,7 +144,7 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               | Trivia
               | Delimiter
               | ErrorToken
-              | Eof
+              | Eof,
             ) => for_token
             Some(Leaf | Node | ErrorNode | Root | View(_, _, _)) => !for_token
           }
@@ -951,7 +951,7 @@ fn extract_token_sets(
 ///|
 fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
   match comp {
-    @syntax.Variant(constrs) | @syntax.ExtensibleEnum(constrs) =>
+    @syntax.Variant(constrs) | @syntax.ExtensibleEnum(Some(constrs)) =>
       constrs
       .map(fn(cd) {
         let mut kind_override : String? = None
@@ -1089,7 +1089,7 @@ fn canonical_tag_name(raw : String) -> Result[String, String] {
 ///|
 
 ///|
-fn pattern_capture_count(pattern : Pattern) -> Int {
+fn pattern_capture_count(pattern : Pattern) -> Int32 {
   match pattern {
     Group(inner) => 1 + pattern_capture_count(inner)
     Seq(items) =>
@@ -1176,7 +1176,7 @@ fn is_valid_lex_fn_name(name : String) -> Bool {
 
 ///|
 /// Extract the nth positional string argument from a loom annotation (0-indexed).
-fn nth_string_from_apply(parsed : @attribute.Expr?, index : Int) -> String? {
+fn nth_string_from_apply(parsed : @attribute.Expr?, index : Int32) -> String? {
   match parsed {
     Some(@attribute.Apply(_, props)) =>
       match props.nth(index) {
@@ -1210,7 +1210,7 @@ fn find_literal_kind_override(parsed : @attribute.Expr?) -> String? {
 
 ///|
 /// Count all arguments (positional + KV) in a loom annotation.
-fn count_apply_args(parsed : @attribute.Expr?) -> Int {
+fn count_apply_args(parsed : @attribute.Expr?) -> Int32 {
   match parsed {
     Some(@attribute.Apply(_, props)) => props.length()
     _ => 0

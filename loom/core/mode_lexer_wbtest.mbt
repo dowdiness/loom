@@ -4,10 +4,11 @@
 ///  Normal mode: Text tokens for non-quote chars.
 ///  String mode: StringContent tokens for non-quote chars.
 ///  `"` always produces a Quote token in either mode.
+#derive(Eq, Debug)
 priv enum MockMode {
   Normal
   StringMode
-} derive(Eq, Debug)
+}
 
 ///|
 impl Show for MockMode with fn output(self, logger) {
@@ -15,13 +16,14 @@ impl Show for MockMode with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum MockToken {
   Text(String)
   StringContent(String)
   Error(String)
   Quote
   EOF
-} derive(Eq, Debug)
+}
 
 ///|
 impl Show for MockToken with fn output(self, logger) {
@@ -29,14 +31,14 @@ impl Show for MockToken with fn output(self, logger) {
 }
 
 ///|
-fn mock_char_at(input : String, pos : Int) -> Char? {
+fn mock_char_at(input : String, pos : Int32) -> Char? {
   input.code_unit_at(pos).to_char()
 }
 
 ///|
 fn mock_lex_step(
   input : String,
-  pos : Int,
+  pos : Int32,
   mode : MockMode,
 ) -> (LexStep[MockToken], MockMode) {
   if pos >= input.length() {
@@ -141,7 +143,7 @@ test "erase_mode_lexer tokenize matches tokenize_with_modes" {
 
 ///|
 test "erase_mode_lexer_factory owns one lexer shell per operation" {
-  let construction_count : Ref[Int] = Ref(0)
+  let construction_count : Ref[Int32] = Ref(0)
   let new_lexer = fn() {
     construction_count.val = construction_count.val + 1
     (
@@ -168,7 +170,7 @@ test "erase_mode_lexer_factory owns one lexer shell per operation" {
 ///|
 fn mock_recovering_lex_step(
   input : String,
-  pos : Int,
+  pos : Int32,
   mode : MockMode,
 ) -> (LexStep[MockToken], MockMode) {
   if pos >= input.length() {
@@ -272,6 +274,7 @@ test "property: tokenize_with_modes consistent with step replay" {
 
 ///|
 /// A separate vocabulary exercises two meanings of the same quote delimiter.
+#derive(Eq, Debug)
 priv enum MixedMode {
   Normal
   AfterNotationHead
@@ -280,7 +283,7 @@ priv enum MixedMode {
   ExpectOpaqueQuote
   NotationString
   OpaqueString
-} derive(Eq, Debug)
+}
 
 ///|
 impl Show for MixedMode with fn output(self, logger) {
@@ -288,6 +291,7 @@ impl Show for MixedMode with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum MixedToken {
   HeadS
   HeadSection
@@ -300,7 +304,7 @@ priv enum MixedToken {
   NotationColon
   OpaqueRaw(String)
   EOF
-} derive(Eq, Debug)
+}
 
 ///|
 impl Show for MixedToken with fn output(self, logger) {
@@ -316,7 +320,7 @@ fn mixed_source() -> String {
 /// Choose the next quote context from lexical facts already consumed.
 fn mixed_lex_step(
   input : String,
-  pos : Int,
+  pos : Int32,
   mode : MixedMode,
 ) -> (LexStep[MixedToken], MixedMode) {
   if pos >= input.length() {
@@ -337,7 +341,7 @@ fn mixed_lex_step(
         Some(' ') => {
           ignore(cursor.take_while(fn(ch) { ch == ' ' }))
           let text = input
-            .view(start_offset=pos, end_offset=cursor.position())
+            .legacy_view(start=pos, end=cursor.position())
             .to_owned()
           (cursor.produced(Space(text)), Normal)
         }
@@ -391,7 +395,7 @@ fn mixed_lex_step(
             cursor.take_while(fn(ch) { ch != ' ' && ch != '"' && ch != ':' }),
           )
           let text = input
-            .view(start_offset=pos, end_offset=cursor.position())
+            .legacy_view(start=pos, end=cursor.position())
             .to_owned()
           (cursor.produced(NotationWord(text)), NotationString)
         }
@@ -406,7 +410,7 @@ fn mixed_lex_step(
         Some(_) => {
           ignore(cursor.take_while(fn(ch) { ch != '"' }))
           let text = input
-            .view(start_offset=pos, end_offset=cursor.position())
+            .legacy_view(start=pos, end=cursor.position())
             .to_owned()
           (cursor.produced(OpaqueRaw(text)), OpaqueString)
         }

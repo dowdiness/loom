@@ -54,9 +54,7 @@ test "incremental policy mismatch reaches the caller as Failure" {
     tokens.length(),
     i => tokens[i].token,
     i => starts[i],
-    i => {
-      source.view(start_offset=starts[i], end_offset=starts[i] + tokens[i].len)
-    },
+    i => source.legacy_view(start=starts[i], end=starts[i] + tokens[i].len),
     target_spec,
   )
   try

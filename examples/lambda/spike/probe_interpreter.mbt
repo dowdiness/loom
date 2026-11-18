@@ -307,7 +307,7 @@ fn token_after_matching_right_paren(
 /// Skip Newline tokens from start_index; return first non-Newline token or None.
 fn token_after_soft_newlines(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-  start_index : Int,
+  start_index : Int32,
 ) -> @token.Token? {
   for index = start_index {
     match ctx.peek_nth(index) {

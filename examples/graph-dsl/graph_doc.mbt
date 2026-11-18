@@ -1,30 +1,32 @@
 ///|
+#derive(Eq, Debug)
 pub struct SourceSpan {
-  priv start : Int
-  priv end : Int
-} derive(Eq, Debug)
+  priv start : Int32
+  priv end : Int32
+}
 
 ///|
-fn SourceSpan::SourceSpan(start~ : Int, end~ : Int) -> SourceSpan {
+fn SourceSpan::SourceSpan(start~ : Int32, end~ : Int32) -> SourceSpan {
   { start, end, }
 }
 
 ///|
-pub fn SourceSpan::start(self : SourceSpan) -> Int {
+pub fn SourceSpan::start(self : SourceSpan) -> Int32 {
   self.start
 }
 
 ///|
-pub fn SourceSpan::end(self : SourceSpan) -> Int {
+pub fn SourceSpan::end(self : SourceSpan) -> Int32 {
   self.end
 }
 
 ///|
-pub fn SourceSpan::length(self : SourceSpan) -> Int {
+pub fn SourceSpan::length(self : SourceSpan) -> Int32 {
   self.end - self.start
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum GraphTokenRole {
   NodeBindingName
   ConstructorName
@@ -36,7 +38,7 @@ pub(all) enum GraphTokenRole {
   Unit
   StringField
   EnumField
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for GraphTokenRole with fn output(self, logger) {
@@ -57,12 +59,13 @@ pub impl Show for GraphTokenRole with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub enum GraphValueKind {
   Numeric
   StringValue
   EnumValue
   InputRef
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for GraphValueKind with fn output(self, logger) {
@@ -77,19 +80,20 @@ pub impl Show for GraphValueKind with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct GraphToken {
   priv role : GraphTokenRole
   priv text : String
-  priv start : Int
-  priv end : Int
-} derive(Eq, Debug)
+  priv start : Int32
+  priv end : Int32
+}
 
 ///|
 fn GraphToken::GraphToken(
   role~ : GraphTokenRole,
   text~ : String,
-  start~ : Int,
-  end~ : Int,
+  start~ : Int32,
+  end~ : Int32,
 ) -> GraphToken {
   { role, text, start, end, }
 }
@@ -105,12 +109,12 @@ pub fn GraphToken::text(self : GraphToken) -> String {
 }
 
 ///|
-pub fn GraphToken::start(self : GraphToken) -> Int {
+pub fn GraphToken::start(self : GraphToken) -> Int32 {
   self.start
 }
 
 ///|
-pub fn GraphToken::end(self : GraphToken) -> Int {
+pub fn GraphToken::end(self : GraphToken) -> Int32 {
   self.end
 }
 
@@ -120,12 +124,13 @@ pub fn GraphToken::span(self : GraphToken) -> SourceSpan {
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct GraphParam {
   priv name : String
   priv name_token : GraphToken
   priv value_kind : GraphValueKind
   priv value_tokens : Array[GraphToken]
-} derive(Eq, Debug)
+}
 
 ///|
 fn GraphParam::GraphParam(
@@ -158,6 +163,7 @@ pub fn GraphParam::value_tokens(self : GraphParam) -> Array[GraphToken] {
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct GraphNode {
   priv id : String
   priv binding : String
@@ -166,11 +172,11 @@ pub struct GraphNode {
   priv constructor_token : GraphToken
   priv params : Array[GraphParam]
   priv output_tokens : Array[GraphToken]
-  priv start : Int
-  priv end : Int
-  priv argument_insert_offset : Int
+  priv start : Int32
+  priv end : Int32
+  priv argument_insert_offset : Int32
   priv connection_separator : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 fn GraphNode::GraphNode(
@@ -181,9 +187,9 @@ fn GraphNode::GraphNode(
   constructor_token~ : GraphToken,
   params~ : Array[GraphParam],
   output_tokens~ : Array[GraphToken],
-  start~ : Int,
-  end~ : Int,
-  argument_insert_offset~ : Int,
+  start~ : Int32,
+  end~ : Int32,
+  argument_insert_offset~ : Int32,
   connection_separator~ : Bool,
 ) -> GraphNode {
   {
@@ -237,21 +243,22 @@ pub fn GraphNode::output_tokens(self : GraphNode) -> Array[GraphToken] {
 }
 
 ///|
-pub fn GraphNode::start(self : GraphNode) -> Int {
+pub fn GraphNode::start(self : GraphNode) -> Int32 {
   self.start
 }
 
 ///|
-pub fn GraphNode::end(self : GraphNode) -> Int {
+pub fn GraphNode::end(self : GraphNode) -> Int32 {
   self.end
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct GraphDoc {
   priv source : String
   priv nodes : Array[GraphNode]
   priv tokens : Array[GraphToken]
-} derive(Eq, Debug)
+}
 
 ///|
 fn GraphDoc::GraphDoc(

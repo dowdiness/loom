@@ -523,7 +523,7 @@ length and fence character):
 pub(all) enum MarkdownLexMode {
   LineStart
   Inline
-  CodeBlock(Int, Char)
+  CodeBlock(Int32, Char)
 }
 ```
 
@@ -551,9 +551,10 @@ Two levels:
 
 ```mbt nocheck
 ///|
+#derive(Eq, Debug)
 pub(all) enum Block {
   Document(Array[Block])
-  Heading(Int, Array[Inline])
+  Heading(Int32, Array[Inline])
   Paragraph(Array[Inline])
   UnorderedList(Array[Block])
   OrderedList(Array[Block], OrderedListMarker?)
@@ -561,9 +562,10 @@ pub(all) enum Block {
   OrderedListItem(Array[Inline], OrderedListMarker?)
   CodeBlock(String, String) // (language, content)
   Error(String)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum Inline {
   Text(String)
   Bold(Array[Inline])
@@ -571,7 +573,7 @@ pub(all) enum Inline {
   InlineCode(String)
   Link(Array[Inline], String) // (text, url)
   Error(String)
-} derive(Eq, Debug)
+}
 ```
 
 Both implement `Show`, `@core.Renderable`, and `@core.TreeNode`.

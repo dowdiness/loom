@@ -14,11 +14,12 @@
 ///|
 /// Source-text edit produced by a rename. `(start, end)` is a half-open UTF-16
 /// code-unit range into the source; `new_text` is the replacement.
+#derive(Eq, Debug)
 pub struct TextEdit {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   new_text : String
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for TextEdit with fn output(self, logger) {
@@ -46,7 +47,7 @@ pub fn plan_rename(
   pipeline : @callers.CallersPipeline,
   _source : String,
   syntax : @seam.SyntaxNode,
-  offset : Int,
+  offset : Int32,
   new_name : String,
 ) -> RenamePlan {
   let (defs, calls, enclosing) = pipeline.facts()
@@ -132,7 +133,7 @@ fn call_resolves_to_target(
   enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
   syntax : @seam.SyntaxNode,
   call : @callers.Call,
-  call_start : Int,
+  call_start : Int32,
 ) -> Bool {
   if call.callee != target.name {
     return false
@@ -149,7 +150,7 @@ fn resolve_call_binding(
   enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
   syntax : @seam.SyntaxNode,
   name : String,
-  call_start : Int,
+  call_start : Int32,
 ) -> @callers.Def? {
   let lexical_scope = lexical_scope_at(defs, enclosing, call_start)
   let visited : @hashset.HashSet[@callers.ScopeId] = @hashset.HashSet([])
@@ -165,7 +166,7 @@ fn resolve_binding_from(
   defs : Array[@callers.Def],
   enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
   syntax : @seam.SyntaxNode,
-  call_start : Int,
+  call_start : Int32,
   visited : @hashset.HashSet[@callers.ScopeId],
 ) -> @callers.Def? {
   if visited.contains(scope) {
@@ -195,7 +196,7 @@ fn nearest_completed_let(
   name : String,
   defs : Array[@callers.Def],
   syntax : @seam.SyntaxNode,
-  call_start : Int,
+  call_start : Int32,
 ) -> @callers.Def? {
   let mut winner : @callers.Def? = None
   let mut winner_end = -1
@@ -240,7 +241,7 @@ fn is_scope_binding_def(def : @callers.Def) -> Bool {
 fn let_container_contains(
   def : @callers.Def,
   syntax : @seam.SyntaxNode,
-  offset : Int,
+  offset : Int32,
 ) -> Bool {
   match find_def_node(syntax, def) {
     Some(node) =>
@@ -275,7 +276,7 @@ fn find_def_node(
 }
 
 ///|
-fn nearest_let_container_range(node : @seam.SyntaxNode) -> (Int, Int)? {
+fn nearest_let_container_range(node : @seam.SyntaxNode) -> (Int32, Int32)? {
   let mut current = node.parent()
   while current is Some(parent) {
     let kind = @syntax.SyntaxKind::from_raw(parent.kind())
@@ -291,7 +292,7 @@ fn nearest_let_container_range(node : @seam.SyntaxNode) -> (Int, Int)? {
 fn lexical_scope_at(
   defs : Array[@callers.Def],
   enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
-  offset : Int,
+  offset : Int32,
 ) -> @callers.ScopeId {
   let mut best = @callers.TopScope
   let mut best_width = 2147483647
@@ -324,10 +325,10 @@ fn lexical_scope_at(
 ///|
 fn consider_scope(
   candidate : @callers.ScopeId,
-  offset : Int,
+  offset : Int32,
   current : @callers.ScopeId,
-  current_width : Int,
-) -> (@callers.ScopeId, Int) {
+  current_width : Int32,
+) -> (@callers.ScopeId, Int32) {
   match candidate {
     @callers.TopScope => (current, current_width)
     @callers.LambdaScope(start, end) => {
@@ -342,7 +343,7 @@ fn consider_scope(
 }
 
 ///|
-fn make_no_target_diagnostic(offset : Int) -> @core.Diagnostic {
+fn make_no_target_diagnostic(offset : Int32) -> @core.Diagnostic {
   @core.Diagnostic::Diagnostic(
     origin=@core.DiagnosticOrigin("rename"),
     severity=severity_error(),

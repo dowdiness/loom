@@ -1,4 +1,5 @@
 ///|
+#derive(Eq, Debug)
 #loom.token_set(value_start, LBrace, LBracket, StringLit, NumberLit, True, False, Null)
 #loom.token
 pub(all) enum Token {
@@ -37,7 +38,7 @@ pub(all) enum Token {
   #loom.eof
   #loom.recovery("sync")
   EOF // end of input
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn print_token(token : Token) -> String {

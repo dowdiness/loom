@@ -6,17 +6,17 @@
 // See AGENTS.md for the design rationale.
 
 ///|
-const MAX_ERRORS : Int = 50
+const MAX_ERRORS : Int32 = 50
 
 ///|
-const MAX_DEPTH : Int = 512
+const MAX_DEPTH : Int32 = 512
 
 ///|
 fn parse_element(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   tag_stack : Array[String],
   close_boundary : () -> Bool,
-  depth~ : Int,
+  depth~ : Int32,
 ) -> Unit {
   if depth > MAX_DEPTH {
     ctx.error("Maximum HTML nesting depth exceeded")
@@ -86,7 +86,7 @@ fn parse_content(
   tag_stack : Array[String],
   close_boundary : () -> Bool,
   tag_name : String,
-  depth~ : Int,
+  depth~ : Int32,
 ) -> Unit {
   while !ctx.at_eof() {
     match ctx.peek() {

@@ -35,7 +35,7 @@ struct LowerCtx {
   /// so `loc` returns "" and every emission diagnostic is byte-identical to the
   /// annotation path. Lets file-mode emission errors carry the same `line N:`
   /// prefix the file's parse errors do.
-  file_lines : Map[String, Int]
+  file_lines : Map[String, Int32]
   /// The variant name of the #loom.errornode variant (at most one per term enum),
   /// or `None` if no errornode is declared.
   error_node_variant : String?
@@ -329,7 +329,7 @@ fn leading_refs(ast : RuleAst, ctx : LowerCtx) -> Array[String] {
 fn left_rec_dfs(
   name : String,
   ctx : LowerCtx,
-  state : Map[String, Int],
+  state : Map[String, Int32],
 ) -> String? {
   match state.get(name) {
     Some(1) => return Some(name)
@@ -435,7 +435,7 @@ fn RuleAst::is_catch_all(self : RuleAst) -> Bool {
 /// rule used purely in `Seq`/`Node` position would otherwise generate cleanly and
 /// then infinite-loop the interpreter. Fails closed.
 fn check_left_recursion(ctx : LowerCtx) -> Result[Unit, String] {
-  let state : Map[String, Int] = Map([])
+  let state : Map[String, Int32] = Map([])
   for name, _ in ctx.rules {
     match left_rec_dfs(name, ctx, state) {
       Some(c) => return Err(ctx.loc(c) + left_rec_msg(c))
@@ -1014,8 +1014,8 @@ fn build_lower_ctx(
   token_qual : String,
   syntax_qual : String,
   grammar_qual : String,
-  file_rules? : Map[String, RuleAst] = Map([]),
-  file_lines? : Map[String, Int] = Map([]),
+  file_rules~ : Map[String, RuleAst] = Map([]),
+  file_lines~ : Map[String, Int32] = Map([]),
 ) -> Result[LowerCtx, String] {
   let token_kinds : Map[String, String] = Map([])
   let term_kind_names : Map[String, String] = Map([])
@@ -1107,8 +1107,8 @@ fn emit_grammar_ir(
   syntax_qual : String,
   grammar_qual : String,
   value_name : String,
-  file_rules? : Map[String, RuleAst] = Map([]),
-  file_lines? : Map[String, Int] = Map([]),
+  file_rules~ : Map[String, RuleAst] = Map([]),
+  file_lines~ : Map[String, Int32] = Map([]),
 ) -> Result[String, String] {
   let ctx = match
     build_lower_ctx(

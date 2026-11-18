@@ -389,7 +389,7 @@ Define layout builders for expressions, then render at different widths:
 ```mbt check
 ///|
 test "end-to-end Expr pretty-print flat" {
-  fn expr_lit(n : Int) -> @pretty.Layout[@pretty.SyntaxCategory] {
+  fn expr_lit(n : Int32) -> @pretty.Layout[@pretty.SyntaxCategory] {
     @pretty.annotate(@pretty.Number, @pretty.text(n.to_string()))
   }
   fn expr_add(
@@ -409,7 +409,7 @@ test "end-to-end Expr pretty-print flat" {
 
 ///|
 test "end-to-end Expr pretty-print break" {
-  fn expr_lit(n : Int) -> @pretty.Layout[@pretty.SyntaxCategory] {
+  fn expr_lit(n : Int32) -> @pretty.Layout[@pretty.SyntaxCategory] {
     @pretty.annotate(@pretty.Number, @pretty.text(n.to_string()))
   }
   fn expr_add(

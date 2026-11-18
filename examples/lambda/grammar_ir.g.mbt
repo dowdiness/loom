@@ -16,7 +16,7 @@ pub let frag_source_toplevel : @grammar.Expr[@token.Token, @syntax.SyntaxKind] =
 
 ///|
 pub fn lambda_grammar_ir(
-  fragments? : Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]] = Map([],
+  fragments~ : Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]] = Map([],
   ),
 ) -> @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind] {
   let rules : Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]] = {

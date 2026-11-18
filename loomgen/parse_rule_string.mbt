@@ -19,23 +19,26 @@
 
 ///|
 /// Pratt application production: left-associative juxtaposition over `@prefix`.
+#derive(Eq, Debug)
 struct PrattAppSpec {
   prefix : String
   app_kind : String?
-} derive(Eq, Debug)
+}
 
 ///|
 /// Pratt binary production: infix operators over `@prefix` with optional `@skip`.
+#derive(Eq, Debug)
 struct PrattBinarySpec {
   prefix : String
   ops : Array[String]
   skip : String?
   app_kind : String?
-} derive(Eq, Debug)
+}
 
 ///|
 /// Parsed notation tree. Resolution of `Sym` (terminal vs rule Ref) and the
 /// FIRST-set predicates for `Alt`/`Star`/`Plus`/`Opt` are computed downstream.
+#derive(Eq, Debug)
 enum RuleAst {
   Sym(String)
   Frag(String)
@@ -60,9 +63,10 @@ enum RuleAst {
   SeparatedList(String, String)
   PrattApp(PrattAppSpec)
   PrattBinary(PrattBinarySpec)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 enum RuleTok {
   TIdent(String)
   TFrag(String)
@@ -87,7 +91,7 @@ enum RuleTok {
   TLBracket
   TRBracket
   TComma
-} derive(Eq, Debug)
+}
 
 ///|
 suberror RuleParseError {
@@ -111,7 +115,7 @@ fn is_mbt_identifier(s : String) -> Bool {
 ///|
 /// Scan an identifier starting at `pos` (which satisfies `is_rule_ident_start`),
 /// returning the identifier text and the index just past it.
-fn scan_ident(s : String, pos : Int) -> (String, Int) {
+fn scan_ident(s : String, pos : Int32) -> (String, Int32) {
   let mut i = pos + 1
   while i < s.length() && is_rule_ident_char(s[i]) {
     i = i + 1
@@ -196,7 +200,7 @@ fn tokenize_rule(s : String) -> Array[RuleTok] raise RuleParseError {
 ///|
 struct RuleParser {
   toks : Array[RuleTok]
-  mut pos : Int
+  mut pos : Int32
 }
 
 ///|

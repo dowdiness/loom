@@ -36,7 +36,7 @@ fn list_marker_matches(
 ///|
 fn current_list_marker_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
-) -> Int? {
+) -> Int32? {
   match ctx.peek() {
     Indentation(_) => Some(current_token_leading_indent(ctx))
     ListMarker | OrderedListMarker(_) =>
@@ -52,7 +52,7 @@ fn current_list_marker_indent(
 fn list_marker_matches_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   opening_marker : UnorderedListMarker,
-  min_indent : Int,
+  min_indent : Int32,
 ) -> Bool {
   list_marker_matches(ctx, opening_marker) &&
   current_list_marker_indent(ctx).map_or(false, indent => indent >= min_indent)
@@ -95,7 +95,7 @@ fn ordered_list_marker_matches(
 fn ordered_list_marker_matches_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   opening_marker : OrderedListMarker,
-  min_indent : Int,
+  min_indent : Int32,
 ) -> Bool {
   ordered_list_marker_matches(ctx, opening_marker) &&
   current_list_marker_indent(ctx).map_or(false, indent => indent >= min_indent)
@@ -121,7 +121,7 @@ fn blank_line_run_is_followed_by_marker_matching(
 fn blank_line_run_is_followed_by_matching_list_marker_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   opening_marker : UnorderedListMarker,
-  min_indent : Int,
+  min_indent : Int32,
 ) -> Bool {
   blank_line_run_is_followed_by_marker_matching(ctx, ctx => {
     list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) &&
@@ -135,7 +135,7 @@ fn blank_line_run_is_followed_by_matching_list_marker_at_min_indent(
 fn blank_line_run_is_followed_by_matching_ordered_list_marker_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   opening_marker : OrderedListMarker,
-  min_indent : Int,
+  min_indent : Int32,
 ) -> Bool {
   blank_line_run_is_followed_by_marker_matching(ctx, ctx => {
     ordered_list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) &&
@@ -149,7 +149,7 @@ fn blank_line_run_is_followed_by_matching_ordered_list_marker_at_min_indent(
 fn consume_ordered_list_item_separator_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   opening_marker : OrderedListMarker,
-  min_indent : Int,
+  min_indent : Int32,
 ) -> Unit {
   if ctx.peek() is Newline {
     ctx.emit_token(NewlineToken)

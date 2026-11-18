@@ -1,4 +1,5 @@
 ///|
+#derive(Eq)
 enum PayloadSegmentKind {
   Code
   String
@@ -6,13 +7,13 @@ enum PayloadSegmentKind {
   LineComment
   BlockComment
   MultilineString
-} derive(Eq)
+}
 
 ///|
 struct PayloadSegment {
   kind : PayloadSegmentKind
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
 }
 
 ///|
@@ -24,7 +25,7 @@ fn lex_payload_segments(
   let mut segment_start = 0
   let mut i = 0
   let n = source.length()
-  let flush = (kind : PayloadSegmentKind, end : Int) => {
+  let flush = (kind : PayloadSegmentKind, end : Int32) => {
     if end > segment_start {
       segments.push({ kind, start: segment_start, end, })
     }

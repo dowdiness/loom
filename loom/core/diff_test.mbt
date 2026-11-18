@@ -1,6 +1,6 @@
 ///|
 // Helpers — build minimal CstNode trees for testing.
-fn leaf(kind : Int, text : String) -> @seam.CstNode {
+fn leaf(kind : Int32, text : String) -> @seam.CstNode {
   let tok = @seam.CstToken::CstToken(@seam.RawKind(kind), text)
   try! @seam.CstNode::new_unclassified(@seam.RawKind(kind), [
     @seam.CstElement::Token(tok),

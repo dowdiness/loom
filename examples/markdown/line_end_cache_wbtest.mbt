@@ -1,7 +1,7 @@
 // Regression coverage for session-local physical-line-end reuse.
 
 ///|
-fn line_end_cache_nested_quote_doc(depth : Int, line_count : Int) -> String {
+fn line_end_cache_nested_quote_doc(depth : Int32, line_count : Int32) -> String {
   let out = StringBuilder()
   for line = 0; line < line_count; line = line + 1 {
     for prefix = 0; prefix < depth; prefix = prefix + 1 {

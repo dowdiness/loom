@@ -11,12 +11,13 @@ const PINNED_SPEC_SHA256 = "d431b29d97b6f73e69d547109cf5081578fac931e72afe95639e
 const PINNED_SPEC_EXAMPLE_COUNT = 652
 
 ///|
+#derive(FromJson, Debug)
 struct CommonMarkSpecExample {
   markdown : String
   html : String
   section : String
-  example : Int
-} derive(FromJson, Debug)
+  example : Int32
+}
 
 ///|
 struct LoadedCorpus {
@@ -25,6 +26,7 @@ struct LoadedCorpus {
 }
 
 ///|
+#derive(Eq, Debug)
 enum AuditOutcome {
   Pass
   LexError
@@ -34,30 +36,33 @@ enum AuditOutcome {
   Recovered
   AdapterPolicyRejection
   HtmlMismatch
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 struct AuditCounts {
-  pass : Int
-  render_match : Int
-  lex_error : Int
-  parser_diagnostics : Int
-  unsupported : Int
-  malformed_raw : Int
-  recovered : Int
-  adapter_policy_rejection : Int
-  html_mismatch : Int
-  skip : Int
-  xfail : Int
-} derive(Eq, Debug)
+  pass : Int32
+  render_match : Int32
+  lex_error : Int32
+  parser_diagnostics : Int32
+  unsupported : Int32
+  malformed_raw : Int32
+  recovered : Int32
+  adapter_policy_rejection : Int32
+  html_mismatch : Int32
+  skip : Int32
+  xfail : Int32
+}
 
 ///|
+#derive(Eq, Debug)
 struct AuditAssessment {
   outcome : AuditOutcome
   html_matches : Bool
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 struct AuditSignals {
   parser_diagnostics : Bool
   unsupported : Bool
@@ -65,7 +70,7 @@ struct AuditSignals {
   recovered : Bool
   adapter_policy_rejected : Bool
   html_matches : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 struct MarkdownIRAssistance {
@@ -130,7 +135,7 @@ fn AuditCounts::record(
 }
 
 ///|
-fn AuditCounts::fail(self : AuditCounts) -> Int {
+fn AuditCounts::fail(self : AuditCounts) -> Int32 {
   self.lex_error +
   self.parser_diagnostics +
   self.unsupported +
@@ -143,12 +148,15 @@ fn AuditCounts::fail(self : AuditCounts) -> Int {
 }
 
 ///|
-fn AuditCounts::total(self : AuditCounts) -> Int {
+fn AuditCounts::total(self : AuditCounts) -> Int32 {
   self.pass + self.fail()
 }
 
 ///|
-fn AuditCounts::is_complete(self : AuditCounts, expected_total~ : Int) -> Bool {
+fn AuditCounts::is_complete(
+  self : AuditCounts,
+  expected_total~ : Int32,
+) -> Bool {
   self.total() == expected_total &&
   self.pass == expected_total &&
   self.render_match == expected_total &&
@@ -196,7 +204,7 @@ fn classify_audit(signals : AuditSignals) -> AuditOutcome {
 fn corpus_is_pinned(
   version~ : String,
   sha256~ : String,
-  example_count~ : Int,
+  example_count~ : Int32,
 ) -> Bool {
   version == COMMONMARK_VERSION &&
   sha256 == PINNED_SPEC_SHA256 &&

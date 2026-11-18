@@ -2,6 +2,7 @@
 /// Raised by `compile` when the authored grammar is malformed. `DuplicateRule`
 /// is intentionally absent: the rule namespace is a `Map`, so duplicate names
 /// cannot occur by construction.
+#derive(Eq, Debug)
 pub suberror GrammarCompileError {
   MissingRoot(RuleName)
   MissingRef(RuleName)
@@ -15,20 +16,22 @@ pub suberror GrammarCompileError {
   HostGuardInTokenScan(String)
   LeftRecursiveRule(RuleName)
   ZeroProgressRepeat(RuleName)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Fresh owner identity shared by every rule/native slot in one compilation.
+#derive(Debug)
 priv struct SlotBrand {
   token : Ref[Unit]
-} derive(Debug)
+}
 
 ///|
 /// Opaque dense slot for an authored grammar rule.
+#derive(Debug)
 pub struct RuleSlot {
   priv brand : SlotBrand
-  priv index : Int
-} derive(Debug)
+  priv index : Int32
+}
 
 ///|
 /// Equality is *structural*, over the slot index alone, so that `CompiledExpr`
@@ -50,10 +53,11 @@ pub impl Compare for RuleSlot with fn compare(self, other) {
 
 ///|
 /// Opaque dense slot for a declared native.
+#derive(Debug)
 pub struct NativeSlot {
   priv brand : SlotBrand
-  priv index : Int
-} derive(Debug)
+  priv index : Int32
+}
 
 ///|
 /// Structural, like `RuleSlot`'s — see the note there. Native-capability
@@ -70,9 +74,10 @@ pub impl Compare for NativeSlot with fn compare(self, other) {
 
 ///|
 /// Opaque dense slot for a declared host guard.
+#derive(Eq, Debug, Compare)
 pub struct GuardSlot {
-  priv index : Int
-} derive(Eq, Debug, Compare)
+  priv index : Int32
+}
 
 ///|
 fn SlotBrand::same(self : SlotBrand, other : SlotBrand) -> Bool {
@@ -81,6 +86,7 @@ fn SlotBrand::same(self : SlotBrand, other : SlotBrand) -> Bool {
 
 ///|
 /// Compiled, context-aware predicate snapshot.
+#derive(Eq, Debug)
 pub enum CompiledPred[T] {
   Any
   IsToken(T)
@@ -88,10 +94,11 @@ pub enum CompiledPred[T] {
   Not(CompiledPred[T])
   All(CompiledPred[T], CompiledPred[T])
   HostGuardSlot(GuardSlot)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Compiled form of `Expr`; all names and predicates are resolved.
+#derive(Eq, Debug)
 pub enum CompiledExpr[T, K] {
   Node(K, CompiledExpr[T, K])
   Emit(T, K)
@@ -105,7 +112,7 @@ pub enum CompiledExpr[T, K] {
     delim~ : CompiledPred[T],
     delim_kind~ : K,
     between_msg~ : String,
-    after_msg~ : String
+    after_msg~ : String,
   )
   Seq(Array[CompiledExpr[T, K]])
   PrattApp(RuleSlot, K, CompiledPred[T])
@@ -124,18 +131,19 @@ pub enum CompiledExpr[T, K] {
     CompiledPred[T],
     CompiledPred[T],
     msg_alt~ : String,
-    msg_else~ : String
+    msg_else~ : String,
   )
   ErrorNodeUntil(K, CompiledPred[T], String)
   ManualNewlineAppExpr
   Empty
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct CompiledAlt[T, K] {
   starts : CompiledPred[T]
   body : CompiledExpr[T, K]
-} derive(Eq, Debug)
+}
 
 ///|
 /// Compiler-owned executable storage. Its fields are intentionally private.
@@ -221,9 +229,9 @@ pub fn[T, K] CompiledGrammar::rule_snapshot(
 /// Compile authored grammar into deterministic, resolved slot storage.
 pub fn[T, K] compile(
   ir : GrammarIr[T, K],
-  native_names? : Set[RuleName] = Set::Set([]),
-  guard_names? : Set[RuleName] = Set::Set([]),
-  native_rule_refs? : Map[RuleName, Set[RuleName]] = Map([]),
+  native_names~ : Set[RuleName] = Set::Set([]),
+  guard_names~ : Set[RuleName] = Set::Set([]),
+  native_rule_refs~ : Map[RuleName, Set[RuleName]] = Map([]),
 ) -> CompiledGrammar[T, K] raise GrammarCompileError {
   guard ir.rules.get(ir.root) is Some(_) else { raise MissingRoot(ir.root) }
   for name in ir.rules.keys() {

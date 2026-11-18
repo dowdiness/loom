@@ -18,16 +18,17 @@ using @semantic_change {
 /// projection. `key` is a domain-chosen equality key such as a token text plus
 /// semantic family. It is used only as a safety check when carrying old IDs
 /// across an edit.
+#derive(Eq, Debug)
 pub struct ProjectionLeaf {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   key : String
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn ProjectionLeaf::new(
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   key : String,
 ) -> ProjectionLeaf {
   { start, end, key, }
@@ -38,17 +39,18 @@ pub fn ProjectionLeaf::new(
 ///
 /// The `id` type is generic so downstream authoring layers can keep public IDs
 /// in their own shape instead of exposing Loom internals.
+#derive(Eq, Debug)
 pub struct StableProjectionLeaf[Id] {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   key : String
   id : Id
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn[Id] StableProjectionLeaf::new(
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   key : String,
   id : Id,
 ) -> StableProjectionLeaf[Id] {
@@ -62,19 +64,20 @@ pub fn[Id] StableProjectionLeaf::new(
 /// leaves starting at or after `old_end` form the reusable suffix. New leaves in
 /// the corresponding prefix/suffix windows inherit old IDs when their keys still
 /// match; leaves inside the new window receive fresh IDs.
+#derive(Eq, Debug)
 struct ProjectionIdentityWindow {
-  old_start : Int
-  old_end : Int
-  new_start : Int
-  new_end : Int
-} derive(Eq, Debug)
+  old_start : Int32
+  old_end : Int32
+  new_start : Int32
+  new_end : Int32
+}
 
 ///|
 fn ProjectionIdentityWindow::new(
-  old_start : Int,
-  old_end : Int,
-  new_start : Int,
-  new_end : Int,
+  old_start : Int32,
+  old_end : Int32,
+  new_start : Int32,
+  new_end : Int32,
 ) -> ProjectionIdentityWindow {
   { old_start, old_end, new_start, new_end, }
 }
@@ -119,10 +122,11 @@ fn ProjectionIdentityWindow::from_sources(
 /// Keep this baseline only after parser diagnostics and projection/lowering both
 /// succeed. If later input is malformed, retain the old baseline and realign the
 /// next successful projection against it.
+#derive(Eq, Debug)
 pub struct ProjectionIdentityBaseline[Id] {
   priv source : String
   priv leaves : Array[StableProjectionLeaf[Id]]
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn[Id] ProjectionIdentityBaseline::new(
@@ -422,14 +426,14 @@ fn[Id] allocate_all_projection_leaves(
 /// successful projection.
 pub struct ProjectionStringIdAllocator {
   priv used : Map[String, Bool]
-  priv counters : Map[String, Int]
-  priv make_id : (String, Int) -> String
+  priv counters : Map[String, Int32]
+  priv make_id : (String, Int32) -> String
 }
 
 ///|
 /// Create an unseeded string-ID allocator.
 pub fn ProjectionStringIdAllocator::new(
-  make_id : (String, Int) -> String,
+  make_id : (String, Int32) -> String,
 ) -> ProjectionStringIdAllocator {
   { used: Map([]), counters: Map([]), make_id, }
 }
@@ -442,7 +446,7 @@ pub fn ProjectionStringIdAllocator::new(
 /// `realign_projection_identities`.
 pub fn ProjectionStringIdAllocator::from_baseline(
   baseline : ProjectionIdentityBaseline[String],
-  make_id : (String, Int) -> String,
+  make_id : (String, Int32) -> String,
 ) -> ProjectionStringIdAllocator {
   let allocator = ProjectionStringIdAllocator::new(make_id)
   for leaf in baseline.leaves() {
@@ -637,8 +641,8 @@ fn[Id] realign_projection_identities_in_window(
 ///|
 fn[Id] count_old_prefix(
   leaves : Array[StableProjectionLeaf[Id]],
-  old_start : Int,
-) -> Int {
+  old_start : Int32,
+) -> Int32 {
   for count = 0 {
     if count < leaves.length() && leaves[count].end <= old_start {
       continue count + 1
@@ -649,7 +653,7 @@ fn[Id] count_old_prefix(
 }
 
 ///|
-fn count_new_prefix(leaves : Array[ProjectionLeaf], new_start : Int) -> Int {
+fn count_new_prefix(leaves : Array[ProjectionLeaf], new_start : Int32) -> Int32 {
   for count = 0 {
     if count < leaves.length() && leaves[count].end <= new_start {
       continue count + 1
@@ -662,8 +666,8 @@ fn count_new_prefix(leaves : Array[ProjectionLeaf], new_start : Int) -> Int {
 ///|
 fn[Id] count_old_suffix(
   leaves : Array[StableProjectionLeaf[Id]],
-  old_end : Int,
-) -> Int {
+  old_end : Int32,
+) -> Int32 {
   for i = leaves.length(), count = 0 {
     if i > 0 && leaves[i - 1].start >= old_end {
       continue i - 1, count + 1
@@ -674,7 +678,7 @@ fn[Id] count_old_suffix(
 }
 
 ///|
-fn count_new_suffix(leaves : Array[ProjectionLeaf], new_end : Int) -> Int {
+fn count_new_suffix(leaves : Array[ProjectionLeaf], new_end : Int32) -> Int32 {
   for i = leaves.length(), count = 0 {
     if i > 0 && leaves[i - 1].start >= new_end {
       continue i - 1, count + 1

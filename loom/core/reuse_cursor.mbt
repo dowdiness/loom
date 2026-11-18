@@ -15,27 +15,29 @@
 /// Frame in the cursor stack, tracking position within a node.
 struct CursorFrame {
   node : @seam.CstNode
-  mut child_index : Int
-  start_offset : Int
+  mut child_index : Int32
+  start_offset : Int32
   /// Offset of the child at child_index. Maintained incrementally
   /// so seek_node_at does not need to recompute it from scratch on resume.
-  mut current_child_offset : Int
+  mut current_child_offset : Int32
 }
 
 ///|
 /// Flattened non-trivia, non-error token from the old CST.
 /// Used for trailing-context matching during reuse checks.
+#derive(Debug, Eq, Compare)
 struct OldToken {
   kind : @seam.RawKind
   text : String
-  start : Int
-} derive(Debug, Eq, Compare)
+  start : Int32
+}
 
 ///|
 /// Whitebox-only reason for a failed reuse candidate.
 ///
 /// Exposed as an opaque type so rejection inspection can help diagnose cursor
 /// regressions without committing to a stable variant surface.
+#derive(Debug, Eq)
 enum ReuseRejectionReason {
   ReuseRejectGloballyDisabled
   ReuseRejectEditedOffset
@@ -45,7 +47,7 @@ enum ReuseRejectionReason {
   ReuseRejectLeadingTokenMismatch
   ReuseRejectFollowTokenMismatch
   ReuseRejectDependencyMismatch
-} derive(Debug, Eq)
+}
 
 ///|
 /// Persistent cache for the flattened old-token table.
@@ -63,8 +65,8 @@ enum ReuseRejectionReason {
 /// cached offsets match the query without rewriting the array.
 pub struct OldTokenCache {
   mut tokens : Array[OldToken]?
-  mut pending_delta : Int // cumulative offset shift for post-damage tokens
-  mut damage_boundary : Int // offsets >= this need pending_delta adjustment
+  mut pending_delta : Int32 // cumulative offset shift for post-damage tokens
+  mut damage_boundary : Int32 // offsets >= this need pending_delta adjustment
 }
 
 ///|
@@ -79,9 +81,9 @@ pub fn OldTokenCache::empty() -> OldTokenCache {
 /// - Accumulates delta for post-damage offset adjustment
 pub fn OldTokenCache::apply_edit(
   self : OldTokenCache,
-  damage_start : Int,
-  damage_end : Int,
-  new_damage_end : Int,
+  damage_start : Int32,
+  damage_end : Int32,
+  new_damage_end : Int32,
 ) -> Unit {
   let delta = new_damage_end - damage_end
   match self.tokens {
@@ -128,23 +130,23 @@ pub fn OldTokenCache::apply_source_edit(
 /// Maintains traversal state for O(depth) lookups.
 pub struct ReuseCursor[T, K] {
   stack : Array[CursorFrame]
-  mut current_offset : Int
-  damage_start : Int
-  damage_end : Int
-  new_damage_end : Int
+  mut current_offset : Int32
+  damage_start : Int32
+  damage_end : Int32
+  new_damage_end : Int32
   old_root : @seam.CstNode
   trivia_kinds : Array[@seam.RawKind]
   err_raw : @seam.RawKind
   incomplete_raw : @seam.RawKind
   cache : OldTokenCache
   reuse_globally_disabled : Bool
-  reuse_size_threshold : Int
+  reuse_size_threshold : Int32
   allow_left_adjacent_reuse : Bool
   // New token stream (indexed accessors, same layout as ParserContext)
-  token_count : Int
-  get_token : (Int) -> T
-  get_start : (Int) -> Int
-  get_text : (Int) -> StringView
+  token_count : Int32
+  get_token : (Int32) -> T
+  get_start : (Int32) -> Int32
+  get_text : (Int32) -> StringView
   spec : LanguageSpec[T, K]
   priv dependencies : ReuseDependencies?
   priv dependency_damage : Edit?
@@ -167,7 +169,7 @@ impl OffsetIndexed for Array[OldToken] with fn offset_at(self, i) {
 ///|
 fn collect_old_tokens(
   node : @seam.CstNode,
-  node_start : Int,
+  node_start : Int32,
   out : Array[OldToken],
   trivia_kinds : Array[@seam.RawKind],
   err_raw : @seam.RawKind,
@@ -207,18 +209,18 @@ fn collect_old_tokens(
 /// offset after the edit.
 pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   old_tree : @seam.CstNode,
-  damage_start : Int,
-  damage_end : Int,
-  token_count : Int,
-  get_token : (Int) -> T,
-  get_start : (Int) -> Int,
-  get_text : (Int) -> StringView,
+  damage_start : Int32,
+  damage_end : Int32,
+  token_count : Int32,
+  get_token : (Int32) -> T,
+  get_start : (Int32) -> Int32,
+  get_text : (Int32) -> StringView,
   spec : LanguageSpec[T, K],
-  reuse_size_threshold? : Int = 0,
-  old_token_cache? : OldTokenCache = OldTokenCache::empty(),
-  allow_left_adjacent_reuse? : Bool = false,
-  new_damage_end? : Int = damage_end,
-  dependencies? : ReuseDependencies? = None,
+  reuse_size_threshold~ : Int32 = 0,
+  old_token_cache~ : OldTokenCache = OldTokenCache::empty(),
+  allow_left_adjacent_reuse~ : Bool = false,
+  new_damage_end~ : Int32 = damage_end,
+  dependencies~ : ReuseDependencies? = None,
 ) -> ReuseCursor[T, K] {
   let reuse_globally_disabled = damage_start <= 0 &&
     damage_end >= old_tree.text_len()
@@ -277,15 +279,15 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
 pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(
   old_tree : @seam.CstNode,
   edit : Edit,
-  token_count : Int,
-  get_token : (Int) -> T,
-  get_start : (Int) -> Int,
-  get_text : (Int) -> StringView,
+  token_count : Int32,
+  get_token : (Int32) -> T,
+  get_start : (Int32) -> Int32,
+  get_text : (Int32) -> StringView,
   spec : LanguageSpec[T, K],
-  reuse_size_threshold? : Int = 0,
-  old_token_cache? : OldTokenCache = OldTokenCache::empty(),
-  allow_left_adjacent_reuse? : Bool = false,
-  dependencies? : ReuseDependencies? = None,
+  reuse_size_threshold~ : Int32 = 0,
+  old_token_cache~ : OldTokenCache = OldTokenCache::empty(),
+  allow_left_adjacent_reuse~ : Bool = false,
+  dependencies~ : ReuseDependencies? = None,
 ) -> ReuseCursor[T, K] {
   ReuseCursor::new(
     old_tree,
@@ -328,10 +330,10 @@ pub fn[T, K] ReuseCursor::get_old_token_cache(
 /// (node_start == damage_end) is safe because damage_end is the first
 /// unmodified code unit.
 fn is_outside_damage(
-  node_start : Int,
-  node_end : Int,
-  damage_start : Int,
-  damage_end : Int,
+  node_start : Int32,
+  node_end : Int32,
+  damage_start : Int32,
+  damage_end : Int32,
   allow_left_adjacent_reuse : Bool,
 ) -> Bool {
   if allow_left_adjacent_reuse {
@@ -345,8 +347,8 @@ fn is_outside_damage(
 /// Convert new-source offsets back to old-tree coordinates.
 fn[T, K] ReuseCursor::to_old_offset(
   self : ReuseCursor[T, K],
-  new_offset : Int,
-) -> Int? {
+  new_offset : Int32,
+) -> Int32? {
   if new_offset < self.damage_start {
     Some(new_offset)
   } else {
@@ -364,8 +366,8 @@ fn[T, K] ReuseCursor::to_old_offset(
 /// Convert old-tree offsets to equivalent new-source coordinates.
 fn[T, K] ReuseCursor::to_new_offset(
   self : ReuseCursor[T, K],
-  old_offset : Int,
-) -> Int {
+  old_offset : Int32,
+) -> Int32 {
   if old_offset < self.damage_end {
     old_offset
   } else {
@@ -403,7 +405,7 @@ fn first_source_backed_token(
 fn[T : @seam.ToRawKind, K] leading_token_matches(
   node : @seam.CstNode,
   cursor : ReuseCursor[T, K],
-  token_pos : Int,
+  token_pos : Int32,
 ) -> Bool {
   if token_pos >= cursor.token_count {
     return false
@@ -446,8 +448,8 @@ fn[T, K] ReuseCursor::ensure_old_tokens(
 /// persistent old-token cache.
 fn[T, K] ReuseCursor::old_token_search_offset(
   self : ReuseCursor[T, K],
-  offset : Int,
-) -> Int {
+  offset : Int32,
+) -> Int32 {
   // Tokens in the cache have offsets from the tree they were built from.
   // Post-damage tokens shifted by pending_delta — reverse the shift to match.
   if self.cache.pending_delta != 0 && offset >= self.cache.damage_boundary {
@@ -464,7 +466,7 @@ fn[T, K] ReuseCursor::old_token_search_offset(
 /// falls in the post-damage region.
 fn[T, K] old_follow_token_lazy(
   cursor : ReuseCursor[T, K],
-  offset : Int,
+  offset : Int32,
 ) -> OldToken? {
   let old_tokens = cursor.ensure_old_tokens()
   let search_offset = cursor.old_token_search_offset(offset)
@@ -481,7 +483,7 @@ fn[T, K] old_follow_token_lazy(
 /// The query offset uses the same coordinate convention as old_follow_token_lazy.
 fn[T, K] ReuseCursor::old_zero_width_tokens_at_boundary(
   self : ReuseCursor[T, K],
-  offset : Int,
+  offset : Int32,
 ) -> Array[OldToken] {
   let old_tokens = self.ensure_old_tokens()
   let search_offset = self.old_token_search_offset(offset)
@@ -518,8 +520,8 @@ impl[T, K] OffsetIndexed for ReuseCursor[T, K] with fn offset_at(self, i) {
 /// Returns both the token and its index for get_text(pos) lookup.
 fn[T : @seam.IsTrivia + @seam.IsEof, K] new_follow_token_with_pos(
   cursor : ReuseCursor[T, K],
-  byte_offset : Int,
-) -> (T, Int)? {
+  byte_offset : Int32,
+) -> (T, Int32)? {
   let mut lo = lower_bound(cursor, byte_offset)
   while lo < cursor.token_count {
     let t = (cursor.get_token)(lo)
@@ -541,7 +543,7 @@ fn[T : @seam.IsTrivia + @seam.IsEof, K] new_follow_token_with_pos(
 /// additionally require unchanged dependency extents and entry context.
 fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] trailing_context_matches(
   cursor : ReuseCursor[T, K],
-  node_end : Int,
+  node_end : Int32,
 ) -> Bool {
   let old_follow = old_follow_token_lazy(cursor, node_end)
   let new_follow = new_follow_token_with_pos(cursor, node_end)
@@ -549,7 +551,7 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] trailing_context_match
     (None, None) => true
     (Some(old), Some((new_tok, new_pos))) =>
       old.kind == @seam.ToRawKind::to_raw(new_tok) &&
-      old.text.view() == (cursor.get_text)(new_pos)
+      old.text[:] == (cursor.get_text)(new_pos)
     _ => false
   }
 }
@@ -575,9 +577,9 @@ fn[T, K] ReuseCursor::pop_frame(self : ReuseCursor[T, K]) -> Unit {
 /// O(width) recomputation on frame resume.
 fn[T, K] ReuseCursor::seek_node_at(
   self : ReuseCursor[T, K],
-  target_offset : Int,
+  target_offset : Int32,
   expected_kind : @seam.RawKind,
-) -> (@seam.CstNode, Int)? {
+) -> (@seam.CstNode, Int32)? {
   // If target is before current position, reset to root
   if target_offset < self.current_offset {
     let root_frame = self.stack[0]
@@ -669,9 +671,9 @@ fn[T, K] ReuseCursor::seek_node_at(
 fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse_checked(
   self : ReuseCursor[T, K],
   expected_kind : @seam.RawKind,
-  byte_offset : Int,
-  token_pos : Int,
-  context? : ReuseContext? = None,
+  byte_offset : Int32,
+  token_pos : Int32,
+  context~ : ReuseContext? = None,
 ) -> Result[@seam.CstNode, ReuseRejectionReason] {
   self.last_dependency = None
   if self.reuse_globally_disabled {
@@ -721,8 +723,8 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::explain_reuse_rejection(
   self : ReuseCursor[T, K],
   expected_kind : @seam.RawKind,
-  byte_offset : Int,
-  token_pos : Int,
+  byte_offset : Int32,
+  token_pos : Int32,
 ) -> ReuseRejectionReason? {
   let cursor = self.snapshot()
   match cursor.try_reuse_checked(expected_kind, byte_offset, token_pos) {
@@ -735,8 +737,8 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::expla
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse(
   self : ReuseCursor[T, K],
   expected_kind : @seam.RawKind,
-  byte_offset : Int,
-  token_pos : Int,
+  byte_offset : Int32,
+  token_pos : Int32,
 ) -> @seam.CstNode? {
   match self.try_reuse_checked(expected_kind, byte_offset, token_pos) {
     Ok(node) => Some(node)
@@ -756,8 +758,8 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
 /// to enable O(log n) reuse of balanced subtrees.
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse_repeat_group(
   self : ReuseCursor[T, K],
-  byte_offset : Int,
-  token_pos : Int,
+  byte_offset : Int32,
+  token_pos : Int32,
 ) -> @seam.CstNode? {
   self.try_reuse_repeat_group_in_context(byte_offset, token_pos, None)
 }
@@ -765,8 +767,8 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
 ///|
 fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse_repeat_group_in_context(
   self : ReuseCursor[T, K],
-  byte_offset : Int,
-  token_pos : Int,
+  byte_offset : Int32,
+  token_pos : Int32,
   context : ReuseContext?,
 ) -> @seam.CstNode? {
   self.last_dependency = None

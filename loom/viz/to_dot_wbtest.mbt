@@ -5,7 +5,7 @@
 
 ///|
 struct TestNode {
-  id : Int
+  id : Int32
   lbl : String
   attrs : String
   kids : Array[TestNode]
@@ -42,13 +42,13 @@ impl DotNode for TestNode with fn edge_label(self, i) {
 }
 
 ///|
-fn leaf(id : Int, lbl : String, attrs : String) -> TestNode {
+fn leaf(id : Int32, lbl : String, attrs : String) -> TestNode {
   { id, lbl, attrs, kids: [], elabels: [], }
 }
 
 ///|
 fn node(
-  id : Int,
+  id : Int32,
   lbl : String,
   attrs : String,
   kids : Array[TestNode],

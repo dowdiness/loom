@@ -357,8 +357,8 @@ fn setup_registry(
 
 ///|
 struct KindBuildResult {
-  kinds : Array[(String, Int)]
-  term_kinds : Array[(String, Int)]
+  kinds : Array[(String, Int32)]
+  term_kinds : Array[(String, Int32)]
   trivia_set : @hashset.HashSet[String]
   error_set : @hashset.HashSet[String]
   error_node_name : String?
@@ -435,12 +435,12 @@ fn build_kinds(
 /// companion registry file, and optional spec file.
 fn write_outputs(
   te : EnumDecl,
-  kinds : Array[(String, Int)],
-  term_kinds : Array[(String, Int)],
+  kinds : Array[(String, Int32)],
+  term_kinds : Array[(String, Int32)],
   trivia_set : @hashset.HashSet[String],
   error_set : @hashset.HashSet[String],
   error_node_name : String?,
-  retired_rawns : Array[Int],
+  retired_rawns : Array[Int32],
   skip_syntax : Bool,
   force_lexer : Bool,
   token_out : String,
@@ -805,7 +805,7 @@ fn load_term_enum(term_path : String) -> Result[AnnotatedEnums, Unit] {
 fn load_grammar_file(
   path : String,
   term_enum : EnumDecl,
-) -> Result[(Map[String, RuleAst], Map[String, Int]), Unit] {
+) -> Result[(Map[String, RuleAst], Map[String, Int32]), Unit] {
   let src = @fs.read_file_to_string(path) catch {
     _ => {
       println("Error reading " + path)
@@ -826,7 +826,7 @@ fn load_grammar_file(
     }
   }
   let file_rules : Map[String, RuleAst] = Map([])
-  let file_lines : Map[String, Int] = Map([])
+  let file_lines : Map[String, Int32] = Map([])
   for p in prods {
     let (name, ast, line) = p
     if annotated.contains(name) {

@@ -130,7 +130,7 @@ fn post_rename_binding_at_call(
   defs : Array[@callers.Def],
   enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
   syntax : @seam.SyntaxNode,
-  call_start : Int,
+  call_start : Int32,
 ) -> @callers.Def? {
   let lexical_scope = lexical_scope_at(defs, enclosing, call_start)
   let visited : @hashset.HashSet[@callers.ScopeId] = @hashset.HashSet([])
@@ -147,7 +147,7 @@ fn resolve_binding_after_target_rename_from(
   defs : Array[@callers.Def],
   enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
   syntax : @seam.SyntaxNode,
-  call_start : Int,
+  call_start : Int32,
   visited : @hashset.HashSet[@callers.ScopeId],
 ) -> @callers.Def? {
   if visited.contains(scope) {
@@ -181,7 +181,7 @@ fn nearest_completed_let_after_target_rename(
   new_name : String,
   defs : Array[@callers.Def],
   syntax : @seam.SyntaxNode,
-  call_start : Int,
+  call_start : Int32,
 ) -> @callers.Def? {
   let mut winner : @callers.Def? = None
   let mut winner_end = -1
@@ -260,7 +260,7 @@ pub fn check_converse_capture(
 fn target_visible_at_source_position(
   target : @callers.Def,
   syntax : @seam.SyntaxNode,
-  offset : Int,
+  offset : Int32,
 ) -> Bool {
   if is_scope_binding_def(target) {
     offset >= target.start && offset < target.end
@@ -321,10 +321,10 @@ fn shadow_lookup_scope(
 ///|
 fn make_sibling_diagnostic(
   source_id : @core.SourceId,
-  target_start : Int,
-  target_end : Int,
-  collider_start : Int,
-  collider_end : Int,
+  target_start : Int32,
+  target_end : Int32,
+  collider_start : Int32,
+  collider_end : Int32,
   new_name : String,
 ) -> @core.Diagnostic {
   let primary_span = @core.SourceSpan::SourceSpan(
@@ -358,10 +358,10 @@ fn make_sibling_diagnostic(
 ///|
 fn make_forward_capture_diagnostic(
   source_id : @core.SourceId,
-  target_start : Int,
-  target_end : Int,
-  capture_start : Int,
-  capture_end : Int,
+  target_start : Int32,
+  target_end : Int32,
+  capture_start : Int32,
+  capture_end : Int32,
   new_name : String,
 ) -> @core.Diagnostic {
   let primary_span = @core.SourceSpan::SourceSpan(
@@ -395,10 +395,10 @@ fn make_forward_capture_diagnostic(
 ///|
 fn make_converse_capture_diagnostic(
   source_id : @core.SourceId,
-  call_start : Int,
-  call_end : Int,
-  target_start : Int,
-  target_end : Int,
+  call_start : Int32,
+  call_end : Int32,
+  target_start : Int32,
+  target_end : Int32,
   new_name : String,
 ) -> @core.Diagnostic {
   let primary_span = @core.SourceSpan::SourceSpan(
@@ -435,10 +435,10 @@ fn make_converse_capture_diagnostic(
 ///|
 fn make_shadow_diagnostic(
   source_id : @core.SourceId,
-  target_start : Int,
-  target_end : Int,
-  shadowed_start : Int,
-  shadowed_end : Int,
+  target_start : Int32,
+  target_end : Int32,
+  shadowed_start : Int32,
+  shadowed_end : Int32,
   new_name : String,
 ) -> @core.Diagnostic {
   let primary_span = @core.SourceSpan::SourceSpan(
@@ -470,7 +470,7 @@ fn make_shadow_diagnostic(
 }
 
 ///|
-fn text_range_or_abort(start : Int, end : Int) -> @core.TextRange {
+fn text_range_or_abort(start : Int32, end : Int32) -> @core.TextRange {
   try @core.TextRange::from_offsets(start, end) catch {
     _ => abort("rename: invalid diagnostic range")
   } noraise {

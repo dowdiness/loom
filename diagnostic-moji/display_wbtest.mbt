@@ -17,7 +17,7 @@ impl @diagnostic.SourceResolver for DisplayTestResolver with fn resolve_source(
 }
 
 ///|
-fn display_test_range(start : Int, end : Int) -> @diagnostic.TextRange {
+fn display_test_range(start : Int32, end : Int32) -> @diagnostic.TextRange {
   try @diagnostic.TextRange::from_offsets(start, end) catch {
     _ => abort("expected valid display test range")
   } noraise {
@@ -29,8 +29,8 @@ fn display_test_range(start : Int, end : Int) -> @diagnostic.TextRange {
 fn display_test_label(
   style : @diagnostic.LabelStyle,
   source_id : @diagnostic.SourceId,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   message : String,
 ) -> @diagnostic.DiagnosticLabel {
   @diagnostic.DiagnosticLabel(

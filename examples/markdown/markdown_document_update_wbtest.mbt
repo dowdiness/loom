@@ -1,8 +1,8 @@
 ///|
 fn document_update_replace(
   source : String,
-  start : Int,
-  delete_len : Int,
+  start : Int32,
+  delete_len : Int32,
   inserted : String,
 ) -> String {
   source[:start].to_owned() + inserted + source[start + delete_len:].to_owned()
@@ -12,7 +12,7 @@ fn document_update_replace(
 fn document_update_match_indexes(
   update : MarkdownDocumentUpdate,
   previous : MarkdownPreviousUpdate?,
-) -> Array[Int?] {
+) -> Array[Int32?] {
   update
   .top_level_blocks(previous~)
   .map(block => block.matched_previous_block_index())

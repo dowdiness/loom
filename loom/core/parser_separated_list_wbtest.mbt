@@ -295,9 +295,7 @@ test "separated_list element slots hit incremental reuse like node()" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(
@@ -347,9 +345,7 @@ test "separated_list missing separator still recovers after element reuse" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(

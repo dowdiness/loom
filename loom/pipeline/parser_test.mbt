@@ -164,7 +164,7 @@ test "Parser exposes its runtime for downstream derived cells" {
   let rt = parser.runtime()
   // A downstream derived cell reads parser.source() inside its closure and
   // establishes a dependency edge through the pass-through Derived view.
-  let echo_derived : @incr.Derived[Int] = @incr.Derived(
+  let echo_derived : @incr.Derived[Int32] = @incr.Derived(
     rt,
     () => parser.source().get_or_abort().length(),
     label="echo-length",
@@ -181,7 +181,7 @@ test "Parser exposes its runtime for downstream derived cells" {
 /// trigger a second parse.
 #warnings("-unused_error_type")
 fn test_imperative_language_with_counter(
-  parse_count : Ref[Int],
+  parse_count : Ref[Int32],
 ) -> @incremental.ImperativeLanguage[String] {
   let full_parse = fn(_source_id : @core.SourceId, s : String) raise Failure {
     parse_count.val = parse_count.val + 1
@@ -239,7 +239,7 @@ fn test_failing_full_parse_language() -> @incremental.ImperativeLanguage[String]
 ///|
 #warnings("-unused_error_type")
 fn test_atomic_language(
-  atomic_count : Ref[Int],
+  atomic_count : Ref[Int32],
   fail_atomic : Ref[Bool],
 ) -> @incremental.ImperativeLanguage[String] {
   let full_parse = fn(
@@ -274,7 +274,7 @@ fn test_atomic_language(
 
 ///|
 test "Parser keeps accepted state after atomic parse failure" {
-  let atomic_count : Ref[Int] = Ref(0)
+  let atomic_count : Ref[Int32] = Ref(0)
   let fail_atomic : Ref[Bool] = Ref(true)
   let parser = @pipeline.Parser::new(
     @core.SourceId("pipeline-parser-atomic-failure"),
@@ -321,7 +321,7 @@ test "Parser keeps the accepted transition after full parse failure" {
 
 ///|
 test "Parser::apply_changes accepts one validated multi-range transition" {
-  let parse_count : Ref[Int] = Ref(0)
+  let parse_count : Ref[Int32] = Ref(0)
   let parser = @pipeline.Parser::new(
     @core.SourceId("pipeline-parser-multi-range"),
     "abcdef",
@@ -363,7 +363,7 @@ test "Parser::apply_changes preserves same-position order and UTF-16 boundaries"
 
 ///|
 test "Parser::apply_changes fast path makes one final reactive observation" {
-  let atomic_count : Ref[Int] = Ref(0)
+  let atomic_count : Ref[Int32] = Ref(0)
   let fail_atomic : Ref[Bool] = Ref(false)
   let parser = @pipeline.Parser::new(
     @core.SourceId("pipeline-parser-one-observation"),
@@ -392,7 +392,7 @@ test "Parser::apply_changes fast path makes one final reactive observation" {
 
 ///|
 test "Parser::apply_changes rejects mismatched evidence before mutation" {
-  let parse_count : Ref[Int] = Ref(0)
+  let parse_count : Ref[Int32] = Ref(0)
   let parser = @pipeline.Parser::new(
     @core.SourceId("pipeline-parser-mismatch"),
     "abc",
@@ -415,7 +415,7 @@ test "Parser::apply_changes rejects mismatched evidence before mutation" {
 
 ///|
 test "Parser::apply_changes validates a semantic no-op without parsing" {
-  let parse_count : Ref[Int] = Ref(0)
+  let parse_count : Ref[Int32] = Ref(0)
   let parser = @pipeline.Parser::new(
     @core.SourceId("pipeline-parser-change-noop"),
     "abc",
@@ -434,7 +434,7 @@ test "Parser::set_source is a no-op when source is unchanged" {
   // Identity `set_source` must not rerun the engine — the engine still
   // holds the most recent tree, and tearing it down to reparse the same
   // text burns CPU and throws away incremental state for no gain.
-  let parse_count : Ref[Int] = Ref(0)
+  let parse_count : Ref[Int32] = Ref(0)
   let source_id = @core.SourceId("pipeline-parser-noop-source")
   let parser = @pipeline.Parser::new(
     source_id,

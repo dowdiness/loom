@@ -5,34 +5,38 @@
 // terminal document computation.
 
 ///|
+#derive(Eq)
 priv struct ReactiveMarkdownDocumentRoot {
   cst : @seam.CstNode
-  start : Int
-} derive(Eq)
+  start : Int32
+}
 
 ///|
+#derive(Eq)
 priv struct ReactiveMarkdownBlockSlot {
   cst : @seam.CstNode
-  start : Int
-  document_child_index : Int
-} derive(Eq)
+  start : Int32
+  document_child_index : Int32
+}
 
 ///|
 /// Compare the root first to reject structural changes before scanning blocks.
 /// Equal roots still compare origins and the complete block layout.
+#derive(Eq)
 priv struct ReactiveMarkdownDocumentLayout {
   root_cst : @seam.CstNode
   origin : MarkdownIROrigin
   blocks : Array[ReactiveMarkdownBlockSlot]
-} derive(Eq)
+}
 
 ///|
 /// Compare the root first to avoid recursive MarkdownIR equality after edits.
 /// Equal roots still compare the complete semantic value.
+#derive(Eq)
 priv struct ReactiveMarkdownDocument {
   root_cst : @seam.CstNode
   value : MarkdownIR
-} derive(Eq)
+}
 
 ///|
 /// Coherent parser input consumed by the keyed MarkdownIR shell.
@@ -40,46 +44,50 @@ priv struct ReactiveMarkdownDocument {
 /// Both parser facades normalize their complete snapshot into this private
 /// value so source, syntax, and diagnostics cannot come from different parser
 /// revisions.
+#derive(Eq)
 priv struct ReactiveMarkdownSnapshot {
   source : String
   syntax : @seam.SyntaxNode
   diagnostics : @core.DiagnosticSet
-} derive(Eq)
+}
 
 ///|
 priv struct ReactiveKeyedMarkdownIRCounters {
   enabled : Bool
-  mut local_lowering : Int
-  mut label_projection : Int
-  mut block_resolution : Int
-  mut placement : Int
-  mut contextual_fallback : Int
+  mut local_lowering : Int32
+  mut label_projection : Int32
+  mut block_resolution : Int32
+  mut placement : Int32
+  mut contextual_fallback : Int32
 }
 
 ///|
+#derive(Eq, Debug)
 #warnings("-unused_value")
 priv struct ReactiveKeyedMarkdownIRCounterSnapshot {
-  local_lowering : Int
-  label_projection : Int
-  block_resolution : Int
-  placement : Int
-  contextual_fallback : Int
-} derive(Eq, Debug)
+  local_lowering : Int32
+  label_projection : Int32
+  block_resolution : Int32
+  placement : Int32
+  contextual_fallback : Int32
+}
 
 ///|
+#derive(Eq, Debug)
 priv struct ReactiveKeyedMarkdownIRMapSweep {
-  before : Int
-  removed : Int
-  after : Int
-} derive(Eq, Debug)
+  before : Int32
+  removed : Int32
+  after : Int32
+}
 
 ///|
+#derive(Eq, Debug)
 #warnings("-unused_value")
 priv struct ReactiveKeyedMarkdownIRCacheSweep {
   resolved : ReactiveKeyedMarkdownIRMapSweep
   plan : ReactiveKeyedMarkdownIRMapSweep
   definition : ReactiveKeyedMarkdownIRMapSweep
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct ReactiveKeyedMarkdownIR {

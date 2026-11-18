@@ -107,13 +107,14 @@ fn project_settings_candidate(
 
 ///|
 /// Health of the latest semantic observation.
+#derive(Eq)
 pub enum SettingsState {
   Current
   ParserBlocked
   ProjectionBlocked
   CandidateBlocked
   GraphBlocked
-} derive(Eq)
+}
 
 ///|
 pub impl Show for SettingsState with fn output(self, logger) {
@@ -255,7 +256,7 @@ pub fn SettingsAttachment::dispose(self : SettingsAttachment) -> Unit {
 /// IDs are opaque and baseline-local (`setting#0`, `setting#1`, …), not derived
 /// from the key. The allocator reserves IDs from the previous accepted
 /// baseline only; a failed candidate never consumes IDs in a later retry.
-fn make_setting_id(_key : String, occurrence : Int) -> String {
+fn make_setting_id(_key : String, occurrence : Int32) -> String {
   "setting#" + occurrence.to_string()
 }
 

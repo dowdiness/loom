@@ -12,7 +12,7 @@ fn perf_new_markdown_buffer(source : String) -> @core.TokenBuffer[Token] {
 }
 
 ///|
-fn bench_perf_buffer_build(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_buffer_build(b : @bench.T, count : Int32) -> Unit {
   let source = perf_work_paragraph_doc(count)
   b.bench(fn() {
     let buffer = perf_new_markdown_buffer(source)
@@ -26,7 +26,7 @@ fn perf_parse_buffer(
   source_id : @core.SourceId,
   source : String,
   buffer : @core.TokenBuffer[Token],
-) -> (@seam.CstNode, @core.DiagnosticSet, Int) {
+) -> (@seam.CstNode, @core.DiagnosticSet, Int32) {
   try! @core.parse_tokens_indexed(
     source_id,
     source,
@@ -39,7 +39,7 @@ fn perf_parse_buffer(
 }
 
 ///|
-fn bench_perf_pretokenized_cst(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_pretokenized_cst(b : @bench.T, count : Int32) -> Unit {
   let source_id = @core.SourceId("markdown-perf-pretokenized-cst")
   let source = perf_work_paragraph_doc(count)
   let buffer = perf_new_markdown_buffer(source)
@@ -54,7 +54,7 @@ fn bench_perf_pretokenized_cst(b : @bench.T, count : Int) -> Unit {
 }
 
 ///|
-fn bench_perf_buffer_rebuild_cycle(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_buffer_rebuild_cycle(b : @bench.T, count : Int32) -> Unit {
   let source = perf_work_paragraph_doc(count)
   let (edited, _) = perf_work_middle_edit(source)
   b.bench(fn() {
@@ -64,7 +64,7 @@ fn bench_perf_buffer_rebuild_cycle(b : @bench.T, count : Int) -> Unit {
 }
 
 ///|
-fn bench_perf_buffer_update_cycle(b : @bench.T, count : Int) -> Unit {
+fn bench_perf_buffer_update_cycle(b : @bench.T, count : Int32) -> Unit {
   let source = perf_work_paragraph_doc(count)
   let (edited, edit) = perf_work_middle_edit(source)
   let buffer = perf_new_markdown_buffer(source)

@@ -140,7 +140,7 @@ test "mode relex: construction owns initial result arrays" {
 test "mode relex: retained old starts cannot mutate committed buffer" {
   let retained_old_starts : Ref[OldTokenStarts?] = Ref(None)
   let retained_result_tokens : Array[TokenInfo[MockToken]] = []
-  let retained_result_starts : Array[Int] = []
+  let retained_result_starts : Array[Int32] = []
   let factory = ModeRelexFactory::new(new_session=_source_id => {
     ModeRelexState::new(
       tokenize=fn(source) {
@@ -225,8 +225,8 @@ test "panic plain lex rejects invalid initial token stream" {
 
 ///|
 test "mode relex: invalid partial and failed reset preserve committed state" {
-  let session_creations : Ref[Int] = Ref(0)
-  let partial_calls : Ref[Int] = Ref(0)
+  let session_creations : Ref[Int32] = Ref(0)
+  let partial_calls : Ref[Int32] = Ref(0)
   let factory = ModeRelexFactory::new(new_session=_source_id => {
     session_creations.val = session_creations.val + 1
     let session_number = session_creations.val
@@ -315,8 +315,8 @@ test "mode relex: invalid partial and failed reset preserve committed state" {
 
 ///|
 test "mode relex: context-invalid partial falls back through a fresh session" {
-  let session_creations : Ref[Int] = Ref(0)
-  let partial_calls : Ref[Int] = Ref(0)
+  let session_creations : Ref[Int32] = Ref(0)
+  let partial_calls : Ref[Int32] = Ref(0)
   let factory = ModeRelexFactory::new(new_session=_source_id => {
     session_creations.val = session_creations.val + 1
     ModeRelexState::new(

@@ -12,7 +12,7 @@ let event_bench_policy : CstMetadataPolicy = CstMetadataPolicy::new(
 
 ///|
 /// Build a reusable subtree: a node with N tokens.
-fn make_reuse_subtree(size : Int) -> CstNode raise Failure {
+fn make_reuse_subtree(size : Int32) -> CstNode raise Failure {
   let children : Array[CstElement] = Array(capacity=size)
   for i = 0; i < size; i = i + 1 {
     children.push(
@@ -24,7 +24,10 @@ fn make_reuse_subtree(size : Int) -> CstNode raise Failure {
 
 ///|
 /// Build events that reuse a subtree N times within a root.
-fn make_reuse_events(subtree : CstNode, reuse_count : Int) -> Array[ParseEvent] {
+fn make_reuse_events(
+  subtree : CstNode,
+  reuse_count : Int32,
+) -> Array[ParseEvent] {
   let events : Array[ParseEvent] = []
   for i = 0; i < reuse_count; i = i + 1 {
     events.push(ParseEvent::ReuseNode(subtree))
@@ -34,7 +37,7 @@ fn make_reuse_events(subtree : CstNode, reuse_count : Int) -> Array[ParseEvent] 
 }
 
 ///|
-fn make_reuse_source(size : Int, reuse_count : Int) -> String {
+fn make_reuse_source(size : Int32, reuse_count : Int32) -> String {
   let mut segment = ""
   for i = 0; i < size; i = i + 1 {
     segment = segment + "tok" + i.to_string()
@@ -51,7 +54,7 @@ fn make_reuse_source(size : Int, reuse_count : Int) -> String {
 fn make_reuse_at_buffer(
   subtree : CstNode,
   source : String,
-  reuse_count : Int,
+  reuse_count : Int32,
 ) -> EventBuffer {
   let buf = EventBuffer::new()
   let mut offset = 0

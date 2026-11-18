@@ -3,7 +3,7 @@
 
 ///|
 priv struct TermDotNode {
-  id : Int
+  id : Int32
   term : @ast.Term
   child_nodes : Array[TermDotNode]
   resolution : Resolution?
@@ -61,8 +61,8 @@ impl @viz.DotNode for TermDotNode with fn edge_label(_self, _i) {
 ///|
 fn build_term_tree(
   term : @ast.Term,
-  counter : Ref[Int],
-  resolution? : Resolution? = None,
+  counter : Ref[Int32],
+  resolution~ : Resolution? = None,
 ) -> TermDotNode {
   let id = counter.val
   counter.val = counter.val + 1

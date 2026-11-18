@@ -1,4 +1,5 @@
 ///|
+#derive(Eq, Debug, ToJson)
 pub(all) enum JsonValue {
   Null
   Bool(Bool)
@@ -7,7 +8,7 @@ pub(all) enum JsonValue {
   Array(Array[JsonValue])
   Object(Array[(String, JsonValue)])
   Error(String)
-} derive(Eq, Debug, ToJson)
+}
 
 ///|
 pub impl Show for JsonValue with fn output(self, logger) {

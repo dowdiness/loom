@@ -1,5 +1,5 @@
 ///|
-const MAX_ERRORS : Int = 50
+const MAX_ERRORS : Int32 = 50
 
 // ─── Grammar helpers ──────────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ fn token_starts_application_atom(token : @token.Token) -> Bool {
 /// a required newline separator was present between top-level definitions.
 fn consume_newline_tokens(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-) -> Int {
+) -> Int32 {
   for count = 0 {
     guard ctx.peek() == @token.Newline else { break count }
     ctx.emit_token(@syntax.NewlineToken)
@@ -55,7 +55,7 @@ fn consume_newline_tokens(
 /// Returns the number of delimiters consumed.
 fn consume_delimiters(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   while true {
     match ctx.peek() {
@@ -184,7 +184,7 @@ fn lambda_expect(
 /// Nested parens are still balanced so inner `)` do not prematurely stop.
 fn skip_until_paren_close_or_sync(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-) -> Int {
+) -> Int32 {
   let mut paren_depth = 0
   let mut brace_depth = 0
   let mut skipped = 0
@@ -385,7 +385,7 @@ pub fn parse_block_expr(
 ///|
 fn token_after_soft_newlines(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-  start_index : Int,
+  start_index : Int32,
 ) -> @token.Token? {
   for index = start_index {
     match ctx.peek_nth(index) {
@@ -527,7 +527,7 @@ fn parse_atom(
 fn parse_param_list(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   allow_empty~ : Bool,
-) -> Int {
+) -> Int32 {
   let mark = ctx.mark()
   let mut count = 0
   ctx.emit_token(@syntax.LeftParenToken) // (
@@ -761,8 +761,8 @@ pub fn parse_cst_recover_with_tokens(
   source : String,
   tokens : Array[@token.TokenInfo[@token.Token]],
   cursor : @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?,
-  prev_diagnostics? : @core.DiagnosticSet? = None,
-) -> (@seam.CstNode, @core.DiagnosticSet, Int) raise Failure {
+  prev_diagnostics~ : @core.DiagnosticSet? = None,
+) -> (@seam.CstNode, @core.DiagnosticSet, Int32) raise Failure {
   let starts = @core.build_starts(tokens)
   @core.parse_tokens_indexed(
     source_id,
@@ -785,13 +785,13 @@ pub fn parse_cst_recover_with_tokens(
 /// cursor construction still follows the edit-based path.
 pub fn make_reuse_cursor(
   old_tree : @seam.CstNode,
-  damage_start : Int,
-  damage_end : Int,
+  damage_start : Int32,
+  damage_end : Int32,
   tokens : Array[@token.TokenInfo[@token.Token]],
   source : String,
-  old_token_cache? : @core.OldTokenCache = @core.OldTokenCache::empty(),
-  allow_left_adjacent_reuse? : Bool = false,
-  new_damage_end? : Int = damage_end,
+  old_token_cache~ : @core.OldTokenCache = @core.OldTokenCache::empty(),
+  allow_left_adjacent_reuse~ : Bool = false,
+  new_damage_end~ : Int32 = damage_end,
 ) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind] {
   let edit = @core.Edit::new(
     damage_start,
@@ -817,8 +817,8 @@ pub fn make_reuse_cursor_with_edit(
   edit : @core.Edit,
   tokens : Array[@token.TokenInfo[@token.Token]],
   source : String,
-  old_token_cache? : @core.OldTokenCache = @core.OldTokenCache::empty(),
-  allow_left_adjacent_reuse? : Bool = false,
+  old_token_cache~ : @core.OldTokenCache = @core.OldTokenCache::empty(),
+  allow_left_adjacent_reuse~ : Bool = false,
 ) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind] {
   let starts = @core.build_starts(tokens)
   @core.ReuseCursor::new_with_edit(
@@ -827,9 +827,7 @@ pub fn make_reuse_cursor_with_edit(
     tokens.length(),
     i => tokens[i].token,
     i => starts[i],
-    fn(i) {
-      source.view(start_offset=starts[i], end_offset=starts[i] + tokens[i].len)
-    },
+    fn(i) { source.legacy_view(start=starts[i], end=starts[i] + tokens[i].len) },
     lambda_spec,
     old_token_cache~,
     allow_left_adjacent_reuse~,

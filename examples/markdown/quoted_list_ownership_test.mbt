@@ -286,7 +286,7 @@ fn quoted_ownership_assert_incremental_parity(
   source_id : @core.SourceId,
   source : String,
   expected_html : String,
-  widen_continuation? : Bool = true,
+  widen_continuation~ : Bool = true,
 ) -> Unit raise {
   // These controlled fixtures compare with the CommonMark reference renderer.
   let render = (ir : @markdown.MarkdownIR) => {

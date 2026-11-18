@@ -2,7 +2,7 @@
 
 ///|
 /// Step-based lexer (longest-match; declaration order breaks ties).
-pub fn step_lex(source : String, pos : Int) -> @core.LexStep[Token] {
+pub fn step_lex(source : String, pos : Int32) -> @core.LexStep[Token] {
   let cursor = @core.LexCursor::new(source, pos)
   if cursor.is_done() {
     return Done

@@ -1,7 +1,7 @@
 ///|
 fn test_leaf(
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   key : String,
 ) -> @projection.ProjectionLeaf {
   @projection.ProjectionLeaf::new(start, end, key)
@@ -9,8 +9,8 @@ fn test_leaf(
 
 ///|
 fn test_stable(
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   key : String,
   id : String,
 ) -> @projection.StableProjectionLeaf[String] {

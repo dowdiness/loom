@@ -6,10 +6,10 @@ import {
   "dowdiness/diagnostic@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/seam@0.1.0",
-  "dowdiness/incr@0.15.1",
+  "dowdiness/incr@0.16.0",
   "dowdiness/text_change@0.1.0",
-  "moonbitlang/x@0.5.1",
-  "moonbit-community/casefold@0.1.5",
+  "moonbitlang/x@0.5.7",
+  "moonbit-community/casefold@0.1.7",
 }
 
 license = "Apache-2.0"

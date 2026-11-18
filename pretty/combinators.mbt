@@ -4,14 +4,15 @@ pub fn[A] empty() -> Layout[A] {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror PrettyBuildError {
-  NegativeTextWidth(Int)
-} derive(Debug, Eq)
+  NegativeTextWidth(Int32)
+}
 
 ///|
 pub fn[A] text_with_width(
   s : String,
-  width : Int,
+  width : Int32,
 ) -> Layout[A] raise PrettyBuildError {
   guard width >= 0 else { raise NegativeTextWidth(width) }
   Text(s, width)
@@ -49,7 +50,7 @@ pub fn[A] softline() -> Layout[A] {
 }
 
 ///|
-pub fn[A] nest(layout : Layout[A], indent? : Int = 2) -> Layout[A] {
+pub fn[A] nest(layout : Layout[A], indent~ : Int32 = 2) -> Layout[A] {
   Nest(indent, layout, layout_fw(layout))
 }
 

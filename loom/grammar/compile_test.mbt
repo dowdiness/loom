@@ -1,6 +1,6 @@
 ///|
 test "compile interns string rule refs to dense slots" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Ref("expr"),
     "expr": @grammar.Expr::Emit(1, 10),
   }
@@ -18,7 +18,7 @@ test "compile interns string rule refs to dense slots" {
 
 ///|
 test "compile rejects unresolved refs before parsing" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Ref("missing"),
   }
   let caught = try {
@@ -37,7 +37,7 @@ test "compile rejects unresolved refs before parsing" {
 
 ///|
 test "compile raises MissingFragment for unbound __loom_frag__ refs" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Ref("__loom_frag__pratt"),
   }
   let caught = try {
@@ -56,7 +56,7 @@ test "compile raises MissingFragment for unbound __loom_frag__ refs" {
 
 ///|
 test "compile raises MissingNative when Native names an unregistered host rule" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Native("parse_element_with_stack"),
   }
   let caught = try {
@@ -78,7 +78,7 @@ test "compile raises AmbiguousRule when a name is both a grammar rule and a nati
   // "source" is declared a native name but never appears in a `Native(...)`
   // node anywhere in the IR — the ambiguity must still be caught, because the
   // namespace check is global, not scoped to reachable `Native` nodes.
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Emit(1, 10),
   }
   let caught = try {
@@ -98,7 +98,7 @@ test "compile raises AmbiguousRule when a name is both a grammar rule and a nati
 
 ///|
 test "compile lowers a declared Native to NativeSlot, not RefSlot" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Native("parse_element_with_stack"),
   }
   let compiled = @grammar.compile(
@@ -113,7 +113,7 @@ test "compile lowers a declared Native to NativeSlot, not RefSlot" {
 
 ///|
 test "compile with no native_names argument still compiles ordinary grammars" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Ref("expr"),
     "expr": @grammar.Expr::Emit(1, 10),
   }
@@ -126,7 +126,7 @@ test "compile with no native_names argument still compiles ordinary grammars" {
 
 ///|
 test "compile raises MissingHostGuard when HostGuard references an unregistered guard" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Choice([
       @grammar.Alt::{
         starts: @grammar.Pred::HostGuard("is_at_indent_4"),
@@ -151,7 +151,7 @@ test "compile raises MissingHostGuard when HostGuard references an unregistered 
 
 ///|
 test "compile rejects HostGuard in a token-scanning predicate" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::ExpectSkip(
       @grammar.Pred::HostGuard("skip"),
       1,
@@ -176,7 +176,7 @@ test "compile rejects HostGuard in a token-scanning predicate" {
 
 ///|
 test "compile accepts HostGuard at a current-token recovery boundary" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::ErrorUntil(
       @grammar.Pred::HostGuard("stop"),
       "stop",
@@ -190,7 +190,7 @@ test "compile accepts HostGuard at a current-token recovery boundary" {
 
 ///|
 test "compile raises AmbiguousGuard when a name is both a grammar rule and a guard, even unreferenced" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Emit(1, 10),
   }
   let caught = try {
@@ -210,7 +210,7 @@ test "compile raises AmbiguousGuard when a name is both a grammar rule and a gua
 
 ///|
 test "compile passes HostGuard refs when guard_names contains the name" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Choice([
       @grammar.Alt::{
         starts: @grammar.Pred::All(
@@ -240,7 +240,7 @@ test "compile passes HostGuard refs when guard_names contains the name" {
 
 ///|
 test "compile succeeds when dispatch target is a top-level Choice" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Native("native"),
     "choice": @grammar.Expr::Choice([
       @grammar.Alt::{
@@ -260,7 +260,7 @@ test "compile succeeds when dispatch target is a top-level Choice" {
 
 ///|
 test "compile raises MissingNativeDispatchRule for undeclared dispatch target" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Native("native"),
   }
   let caught = try {
@@ -281,7 +281,7 @@ test "compile raises MissingNativeDispatchRule for undeclared dispatch target" {
 
 ///|
 test "compile raises NativeDispatchTargetNotChoice for non-Choice target" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Native("native"),
     "emit_only": @grammar.Expr::Emit(1, 10),
   }
@@ -304,7 +304,7 @@ test "compile raises NativeDispatchTargetNotChoice for non-Choice target" {
 
 ///|
 test "compile assigns deterministic rule native guard and dispatch slots" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Native("z_native"),
     "z_rule": @grammar.Expr::Choice([
       @grammar.Alt::{
@@ -362,13 +362,13 @@ test "compile assigns deterministic rule native guard and dispatch slots" {
 
 ///|
 test "compiled grammar rejects a rule slot from another grammar" {
-  let first : @grammar.CompiledGrammar[Int, Int] = @grammar.compile(
+  let first : @grammar.CompiledGrammar[Int32, Int32] = @grammar.compile(
     @grammar.GrammarIr::GrammarIr(
       { "source": @grammar.Expr::Emit(1, 10) },
       root="source",
     ),
   )
-  let second : @grammar.CompiledGrammar[Int, Int] = @grammar.compile(
+  let second : @grammar.CompiledGrammar[Int32, Int32] = @grammar.compile(
     @grammar.GrammarIr::GrammarIr(
       { "source": @grammar.Expr::Empty },
       root="source",
@@ -379,7 +379,7 @@ test "compiled grammar rejects a rule slot from another grammar" {
 
 ///|
 test "compiled grammar rejects a native slot from another grammar" {
-  let first : @grammar.CompiledGrammar[Int, Int] = @grammar.compile(
+  let first : @grammar.CompiledGrammar[Int32, Int32] = @grammar.compile(
     @grammar.GrammarIr::GrammarIr(
       { "source": @grammar.Expr::Native("first") },
       root="source",
@@ -388,7 +388,7 @@ test "compiled grammar rejects a native slot from another grammar" {
   )
   guard! first.rule_snapshot(first.root_slot())
     is Some(@grammar.CompiledExpr::NativeSlot(foreign_slot))
-  let second : @grammar.CompiledGrammar[Int, Int] = @grammar.compile(
+  let second : @grammar.CompiledGrammar[Int32, Int32] = @grammar.compile(
     @grammar.GrammarIr::GrammarIr(
       { "source": @grammar.Expr::Native("second") },
       root="source",
@@ -400,7 +400,7 @@ test "compiled grammar rejects a native slot from another grammar" {
 
 ///|
 test "compile rejects direct leading recursion" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Ref("source"),
   }
   let caught = try {
@@ -419,7 +419,7 @@ test "compile rejects direct leading recursion" {
 
 ///|
 test "compile rejects leading recursion through Choice" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Choice([
       @grammar.Alt::{
         starts: @grammar.Pred::Any,
@@ -443,7 +443,7 @@ test "compile rejects leading recursion through Choice" {
 
 ///|
 test "compile rejects nullable leading recursion" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Seq([
       @grammar.Expr::Empty,
       @grammar.Expr::Ref("source"),
@@ -465,7 +465,7 @@ test "compile rejects nullable leading recursion" {
 
 ///|
 test "compile rejects leading recursion before a later consuming expression" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Seq([
       @grammar.Expr::Ref("source"),
       @grammar.Expr::Emit(1, 10),
@@ -487,7 +487,7 @@ test "compile rejects leading recursion before a later consuming expression" {
 
 ///|
 test "compile rejects recursion from a repetition body" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::RepeatWhile(
       @grammar.Pred::Any,
       @grammar.Expr::Ref("source"),
@@ -509,7 +509,7 @@ test "compile rejects recursion from a repetition body" {
 
 ///|
 test "compile rejects structurally zero-progress repetition" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::RepeatWhile(
       @grammar.Pred::Any,
       @grammar.Expr::Empty,
@@ -531,7 +531,7 @@ test "compile rejects structurally zero-progress repetition" {
 
 ///|
 test "compile rejects ErrorUntil with an always-true stop in repetition" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::RepeatWhile(
       @grammar.Pred::Any,
       @grammar.Expr::ErrorUntil(@grammar.Pred::Any, "unexpected input"),
@@ -553,7 +553,7 @@ test "compile rejects ErrorUntil with an always-true stop in repetition" {
 
 ///|
 test "compile rejects ErrorNodeUntil with an always-true stop in repetition" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::RepeatWhile(
       @grammar.Pred::Any,
       @grammar.Expr::ErrorNodeUntil(1, @grammar.Pred::Any, "unexpected input"),
@@ -575,7 +575,7 @@ test "compile rejects ErrorNodeUntil with an always-true stop in repetition" {
 
 ///|
 test "compile accepts ErrorUntil repetition with a conditional stop" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::RepeatWhile(
       @grammar.Pred::Any,
       @grammar.Expr::ErrorUntil(@grammar.Pred::IsToken(1), "unexpected input"),
@@ -586,7 +586,7 @@ test "compile accepts ErrorUntil repetition with a conditional stop" {
 
 ///|
 test "compile accepts ErrorNodeUntil repetition with a conditional stop" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::RepeatWhile(
       @grammar.Pred::Any,
       @grammar.Expr::ErrorNodeUntil(
@@ -601,7 +601,7 @@ test "compile accepts ErrorNodeUntil repetition with a conditional stop" {
 
 ///|
 test "compile ignores unreachable zero-progress repetition" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::RepeatWhile(
       @grammar.Pred::Not(
         @grammar.Pred::Not(@grammar.Pred::Not(@grammar.Pred::Any)),
@@ -614,7 +614,7 @@ test "compile ignores unreachable zero-progress repetition" {
 
 ///|
 test "compile rejects zero-progress RepeatTopLevel targets" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::RepeatTopLevel(
       "empty",
       starts=@grammar.Pred::Any,
@@ -641,7 +641,7 @@ test "compile rejects zero-progress RepeatTopLevel targets" {
 
 ///|
 test "compile ignores a false-gated RepeatTopLevel recursion" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::RepeatTopLevel(
       "source",
       starts=@grammar.Pred::Not(@grammar.Pred::Any),
@@ -656,7 +656,7 @@ test "compile ignores a false-gated RepeatTopLevel recursion" {
 
 ///|
 test "compile leaves opaque Native progress for runtime enforcement" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::RepeatWhile(
       @grammar.Pred::Any,
       @grammar.Expr::Native("native"),
@@ -678,10 +678,10 @@ test "compile leaves opaque Native progress for runtime enforcement" {
 /// number of distinct reference *paths* through the grammar is 2^n while the
 /// number of distinct `(rule, visiting path)` pairs stays linear.
 fn diamond_chain_rules(
-  depth : Int,
-  leaf : @grammar.Expr[Int, Int],
-) -> Map[@grammar.RuleName, @grammar.Expr[Int, Int]] {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = Map([])
+  depth : Int32,
+  leaf : @grammar.Expr[Int32, Int32],
+) -> Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = Map([])
   for i in 0..<depth {
     rules["r\{i}"] = @grammar.Expr::Seq([
       @grammar.Expr::Ref("r\{i + 1}"),

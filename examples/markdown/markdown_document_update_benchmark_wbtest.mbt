@@ -1,7 +1,7 @@
 ///|
 fn document_update_benchmark_source(
-  block_count : Int,
-  references? : Bool = false,
+  block_count : Int32,
+  references~ : Bool = false,
 ) -> String {
   let out = StringBuilder::StringBuilder()
   if references {

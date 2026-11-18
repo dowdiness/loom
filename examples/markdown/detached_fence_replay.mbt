@@ -1,5 +1,5 @@
 ///|
-const DETACHED_CODE_BLOCK_CACHE_MAX_SOURCE_LENGTH : Int = 1024 * 1024
+const DETACHED_CODE_BLOCK_CACHE_MAX_SOURCE_LENGTH : Int32 = 1024 * 1024
 
 ///|
 /// Stateful source replay for detached CodeBlock mode. The normal mode lexer
@@ -7,16 +7,16 @@ const DETACHED_CODE_BLOCK_CACHE_MAX_SOURCE_LENGTH : Int = 1024 * 1024
 /// when a caller starts stepping in the middle of a source.
 priv struct SourceFenceReplayState {
   source : String
-  fence_length : Int
+  fence_length : Int32
   fence_character : Char
-  scan_pos : Int
-  active : (Int, Char, Int, Array[Int]?)?
+  scan_pos : Int32
+  active : (Int32, Char, Int32, Array[Int32]?)?
 }
 
 ///|
 fn source_fence_replay_initial(
   input : String,
-  fence_length : Int,
+  fence_length : Int32,
   fence_character : Char,
 ) -> SourceFenceReplayState {
   SourceFenceReplayState::{
@@ -31,10 +31,10 @@ fn source_fence_replay_initial(
 ///|
 fn source_fence_active(
   input : String,
-  line_start : Int,
+  line_start : Int32,
   fence_character : Char,
   candidate : SourceFenceCandidate,
-) -> (Int, Char, Int, Array[Int]?) {
+) -> (Int32, Char, Int32, Array[Int32]?) {
   let quote_indents = source_fence_quote_indents(
     input,
     line_start,
@@ -51,9 +51,9 @@ fn source_fence_active(
 ///|
 fn source_fence_open_on_line(
   state : SourceFenceReplayState,
-  line_start : Int,
-  line_end : Int,
-) -> (Int, Char, Int, Array[Int]?)? {
+  line_start : Int32,
+  line_end : Int32,
+) -> (Int32, Char, Int32, Array[Int32]?)? {
   match
     source_fence_candidate(
       state.source,
@@ -78,9 +78,9 @@ fn source_fence_open_on_line(
 ///|
 fn source_fence_replay_advance_line(
   state : SourceFenceReplayState,
-  line_start : Int,
-  line_end : Int,
-) -> (Int, Char, Int, Array[Int]?)? {
+  line_start : Int32,
+  line_end : Int32,
+) -> (Int32, Char, Int32, Array[Int32]?)? {
   match state.active {
     None => source_fence_open_on_line(state, line_start, line_end)
     Some((open_len, open_character, opening_indent, quote_indents)) => {
@@ -115,8 +115,8 @@ fn source_fence_replay_advance_line(
 /// matching the detached lexer contract for a CodeBlock step.
 fn source_fence_replay_until(
   state : SourceFenceReplayState,
-  pos : Int,
-) -> (SourceFenceReplayState, Int?, Array[Int]?) {
+  pos : Int32,
+) -> (SourceFenceReplayState, Int32?, Array[Int32]?) {
   let current_line_start = line_start_offset(state.source, pos)
   let base = if state.scan_pos > current_line_start {
     source_fence_replay_initial(
@@ -220,10 +220,10 @@ fn source_fence_replay_until(
 /// has no opening-column context yet.
 fn source_derived_code_block_indent(
   input : String,
-  pos : Int,
-  fence_len : Int,
+  pos : Int32,
+  fence_len : Int32,
   fence_character : Char,
-) -> Int? {
+) -> Int32? {
   let state = source_fence_replay_initial(input, fence_len, fence_character)
   source_fence_replay_until(state, pos).1
 }
@@ -231,10 +231,10 @@ fn source_derived_code_block_indent(
 ///|
 priv struct DetachedCodeBlockIndentCache {
   source : String
-  fence_length : Int
+  fence_length : Int32
   fence_character : Char
-  opening_indent : Int
-  quote_indents : Array[Int]?
-  next_pos : Int
+  opening_indent : Int32
+  quote_indents : Array[Int32]?
+  next_pos : Int32
   replay : SourceFenceReplayState
 }

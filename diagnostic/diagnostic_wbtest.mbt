@@ -1,5 +1,5 @@
 ///|
-fn diagnostic_test_offset(value : Int) -> TextOffset {
+fn diagnostic_test_offset(value : Int32) -> TextOffset {
   try TextOffset(value) catch {
     _ => abort("expected valid diagnostic offset")
   } noraise {
@@ -8,7 +8,7 @@ fn diagnostic_test_offset(value : Int) -> TextOffset {
 }
 
 ///|
-fn diagnostic_test_range(start : Int, end : Int) -> TextRange {
+fn diagnostic_test_range(start : Int32, end : Int32) -> TextRange {
   try TextRange::from_offsets(start, end) catch {
     _ => abort("expected valid diagnostic range")
   } noraise {
@@ -20,9 +20,9 @@ fn diagnostic_test_range(start : Int, end : Int) -> TextRange {
 fn diagnostic_test_label(
   style : LabelStyle,
   source_id : SourceId,
-  start : Int,
-  end : Int,
-  message? : String? = None,
+  start : Int32,
+  end : Int32,
+  message~ : String? = None,
 ) -> DiagnosticLabel {
   DiagnosticLabel(
     style,

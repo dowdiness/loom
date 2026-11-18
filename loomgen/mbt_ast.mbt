@@ -6,6 +6,7 @@
 /// The 6 remaining variants (Var, StrLit, Call, Tuple, Array, Record) are
 /// the only ones `emit_grammar_ir.mbt` constructs. Other variants were
 /// removed together with the parser code generator (`emit_grammar.mbt`).
+#derive(Eq, Debug)
 pub enum MbtExpr {
   Var(String)
   StrLit(String)
@@ -13,7 +14,7 @@ pub enum MbtExpr {
   Tuple(Array[MbtExpr])
   Array(Array[MbtExpr])
   Record(String, Array[(String, MbtExpr)])
-} derive(Eq, Debug)
+}
 
 // ── annotation helper ──────────────────────────────────────────────
 

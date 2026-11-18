@@ -410,9 +410,7 @@ test "checkpoint/restore: restores reuse cursor and reuse_count" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
 
@@ -459,9 +457,7 @@ test "lookahead: restores reuse cursor and reuse count" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
 
@@ -723,9 +719,9 @@ test "reparse_block selector decline widens to parent" {
     test_tokenize,
     parse_nested_expr,
   )
-  let seen : Array[Int] = []
+  let seen : Array[Int32] = []
   let seen_texts : Array[String] = []
-  let seen_token_counts : Array[Int] = []
+  let seen_token_counts : Array[Int32] = []
   let block_spec : BlockReparseSpec[TestTok, TestKind] = {
     is_reparseable: kind => kind == test_kind_raw(KExpr),
     get_reparser: fn(node, candidate_text, tokens) {
@@ -813,7 +809,7 @@ test "parse_block_isolated rejects incomplete or ambiguous replacement output" {
       String,
       String,
       Array[TokenInfo[TestTok]],
-      Array[Int],
+      Array[Int32],
       (ParserContext[TestTok, TestKind]) -> Unit,
     ),
   ] = [
@@ -952,7 +948,7 @@ test "reparse_block rejects malformed detached lex spans at boundary" {
     _ => true,
     may_reparse_boundary=(_, _, _) => true,
   )
-  let cases : Array[(String, Array[TokenInfo[TestTok]], Array[Int])] = [
+  let cases : Array[(String, Array[TokenInfo[TestTok]], Array[Int32])] = [
     (
       "equal-length overlap and gap",
       [
@@ -1097,7 +1093,7 @@ test "reparse_block resumes outer strict candidate after boundary failure" {
     test_tokenize,
     parse_nested_expr,
   )
-  let seen : Array[Int] = []
+  let seen : Array[Int32] = []
   let block_spec = BlockReparseSpec::new(
     kind => kind == test_kind_raw(KExpr),
     (node, _, _) => {
@@ -1153,7 +1149,7 @@ test "reparse_block selected failure does not widen" {
     test_tokenize,
     parse_nested_expr,
   )
-  let seen : Array[Int] = []
+  let seen : Array[Int32] = []
   let block_spec : BlockReparseSpec[TestTok, TestKind] = {
     is_reparseable: kind => kind == test_kind_raw(KExpr),
     get_reparser: fn(node, _, _) {
@@ -1209,7 +1205,7 @@ test "reparse_block balance failure does not widen" {
     test_tokenize,
     parse_nested_expr,
   )
-  let selector_calls : Array[Int] = []
+  let selector_calls : Array[Int32] = []
   let block_spec : BlockReparseSpec[TestTok, TestKind] = {
     is_reparseable: kind => kind == test_kind_raw(KExpr),
     get_reparser: fn(node, _, _) {

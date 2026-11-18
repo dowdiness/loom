@@ -37,7 +37,7 @@
 /// run on well-typed trees (e.g. an evaluator after type checking) can
 /// implement these two methods as abort().
 pub(open) trait TermSym {
-  fn int_lit(Int) -> Self
+  fn int_lit(Int32) -> Self
   fn variable(VarName) -> Self
   fn lam(VarName, Self) -> Self
   fn app(Self, Self) -> Self
@@ -54,7 +54,7 @@ pub(open) trait TermSym {
   fn error_term(String) -> Self
   /// Typed hole placeholder. Implement as abort() if you only process
   /// complete programs.
-  fn hole(Int) -> Self
+  fn hole(Int32) -> Self
 }
 
 ///|
@@ -145,7 +145,7 @@ pub fn children_of(term : Term) -> Array[Term] {
 /// If `children` has fewer elements than the shape expects, missing positions
 /// are filled with `Error("missing")` — this is error-tolerant, not strict.
 pub fn rebuild_from(shape : Term, children : Array[Term]) -> Term {
-  fn child(i : Int) -> Term {
+  fn child(i : Int32) -> Term {
     if i < children.length() {
       children[i]
     } else {

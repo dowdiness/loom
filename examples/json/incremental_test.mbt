@@ -1,5 +1,5 @@
 ///|
-fn nested_array_source(depth : Int, leaf : String) -> String {
+fn nested_array_source(depth : Int32, leaf : String) -> String {
   let builder = StringBuilder()
   for _i = 0; _i < depth; _i = _i + 1 {
     builder.write_char('[')

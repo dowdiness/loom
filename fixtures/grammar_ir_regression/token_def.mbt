@@ -1,9 +1,10 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum Token {
   A
   B
   Eof
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for Token with fn output(self, logger) {

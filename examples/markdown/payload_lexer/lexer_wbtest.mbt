@@ -1,8 +1,8 @@
 ///|
 fn assert_heading_payload(
   source : String,
-  expected : Int,
-  width : Int,
+  expected : Int32,
+  width : Int32,
 ) -> Unit raise {
   match step_lex(source, 0) {
     @core.LexStep::Produced(info, next_offset=next) =>
@@ -56,7 +56,7 @@ test "generated payload offsets remain absolute after a prefix" {
 fn assert_fence_payload(
   source : String,
   expected : String,
-  width : Int,
+  width : Int32,
 ) -> Unit raise {
   match step_lex(source, 0) {
     @core.LexStep::Produced(info, next_offset=next) =>

@@ -30,38 +30,42 @@ pub fn type_of_node(@seam.SyntaxNode) -> Type
 // Errors
 
 // Types and methods
+#derive(Eq, Hash, @debug.Debug)
 pub(all) struct DefEntry {
   name : String
-} derive(Eq, Hash, @debug.Debug)
+}
 pub fn DefEntry::equal(Self, Self) -> Bool
-pub fn DefEntry::hash(Self) -> Int
+pub fn DefEntry::hash(Self) -> Int32
 pub fn DefEntry::hash_combine(Self, Hasher) -> Unit
 pub fn DefEntry::not_equal(Self, Self) -> Bool
 pub fn DefEntry::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ModuleTypeResult {
   body_type : TypeResult
   def_types : Array[(String, TypeResult)]
   all_diagnostics : Array[TypeDiagnostic]
-} derive(Eq, @debug.Debug)
+}
 pub fn ModuleTypeResult::equal(Self, Self) -> Bool
 pub fn ModuleTypeResult::not_equal(Self, Self) -> Bool
 pub fn ModuleTypeResult::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ResolvedModule {
   defs : Array[(String, TypedTerm)]
   body : TypedTerm
-} derive(Eq, @debug.Debug)
+}
 pub fn ResolvedModule::equal(Self, Self) -> Bool
 pub fn ResolvedModule::not_equal(Self, Self) -> Bool
 pub fn ResolvedModule::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Type {
   TInt
   TArrow(Type, Type)
   TUnit
   TError
-} derive(Eq, @debug.Debug)
+}
 pub fn Type::equal(Self, Self) -> Bool
 pub fn Type::not_equal(Self, Self) -> Bool
 pub fn Type::output(Self, &Logger) -> Unit
@@ -69,11 +73,12 @@ pub fn Type::to_repr(Self) -> @debug.Repr
 pub fn Type::to_string(Self) -> String
 pub impl Show for Type
 
+#derive(Eq, @debug.Debug)
 pub(all) struct TypeDiagnostic {
   message : String
   def_name : String?
   range : @core.Range?
-} derive(Eq, @debug.Debug)
+}
 pub fn TypeDiagnostic::equal(Self, Self) -> Bool
 pub fn TypeDiagnostic::not_equal(Self, Self) -> Bool
 pub fn TypeDiagnostic::output(Self, &Logger) -> Unit
@@ -81,20 +86,22 @@ pub fn TypeDiagnostic::to_repr(Self) -> @debug.Repr
 pub fn TypeDiagnostic::to_string(Self) -> String
 pub impl Show for TypeDiagnostic
 
+#derive(Eq, @debug.Debug)
 pub(all) enum TypeEnv {
   Empty
   Bind(TypeEnv, String, Type)
-} derive(Eq, @debug.Debug)
+}
 pub fn TypeEnv::bind(Self, String, Type) -> Self
 pub fn TypeEnv::equal(Self, Self) -> Bool
 pub fn TypeEnv::lookup(Self, String) -> Type?
 pub fn TypeEnv::not_equal(Self, Self) -> Bool
 pub fn TypeEnv::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct TypeResult {
   typ : Type
   had_error : Bool
-} derive(Eq, @debug.Debug)
+}
 pub fn TypeResult::equal(Self, Self) -> Bool
 pub fn TypeResult::not_equal(Self, Self) -> Bool
 pub fn TypeResult::to_repr(Self) -> @debug.Repr
@@ -104,8 +111,9 @@ pub(all) struct TypecheckIndex {
   derived_map : @cells.DerivedMap[@types.InternId, TypeResult]
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) enum TypedTerm {
-  Int(Int)
+  Int(Int32)
   Unit
   Var(String)
   Lam(String, Type?, TypedTerm)
@@ -115,8 +123,8 @@ pub(all) enum TypedTerm {
   Module(Array[(String, TypedTerm)], TypedTerm)
   Unbound(String)
   Error(String)
-  Hole(Int)
-} derive(Eq, @debug.Debug)
+  Hole(Int32)
+}
 pub fn TypedTerm::equal(Self, Self) -> Bool
 pub fn TypedTerm::not_equal(Self, Self) -> Bool
 pub fn TypedTerm::output(Self, &Logger) -> Unit

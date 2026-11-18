@@ -11,15 +11,15 @@ fn is_jsx_whitespace(c : Char) -> Bool {
 ///|
 fn is_jsx_name_start_char(c : Char) -> Bool {
   let n = c.to_int()
-  n is ('a'..='z') || n is ('A'..='Z') || c == '_'
+  n is ('a'..<='z') || n is ('A'..<='Z') || c == '_'
 }
 
 ///|
 fn is_jsx_name_char(c : Char) -> Bool {
   let n = c.to_int()
-  n is ('a'..='z') ||
-  n is ('A'..='Z') ||
-  n is ('0'..='9') ||
+  n is ('a'..<='z') ||
+  n is ('A'..<='Z') ||
+  n is ('0'..<='9') ||
   c == '-' ||
   c == '_' ||
   c == ':'
@@ -53,25 +53,27 @@ fn is_jsx_quote(c : Char) -> Bool {
 /// Design A/B specify (a separate `ExprRawText`/`ExprStringUnterminated`
 /// token per string boundary, so the parser can see where a string starts
 /// and ends) without needing a fifth mode variant to thread across calls.
+#derive(Eq)
 priv enum JsxLexMode {
   Children
   TagBody(expects_tag_name~ : Bool)
-  JsExprRaw(depth~ : Int, origin~ : ExprOrigin)
-} derive(Eq)
+  JsExprRaw(depth~ : Int32, origin~ : ExprOrigin)
+}
 
 ///|
 /// Which context an embedded `{...}` expression was entered from, so its
 /// closing `}` knows which mode to resume — `TagBody` is the one concrete
 /// resume state for `FromAttrValue` (Design A, Codex round-2 fix).
+#derive(Eq)
 priv enum ExprOrigin {
   FromChildren
   FromAttrValue
-} derive(Eq)
+}
 
 ///|
 fn lex_children(
   source : String,
-  pos : Int,
+  pos : Int32,
 ) -> (@core.LexStep[@token.Token], JsxLexMode) {
   let cursor = @core.LexCursor::new(source, pos)
   match cursor.peek() {
@@ -143,7 +145,7 @@ fn lex_attr_string(
 ///|
 fn lex_tag_body(
   source : String,
-  pos : Int,
+  pos : Int32,
   expects_tag_name : Bool,
 ) -> (@core.LexStep[@token.Token], JsxLexMode) {
   let cursor = @core.LexCursor::new(source, pos)
@@ -206,7 +208,7 @@ fn lex_tag_body(
 fn lex_expr_string_literal(
   cursor : @core.LexCursor,
   quote : Char,
-  depth : Int,
+  depth : Int32,
   origin : ExprOrigin,
 ) -> (@core.LexStep[@token.Token], JsxLexMode) {
   ignore(cursor.advance_char())
@@ -239,8 +241,8 @@ fn lex_expr_string_literal(
 /// round-2 "multiple tokens don't imply multiple projection nodes").
 fn lex_expr_raw(
   source : String,
-  pos : Int,
-  depth : Int,
+  pos : Int32,
+  depth : Int32,
   origin : ExprOrigin,
 ) -> (@core.LexStep[@token.Token], JsxLexMode) {
   let cursor = @core.LexCursor::new(source, pos)
@@ -288,7 +290,7 @@ fn lex_expr_raw(
 /// Mode-aware lex step. Dispatches to mode-specific lexer.
 fn jsx_lex_step(
   source : String,
-  pos : Int,
+  pos : Int32,
   mode : JsxLexMode,
 ) -> (@core.LexStep[@token.Token], JsxLexMode) {
   if pos >= source.length() {

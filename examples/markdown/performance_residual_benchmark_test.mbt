@@ -22,7 +22,7 @@ priv struct PerfResidualEditFixture {
 }
 
 ///|
-fn perf_residual_line_count(source : String) -> Int {
+fn perf_residual_line_count(source : String) -> Int32 {
   let mut count = 1
   for ch in source {
     if ch == '\n' {
@@ -35,7 +35,7 @@ fn perf_residual_line_count(source : String) -> Int {
 ///|
 fn perf_residual_family_doc(
   family : PerfResidualSyntaxFamily,
-  line_target : Int,
+  line_target : Int32,
 ) -> String {
   let out = StringBuilder::StringBuilder()
   match family {
@@ -73,7 +73,7 @@ fn perf_residual_family_doc(
 }
 
 ///|
-fn perf_residual_mixed_doc(section_count : Int) -> String {
+fn perf_residual_mixed_doc(section_count : Int32) -> String {
   let out = StringBuilder::StringBuilder()
   out.write_string("# Main Title\n\n")
   for i = 0; i < section_count; i = i + 1 {
@@ -97,8 +97,8 @@ fn perf_residual_mixed_doc(section_count : Int) -> String {
 fn perf_residual_find_from(
   source : String,
   target : String,
-  start : Int,
-) -> Int {
+  start : Int32,
+) -> Int32 {
   for i = start; i < source.length() - target.length() + 1; i = i + 1 {
     if source[i:i + target.length()].to_owned() == target {
       return i

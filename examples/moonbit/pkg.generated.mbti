@@ -26,12 +26,13 @@ pub fn tokenize(@diagnostic.SourceId, String) -> Array[@core.TokenInfo[MoonToken
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum MoonToken {
   Official(kind~ : @tokens.TokenKind)
   Whitespace
   Error(String)
   EOF
-} derive(Eq, @debug.Debug)
+}
 pub fn MoonToken::equal(Self, Self) -> Bool
 pub fn MoonToken::is_eof(Self) -> Bool
 pub fn MoonToken::is_trivia(Self) -> Bool
@@ -45,15 +46,17 @@ pub impl @seam.IsTrivia for MoonToken
 pub impl @seam.ToRawKind for MoonToken
 pub impl Show for MoonToken
 
+#derive(Eq, @debug.Debug)
 pub(all) struct MoonbitParseShell {
-  item_count : Int
-  token_count : Int
+  item_count : Int32
+  token_count : Int32
   contains_errors : Bool
-} derive(Eq, @debug.Debug)
+}
 pub fn MoonbitParseShell::equal(Self, Self) -> Bool
 pub fn MoonbitParseShell::not_equal(Self, Self) -> Bool
 pub fn MoonbitParseShell::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MoonbitSyntaxKind {
   TriviaToken
   ErrorToken
@@ -194,6 +197,8 @@ pub(all) enum MoonbitSyntaxKind {
   VarToken
   ErrdeferToken
   NocancelToken
+  StarToken
+  BytesRegexLiteralToken
   SourceFileNode
   SourceItemNode
   LetItemNode
@@ -212,7 +217,7 @@ pub(all) enum MoonbitSyntaxKind {
   MatchExprNode
   ForExprNode
   BinExprNode
-} derive(Eq, @debug.Debug)
+}
 pub fn MoonbitSyntaxKind::equal(Self, Self) -> Bool
 pub fn MoonbitSyntaxKind::from_raw(@seam.RawKind) -> Self
 pub fn MoonbitSyntaxKind::not_equal(Self, Self) -> Bool

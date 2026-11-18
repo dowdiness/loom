@@ -22,7 +22,7 @@ pub enum SemanticStatus[R] {
 pub struct SemanticSnapshot {
   priv source_id : @core.SourceId
   priv source : String
-  priv revision : Int
+  priv revision : Int32
   priv syntax : @seam.SyntaxNode
   priv diagnostics : @core.DiagnosticSet
 }
@@ -38,7 +38,7 @@ pub fn SemanticSnapshot::source(self : SemanticSnapshot) -> String {
 }
 
 ///|
-pub fn SemanticSnapshot::revision(self : SemanticSnapshot) -> Int {
+pub fn SemanticSnapshot::revision(self : SemanticSnapshot) -> Int32 {
   self.revision
 }
 
@@ -79,7 +79,7 @@ pub fn[M] SemanticAccepted::value(self : SemanticAccepted[M]) -> M {
 /// A completed observation. Later edits, faults and disposal do not rewrite it.
 pub struct SemanticObservation[M, R] {
   priv source : String
-  priv revision : Int
+  priv revision : Int32
   priv accepted : SemanticAccepted[M]?
   priv status : SemanticStatus[R]
 }
@@ -94,7 +94,7 @@ pub fn[M, R] SemanticObservation::source(
 ///|
 pub fn[M, R] SemanticObservation::revision(
   self : SemanticObservation[M, R],
-) -> Int {
+) -> Int32 {
   self.revision
 }
 
@@ -115,7 +115,7 @@ pub fn[M, R] SemanticObservation::status(
 ///|
 priv struct SemanticFrame[M, R] {
   change : SemanticChange
-  revision : Int
+  revision : Int32
   accepted : SemanticAccepted[M]?
   observation : SemanticObservation[M, R]?
 }
@@ -126,9 +126,9 @@ priv struct SemanticFrame[M, R] {
 /// parser updates themselves never execute candidate code. Dispose explicitly.
 pub struct SemanticAnalysis[M, R] {
   priv hub : SemanticHub
-  priv registration : Int
+  priv registration : Int32
   priv scope : @incr.Scope
-  priv read_snapshot : (Int) -> Result[SemanticSnapshot, @incr.ReadError]
+  priv read_snapshot : (Int32) -> Result[SemanticSnapshot, @incr.ReadError]
   priv project : (SemanticAccepted[M]?, SemanticSnapshot, SemanticChange) -> SemanticDecision[
     M,
     R,

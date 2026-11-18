@@ -12,11 +12,12 @@ import {
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub struct Setting {
   id : String
   key : String
   value : Double
-} derive(Eq, @debug.Debug)
+}
 pub fn Setting::Setting(id~ : String, key~ : String, value~ : Double) -> Self
 pub fn Setting::equal(Self, Self) -> Bool
 pub fn Setting::not_equal(Self, Self) -> Bool
@@ -34,22 +35,24 @@ pub fn SettingsAttachment::retry(Self) -> Unit raise Failure
 pub fn SettingsAttachment::set_source(Self, String) -> Unit raise Failure
 pub fn SettingsAttachment::state(Self) -> SettingsState
 
+#derive(Eq, @debug.Debug)
 pub struct SettingsDoc {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn SettingsDoc::SettingsDoc(Array[Setting]) -> Self
 pub fn SettingsDoc::equal(Self, Self) -> Bool
 pub fn SettingsDoc::not_equal(Self, Self) -> Bool
 pub fn SettingsDoc::settings(Self) -> Array[Setting]
 pub fn SettingsDoc::to_repr(Self) -> @debug.Repr
 
+#derive(Eq)
 pub enum SettingsState {
   Current
   ParserBlocked
   ProjectionBlocked
   CandidateBlocked
   GraphBlocked
-} derive(Eq)
+}
 pub fn SettingsState::equal(Self, Self) -> Bool
 pub fn SettingsState::not_equal(Self, Self) -> Bool
 pub fn SettingsState::output(Self, &Logger) -> Unit

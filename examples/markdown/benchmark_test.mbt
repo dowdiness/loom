@@ -30,14 +30,14 @@ fn realistic_markdown_doc() -> String {
 
 ///|
 /// Helper: replace one byte at pos in source.
-fn md_replace_at(source : String, pos : Int, replacement : String) -> String {
+fn md_replace_at(source : String, pos : Int32, replacement : String) -> String {
   source[:pos].to_owned() + replacement + source[pos + 1:].to_owned()
 }
 
 ///|
 /// Find the byte position of a target substring in source.
 /// Returns the position of the first character of the match, or -1.
-fn find_substring(source : String, target : String) -> Int {
+fn find_substring(source : String, target : String) -> Int32 {
   for i = 0; i < source.length() - target.length() + 1; i = i + 1 {
     let sub : String = source[i:i + target.length()].to_owned()
     if sub == target {
@@ -51,7 +51,7 @@ fn find_substring(source : String, target : String) -> Int {
 /// Generate a scaled Markdown document by repeating varied sections.
 /// Each repetition adds ~20 lines: heading, paragraph with inline markup,
 /// list, and code block. Total lines ≈ repeats * 20.
-fn scaled_markdown_doc(repeats : Int) -> String {
+fn scaled_markdown_doc(repeats : Int32) -> String {
   let buf = StringBuilder()
   buf.write_string("# Main Title\n\n")
   for i = 0; i < repeats; i = i + 1 {

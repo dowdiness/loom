@@ -12,7 +12,9 @@ fn top_level_kind_names(source : String) -> Array[String] {
   root
   .children()
   .map(fn(child) {
-    let kind : @moonbit-example.MoonbitSyntaxKind = @seam.FromRawKind::from_raw(child.kind())
+    let kind : @moonbit-example.MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+      child.kind(),
+    )
     kind.to_string()
   })
 }
@@ -20,7 +22,9 @@ fn top_level_kind_names(source : String) -> Array[String] {
 ///|
 fn syntax_token_kind_names(tokens : Array[@seam.SyntaxToken]) -> Array[String] {
   tokens.map(fn(token) {
-    let kind : @moonbit-example.MoonbitSyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+    let kind : @moonbit-example.MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+      token.kind(),
+    )
     kind.to_string()
   })
 }
@@ -135,22 +139,13 @@ test "skeleton grammar parses explicit header keyword variants" {
   let source =
     #|const X = 1
     #|letrec f = 1
-    #|fnalias alias = target
     #|extenum Color += { Red }
     #|enumview View { Case }
-    #|typealias Name = String
     #|
   debug_inspect(
     top_level_kind_names(source),
     content=(
-      #|[
-      #|  "LetItemNode",
-      #|  "LetItemNode",
-      #|  "FunctionItemNode",
-      #|  "EnumItemNode",
-      #|  "EnumItemNode",
-      #|  "TypeItemNode",
-      #|]
+      #|["LetItemNode", "LetItemNode", "EnumItemNode", "EnumItemNode"]
     ),
   )
   debug_inspect(
@@ -159,10 +154,8 @@ test "skeleton grammar parses explicit header keyword variants" {
       #|[
       #|  "LetItemHeaderNode",
       #|  "LetItemHeaderNode",
-      #|  "FunctionItemHeaderNode",
       #|  "EnumItemHeaderNode",
       #|  "EnumItemHeaderNode",
-      #|  "TypeItemHeaderNode",
       #|]
     ),
   )
@@ -412,7 +405,10 @@ test "skeleton syntax grammar works with reactive syntax parser" {
 
 ///|
 test "placeholder AST reports lexer error tokens" {
-  let (ast, diagnostics) = @moonbit-example.parse_moonbit(test_source_id(), "let x = `")
+  let (ast, diagnostics) = @moonbit-example.parse_moonbit(
+    test_source_id(),
+    "let x = `",
+  )
   inspect(ast.contains_errors, content="true")
   inspect(diagnostics.length(), content="1")
 }
@@ -744,7 +740,10 @@ test "skeleton grammar parses multiple expressions separated by semicolons" {
 
 ///|
 test "skeleton grammar correctly folds binary expression token count" {
-  let (ast, _) = @moonbit-example.parse_moonbit(test_source_id(), "fn f() { 1 + 2 }\n")
+  let (ast, _) = @moonbit-example.parse_moonbit(
+    test_source_id(),
+    "fn f() { 1 + 2 }\n",
+  )
   inspect(ast.item_count, content="1")
   inspect(ast.contains_errors, content="false")
   // BinExprNode tokens include operator and operands
@@ -753,7 +752,10 @@ test "skeleton grammar correctly folds binary expression token count" {
 
 ///|
 test "skeleton grammar creates nested BinExprNode for operator precedence" {
-  let (cst, _) = @moonbit-example.parse_cst(test_source_id(), "fn f() { 1 + 2 * 3 }\n") catch {
+  let (cst, _) = @moonbit-example.parse_cst(
+    test_source_id(),
+    "fn f() { 1 + 2 * 3 }\n",
+  ) catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)

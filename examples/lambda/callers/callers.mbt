@@ -41,10 +41,11 @@
 /// parameter-binding scope by its opening node's byte range — either a
 /// `LambdaExpr` (for `(x) => body`) or a `LetDef` carrying a `ParamList`
 /// (for `fn f(x, y) { body }`).
+#derive(Eq, Hash, Debug)
 pub(all) enum ScopeId {
   TopScope
-  LambdaScope(Int, Int)
-} derive(Eq, Hash, Debug)
+  LambdaScope(Int32, Int32)
+}
 
 ///|
 pub impl Show for ScopeId with fn output(self, logger) {
@@ -52,14 +53,15 @@ pub impl Show for ScopeId with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct Def {
   name : String
   scope : ScopeId
-  start : Int
-  end : Int
-  name_start : Int
-  name_end : Int
-} derive(Eq, Debug)
+  start : Int32
+  end : Int32
+  name_start : Int32
+  name_end : Int32
+}
 
 ///|
 pub impl Show for Def with fn output(self, logger) {
@@ -67,13 +69,14 @@ pub impl Show for Def with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct Call {
   callee : String
   resolved_scope : ScopeId
   is_call_position : Bool
-  start : Int
-  end : Int
-} derive(Eq, Debug)
+  start : Int32
+  end : Int32
+}
 
 ///|
 pub impl Show for Call with fn output(self, logger) {

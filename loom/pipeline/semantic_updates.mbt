@@ -2,10 +2,10 @@
 /// Allocated only when a parser gains its first semantic attachment. Each
 /// registration advances private pending evidence, never author code.
 priv struct SemanticHub {
-  mut revision : Int
-  mut next_registration : Int
+  mut revision : Int32
+  mut next_registration : Int32
   mut busy : Bool
-  registrations : Map[Int, (String, Int, @core.Edit?) -> Unit]
+  registrations : Map[Int32, (String, Int32, @core.Edit?) -> Unit]
 }
 
 ///|

@@ -1,22 +1,23 @@
 ///|
+#derive(Eq, Debug)
 #loom.token
 pub(all) enum Token {
   #loom.literal
   #loom.pattern("(#{1,6})([ \t])")
   #loom.payload("$1.length()")
-  HeadingMarker(Int)
+  HeadingMarker(Int32)
   #loom.literal
   #loom.pattern("([a-z]+)")
   #loom.payload("$1_start() * 100 + $1_end()")
-  OffsetWord(Int)
+  OffsetWord(Int32)
   #loom.literal
   #loom.pattern("(`{3,})([^\r\n]*)")
   #loom.payload("$1.length()")
   #loom.payload("$2.to_owned()")
-  CodeFenceOpen(Int, String)
+  CodeFenceOpen(Int32, String)
   #loom.eof
   EOF
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Token with @moonbitlang/core/debug.Debug::{to_repr}

@@ -3,27 +3,29 @@
 ///|
 /// Generic position-independent token. T is the language-specific token type.
 /// Positions are stored externally in TokenBuffer's `starts` array.
+#derive(Debug, Eq)
 pub struct TokenInfo[T] {
   token : T
-  len : Int // length in code units
-} derive(Debug, Eq)
+  len : Int32 // length in code units
+}
 
 ///|
 /// Token with explicit UTF-16 source offsets from an external lexer.
 ///
 /// `start` and `end` are code-unit offsets into the source string used to build
 /// a `LexResult`. Zero-width tokens are valid when `start == end`.
+#derive(Debug, Eq)
 pub struct LocatedToken[T] {
   priv token : T
-  priv start : Int
-  priv end : Int
-} derive(Debug, Eq)
+  priv start : Int32
+  priv end : Int32
+}
 
 ///|
 pub fn[T] LocatedToken::LocatedToken(
   token : T,
-  start~ : Int,
-  end~ : Int,
+  start~ : Int32,
+  end~ : Int32,
 ) -> LocatedToken[T] {
   { token, start, end, }
 }
@@ -33,28 +35,30 @@ pub fn[T] LocatedToken::LocatedToken(
 ///
 /// `tokens` remain position-independent. `starts` records the source offset of
 /// each token and must be parallel to `tokens`.
+#derive(Eq, Debug)
 pub struct LexResult[T] {
   tokens : Array[TokenInfo[T]]
-  starts : Array[Int]
+  starts : Array[Int32]
   diagnostics : DiagnosticSet
-} derive(Eq, Debug)
+}
 
 ///|
 /// A lexer adapter violated the structural contract of a token/start result.
 /// This describes adapter output, not malformed user source.
+#derive(Eq, Debug)
 pub(all) suberror LexResultError {
-  TokenStartCountMismatch(Int, Int)
-  NegativeTokenLength(Int, Int)
-  NegativeStart(Int, Int)
-  DecreasingStart(Int, Int, Int)
-  OverlappingToken(Int, Int, Int)
-  NegativeConvergence(Int)
-} derive(Eq, Debug)
+  TokenStartCountMismatch(Int32, Int32)
+  NegativeTokenLength(Int32, Int32)
+  NegativeStart(Int32, Int32)
+  DecreasingStart(Int32, Int32, Int32)
+  OverlappingToken(Int32, Int32, Int32)
+  NegativeConvergence(Int32)
+}
 
 ///|
 pub fn[T] LexResult::LexResult(
   tokens : Array[TokenInfo[T]],
-  diagnostics? : DiagnosticSet = DiagnosticSet::empty(),
+  diagnostics~ : DiagnosticSet = DiagnosticSet::empty(),
 ) -> LexResult[T] {
   LexResult::with_starts(tokens, build_starts(tokens), diagnostics~)
 }
@@ -62,7 +66,7 @@ pub fn[T] LexResult::LexResult(
 ///|
 pub fn[T] LexResult::with_starts(
   tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
+  starts : Array[Int32],
   diagnostics~ : DiagnosticSet,
 ) -> LexResult[T] {
   let diagnostics = diagnostics.copy()
@@ -81,15 +85,15 @@ pub fn[T] LexResult::from_located_tokens(
   source_id : SourceId,
   source : String,
   located_tokens : Array[LocatedToken[T]],
-  gap_token? : (StringView, Int, Int) -> T,
-  gap_error_token? : (StringView, Int, Int) -> T,
-  diagnostics? : DiagnosticSet = DiagnosticSet::empty(),
-  gap_error_code? : String = "loom.lex.unlexed_gap",
-  diagnose_nonblank_gaps? : Bool = true,
+  gap_token? : (StringView, Int32, Int32) -> T,
+  gap_error_token? : (StringView, Int32, Int32) -> T,
+  diagnostics~ : DiagnosticSet = DiagnosticSet::empty(),
+  gap_error_code~ : String = "loom.lex.unlexed_gap",
+  diagnose_nonblank_gaps~ : Bool = true,
 ) -> LexResult[T] {
   let diagnostics = diagnostics.copy()
   let tokens : Array[TokenInfo[T]] = []
-  let starts : Array[Int] = []
+  let starts : Array[Int32] = []
   let source_len = source.length()
   let cursor = for located in located_tokens; cursor = 0, index = 0 {
     validate_located_token_span(
@@ -129,7 +133,7 @@ pub fn[T] LexResult::tokens(self : LexResult[T]) -> Array[TokenInfo[T]] {
 }
 
 ///|
-pub fn[T] LexResult::starts(self : LexResult[T]) -> Array[Int] {
+pub fn[T] LexResult::starts(self : LexResult[T]) -> Array[Int32] {
   self.starts.copy()
 }
 
@@ -143,16 +147,16 @@ fn[T] push_located_gap(
   source_id : SourceId,
   source : String,
   tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
-  start : Int,
-  end : Int,
+  starts : Array[Int32],
+  start : Int32,
+  end : Int32,
   diagnostics : DiagnosticSet,
-  gap_token : ((StringView, Int, Int) -> T)?,
-  gap_error_token : ((StringView, Int, Int) -> T)?,
+  gap_token : ((StringView, Int32, Int32) -> T)?,
+  gap_error_token : ((StringView, Int32, Int32) -> T)?,
   gap_error_code : String,
   diagnose_nonblank_gaps : Bool,
 ) -> Unit {
-  let gap_text = source.view(start_offset=start, end_offset=end)
+  let gap_text = source.legacy_view(start~, end~)
   if gap_text.is_blank() {
     match gap_token {
       Some(make_gap_token) => {
@@ -189,10 +193,10 @@ fn[T] push_located_gap(
 ///|
 fn validate_located_token_span(
   diagnostics : DiagnosticSet,
-  index : Int,
-  start : Int,
-  end : Int,
-  source_len : Int,
+  index : Int32,
+  start : Int32,
+  end : Int32,
+  source_len : Int32,
 ) -> Unit {
   if start < 0 ||
     end < 0 ||
@@ -215,7 +219,7 @@ fn validate_located_token_span(
 }
 
 ///|
-fn clamp_lex_offset(offset : Int, source_len : Int) -> Int {
+fn clamp_lex_offset(offset : Int32, source_len : Int32) -> Int32 {
   if offset < 0 {
     0
   } else if offset > source_len {
@@ -228,7 +232,7 @@ fn clamp_lex_offset(offset : Int, source_len : Int) -> Int {
 ///|
 fn[T] validate_lex_result_starts(
   tokens : Array[TokenInfo[T]],
-  starts : Array[Int],
+  starts : Array[Int32],
   diagnostics : DiagnosticSet,
 ) -> Unit {
   if starts.length() != tokens.length() {
@@ -280,10 +284,11 @@ fn[T] validate_lex_result_starts(
 
 ///|
 /// Source-qualified parser edit used by diagnostic invalidation and replay.
+#derive(Eq, Debug)
 pub struct SourceEdit {
   priv source_id : SourceId
   priv edit : Edit
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn SourceEdit::SourceEdit(source_id : SourceId, edit : Edit) -> SourceEdit {
@@ -309,8 +314,8 @@ pub fn lexer_diagnostic(message : String) -> Diagnostic {
 pub fn lexer_diagnostic_at(
   source_id : SourceId,
   message : String,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   code : String,
 ) -> Diagnostic {
   let (labels, notes) : (Array[DiagnosticLabel], Array[String]) = try
@@ -368,9 +373,10 @@ fn parser_diagnostic_same_key(a : Diagnostic, b : Diagnostic) -> Bool {
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct DiagnosticSet {
   priv items : Array[Diagnostic]
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn DiagnosticSet::empty() -> DiagnosticSet {
@@ -448,12 +454,12 @@ pub fn DiagnosticSet::is_empty(self : DiagnosticSet) -> Bool {
 }
 
 ///|
-pub fn DiagnosticSet::length(self : DiagnosticSet) -> Int {
+pub fn DiagnosticSet::length(self : DiagnosticSet) -> Int32 {
   self.items.length()
 }
 
 ///|
-pub fn DiagnosticSet::truncate(self : DiagnosticSet, length : Int) -> Unit {
+pub fn DiagnosticSet::truncate(self : DiagnosticSet, length : Int32) -> Unit {
   let target = length.clamp(min=0, max=self.items.length())
   self.items.truncate(target)
 }
@@ -475,7 +481,7 @@ pub fn DiagnosticSet::format_with_line_col(
 pub fn DiagnosticSet::offset_by(
   self : DiagnosticSet,
   edited_source : SourceId,
-  delta : Int,
+  delta : Int32,
   after : TextOffset,
 ) -> DiagnosticSet raise DiagnosticBuildError {
   if delta == 0 {
@@ -639,14 +645,14 @@ pub impl @diagnostic.ToDiagnostic for LexError with fn to_diagnostic(self) {
 
 ///|
 /// Construct a TokenInfo. Use this from outside the core package.
-pub fn[T] TokenInfo::new(token : T, len : Int) -> TokenInfo[T] {
+pub fn[T] TokenInfo::new(token : T, len : Int32) -> TokenInfo[T] {
   { token, len, }
 }
 
 ///|
 priv struct ReusedErrorSpan {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
 }
 
 ///|

@@ -4,7 +4,7 @@
 // dedicated performance-policy change.
 
 ///|
-fn recovery_parity_heavy_markdown_doc(repeats : Int) -> String {
+fn recovery_parity_heavy_markdown_doc(repeats : Int32) -> String {
   let slash = "\\"
   let escaped_literal = slash + "*literal*"
   let two_escaped_openers = slash + "*" + slash + "*literal**"

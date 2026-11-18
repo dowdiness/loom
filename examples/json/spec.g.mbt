@@ -3,8 +3,8 @@
 /// from annotation metadata.
 pub fn make_json_spec(
   parse_root : (@core.ParserContext[Token, SyntaxKind]) -> Unit,
-  reuse_size_threshold? : Int = 64,
-  incomplete_kind? : SyntaxKind = ErrorToken,
+  reuse_size_threshold~ : Int32 = 64,
+  incomplete_kind~ : SyntaxKind = ErrorToken,
 ) -> @core.LanguageSpec[Token, SyntaxKind] {
   @core.LanguageSpec::new(
     WhitespaceToken,

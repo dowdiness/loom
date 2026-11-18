@@ -11,7 +11,7 @@ fn typed_angle_fixture_policy() -> @seam.CstMetadataPolicy {
 fn typed_angle_fixture_node(
   source : String,
   kind : SyntaxKind,
-  pieces : Array[(Int, Int)],
+  pieces : Array[(Int32, Int32)],
   policy : @seam.CstMetadataPolicy,
 ) -> @seam.CstNode {
   let children : Array[@seam.CstElement] = []
@@ -21,7 +21,7 @@ fn typed_angle_fixture_node(
       @seam.CstElement::Token(
         @seam.CstToken::CstToken(
           TextToken.to_raw(),
-          source.view(start_offset=start, end_offset=end),
+          source.legacy_view(start~, end~),
         ),
       ),
     )
@@ -35,7 +35,7 @@ fn typed_angle_fixture_node(
 fn typed_angle_fixture(
   source : String,
   kind : SyntaxKind,
-  pieces : Array[(Int, Int)],
+  pieces : Array[(Int32, Int32)],
 ) -> @seam.SyntaxNode {
   let policy = typed_angle_fixture_policy()
   let typed = typed_angle_fixture_node(source, kind, pieces, policy)
@@ -59,7 +59,7 @@ fn typed_angle_fixture(
 ///|
 fn typed_angle_fixture_document(
   source : String,
-  parts : Array[(SyntaxKind, Int, Int)],
+  parts : Array[(SyntaxKind, Int32, Int32)],
 ) -> @seam.SyntaxNode {
   let policy = typed_angle_fixture_policy()
   let children : Array[@seam.CstElement] = []
@@ -71,7 +71,7 @@ fn typed_angle_fixture_document(
         @seam.CstElement::Token(
           @seam.CstToken::CstToken(
             TextToken.to_raw(),
-            source.view(start_offset=previous_end, end_offset=start),
+            source.legacy_view(start=previous_end, end=start),
           ),
         ),
       )
@@ -85,7 +85,7 @@ fn typed_angle_fixture_document(
       @seam.CstElement::Token(
         @seam.CstToken::CstToken(
           TextToken.to_raw(),
-          source.view(start_offset=previous_end, end_offset=source.length()),
+          source.legacy_view(start=previous_end),
         ),
       ),
     )
@@ -216,7 +216,7 @@ test "typed angle CST lowers at the MarkdownIR seam with source origins" {
               "https://example.test/a\\b",
               "https://example.test/a%5Cb",
               Some(label_origin),
-              Some(destination_origin)
+              Some(destination_origin),
             ) => {
               assert_eq(label_origin, destination_origin)
               assert_eq(
@@ -237,7 +237,7 @@ test "typed angle CST lowers at the MarkdownIR seam with source origins" {
               "foo@bar.example",
               "mailto:foo@bar.example",
               Some(label_origin),
-              None
+              None,
             ) => {
               assert_eq(
                 label_origin,

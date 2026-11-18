@@ -1,7 +1,7 @@
 ///|
 fn markdown_ir_canonical_test_origin(
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> MarkdownIROrigin {
   MarkdownIROrigin::MarkdownIROrigin(start~, end~)
 }
@@ -754,14 +754,14 @@ test "checked canonical expansion cutoff validates lexical prefix of a cost laye
 
 ///|
 priv struct MarkdownIRCanonicalCorpusRng {
-  mut state : Int
+  mut state : Int32
 }
 
 ///|
 fn MarkdownIRCanonicalCorpusRng::next(
   self : MarkdownIRCanonicalCorpusRng,
-  bound : Int,
-) -> Int {
+  bound : Int32,
+) -> Int32 {
   guard bound > 0 else { abort("canonical corpus bound must be positive") }
   self.state = (self.state * 25173 + 13849) % 65521
   self.state % bound
@@ -799,7 +799,7 @@ fn markdown_ir_canonical_corpus_payload(
 
 ///|
 fn markdown_ir_canonical_corpus_inline(
-  kind : Int,
+  kind : Int32,
   payload : String,
   origin : MarkdownIROrigin,
 ) -> MarkdownIR {
@@ -815,8 +815,8 @@ fn markdown_ir_canonical_corpus_inline(
 
 ///|
 fn markdown_ir_canonical_corpus_nested(
-  depth : Int,
-  selector : Int,
+  depth : Int32,
+  selector : Int32,
   payload : String,
   origin : MarkdownIROrigin,
 ) -> MarkdownIR {
@@ -844,10 +844,10 @@ fn markdown_ir_canonical_corpus_nested(
 ///|
 fn markdown_ir_canonical_corpus_case(
   recursive : Bool,
-  index : Int,
+  index : Int32,
   rng : MarkdownIRCanonicalCorpusRng,
   alphabet : Array[Char],
-) -> (MarkdownIR, Int, Int) {
+) -> (MarkdownIR, Int32, Int32) {
   let depth = if recursive { 1 + index % 3 } else { 0 }
   let width = 1 + index / 3 % 4
   let origin = markdown_ir_canonical_test_origin(0, 1)
@@ -887,7 +887,7 @@ fn markdown_ir_canonical_corpus_case(
 }
 
 ///|
-fn markdown_ir_canonical_pad4(value : Int) -> String {
+fn markdown_ir_canonical_pad4(value : Int32) -> String {
   let text = value.to_string()
   let buf = StringBuilder::StringBuilder()
   for index = text.length(); index < 4; index = index + 1 {
@@ -901,12 +901,12 @@ fn markdown_ir_canonical_pad4(value : Int) -> String {
 priv struct MarkdownIRCanonicalCorpusRun {
   transcript : String
   replay_keys : Array[String]
-  digest : Int
-  max_container_candidates : Int
-  max_container_expansions : Int
-  max_document_candidates : Int
-  max_document_expansions : Int
-  max_reparses : Int
+  digest : Int32
+  max_container_candidates : Int32
+  max_container_expansions : Int32
+  max_document_candidates : Int32
+  max_document_expansions : Int32
+  max_reparses : Int32
   saw_depth3 : Bool
   saw_width4 : Bool
 }

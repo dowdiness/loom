@@ -1412,7 +1412,7 @@ test "SyntaxNode::direct_elements_grouped_by filters trivia when trivia_kind giv
 ///|
 test "SyntaxNode::direct_elements_grouped_by keeps mixed node+token groups in source order" {
   // stack-call shape: `stack(arg1, arg2a arg2b, 42)` with delimiters in edge groups
-  let arg = (kind : Int, text : String) => {
+  let arg = (kind : Int32, text : String) => {
     CstElement::Node(
       CstNode::new_unclassified(RawKind(kind), [
         CstElement::Token(CstToken::CstToken(RawKind(9), text)),

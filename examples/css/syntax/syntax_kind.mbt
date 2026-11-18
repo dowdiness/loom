@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum SyntaxKind {
   IdentToken
   ColonToken
@@ -14,7 +15,7 @@ pub(all) enum SyntaxKind {
   Decls
   Decl
   ErrorNode
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for SyntaxKind with fn output(self, logger) {
@@ -39,7 +40,7 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
 
 ///|
 pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
-  let n : Int = match self {
+  let n : Int32 = match self {
     IdentToken => 0
     ColonToken => 1
     SemicolonToken => 2

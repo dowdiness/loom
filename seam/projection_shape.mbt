@@ -1,18 +1,20 @@
 ///|
 /// Kind of direct child element being validated by projection shape helpers.
+#derive(Debug, Eq)
 pub(all) enum ProjectionShapeElement {
   TokenElement
   ChildElement
-} derive(Debug, Eq)
+}
 
 ///|
 /// Cardinality expected by a projection shape helper.
+#derive(Debug, Eq)
 pub(all) enum ProjectionShapeExpectation {
   ExpectedZero
   ExpectedOptional
   ExpectedOne
   ExpectedAtLeastOne
-} derive(Debug, Eq)
+}
 
 ///|
 /// Structured error returned by projection shape helpers.
@@ -21,16 +23,17 @@ pub(all) enum ProjectionShapeExpectation {
 /// text stays at the projection layer. `start` and `end` identify the source
 /// range to underline: the matched direct elements when present, or the node's
 /// whole range when the expected element is missing.
+#derive(Debug, Eq)
 pub(all) struct ProjectionShapeError {
   message : String
   node_kind : RawKind
   target_kind : RawKind
   element : ProjectionShapeElement
   expectation : ProjectionShapeExpectation
-  actual : Int
-  start : Int
-  end : Int
-} derive(Debug, Eq)
+  actual : Int32
+  start : Int32
+  end : Int32
+}
 
 ///|
 pub fn ProjectionShapeError::ProjectionShapeError(
@@ -38,9 +41,9 @@ pub fn ProjectionShapeError::ProjectionShapeError(
   target_kind : RawKind,
   element : ProjectionShapeElement,
   expectation : ProjectionShapeExpectation,
-  actual : Int,
-  start : Int,
-  end : Int,
+  actual : Int32,
+  start : Int32,
+  end : Int32,
   message~ : String,
 ) -> ProjectionShapeError {
   {
@@ -59,7 +62,7 @@ pub fn ProjectionShapeError::ProjectionShapeError(
 fn token_match_range(
   node : SyntaxNode,
   matches : Array[SyntaxToken],
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   if matches.length() == 0 {
     (node.start(), node.end())
   } else {
@@ -71,7 +74,7 @@ fn token_match_range(
 fn child_match_range(
   node : SyntaxNode,
   matches : Array[SyntaxNode],
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   if matches.length() == 0 {
     (node.start(), node.end())
   } else {

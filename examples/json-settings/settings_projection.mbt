@@ -17,8 +17,8 @@
 priv struct RawSetting {
   key : String
   value : Double
-  key_start : Int
-  key_end : Int
+  key_start : Int32
+  key_end : Int32
 }
 
 ///|

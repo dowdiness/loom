@@ -7,25 +7,27 @@ import {
 }
 
 // Values
-pub fn eval(Env, @ast.Term, fuel? : Int) -> Value raise StuckReason
+pub fn eval(Env, @ast.Term, fuel? : Int32) -> Value raise StuckReason
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror StuckReason {
   Unbound(String)
   TypeMismatch(String)
   Incomplete
   ParseError
   Divergence
-} derive(@debug.Debug)
+}
 pub fn StuckReason::output(Self, &Logger) -> Unit
 pub fn StuckReason::to_repr(Self) -> @debug.Repr
 pub fn StuckReason::to_string(Self) -> String
 pub impl Show for StuckReason
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub struct Env {
   bindings : Map[String, Value]
-} derive(Eq, @debug.Debug)
+}
 pub fn Env::bind(Self, String, Value) -> Self
 pub fn Env::empty() -> Self
 pub fn Env::equal(Self, Self) -> Bool
@@ -33,11 +35,12 @@ pub fn Env::lookup(Self, String) -> Value?
 pub fn Env::not_equal(Self, Self) -> Bool
 pub fn Env::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Value {
-  VInt(Int)
+  VInt(Int32)
   VClosure(Env, String, @ast.Term)
   VUnit
-} derive(Eq, @debug.Debug)
+}
 pub fn Value::equal(Self, Self) -> Bool
 pub fn Value::not_equal(Self, Self) -> Bool
 pub fn Value::output(Self, &Logger) -> Unit

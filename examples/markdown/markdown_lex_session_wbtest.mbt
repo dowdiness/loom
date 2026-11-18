@@ -38,7 +38,7 @@ fn baseline_tokenize_for_test(
 }
 
 ///|
-fn session_test_source(line_count : Int, indent : String) -> String {
+fn session_test_source(line_count : Int32, indent : String) -> String {
   let out = StringBuilder()
   out.write_string("- item\n")
   out.write_string(indent + "```\n")
@@ -50,8 +50,8 @@ fn session_test_source(line_count : Int, indent : String) -> String {
 }
 
 ///|
-fn session_test_line_starts(source : String) -> Array[Int] {
-  let starts : Array[Int] = [0]
+fn session_test_line_starts(source : String) -> Array[Int32] {
+  let starts : Array[Int32] = [0]
   let mut cursor = 0
   while cursor < source.length() {
     let line_end = find_line_end(source, cursor)
@@ -287,7 +287,7 @@ test "parser sessions keep fenced relex state independent" {
 }
 
 ///|
-fn session_replay_workload(source : String, positions : Array[Int]) -> Int {
+fn session_replay_workload(source : String, positions : Array[Int32]) -> Int32 {
   let session = MarkdownLexSession()
   let mut checksum = 0
   for i = 1; i < positions.length() - 1; i = i + 1 {
@@ -298,7 +298,10 @@ fn session_replay_workload(source : String, positions : Array[Int]) -> Int {
 }
 
 ///|
-fn stateless_replay_workload(source : String, positions : Array[Int]) -> Int {
+fn stateless_replay_workload(
+  source : String,
+  positions : Array[Int32],
+) -> Int32 {
   let mut checksum = 0
   for i = 1; i < positions.length() - 1; i = i + 1 {
     let (step, _) = markdown_lex_step(source, positions[i], CodeBlock(3, '`'))

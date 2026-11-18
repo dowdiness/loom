@@ -1,11 +1,11 @@
 ///|
 fn delimiter_test_run(
   marker : EmphasisDelimiterMarker,
-  start : Int,
-  length : Int,
+  start : Int32,
+  length : Int32,
   before : DelimiterNeighbor,
   after : DelimiterNeighbor,
-  escaped? : Bool = false,
+  escaped~ : Bool = false,
 ) -> DelimiterResolverEvent {
   DelimiterRunEvent(
     delimiter_run_fact(marker, start, length, before, after, escaped~),
@@ -15,8 +15,8 @@ fn delimiter_test_run(
 ///|
 fn delimiter_test_fact(
   marker : EmphasisDelimiterMarker,
-  start : Int,
-  length : Int,
+  start : Int32,
+  length : Int32,
   can_open : Bool,
   can_close : Bool,
 ) -> DelimiterResolverEvent {
@@ -524,7 +524,7 @@ test "delimiter resolver: omitted code-span facts leave outer state intact" {
 
 ///|
 fn delimiter_failed_opener_search_events(
-  run_count : Int,
+  run_count : Int32,
 ) -> Array[DelimiterResolverEvent] {
   let events : Array[DelimiterResolverEvent] = []
   for i = 0; i < run_count; i = i + 1 {
@@ -575,7 +575,7 @@ test "delimiter resolver: failed opener searches stay linear" {
 ///|
 fn benchmark_delimiter_failed_opener_search(
   b : @bench.T,
-  run_count : Int,
+  run_count : Int32,
 ) -> Unit {
   let events = delimiter_failed_opener_search_events(run_count)
   b.bench(fn() { b.keep(resolve_delimiter_events(events)) })

@@ -4,7 +4,7 @@
 // owned by MarkdownLexSession and is measured separately.
 
 ///|
-fn detached_fence_benchmark_source(line_count : Int) -> String {
+fn detached_fence_benchmark_source(line_count : Int32) -> String {
   let buf = StringBuilder::StringBuilder()
   buf.write_string("- item\n  ```\n")
   for i = 0; i < line_count; i = i + 1 {
@@ -15,8 +15,8 @@ fn detached_fence_benchmark_source(line_count : Int) -> String {
 }
 
 ///|
-fn detached_fence_line_starts(source : String) -> Array[Int] {
-  let starts : Array[Int] = [0]
+fn detached_fence_line_starts(source : String) -> Array[Int32] {
+  let starts : Array[Int32] = [0]
   let mut cursor = 0
   while cursor < source.length() {
     let line_end = find_line_end(source, cursor)
@@ -105,8 +105,8 @@ test "session replay clears after closing fence" {
 ///|
 fn detached_fence_scan_workload(
   source : String,
-  line_starts : Array[Int],
-) -> Int {
+  line_starts : Array[Int32],
+) -> Int32 {
   let mut checksum = 0
   for pos in line_starts {
     checksum += source_derived_code_block_indent(source, pos, 3, '`').unwrap_or(
@@ -133,8 +133,8 @@ test "detached fence source scan: 1024 lines" (b : @bench.T) {
 ///|
 fn detached_fence_replay_workload(
   source : String,
-  line_starts : Array[Int],
-) -> Int {
+  line_starts : Array[Int32],
+) -> Int32 {
   let mut mode = LineStart
   let mut checksum = 0
   for pos in line_starts {
@@ -148,8 +148,8 @@ fn detached_fence_replay_workload(
 ///|
 fn detached_middle_replay_workload(
   source : String,
-  line_starts : Array[Int],
-) -> Int {
+  line_starts : Array[Int32],
+) -> Int32 {
   let session = MarkdownLexSession()
   let mut checksum = 0
   for i = 1; i < line_starts.length() - 1; i = i + 1 {
@@ -169,8 +169,8 @@ test "detached fence replay from middle: 1024 lines" (b : @bench.T) {
 ///|
 fn detached_middle_replay_uncached_workload(
   source : String,
-  line_starts : Array[Int],
-) -> Int {
+  line_starts : Array[Int32],
+) -> Int32 {
   let mut checksum = 0
   for i = 1; i < line_starts.length() - 1; i = i + 1 {
     let (step, _) = markdown_lex_step(source, line_starts[i], CodeBlock(3, '`'))

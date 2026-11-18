@@ -41,8 +41,8 @@ fn derive_kind_name(
 fn build_kind_entries(
   enum_decl : EnumDecl,
   registry : RawKindRegistry,
-) -> Array[(String, Int)] {
-  let kinds : Array[(String, Int)] = []
+) -> Array[(String, Int32)] {
+  let kinds : Array[(String, Int32)] = []
   let seen : @hashset.HashSet[String] = @hashset.HashSet([])
   let first_role : Map[String, SyntaxRole] = Map([])
   for variant in enum_decl.variants {
@@ -82,24 +82,24 @@ fn build_kind_entries(
 
 ///|
 fn emit_syntax_kind(
-  token_kinds : Array[(String, Int)],
-  term_kinds : Array[(String, Int)],
+  token_kinds : Array[(String, Int32)],
+  term_kinds : Array[(String, Int32)],
   trivia_set : @hashset.HashSet[String],
   error_set : @hashset.HashSet[String],
   error_node_name : String?,
-  retired_rawns : Array[Int],
+  retired_rawns : Array[Int32],
 ) -> String {
   let all = token_kinds + term_kinds
   let b = StringBuilder()
 
   b.write_string("///|\n")
-  b.write_string("pub(all) enum SyntaxKind {\n")
+  b.write_string("#derive(Debug, Eq)\npub(all) enum SyntaxKind {\n")
   for i = 0; i < all.length(); i = i + 1 {
     let (name, _) = all[i]
     let sep = if i == all.length() - 1 { "" } else { "\n" }
     b.write_string("  " + name + sep)
   }
-  b.write_string("\n} derive(Debug, Eq)\n\n")
+  b.write_string("\n}\n\n")
 
   b.write_string("///|\n")
   b.write_string(
@@ -125,7 +125,7 @@ fn emit_syntax_kind(
   b.write_string(
     "pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {\n",
   )
-  b.write_string("  let n : Int = match self {\n")
+  b.write_string("  let n : Int32 = match self {\n")
   for pair in all {
     let (name, raw) = pair
     b.write_string("    " + name + " => " + raw.to_string() + "\n")

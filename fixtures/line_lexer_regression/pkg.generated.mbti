@@ -7,28 +7,30 @@ import {
 }
 
 // Values
-pub fn lex(String, Int, LexMode) -> (@core.LexStep[Token], LexMode)
+pub fn lex(String, Int32, LexMode) -> (@core.LexStep[Token], LexMode)
 
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum LexMode {
   Inline
   LineStart
-} derive(Eq, @debug.Debug)
+}
 pub fn LexMode::equal(Self, Self) -> Bool
 pub fn LexMode::not_equal(Self, Self) -> Bool
 pub fn LexMode::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Token {
-  HeadingMarker(Int)
+  HeadingMarker(Int32)
   ListMarker
   BlockQuoteMarker
   Text(String)
   BlankLine
   Error(String)
   EOF
-} derive(Eq, @debug.Debug)
+}
 pub fn Token::equal(Self, Self) -> Bool
 pub fn Token::not_equal(Self, Self) -> Bool
 pub fn Token::to_repr(Self) -> @debug.Repr

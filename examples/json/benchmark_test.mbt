@@ -9,7 +9,7 @@
 /// Generate a realistic JSON object with n members.
 /// Each member has a string key and a value that varies by type:
 /// objects, arrays, strings, numbers, booleans, nulls.
-fn make_json_object(n : Int) -> String {
+fn make_json_object(n : Int32) -> String {
   let members : Array[String] = []
   for i = 0; i < n; i = i + 1 {
     let value = match i % 6 {
@@ -33,7 +33,7 @@ fn make_json_object(n : Int) -> String {
 
 ///|
 /// Generate a JSON array of n mixed elements.
-fn make_json_array(n : Int) -> String {
+fn make_json_array(n : Int32) -> String {
   let elements : Array[String] = []
   for i = 0; i < n; i = i + 1 {
     let elem = match i % 4 {
@@ -49,7 +49,11 @@ fn make_json_array(n : Int) -> String {
 
 ///|
 /// Helper: replace one byte at pos.
-fn json_replace_at(source : String, pos : Int, replacement : String) -> String {
+fn json_replace_at(
+  source : String,
+  pos : Int32,
+  replacement : String,
+) -> String {
   source[:pos].to_owned() + replacement + source[pos + 1:].to_owned()
 }
 

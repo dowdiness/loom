@@ -1,15 +1,17 @@
 ///|
+#derive(Eq)
 priv enum GraphProjectionOutcome {
   ParseFailed(Array[String])
   ProjectionFailed(Array[String])
   Projected(RawGraphProjection)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct GraphProjectionAttempt {
   source : String
   outcome : GraphProjectionOutcome
-} derive(Eq)
+}
 
 ///|
 fn compute_graph_attempt(
@@ -28,12 +30,13 @@ fn compute_graph_attempt(
 }
 
 ///|
+#derive(Eq, Debug)
 pub enum GraphAttachmentState {
   Current
   ParserBlocked
   ProjectionBlocked
   GraphBlocked
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for GraphAttachmentState with fn output(self, logger) {
@@ -49,7 +52,7 @@ pub impl Show for GraphAttachmentState with fn output(self, logger) {
 
 ///|
 priv struct GraphListener {
-  id : Int
+  id : Int32
   callback : () -> Unit
 }
 
@@ -65,7 +68,7 @@ pub struct GraphAttachment {
   priv mut current : Result[GraphDoc, String]
   priv mut last_good : GraphDoc?
   priv mut listeners : Array[GraphListener]
-  priv mut next_listener_id : Int
+  priv mut next_listener_id : Int32
 }
 
 ///|
@@ -242,7 +245,7 @@ fn GraphAttachment::notify_listeners(self : GraphAttachment) -> Unit {
 /// disposed.
 pub struct GraphAttachmentSubscription {
   priv attachment : GraphAttachment
-  priv id : Int
+  priv id : Int32
 }
 
 ///|

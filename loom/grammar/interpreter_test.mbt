@@ -2,13 +2,14 @@
 // also consumed by the other grammar package tests.
 
 ///|
+#derive(Eq, @debug.Debug)
 enum TestToken {
   Int
   Word
   Skip
   Expected
   EOF
-} derive(Eq, @debug.Debug)
+}
 
 ///|
 impl Show for TestToken with fn output(self, logger) {
@@ -45,6 +46,7 @@ impl @seam.ToRawKind for TestToken with fn to_raw(self) {
 }
 
 ///|
+#derive(Eq, @debug.Debug)
 enum TestKind {
   Root
   IntToken
@@ -54,7 +56,7 @@ enum TestKind {
   ExpectedKind
   Error
   Incomplete
-} derive(Eq, @debug.Debug)
+}
 
 ///|
 impl @seam.ToRawKind for TestKind with fn to_raw(self) {

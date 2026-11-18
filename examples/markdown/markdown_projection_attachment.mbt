@@ -28,7 +28,7 @@ fn MarkdownProjectionAttachment::MarkdownProjectionAttachment(
 #warnings("-unused_value")
 fn MarkdownProjectionAttachment::block_cache_len(
   self : MarkdownProjectionAttachment,
-) -> Int {
+) -> Int32 {
   self.block_by_cst.cache_len()
 }
 

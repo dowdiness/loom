@@ -4,11 +4,12 @@
 /// Reactive CST/diagnostics consumers should use `moonbit_syntax_grammar` with
 /// `@loom.new_syntax_parser` instead. The full integration should replace this
 /// with a CST-to-official-AST fold once the MoonBit grammar has been ported.
+#derive(Eq, Debug)
 pub(all) struct MoonbitParseShell {
-  item_count : Int
-  token_count : Int
+  item_count : Int32
+  token_count : Int32
   contains_errors : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 fn MoonbitParseShell::empty() -> MoonbitParseShell {

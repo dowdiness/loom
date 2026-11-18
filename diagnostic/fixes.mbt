@@ -1,16 +1,18 @@
 ///|
 /// Confidence attached to one neutral diagnostic fix candidate.
+#derive(Eq, Debug)
 pub(all) enum FixApplicability {
   Always
   MaybeIncorrect
-} derive(Eq, Debug)
+}
 
 ///|
 /// One source-qualified half-open UTF-16 text replacement.
+#derive(Eq, Debug)
 pub struct TextReplacement {
   priv span : SourceSpan
   priv replacement : String
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn TextReplacement::TextReplacement(
@@ -32,23 +34,25 @@ pub fn TextReplacement::replacement(self : TextReplacement) -> String {
 
 ///|
 /// Expected failures while constructing or applying a diagnostic fix.
+#derive(Eq, Debug)
 pub suberror DiagnosticFixError {
   EmptyDiagnosticFix
   MultiSourceDiagnosticFix(SourceId, SourceId)
   OverlappingDiagnosticFixEdits(SourceSpan, SourceSpan)
   DuplicateDiagnosticFixInsertion(SourceSpan, SourceSpan)
   DiagnosticFixSourceMismatch(SourceId, SourceId)
-  DiagnosticFixRangeOutOfBounds(SourceSpan, Int)
+  DiagnosticFixRangeOutOfBounds(SourceSpan, Int32)
   DiagnosticFixInvalidUtf16Boundary(SourceSpan)
-} derive(Eq, Debug)
+}
 
 ///|
 /// One named, single-source diagnostic fix candidate.
+#derive(Eq, Debug)
 pub struct DiagnosticFix {
   priv title : String
   priv applicability : FixApplicability
   priv edits : Array[TextReplacement]
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn DiagnosticFix::DiagnosticFix(
@@ -131,11 +135,9 @@ pub fn DiagnosticFix::apply(
   })
   self.edits.rev_fold(init=source, (current, edit) => {
     let range = edit.span.range
-    current.view(start_offset=0, end_offset=range.start.value).to_owned() +
+    current.legacy_view(start=0, end=range.start.value).to_owned() +
     edit.replacement +
-    current
-    .view(start_offset=range.end.value, end_offset=current.length())
-    .to_owned()
+    current.legacy_view(start=range.end.value).to_owned()
   })
 }
 

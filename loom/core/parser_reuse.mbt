@@ -100,9 +100,9 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] Pars
 /// may carry canonical spans that differ from this tree position.
 fn is_source_backed_zero_width_token_owned_by_reused_boundary(
   token : @seam.CstToken,
-  child_start : Int,
-  child_end : Int,
-  boundary : Int,
+  child_start : Int32,
+  child_end : Int32,
+  boundary : Int32,
 ) -> Bool {
   token.is_source_backed() &&
   token.text_len() == 0 &&
@@ -122,7 +122,7 @@ fn is_source_backed_zero_width_token_owned_by_reused_boundary(
 /// remains proportional to boundary ambiguity, not reused subtree size.
 fn push_reused_boundary_zero_width_tokens_reversed(
   node : @seam.CstNode,
-  boundary : Int,
+  boundary : Int32,
   out : Array[@seam.CstToken],
 ) -> Unit {
   let mut child_end = boundary
@@ -159,8 +159,8 @@ fn push_reused_boundary_zero_width_tokens_reversed(
 ///|
 fn[T : @seam.IsEof, K] ParserContext::has_unmatched_zero_width_boundary_token(
   self : ParserContext[T, K],
-  position : Int,
-  boundary : Int,
+  position : Int32,
+  boundary : Int32,
 ) -> Bool {
   position < self.token_count &&
   (self.get_start)(position) == boundary &&
@@ -172,8 +172,8 @@ fn[T : @seam.IsEof, K] ParserContext::has_unmatched_zero_width_boundary_token(
 fn[T : @seam.IsEof + @seam.ToRawKind, K] ParserContext::reused_boundary_zero_width_tokens_match(
   self : ParserContext[T, K],
   node : @seam.CstNode,
-  old_node_end : Int,
-  new_node_end : Int,
+  old_node_end : Int32,
+  new_node_end : Int32,
   old_boundary_tokens : Array[OldToken],
 ) -> Bool {
   let owned_boundary_tokens : Array[@seam.CstToken] = []
@@ -219,7 +219,7 @@ fn[T : @seam.IsEof + @seam.ToRawKind, K] ParserContext::reused_boundary_zero_wid
 fn[T : @seam.ToRawKind, K] ParserContext::advance_past_reused(
   self : ParserContext[T, K],
   node : @seam.CstNode,
-  old_node_end : Int,
+  old_node_end : Int32,
 ) -> Unit {
   if self.position >= self.token_count {
     return
@@ -257,10 +257,10 @@ fn[T : @seam.ToRawKind, K] ParserContext::advance_past_reused(
 /// Returns the number of spans added into `out`.
 fn[T, K : @seam.ToRawKind] collect_reused_error_spans(
   node : @seam.CstNode,
-  node_start : Int,
+  node_start : Int32,
   spec : LanguageSpec[T, K],
   out : Array[ReusedErrorSpan],
-) -> Int {
+) -> Int32 {
   let error_raw = spec.error_kind.to_raw()
   let incomplete_raw = spec.incomplete_kind.to_raw()
   let mut offset = node_start
@@ -317,8 +317,8 @@ fn[T, K] ParserContext::push_diagnostic_unique(
 /// diagnostic belongs to that sibling, not this node.
 fn[T, K] ParserContext::replay_reused_diagnostics(
   self : ParserContext[T, K],
-  node_start : Int,
-  node_end : Int,
+  node_start : Int32,
+  node_end : Int32,
   owns_right_boundary_zero_width_error : Bool,
   allow_eof_boundary : Bool,
 ) -> Bool {

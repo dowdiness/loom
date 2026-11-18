@@ -6,6 +6,7 @@ import {
 
 import {
   "moonbitlang/core/quickcheck" @coreqc,
+  "moonbitlang/core/quickcheck/shrink",
   "moonbitlang/core/quickcheck/splitmix",
   "moonbitlang/quickcheck" @qc,
   "moonbitlang/core/debug",

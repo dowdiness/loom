@@ -4,12 +4,13 @@
 /// Official `@tokens.Token` values carry payloads that are not currently `Eq`,
 /// so this skeleton stores the stable official `TokenKind` only. Payload-aware
 /// parsing can be added later without changing the lexer adapter boundary.
+#derive(Eq, Debug)
 pub(all) enum MoonToken {
   Official(kind~ : @tokens.TokenKind)
   Whitespace
   Error(String)
   EOF
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for MoonToken with fn output(self, logger) {
@@ -89,7 +90,7 @@ fn MoonToken::is_let_item_keyword(self : MoonToken) -> Bool {
 ///|
 fn MoonToken::is_function_item_keyword(self : MoonToken) -> Bool {
   match self {
-    Official(kind=TK_FN | TK_FNALIAS) => true
+    Official(kind=TK_FN) => true
     _ => false
   }
 }
@@ -113,7 +114,7 @@ fn MoonToken::is_enum_item_keyword(self : MoonToken) -> Bool {
 ///|
 fn MoonToken::is_type_item_keyword(self : MoonToken) -> Bool {
   match self {
-    Official(kind=TK_TYPE | TK_TYPEALIAS) => true
+    Official(kind=TK_TYPE) => true
     _ => false
   }
 }
@@ -187,10 +188,10 @@ fn MoonToken::source_item_node_kind(self : MoonToken) -> MoonbitSyntaxKind? {
     Official(kind~) =>
       match kind {
         TK_LET | TK_LETREC | TK_CONST => Some(LetItemNode)
-        TK_FN | TK_FNALIAS => Some(FunctionItemNode)
+        TK_FN => Some(FunctionItemNode)
         TK_STRUCT => Some(StructItemNode)
         TK_ENUM | TK_EXTENUM | TK_ENUMVIEW => Some(EnumItemNode)
-        TK_TYPE | TK_TYPEALIAS => Some(TypeItemNode)
+        TK_TYPE => Some(TypeItemNode)
         _ => None
       }
     _ => None
@@ -281,7 +282,7 @@ fn MoonToken::closes_balanced_group(self : MoonToken) -> Bool {
 }
 
 ///|
-fn MoonToken::next_group_depth(self : MoonToken, depth : Int) -> Int {
+fn MoonToken::next_group_depth(self : MoonToken, depth : Int32) -> Int32 {
   if self.opens_balanced_group() {
     depth + 1
   } else if self.closes_balanced_group() && depth > 0 {

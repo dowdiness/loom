@@ -4,65 +4,70 @@
 /// Offsets are half-open UTF-16 code-unit source ranges, matching
 /// `@seam.SyntaxNode::start` / `end`. Origins point back to the original
 /// source; MarkdownIR does not copy CST tokens or trivia.
+#derive(Eq, Debug)
 pub struct MarkdownIROrigin {
-  priv start : Int
-  priv end : Int
-} derive(Eq, Debug)
+  priv start : Int32
+  priv end : Int32
+}
 
 ///|
 fn MarkdownIROrigin::MarkdownIROrigin(
-  start~ : Int,
-  end~ : Int,
+  start~ : Int32,
+  end~ : Int32,
 ) -> MarkdownIROrigin {
   guard start >= 0 && start <= end else { abort("invalid MarkdownIR origin") }
   { start, end, }
 }
 
 ///|
-pub fn MarkdownIROrigin::start(self : MarkdownIROrigin) -> Int {
+pub fn MarkdownIROrigin::start(self : MarkdownIROrigin) -> Int32 {
   self.start
 }
 
 ///|
-pub fn MarkdownIROrigin::end(self : MarkdownIROrigin) -> Int {
+pub fn MarkdownIROrigin::end(self : MarkdownIROrigin) -> Int32 {
   self.end
 }
 
 ///|
 /// Experimental semantic form retained by a Markdown link or image.
+#derive(Eq, Debug)
 pub(all) enum MarkdownIRLinkReferenceForm {
   InlineLinkForm
   FullReferenceLinkForm
   CollapsedReferenceLinkForm
   ShortcutReferenceLinkForm
-} derive(Eq, Debug)
+}
 
 ///|
 /// Experimental source-aware surface metadata for a Markdown link or image.
 ///
 /// These origins identify semantic source regions. Exact punctuation and
 /// trivia remain the responsibility of the CST and source text.
+#derive(Eq, Debug)
 pub(all) struct MarkdownIRLinkSurface {
   form : MarkdownIRLinkReferenceForm
   label_origin : MarkdownIROrigin?
   reference_label_origin : MarkdownIROrigin?
   destination_origin : MarkdownIROrigin?
   title_origin : MarkdownIROrigin?
-} derive(Eq, Debug)
+}
 
 ///|
 /// Experimental semantic kind of an autolink.
+#derive(Eq, Debug)
 pub(all) enum MarkdownIRAutolinkKind {
   UriAutolink
   EmailAutolink
-} derive(Eq, Debug)
+}
 
 ///|
 /// Experimental semantic state and source marker for a GFM task list item.
+#derive(Eq, Debug)
 pub struct MarkdownIRTask {
   priv checked : Bool
   priv marker_origin : MarkdownIROrigin
-} derive(Eq, Debug)
+}
 
 ///|
 fn MarkdownIRTask::MarkdownIRTask(
@@ -84,10 +89,11 @@ pub fn MarkdownIRTask::marker_origin(self : MarkdownIRTask) -> MarkdownIROrigin 
 
 ///|
 /// Experimental source form retained for a hard line break.
+#derive(Eq, Debug)
 pub(all) enum MarkdownIRHardBreakSurface {
-  TrailingSpaces(Int)
+  TrailingSpaces(Int32)
   Backslash
-} derive(Eq, Debug)
+}
 
 ///|
 /// Experimental exhaustive read view of one MarkdownIR node.
@@ -95,9 +101,10 @@ pub(all) enum MarkdownIRHardBreakSurface {
 /// Child nodes, whole-node origins, content origins, and diagnostics remain
 /// available through their common `MarkdownIR` accessors instead of being
 /// repeated in every variant.
+#derive(Eq, Debug)
 pub(all) enum MarkdownIRView {
   Document
-  Heading(depth~ : Int)
+  Heading(depth~ : Int32)
   Paragraph
   BlockQuote
   UnorderedList(spread~ : Bool, marker~ : UnorderedListMarker?)
@@ -105,12 +112,12 @@ pub(all) enum MarkdownIRView {
   ListItem(
     spread~ : Bool,
     marker~ : UnorderedListMarker?,
-    task~ : MarkdownIRTask?
+    task~ : MarkdownIRTask?,
   )
   OrderedListItem(
     spread~ : Bool,
     marker~ : OrderedListMarker?,
-    task~ : MarkdownIRTask?
+    task~ : MarkdownIRTask?,
   )
   CodeBlock(info~ : String, value~ : String)
   HtmlBlock(value~ : String)
@@ -122,19 +129,19 @@ pub(all) enum MarkdownIRView {
   Link(
     destination~ : String,
     title~ : String?,
-    surface~ : MarkdownIRLinkSurface
+    surface~ : MarkdownIRLinkSurface,
   )
   Image(
     destination~ : String,
     title~ : String?,
-    surface~ : MarkdownIRLinkSurface
+    surface~ : MarkdownIRLinkSurface,
   )
   Autolink(
     kind~ : MarkdownIRAutolinkKind,
     display~ : String,
     destination~ : String,
     label_origin~ : MarkdownIROrigin?,
-    destination_origin~ : MarkdownIROrigin?
+    destination_origin~ : MarkdownIROrigin?,
   )
   InlineHtml(value~ : String)
   SoftBreak
@@ -142,7 +149,7 @@ pub(all) enum MarkdownIRView {
   Unsupported(message~ : String)
   Raw(value~ : String)
   Recovered(value~ : String)
-} derive(Eq, Debug)
+}
 
 ///|
 fn MarkdownIROrigin::contains(
@@ -156,26 +163,30 @@ fn MarkdownIROrigin::contains(
 const RECOVERED_PARSE_ERROR = "parse error"
 
 ///|
+#derive(Eq, Debug)
 priv enum HardBreakSurface {
-  TrailingSpaces(Int)
+  TrailingSpaces(Int32)
   Backslash
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv enum AutolinkKind {
   UriAutolinkKind
   EmailAutolinkKind
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv enum LinkReferenceForm {
   InlineLinkForm
   FullReferenceLinkForm
   CollapsedReferenceLinkForm
   ShortcutReferenceLinkForm
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv struct LinkSurface {
   form : LinkReferenceForm
   label_origin : MarkdownIROrigin?
@@ -183,7 +194,7 @@ priv struct LinkSurface {
   destination_origin : MarkdownIROrigin?
   title_origin : MarkdownIROrigin?
   target_origin : MarkdownIROrigin?
-} derive(Eq, Debug)
+}
 
 ///|
 fn hard_break_surface_text(surface : HardBreakSurface) -> String {
@@ -194,9 +205,10 @@ fn hard_break_surface_text(surface : HardBreakSurface) -> String {
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum MarkdownIRNode {
   Document(Array[MarkdownIR])
-  Heading(Int, Array[MarkdownIR], MarkdownIROrigin?)
+  Heading(Int32, Array[MarkdownIR], MarkdownIROrigin?)
   Paragraph(Array[MarkdownIR], MarkdownIROrigin?)
   BlockQuote(Array[MarkdownIR])
   UnorderedList(Array[MarkdownIR], Bool, UnorderedListMarker?)
@@ -206,14 +218,14 @@ priv enum MarkdownIRNode {
     Bool,
     MarkdownIROrigin?,
     UnorderedListMarker?,
-    MarkdownIRTask?
+    MarkdownIRTask?,
   )
   OrderedListItem(
     Array[MarkdownIR],
     Bool,
     MarkdownIROrigin?,
     OrderedListMarker?,
-    MarkdownIRTask?
+    MarkdownIRTask?,
   )
   CodeBlock(String, String, MarkdownIROrigin?)
   HtmlBlock(String, MarkdownIROrigin?)
@@ -232,7 +244,7 @@ priv enum MarkdownIRNode {
   Unsupported(String)
   Raw(String, Array[@core.Diagnostic])
   Recovered(String, Array[@core.Diagnostic])
-} derive(Eq, Debug)
+}
 
 ///|
 /// Experimental Markdown semantic IR for the M1 heading/paragraph slice.
@@ -240,10 +252,11 @@ priv enum MarkdownIRNode {
 /// Public construction is intentionally withheld while the IR contract is
 /// experimental. Build values through `experimental_markdown_ir_from_syntax`,
 /// then consume them through the experimental adapters in this package.
+#derive(Eq, Debug)
 pub struct MarkdownIR {
   priv node : MarkdownIRNode
   priv origin : MarkdownIROrigin
-} derive(Eq, Debug)
+}
 
 ///|
 fn MarkdownIR::document(
@@ -255,7 +268,7 @@ fn MarkdownIR::document(
 
 ///|
 fn MarkdownIR::heading(
-  depth : Int,
+  depth : Int32,
   children : Array[MarkdownIR],
   origin : MarkdownIROrigin,
   content_origin : MarkdownIROrigin?,
@@ -728,7 +741,7 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
 }
 
 ///|
-pub fn MarkdownIR::heading_depth(self : MarkdownIR) -> Int? {
+pub fn MarkdownIR::heading_depth(self : MarkdownIR) -> Int32? {
   match self.node {
     Heading(depth, _, _) => Some(depth)
     _ => None
@@ -954,12 +967,12 @@ fn delimiter_text(kind : SyntaxKind) -> String? {
 }
 
 ///|
-fn zero_width_origin_at(offset : Int) -> MarkdownIROrigin {
+fn zero_width_origin_at(offset : Int32) -> MarkdownIROrigin {
   MarkdownIROrigin(start=offset, end=offset)
 }
 
 ///|
-fn source_slice_between(source : String, start : Int, end : Int) -> String {
+fn source_slice_between(source : String, start : Int32, end : Int32) -> String {
   guard start >= 0 && start <= end && end <= source.length() else {
     abort("invalid MarkdownIR origin bounds")
   }

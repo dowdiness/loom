@@ -1,7 +1,8 @@
 ///|
+#derive(Eq, Debug)
 pub enum GraphAst {
   Parsed
-} derive(Eq, Debug)
+}
 
 ///|
 fn graph_fold_node(

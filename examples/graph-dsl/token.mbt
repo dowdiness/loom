@@ -1,4 +1,5 @@
 ///|
+#derive(Eq, Debug)
 pub enum Token {
   Identifier
   Number
@@ -13,7 +14,7 @@ pub enum Token {
   Whitespace
   Error(String)
   EOF
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for Token with fn output(self, logger) {
@@ -48,7 +49,7 @@ pub impl @seam.IsEof for Token with fn is_eof(self) {
 
 ///|
 pub impl @seam.ToRawKind for Token with fn to_raw(self) {
-  let n : Int = match self {
+  let n : Int32 = match self {
     Identifier => 0
     Number => 1
     StringLit => 2

@@ -15,6 +15,7 @@ import {
   "dowdiness/loom/pipeline",
   "dowdiness/seam",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -36,9 +37,9 @@ pub fn lambda_grammar_ir(fragments? : Map[String, @grammar.Expr[@token.Token, @s
 
 pub let lambda_grammar_no_threshold : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Term]
 
-pub fn make_lambda_spec((@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : @syntax.SyntaxKind) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]
+pub fn make_lambda_spec((@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit, reuse_size_threshold? : Int32, incomplete_kind? : @syntax.SyntaxKind) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]
 
-pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[@token.Token]], String, old_token_cache? : @core.OldTokenCache, allow_left_adjacent_reuse? : Bool, new_damage_end? : Int) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
+pub fn make_reuse_cursor(@seam.CstNode, Int32, Int32, Array[@core.TokenInfo[@token.Token]], String, old_token_cache? : @core.OldTokenCache, allow_left_adjacent_reuse? : Bool, new_damage_end? : Int32) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
 
 pub fn make_reuse_cursor_with_edit(@seam.CstNode, @core.Edit, Array[@core.TokenInfo[@token.Token]], String, old_token_cache? : @core.OldTokenCache, allow_left_adjacent_reuse? : Bool) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
 
@@ -50,7 +51,7 @@ pub fn parse_block_expr(@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -
 
 pub fn parse_cst(@diagnostic.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise
 
-pub fn parse_cst_recover_with_tokens(@diagnostic.SourceId, String, Array[@core.TokenInfo[@token.Token]], @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int) raise Failure
+pub fn parse_cst_recover_with_tokens(@diagnostic.SourceId, String, Array[@core.TokenInfo[@token.Token]], @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int32) raise Failure
 
 pub fn parse_term(@diagnostic.SourceId, String) -> (@ast.Term, @core.DiagnosticSet) raise
 
@@ -76,9 +77,9 @@ pub fn AppExprView::args(Self) -> Array[@seam.SyntaxNode]
 pub fn AppExprView::cast(@seam.SyntaxNode) -> Self?
 pub fn AppExprView::func(Self) -> @seam.SyntaxNode?
 pub fn AppExprView::syntax_node(Self) -> @seam.SyntaxNode
-pub fn AppExprView::to_json(Self) -> Json
+pub fn AppExprView::to_json(Self) -> @json.Json
 pub impl @seam.AstView for AppExprView
-pub impl ToJson for AppExprView
+pub impl @json.ToJson for AppExprView
 
 pub struct BinaryExprView {
   node : @seam.SyntaxNode
@@ -90,9 +91,9 @@ pub fn BinaryExprView::operands(Self) -> Array[@seam.SyntaxNode]
 pub fn BinaryExprView::ops(Self) -> Array[@ast.Bop]
 pub fn BinaryExprView::rhs(Self) -> @seam.SyntaxNode?
 pub fn BinaryExprView::syntax_node(Self) -> @seam.SyntaxNode
-pub fn BinaryExprView::to_json(Self) -> Json
+pub fn BinaryExprView::to_json(Self) -> @json.Json
 pub impl @seam.AstView for BinaryExprView
-pub impl ToJson for BinaryExprView
+pub impl @json.ToJson for BinaryExprView
 
 pub struct BlockExprView {
   node : @seam.SyntaxNode
@@ -101,18 +102,18 @@ pub fn BlockExprView::body(Self) -> @seam.SyntaxNode?
 pub fn BlockExprView::cast(@seam.SyntaxNode) -> Self?
 pub fn BlockExprView::defs(Self) -> Array[LetDefView]
 pub fn BlockExprView::syntax_node(Self) -> @seam.SyntaxNode
-pub fn BlockExprView::to_json(Self) -> Json
+pub fn BlockExprView::to_json(Self) -> @json.Json
 pub impl @seam.AstView for BlockExprView
-pub impl ToJson for BlockExprView
+pub impl @json.ToJson for BlockExprView
 
 pub struct HoleLiteralView {
   node : @seam.SyntaxNode
 }
 pub fn HoleLiteralView::cast(@seam.SyntaxNode) -> Self?
 pub fn HoleLiteralView::syntax_node(Self) -> @seam.SyntaxNode
-pub fn HoleLiteralView::to_json(Self) -> Json
+pub fn HoleLiteralView::to_json(Self) -> @json.Json
 pub impl @seam.AstView for HoleLiteralView
-pub impl ToJson for HoleLiteralView
+pub impl @json.ToJson for HoleLiteralView
 
 pub struct IfExprView {
   node : @seam.SyntaxNode
@@ -122,19 +123,19 @@ pub fn IfExprView::condition(Self) -> @seam.SyntaxNode?
 pub fn IfExprView::else_branch(Self) -> @seam.SyntaxNode?
 pub fn IfExprView::syntax_node(Self) -> @seam.SyntaxNode
 pub fn IfExprView::then_branch(Self) -> @seam.SyntaxNode?
-pub fn IfExprView::to_json(Self) -> Json
+pub fn IfExprView::to_json(Self) -> @json.Json
 pub impl @seam.AstView for IfExprView
-pub impl ToJson for IfExprView
+pub impl @json.ToJson for IfExprView
 
 pub struct IntLiteralView {
   node : @seam.SyntaxNode
 }
 pub fn IntLiteralView::cast(@seam.SyntaxNode) -> Self?
 pub fn IntLiteralView::syntax_node(Self) -> @seam.SyntaxNode
-pub fn IntLiteralView::to_json(Self) -> Json
-pub fn IntLiteralView::value(Self) -> Int?
+pub fn IntLiteralView::to_json(Self) -> @json.Json
+pub fn IntLiteralView::value(Self) -> Int32?
 pub impl @seam.AstView for IntLiteralView
-pub impl ToJson for IntLiteralView
+pub impl @json.ToJson for IntLiteralView
 
 pub(all) struct LambdaAnalysis {
   parser : @pipeline.Parser[@ast.Term]
@@ -149,10 +150,11 @@ pub fn LambdaAnalysis::dispose(Self) -> Unit
 pub fn LambdaAnalysis::set_source(Self, String) -> Unit raise Failure
 pub fn LambdaAnalysis::typecheck_result(Self) -> @typecheck.ModuleTypeResult
 
+#derive(Eq, @debug.Debug)
 pub(all) enum LambdaDiagnostic {
   ParseDiagnostic(@diagnostic.Diagnostic)
   TypecheckDiagnostic(@typecheck.TypeDiagnostic)
-} derive(Eq, @debug.Debug)
+}
 pub fn LambdaDiagnostic::equal(Self, Self) -> Bool
 pub fn LambdaDiagnostic::from_parse(@diagnostic.Diagnostic) -> Self
 pub fn LambdaDiagnostic::from_typecheck(@typecheck.TypeDiagnostic) -> Self
@@ -161,10 +163,11 @@ pub fn LambdaDiagnostic::not_equal(Self, Self) -> Bool
 pub fn LambdaDiagnostic::phase(Self) -> LambdaDiagnosticPhase
 pub fn LambdaDiagnostic::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum LambdaDiagnosticPhase {
   ParsePhase
   TypecheckPhase
-} derive(Eq, @debug.Debug)
+}
 pub fn LambdaDiagnosticPhase::equal(Self, Self) -> Bool
 pub fn LambdaDiagnosticPhase::not_equal(Self, Self) -> Bool
 pub fn LambdaDiagnosticPhase::to_repr(Self) -> @debug.Repr
@@ -177,9 +180,9 @@ pub fn LambdaExprView::cast(@seam.SyntaxNode) -> Self?
 pub fn LambdaExprView::param(Self) -> String
 pub fn LambdaExprView::params(Self) -> Array[String]
 pub fn LambdaExprView::syntax_node(Self) -> @seam.SyntaxNode
-pub fn LambdaExprView::to_json(Self) -> Json
+pub fn LambdaExprView::to_json(Self) -> @json.Json
 pub impl @seam.AstView for LambdaExprView
-pub impl ToJson for LambdaExprView
+pub impl @json.ToJson for LambdaExprView
 
 pub struct LetDefView {
   node : @seam.SyntaxNode
@@ -189,9 +192,9 @@ pub fn LetDefView::init(Self) -> @seam.SyntaxNode?
 pub fn LetDefView::name(Self) -> String
 pub fn LetDefView::params(Self) -> Array[String]
 pub fn LetDefView::syntax_node(Self) -> @seam.SyntaxNode
-pub fn LetDefView::to_json(Self) -> Json
+pub fn LetDefView::to_json(Self) -> @json.Json
 pub impl @seam.AstView for LetDefView
-pub impl ToJson for LetDefView
+pub impl @json.ToJson for LetDefView
 
 pub struct ParenExprView {
   node : @seam.SyntaxNode
@@ -199,13 +202,14 @@ pub struct ParenExprView {
 pub fn ParenExprView::cast(@seam.SyntaxNode) -> Self?
 pub fn ParenExprView::inner(Self) -> @seam.SyntaxNode?
 pub fn ParenExprView::syntax_node(Self) -> @seam.SyntaxNode
-pub fn ParenExprView::to_json(Self) -> Json
+pub fn ParenExprView::to_json(Self) -> @json.Json
 pub impl @seam.AstView for ParenExprView
-pub impl ToJson for ParenExprView
+pub impl @json.ToJson for ParenExprView
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Resolution {
-  vars : Map[Int, VarStatus]
-} derive(Eq, @debug.Debug)
+  vars : Map[Int32, VarStatus]
+}
 pub fn Resolution::equal(Self, Self) -> Bool
 pub fn Resolution::not_equal(Self, Self) -> Bool
 pub fn Resolution::to_repr(Self) -> @debug.Repr
@@ -233,14 +237,15 @@ pub struct VarRefView {
 pub fn VarRefView::cast(@seam.SyntaxNode) -> Self?
 pub fn VarRefView::name(Self) -> String
 pub fn VarRefView::syntax_node(Self) -> @seam.SyntaxNode
-pub fn VarRefView::to_json(Self) -> Json
+pub fn VarRefView::to_json(Self) -> @json.Json
 pub impl @seam.AstView for VarRefView
-pub impl ToJson for VarRefView
+pub impl @json.ToJson for VarRefView
 
+#derive(Eq, @debug.Debug)
 pub(all) enum VarStatus {
-  Bound(depth~ : Int)
+  Bound(depth~ : Int32)
   Free
-} derive(Eq, @debug.Debug)
+}
 pub fn VarStatus::equal(Self, Self) -> Bool
 pub fn VarStatus::not_equal(Self, Self) -> Bool
 pub fn VarStatus::output(Self, &Logger) -> Unit

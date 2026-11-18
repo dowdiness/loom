@@ -3,8 +3,8 @@
 /// from annotation metadata.
 pub fn make_multiTrivia_spec(
   parse_root : (@core.ParserContext[@token.MultiTriviaToken, @syntax.MultiTriviaSyntaxKind]) -> Unit,
-  reuse_size_threshold? : Int = 64,
-  incomplete_kind? : @syntax.MultiTriviaSyntaxKind = @syntax.ErrorToken,
+  reuse_size_threshold~ : Int32 = 64,
+  incomplete_kind~ : @syntax.MultiTriviaSyntaxKind = @syntax.ErrorToken,
 ) -> @core.LanguageSpec[@token.MultiTriviaToken, @syntax.MultiTriviaSyntaxKind] {
   @core.LanguageSpec::new(
     @syntax.WhitespaceToken,

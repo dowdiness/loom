@@ -38,7 +38,7 @@ fn gen_number(rs : @splitmix.RandomState) -> Double {
 }
 
 ///|
-fn gen_json(rs : @splitmix.RandomState, depth : Int) -> @json.JsonValue {
+fn gen_json(rs : @splitmix.RandomState, depth : Int32) -> @json.JsonValue {
   if depth <= 0 {
     match rs.split().next_uint64().to_int().abs() % 5 {
       0 => Null
@@ -82,7 +82,7 @@ fn gen_json(rs : @splitmix.RandomState, depth : Int) -> @json.JsonValue {
 // space. Use a fixed seed so failures reproduce.
 
 ///|
-const PROPERTY_TRIALS : Int = 200
+const PROPERTY_TRIALS : Int32 = 200
 
 ///|
 test "property: Canonical preserves kind" {

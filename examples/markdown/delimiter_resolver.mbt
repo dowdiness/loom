@@ -8,25 +8,27 @@
 // staged shell-facing declarations suppress only their local unused warnings.
 
 ///|
+#derive(Eq, Debug)
 #warnings("-unused_constructor")
 priv enum EmphasisDelimiterMarker {
   AsteriskDelimiter
   UnderscoreDelimiter
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq)
 #warnings("-unused_constructor")
 priv enum DelimiterNeighbor {
   DelimiterWhitespace
   DelimiterPunctuationOrSymbol
   DelimiterOther
-} derive(Eq)
+}
 
 ///|
 priv struct DelimiterRunFact {
   marker : EmphasisDelimiterMarker
-  start : Int
-  length : Int
+  start : Int32
+  length : Int32
   can_open : Bool
   can_close : Bool
 }
@@ -45,22 +47,25 @@ priv enum DelimiterResolverEvent {
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum ResolvedEmphasisKind {
   ResolvedEmphasis
   ResolvedStrong
-} derive(Eq, Debug)
+}
 
 ///|
 // Half-open UTF-16 source offsets, matching Loom's CST range convention.
-priv struct DelimiterSourceRange(Int, Int) derive(Eq, Debug)
+#derive(Eq, Debug)
+priv struct DelimiterSourceRange(Int32, Int32)
 
 ///|
+#derive(Eq, Debug)
 #warnings("-unused_value")
 priv enum DelimiterPlanEvent {
   OpenEmphasisDelimiter(ResolvedEmphasisKind, DelimiterSourceRange)
   CloseEmphasisDelimiter(ResolvedEmphasisKind, DelimiterSourceRange)
   LiteralEmphasisDelimiter(EmphasisDelimiterMarker, DelimiterSourceRange)
-} derive(Eq, Debug)
+}
 
 ///|
 #warnings("-unused_field")
@@ -75,18 +80,18 @@ priv struct DelimiterResolutionPlan {
 ///|
 #warnings("-unused_field")
 priv struct DelimiterResolutionStats {
-  run_count : Int
-  opener_checks : Int
+  run_count : Int32
+  opener_checks : Int32
 }
 
 ///|
 priv struct WorkingDelimiterRun {
   fact : DelimiterRunFact
-  mut remaining : Int
-  mut opener_used : Int
-  mut closer_used : Int
-  mut previous : Int
-  mut next : Int
+  mut remaining : Int32
+  mut opener_used : Int32
+  mut closer_used : Int32
+  mut previous : Int32
+  mut next : Int32
   mut active : Bool
   opener_events : Array[DelimiterPlanEvent]
   closer_events : Array[DelimiterPlanEvent]
@@ -95,8 +100,8 @@ priv struct WorkingDelimiterRun {
 ///|
 priv struct DelimiterResolverState {
   runs : Array[WorkingDelimiterRun]
-  mut top : Int
-  mut opener_checks : Int
+  mut top : Int32
+  mut opener_checks : Int32
 }
 
 ///|
@@ -106,8 +111,8 @@ priv struct DelimiterResolverState {
 // separate delimiter-run fact so it remains eligible for emphasis.
 fn delimiter_run_fact(
   marker : EmphasisDelimiterMarker,
-  start : Int,
-  length : Int,
+  start : Int32,
+  length : Int32,
   before : DelimiterNeighbor,
   after : DelimiterNeighbor,
   escaped~ : Bool,
@@ -210,7 +215,7 @@ fn DelimiterResolverState::push_run(
 ///|
 fn DelimiterResolverState::remove_run(
   self : DelimiterResolverState,
-  index : Int,
+  index : Int32,
 ) -> Unit {
   guard self.runs[index].active else { return }
   let previous = self.runs[index].previous
@@ -229,8 +234,8 @@ fn DelimiterResolverState::remove_run(
 ///|
 fn DelimiterResolverState::remove_between(
   self : DelimiterResolverState,
-  opener : Int,
-  closer : Int,
+  opener : Int32,
+  closer : Int32,
 ) -> Unit {
   let mut current = self.runs[opener].next
   while current != closer {
@@ -241,7 +246,7 @@ fn DelimiterResolverState::remove_between(
 }
 
 ///|
-fn delimiter_openers_bottom_index(fact : DelimiterRunFact) -> Int {
+fn delimiter_openers_bottom_index(fact : DelimiterRunFact) -> Int32 {
   let marker_offset = match fact.marker {
     AsteriskDelimiter => 0
     UnderscoreDelimiter => 6
@@ -252,8 +257,8 @@ fn delimiter_openers_bottom_index(fact : DelimiterRunFact) -> Int {
 ///|
 fn DelimiterResolverState::first_above(
   self : DelimiterResolverState,
-  bottom : Int,
-) -> Int {
+  bottom : Int32,
+) -> Int32 {
   if bottom >= 0 {
     self.runs[bottom].next
   } else {
@@ -268,8 +273,8 @@ fn DelimiterResolverState::first_above(
 ///|
 fn DelimiterResolverState::record_match(
   self : DelimiterResolverState,
-  opener : Int,
-  closer : Int,
+  opener : Int32,
+  closer : Int32,
 ) -> Unit {
   let width = if self.runs[opener].remaining >= 2 &&
     self.runs[closer].remaining >= 2 {
@@ -300,7 +305,7 @@ fn DelimiterResolverState::record_match(
 ///|
 fn DelimiterResolverState::process_above(
   self : DelimiterResolverState,
-  bottom : Int,
+  bottom : Int32,
 ) -> Unit {
   let openers_bottom = Array::make(12, bottom)
   let mut closer = self.first_above(bottom)
@@ -359,7 +364,7 @@ fn resolve_delimiter_events(
   events : Array[DelimiterResolverEvent],
 ) -> DelimiterResolutionPlan {
   let state : DelimiterResolverState = { runs: [], top: -1, opener_checks: 0, }
-  let scope_bottoms : Array[Int] = []
+  let scope_bottoms : Array[Int32] = []
   let mut previous_event_end = 0
   for event in events {
     match event {

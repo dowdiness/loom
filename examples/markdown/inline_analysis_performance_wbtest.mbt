@@ -8,13 +8,13 @@
 fn inline_analysis_fixture_token(
   source : String,
   kind : InlineAnalysisTokenKind,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> InlineAnalysisToken {
   let text : StringView = if kind == AnalysisLineBoundary {
     "\n"
   } else {
-    source.view(start_offset=start, end_offset=end)
+    source.legacy_view(start~, end~)
   }
   {
     kind,
@@ -118,24 +118,24 @@ fn perf_inline_push_token(
   tokens : Array[InlineAnalysisToken],
   kind : InlineAnalysisTokenKind,
   text : String,
-  start : Int,
-) -> Int {
+  start : Int32,
+) -> Int32 {
   let end = start + text.length()
   tokens.push({
     kind,
     text,
     start,
     end,
-    first: first_char_in_inline_text(text.view()),
-    last: last_char_in_inline_text(text.view()),
-    ends_with_odd_backslashes: text_ends_with_odd_backslashes(text.view()),
+    first: first_char_in_inline_text(text[:]),
+    last: last_char_in_inline_text(text[:]),
+    ends_with_odd_backslashes: text_ends_with_odd_backslashes(text[:]),
   })
   end
 }
 
 ///|
 fn perf_inline_analysis_tokens(
-  repeat_count : Int,
+  repeat_count : Int32,
 ) -> Array[InlineAnalysisToken] {
   guard repeat_count > 0 else {
     abort("inline-analysis performance repeat count must be positive")
@@ -173,20 +173,20 @@ fn perf_inline_analysis_tokens(
 }
 
 ///|
-fn bench_perf_inline_code_index(b : @bench.T, repeat_count : Int) -> Unit {
+fn bench_perf_inline_code_index(b : @bench.T, repeat_count : Int32) -> Unit {
   let tokens = perf_inline_analysis_tokens(repeat_count)
   b.bench(fn() { b.keep(build_code_span_delimiter_index(tokens)) })
 }
 
 ///|
-fn bench_perf_inline_link_index(b : @bench.T, repeat_count : Int) -> Unit {
+fn bench_perf_inline_link_index(b : @bench.T, repeat_count : Int32) -> Unit {
   let tokens = perf_inline_analysis_tokens(repeat_count)
   let code = build_code_span_delimiter_index(tokens)
   b.bench(fn() { b.keep(index_inline_links(tokens, code)) })
 }
 
 ///|
-fn bench_perf_inline_delimiter_plan(b : @bench.T, repeat_count : Int) -> Unit {
+fn bench_perf_inline_delimiter_plan(b : @bench.T, repeat_count : Int32) -> Unit {
   let tokens = perf_inline_analysis_tokens(repeat_count)
   let code = build_code_span_delimiter_index(tokens)
   let links = index_inline_links(tokens, code)
@@ -196,7 +196,7 @@ fn bench_perf_inline_delimiter_plan(b : @bench.T, repeat_count : Int) -> Unit {
 ///|
 fn bench_perf_inline_analysis_pipeline(
   b : @bench.T,
-  repeat_count : Int,
+  repeat_count : Int32,
 ) -> Unit {
   let tokens = perf_inline_analysis_tokens(repeat_count)
   b.bench(fn() {

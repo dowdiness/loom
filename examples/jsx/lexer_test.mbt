@@ -2,7 +2,7 @@
 fn text_at(
   input : String,
   result : @core.LexResult[@token.Token],
-  i : Int,
+  i : Int32,
 ) -> String {
   let start = result.starts()[i]
   let len = result.tokens()[i].len

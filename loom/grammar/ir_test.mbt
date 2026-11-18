@@ -1,6 +1,6 @@
 ///|
 test "GrammarIr stores open string rule namespace" {
-  let rules : Map[@grammar.RuleName, @grammar.Expr[Int, Int]] = {
+  let rules : Map[@grammar.RuleName, @grammar.Expr[Int32, Int32]] = {
     "source": @grammar.Expr::Ref("expr"),
     "expr": @grammar.Expr::Empty,
   }
@@ -14,7 +14,7 @@ test "GrammarIr stores open string rule namespace" {
 
 ///|
 test "IR has no closure predicate escape hatch" {
-  let alt : @grammar.Alt[Int, Int] = @grammar.Alt::{
+  let alt : @grammar.Alt[Int32, Int32] = @grammar.Alt::{
     starts: @grammar.Pred::IsToken(1),
     body: @grammar.Expr::Empty,
   }
@@ -26,13 +26,13 @@ test "IR has no closure predicate escape hatch" {
 
 ///|
 test "Native holds only a RuleName and stays structural data" {
-  let a : @grammar.Expr[Int, Int] = @grammar.Expr::Native(
+  let a : @grammar.Expr[Int32, Int32] = @grammar.Expr::Native(
     "parse_element_with_stack",
   )
-  let b : @grammar.Expr[Int, Int] = @grammar.Expr::Native(
+  let b : @grammar.Expr[Int32, Int32] = @grammar.Expr::Native(
     "parse_element_with_stack",
   )
-  let c : @grammar.Expr[Int, Int] = @grammar.Expr::Native("other")
+  let c : @grammar.Expr[Int32, Int32] = @grammar.Expr::Native("other")
   inspect(a == b, content="true")
   inspect(a == c, content="false")
   match a {

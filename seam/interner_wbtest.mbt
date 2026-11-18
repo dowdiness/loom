@@ -59,7 +59,7 @@ test "Interner: source-backed view is copied into canonical token" {
   let source = "alpha beta"
   let token = interner.intern_token(
     RawKind(7),
-    source.view(start_offset=6, end_offset=10),
+    source.legacy_view(start=6, end=10),
   )
   inspect(token.text(), content="beta")
   inspect(

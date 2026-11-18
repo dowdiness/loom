@@ -1,14 +1,14 @@
 // Recursive descent parser for JSON with error recovery.
 
 ///|
-const MAX_ERRORS : Int = 50
+const MAX_ERRORS : Int32 = 50
 
 ///|
 // Defensive implementation limit, not a JSON grammar rule. JSONTestSuite
 // includes adversarial invalid inputs with tens of thousands of unmatched
 // opening containers; reject them with diagnostics instead of overflowing the
 // recursive-descent call stack.
-const MAX_NESTING_DEPTH : Int = 512
+const MAX_NESTING_DEPTH : Int32 = 512
 
 // ─── Grammar helpers ──────────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ const MAX_NESTING_DEPTH : Int = 512
 /// Adapt value parsing to `separated_list`'s Boolean element contract.
 fn parse_value_list_element(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  depth~ : Int,
+  depth~ : Int32,
 ) -> Bool {
   match ctx.peek() {
     token if is_sync_point(token) => false
@@ -31,7 +31,7 @@ fn parse_value_list_element(
 /// Adapt member parsing to `separated_list`'s Boolean element contract.
 fn parse_member_list_element(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  value_depth~ : Int,
+  value_depth~ : Int32,
 ) -> Bool {
   match ctx.peek() {
     token if is_sync_point(token) => false
@@ -65,7 +65,7 @@ fn json_expect(
 ///|
 fn parse_value(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  depth~ : Int,
+  depth~ : Int32,
 ) -> Unit {
   if depth > MAX_NESTING_DEPTH {
     ctx.error("Maximum JSON nesting depth exceeded")
@@ -108,7 +108,7 @@ fn parse_value(
 /// Parse object: `{ member (, member)* }`
 fn parse_object_at_depth(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  depth~ : Int,
+  depth~ : Int32,
 ) -> Unit {
   ctx.node(ObjectNode, () => {
     ctx.emit_token(LBraceToken) // {
@@ -129,7 +129,7 @@ fn parse_object_at_depth(
 /// Parse array: `[ value (, value)* ]`
 fn parse_array_at_depth(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  depth~ : Int,
+  depth~ : Int32,
 ) -> Unit {
   ctx.node(ArrayNode, () => {
     ctx.emit_token(LBracketToken) // [
@@ -168,7 +168,7 @@ pub fn parse_array(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 /// Parse member: `string : value`
 fn parse_member(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  value_depth~ : Int,
+  value_depth~ : Int32,
 ) -> Unit {
   ctx.node(MemberNode, () => {
     match ctx.peek() {
@@ -216,8 +216,8 @@ pub fn parse_cst_recover_with_tokens(
   source : String,
   tokens : Array[@core.TokenInfo[Token]],
   cursor : @core.ReuseCursor[Token, SyntaxKind]?,
-  prev_diagnostics? : @core.DiagnosticSet? = None,
-) -> (@seam.CstNode, @core.DiagnosticSet, Int) raise Failure {
+  prev_diagnostics~ : @core.DiagnosticSet? = None,
+) -> (@seam.CstNode, @core.DiagnosticSet, Int32) raise Failure {
   let starts = @core.build_starts(tokens)
   @core.parse_tokens_indexed(
     source_id,
@@ -240,13 +240,13 @@ pub fn parse_cst_recover_with_tokens(
 /// cursor construction still follows the edit-based path.
 pub fn make_reuse_cursor(
   old_tree : @seam.CstNode,
-  damage_start : Int,
-  damage_end : Int,
+  damage_start : Int32,
+  damage_end : Int32,
   tokens : Array[@core.TokenInfo[Token]],
   source : String,
-  old_token_cache? : @core.OldTokenCache = @core.OldTokenCache::empty(),
-  allow_left_adjacent_reuse? : Bool = false,
-  new_damage_end? : Int = damage_end,
+  old_token_cache~ : @core.OldTokenCache = @core.OldTokenCache::empty(),
+  allow_left_adjacent_reuse~ : Bool = false,
+  new_damage_end~ : Int32 = damage_end,
 ) -> @core.ReuseCursor[Token, SyntaxKind] {
   let edit = @core.Edit::new(
     damage_start,
@@ -272,8 +272,8 @@ pub fn make_reuse_cursor_with_edit(
   edit : @core.Edit,
   tokens : Array[@core.TokenInfo[Token]],
   source : String,
-  old_token_cache? : @core.OldTokenCache = @core.OldTokenCache::empty(),
-  allow_left_adjacent_reuse? : Bool = false,
+  old_token_cache~ : @core.OldTokenCache = @core.OldTokenCache::empty(),
+  allow_left_adjacent_reuse~ : Bool = false,
 ) -> @core.ReuseCursor[Token, SyntaxKind] {
   let starts = @core.build_starts(tokens)
   @core.ReuseCursor::new_with_edit(
@@ -282,9 +282,7 @@ pub fn make_reuse_cursor_with_edit(
     tokens.length(),
     i => tokens[i].token,
     i => starts[i],
-    i => {
-      source.view(start_offset=starts[i], end_offset=starts[i] + tokens[i].len)
-    },
+    i => source.legacy_view(start=starts[i], end=starts[i] + tokens[i].len),
     json_spec,
     old_token_cache~,
     allow_left_adjacent_reuse~,

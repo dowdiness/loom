@@ -1,30 +1,30 @@
 ///|
 priv struct DecodedEntityReference {
   replacement : String
-  end : Int
+  end : Int32
 }
 
 ///|
-fn is_ascii_digit_code_unit(code_unit : Int) -> Bool {
+fn is_ascii_digit_code_unit(code_unit : Int32) -> Bool {
   code_unit >= 0x30 && code_unit <= 0x39
 }
 
 ///|
-fn is_ascii_hex_digit_code_unit(code_unit : Int) -> Bool {
+fn is_ascii_hex_digit_code_unit(code_unit : Int32) -> Bool {
   is_ascii_digit_code_unit(code_unit) ||
   (code_unit >= 0x41 && code_unit <= 0x46) ||
   (code_unit >= 0x61 && code_unit <= 0x66)
 }
 
 ///|
-fn is_ascii_alphanumeric_code_unit(code_unit : Int) -> Bool {
+fn is_ascii_alphanumeric_code_unit(code_unit : Int32) -> Bool {
   is_ascii_digit_code_unit(code_unit) ||
   (code_unit >= 0x41 && code_unit <= 0x5A) ||
   (code_unit >= 0x61 && code_unit <= 0x7A)
 }
 
 ///|
-fn is_ascii_punctuation_code_unit(code_unit : Int) -> Bool {
+fn is_ascii_punctuation_code_unit(code_unit : Int32) -> Bool {
   (code_unit >= 0x21 && code_unit <= 0x2F) ||
   (code_unit >= 0x3A && code_unit <= 0x40) ||
   (code_unit >= 0x5B && code_unit <= 0x60) ||
@@ -32,7 +32,7 @@ fn is_ascii_punctuation_code_unit(code_unit : Int) -> Bool {
 }
 
 ///|
-fn numeric_digit_value(code_unit : Int) -> Int {
+fn numeric_digit_value(code_unit : Int32) -> Int32 {
   if code_unit >= 0x30 && code_unit <= 0x39 {
     code_unit - 0x30
   } else if code_unit >= 0x41 && code_unit <= 0x46 {
@@ -43,7 +43,7 @@ fn numeric_digit_value(code_unit : Int) -> Int {
 }
 
 ///|
-fn commonmark_numeric_reference_replacement(codepoint : Int) -> String {
+fn commonmark_numeric_reference_replacement(codepoint : Int32) -> String {
   if codepoint == 0 ||
     codepoint > 0x10FFFF ||
     (codepoint >= 0xD800 && codepoint <= 0xDFFF) {
@@ -56,7 +56,7 @@ fn commonmark_numeric_reference_replacement(codepoint : Int) -> String {
 ///|
 fn decode_commonmark_numeric_reference(
   text : String,
-  start : Int,
+  start : Int32,
 ) -> DecodedEntityReference? {
   guard start + 2 < text.length() &&
     text.code_unit_at(start).to_int() == 0x26 &&
@@ -100,7 +100,7 @@ fn decode_commonmark_numeric_reference(
 ///|
 fn decode_commonmark_named_reference(
   text : String,
-  start : Int,
+  start : Int32,
 ) -> DecodedEntityReference? {
   guard start + 1 < text.length() && text.code_unit_at(start).to_int() == 0x26 else {
     return None
@@ -127,7 +127,7 @@ fn decode_commonmark_named_reference(
 ///|
 fn decode_commonmark_reference(
   text : String,
-  start : Int,
+  start : Int32,
 ) -> DecodedEntityReference? {
   match decode_commonmark_numeric_reference(text, start) {
     Some(reference) => Some(reference)
@@ -139,8 +139,8 @@ fn decode_commonmark_reference(
 fn write_inline_source_slice(
   buf : StringBuilder,
   text : String,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Unit {
   if start < end {
     buf.write_string(text[start:end].to_owned())

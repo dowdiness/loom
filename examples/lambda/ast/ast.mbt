@@ -4,10 +4,11 @@
 pub type VarName = String
 
 ///|
+#derive(Eq, FromJson, ToJson, Debug)
 pub(all) enum Bop {
   Plus
   Minus
-} derive(Eq, FromJson, ToJson, Debug)
+}
 
 ///|
 pub impl Show for Bop with fn output(self, logger) {
@@ -15,9 +16,10 @@ pub impl Show for Bop with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, ToJson, Debug)
 pub(all) enum Term {
   // Integer
-  Int(Int)
+  Int(Int32)
   // Variable
   Var(VarName)
   // Lambda abstraction
@@ -39,8 +41,8 @@ pub(all) enum Term {
   // Error term for malformed/missing nodes
   Error(String)
   // Hole — placeholder for deleted or incomplete nodes
-  Hole(Int)
-} derive(Eq, ToJson, Debug)
+  Hole(Int32)
+}
 
 ///|
 pub impl Show for Term with fn output(self, logger) {

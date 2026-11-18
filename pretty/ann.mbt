@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum SyntaxCategory {
   Keyword
   Identifier
@@ -10,7 +11,7 @@ pub(all) enum SyntaxCategory {
   Error
   EvalAnnotation
   EvalError
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for SyntaxCategory with fn output(self, logger) {
@@ -18,10 +19,11 @@ pub impl Show for SyntaxCategory with fn output(self, logger) {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Span {
-  start : Int
-  end : Int
-} derive(Debug, Eq)
+  start : Int32
+  end : Int32
+}
 
 ///|
 pub impl Show for Span with fn output(self, logger) {

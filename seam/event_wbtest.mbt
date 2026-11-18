@@ -31,7 +31,7 @@ test "build_tree: single token produces root node" {
 test "build_tree: token keeps source span" {
   let source = "let x"
   let events = [
-    ParseEvent::Token(RawKind(9), source.view(start_offset=4, end_offset=5)),
+    ParseEvent::Token(RawKind(9), source.legacy_view(start=4, end=5)),
   ]
   let root = build_test_tree(events, RawKind(22))
   match root.children[0] {
@@ -93,9 +93,7 @@ test "build_tree: identical leaves have distinct structural positions" {
   let events : Array[ParseEvent] = []
   for i in 0..<2 {
     events.push(StartNode(RawKind(1)))
-    events.push(
-      Token(RawKind(9), source.view(start_offset=i, end_offset=i + 1)),
-    )
+    events.push(Token(RawKind(9), source.legacy_view(start=i, end=i + 1)))
     events.push(FinishNode)
   }
   let syntax = SyntaxNode::from_cst(build_test_tree(events, RawKind(0)))
@@ -177,7 +175,7 @@ test "build_tree: public ReuseNode copies token backing source" {
   let old_source = "secret keep"
   let token = CstToken::CstToken(
     RawKind(9),
-    old_source.view(start_offset=7, end_offset=11),
+    old_source.legacy_view(start=7, end=11),
   )
   let reused = CstNode::new_unclassified(RawKind(1), [CstElement::Token(token)])
   let root = build_test_tree([ParseEvent::ReuseNode(reused)], RawKind(0))
@@ -201,7 +199,7 @@ test "EventBuffer: push_parser_reuse_node_rebased rebases token spans" {
   let old_source = "secret keep"
   let token = CstToken::CstToken(
     RawKind(9),
-    old_source.view(start_offset=7, end_offset=11),
+    old_source.legacy_view(start=7, end=11),
   )
   let reused = CstNode::new_unclassified(RawKind(1), [CstElement::Token(token)])
   let current_source = ">>> keep <<<"
@@ -231,7 +229,7 @@ test "EventBuffer: push_parser_reuse_node_rebased_unchecked rebases without dire
   let old_source = "secret keep"
   let token = CstToken::CstToken(
     RawKind(9),
-    old_source.view(start_offset=7, end_offset=11),
+    old_source.legacy_view(start=7, end=11),
   )
   let reused = CstNode::new_unclassified(RawKind(1), [CstElement::Token(token)])
   let current_source = ">>> keep <<<"
@@ -263,7 +261,7 @@ test "EventBuffer: push_parser_reuse_node_rebased falls back when source mismatc
   let old_source = "secret keep"
   let token = CstToken::CstToken(
     RawKind(9),
-    old_source.view(start_offset=7, end_offset=11),
+    old_source.legacy_view(start=7, end=11),
   )
   let reused = CstNode::new_unclassified(RawKind(1), [CstElement::Token(token)])
   let current_source = ">>> nope <<<"
@@ -648,7 +646,7 @@ test "build_tree canonicalizes reused RepeatGroup fragments before balancing" {
     events.push(Token(RawKind(200), "\n"))
   }
 
-  fn push_child_run(events : Array[ParseEvent], count : Int) -> Unit {
+  fn push_child_run(events : Array[ParseEvent], count : Int32) -> Unit {
     for i in 0..<count {
       push_child(events)
       if i < count - 1 {
@@ -657,7 +655,7 @@ test "build_tree canonicalizes reused RepeatGroup fragments before balancing" {
     }
   }
 
-  fn flat_parent_tree(count : Int) -> CstNode raise {
+  fn flat_parent_tree(count : Int32) -> CstNode raise {
     let events : Array[ParseEvent] = []
     events.push(StartNode(RawKind(1)))
     push_child_run(events, count)
@@ -675,7 +673,7 @@ test "build_tree canonicalizes reused RepeatGroup fragments before balancing" {
     CstElement::Token(CstToken::CstToken(RawKind(200), "\n"))
   }
 
-  fn repeat_group_run(start : Int, end : Int) -> CstNode raise Failure {
+  fn repeat_group_run(start : Int32, end : Int32) -> CstNode raise Failure {
     if start >= end {
       abort("repeat_group_run requires a non-empty range")
     }

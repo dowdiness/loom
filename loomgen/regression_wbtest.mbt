@@ -340,7 +340,7 @@ test "integrate_line_lexer_skeleton migrates only exact stubs and is idempotent"
   // `String::replace` is first-occurrence-only and each unique mode's stub
   // appears once, so migration applies the delegate exactly once per mode.
   inspect(
-    migrated.split("generated_lex_line_start(source, pos)").length() - 1,
+    migrated.split("generated_lex_line_start(source, pos)").count() - 1,
     content="1",
   )
   // A second pass must be a no-op (deterministic, idempotent).

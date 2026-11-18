@@ -1,13 +1,14 @@
 ///|
+#derive(Eq, Debug)
 #loom.token
 pub(all) enum Token {
   #loom.literal
   #loom.pattern("(#{1,6}) ")
   #loom.payload("$1.length()")
-  HeadingMarker(Int)
+  HeadingMarker(Int32)
   #loom.eof
   EOF
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Token with @moonbitlang/core/debug.Debug::{to_repr}

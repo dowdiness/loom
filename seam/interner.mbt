@@ -18,7 +18,7 @@
 /// Tuple struct: single-field wrapper is automatically unboxed at runtime —
 /// Interner IS the HashMap, no wrapper allocation or indirection.
 pub struct Interner(
-  @hashmap.HashMap[RawKind, @hashmap.HashMap[StringView, CstToken]]
+  @hashmap.HashMap[RawKind, @hashmap.HashMap[StringView, CstToken]],
 )
 
 ///|
@@ -62,7 +62,7 @@ pub fn Interner::intern_token(
 
 ///|
 /// Number of distinct (kind, text) pairs currently interned.
-pub fn Interner::size(self : Interner) -> Int {
+pub fn Interner::size(self : Interner) -> Int32 {
   let mut total = 0
   self.0.each(fn(_kind, inner) { total = total + inner.length() })
   total

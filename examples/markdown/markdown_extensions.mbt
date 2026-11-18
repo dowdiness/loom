@@ -3,9 +3,10 @@
 ///
 /// Parsing remains lossless for extension-shaped syntax. These options decide
 /// whether that syntax is promoted beyond CommonMark literal semantics.
+#derive(Eq, @debug.Debug)
 pub struct MarkdownExtensions {
   priv task_list : Bool
-} derive(Eq, @debug.Debug)
+}
 
 ///|
 /// CommonMark semantics without extensions.

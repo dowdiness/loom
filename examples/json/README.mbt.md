@@ -149,6 +149,7 @@ fail-fast lexing. Parsing and tokenization entry points take an explicit
 
 ```mbt nocheck
 ///|
+#derive(Eq, ToJson, Debug)
 pub(all) enum JsonValue {
   Null
   Bool(Bool)
@@ -157,7 +158,7 @@ pub(all) enum JsonValue {
   Array(Array[JsonValue])
   Object(Array[(String, JsonValue)])
   Error(String)
-} derive(Eq, ToJson, Debug)
+}
 ```
 
 Also implements `Show`, `@pretty.Pretty`, `@pretty.Printable`,
@@ -208,7 +209,7 @@ test "quick start: parser-backed JSON role spans" {
   inspect(roles.spans().length() > 0, content="true")
   let exported = roles.export_spans()
   inspect(exported[0].role(), content="punctuation")
-  inspect(exported.to_json().stringify().contains("\"role\""), content="true")
+  inspect(Json(exported).stringify().contains("\"role\""), content="true")
   inspect(parser.diagnostics().read_or_abort().is_empty(), content="true")
   roles.dispose()
 }

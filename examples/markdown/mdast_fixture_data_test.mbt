@@ -5,7 +5,7 @@
 // Baseline: pass=18, xfail=0, skip=0.
 
 ///|
-fn mdast_fixture_expected_status_counts() -> (Int, Int, Int) {
+fn mdast_fixture_expected_status_counts() -> (Int32, Int32, Int32) {
   (18, 0, 0)
 }
 

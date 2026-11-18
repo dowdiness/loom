@@ -6,7 +6,7 @@
 
 ///|
 /// Generate one deterministic, realistic settings document.
-fn make_settings_source(value_offset : Int) -> String {
+fn make_settings_source(value_offset : Int32) -> String {
   let members : Array[String] = []
   for i = 0; i < 50; i = i + 1 {
     members.push("\"setting_\{i}\":\{100 + value_offset + i}")
@@ -16,7 +16,7 @@ fn make_settings_source(value_offset : Int) -> String {
 
 ///|
 /// Locate a setting value without duplicating parser or projection behavior.
-fn setting_value_start(source : String, index : Int) -> (Int, Int) {
+fn setting_value_start(source : String, index : Int32) -> (Int32, Int32) {
   let old = (100 + index).to_string()
   let marker = "\"setting_\{index}\":\{old}"
   let marker_start = match source.find(marker) {
@@ -30,7 +30,7 @@ fn setting_value_start(source : String, index : Int) -> (Int, Int) {
 /// Replace one numeric setting value and return its exact edit.
 fn setting_edit(
   source : String,
-  index : Int,
+  index : Int32,
   replacement : String,
 ) -> (@core.Edit, String) {
   let (start, old_length) = setting_value_start(source, index)

@@ -5,7 +5,7 @@
 pub fn name_range_of(
   def : @callers.Def,
   _syntax : @seam.SyntaxNode,
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   (def.name_start, def.name_end)
 }
 
@@ -16,7 +16,7 @@ pub fn name_range_of(
 fn call_name_range_of(
   call : @callers.Call,
   syntax : @seam.SyntaxNode,
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   match find_call_ident_in(syntax, call) {
     Some(range) => range
     None =>
@@ -30,7 +30,7 @@ fn call_name_range_of(
 fn find_call_ident_in(
   node : @seam.SyntaxNode,
   call : @callers.Call,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   if node.end() <= call.start || node.start() >= call.end {
     return None
   }
@@ -59,7 +59,7 @@ fn find_call_ident_in(
 pub fn locate_target(
   defs : Array[@callers.Def],
   syntax : @seam.SyntaxNode,
-  offset : Int,
+  offset : Int32,
 ) -> @callers.Def? {
   for d in defs {
     let (name_start, name_end) = name_range_of(d, syntax)

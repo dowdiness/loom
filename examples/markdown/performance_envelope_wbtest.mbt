@@ -1,7 +1,7 @@
 // Deterministic work counters for the localized-edit performance envelope.
 
 ///|
-fn perf_work_paragraph_doc(count : Int) -> String {
+fn perf_work_paragraph_doc(count : Int32) -> String {
   let out = StringBuilder()
   out.write_string("# Document Title\n\n")
   for i = 0; i < count; i = i + 1 {
@@ -14,7 +14,11 @@ fn perf_work_paragraph_doc(count : Int) -> String {
 }
 
 ///|
-fn perf_work_find_from(source : String, target : String, start : Int) -> Int {
+fn perf_work_find_from(
+  source : String,
+  target : String,
+  start : Int32,
+) -> Int32 {
   for i = start; i < source.length() - target.length() + 1; i = i + 1 {
     if source[i:i + target.length()].to_owned() == target {
       return i
@@ -61,7 +65,7 @@ test "perf envelope: isolated full-parse stages preserve the production result" 
 }
 
 ///|
-fn perf_local_edit_work(count : Int) -> (Int, Int, Int, Int) {
+fn perf_local_edit_work(count : Int32) -> (Int32, Int32, Int32, Int32) {
   let source = perf_work_paragraph_doc(count)
   let (edited, edit) = perf_work_middle_edit(source)
   let parser = @loom.new_imperative_parser(

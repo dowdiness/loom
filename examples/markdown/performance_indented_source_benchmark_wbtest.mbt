@@ -3,7 +3,7 @@
 // return to per-block document reconstruction is visible at 2k and 10k lines.
 
 ///|
-fn perf_indented_source_doc(block_count : Int) -> String {
+fn perf_indented_source_doc(block_count : Int32) -> String {
   let out = StringBuilder::StringBuilder()
   for i = 0; i < block_count; i = i + 1 {
     out.write_string("    code_line_\{i}\n\n")
@@ -27,7 +27,7 @@ fn perf_indented_source_syntax(source : String) -> @seam.SyntaxNode {
 }
 
 ///|
-fn bench_indented_compatibility_fold(b : @bench.T, block_count : Int) -> Unit {
+fn bench_indented_compatibility_fold(b : @bench.T, block_count : Int32) -> Unit {
   let source = perf_indented_source_doc(block_count)
   let syntax = perf_indented_source_syntax(source)
   b.bench(fn() {
@@ -37,14 +37,14 @@ fn bench_indented_compatibility_fold(b : @bench.T, block_count : Int) -> Unit {
 }
 
 ///|
-fn bench_indented_source_aware_fold(b : @bench.T, block_count : Int) -> Unit {
+fn bench_indented_source_aware_fold(b : @bench.T, block_count : Int32) -> Unit {
   let source = perf_indented_source_doc(block_count)
   let syntax = perf_indented_source_syntax(source)
   b.bench(fn() { b.keep(fold_markdown_syntax_with_source(syntax, source)) })
 }
 
 ///|
-fn perf_source_aware_block_doc(block_count : Int) -> String {
+fn perf_source_aware_block_doc(block_count : Int32) -> String {
   let out = StringBuilder::StringBuilder()
   for i = 0; i < block_count; i = i + 1 {
     out.write_string(
@@ -74,7 +74,7 @@ fn perf_source_aware_block_ir(source : String) -> MarkdownIR {
 }
 
 ///|
-fn bench_source_aware_ir_block(b : @bench.T, block_count : Int) -> Unit {
+fn bench_source_aware_ir_block(b : @bench.T, block_count : Int32) -> Unit {
   let source = perf_source_aware_block_doc(block_count)
   let ir = perf_source_aware_block_ir(source)
   b.bench(fn() { b.keep(markdown_ir_to_block_with_source(ir, Some(source))) })

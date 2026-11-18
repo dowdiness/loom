@@ -39,7 +39,7 @@ fn assert_link_delimiter_boundary_has_no_raw_or_recovered(
 
 ///|
 fn assert_link_delimiter_boundary_official_case(
-  example : Int,
+  example : Int32,
   source : String,
   expected_html : String,
 ) -> Unit raise {
@@ -55,7 +55,7 @@ fn assert_link_delimiter_boundary_official_case(
 test "link delimiter boundaries: Issue 827 official CommonMark cases" {
   // This is the bounded Issue #827 slice. The full-corpus audit remains the
   // exhaustive CommonMark fixture suite.
-  let cases : Array[(Int, String, String)] = [
+  let cases : Array[(Int32, String, String)] = [
     (490, "[link](foo\nbar)\n", "<p>[link](foo\nbar)</p>\n"),
     (491, "[link](<foo\nbar>)\n", "<p>[link](<foo\nbar>)</p>\n"),
     (492, "[a](<b)c>)\n", "<p><a href=\"b)c\">a</a></p>\n"),

@@ -1,10 +1,10 @@
 ///|
-fn trim_inline_text_end_before_newline(children : Array[MarkdownIR]) -> Int {
+fn trim_inline_text_end_before_newline(children : Array[MarkdownIR]) -> Int32 {
   match children.last() {
     Some({ node: Text(value), origin, }) => {
       let hard_break_spaces = value.length() -
-        value.trim_end(chars=" ".view()).length()
-      let trimmed = value.trim_end(chars=" \t".view())
+        value.trim_end(chars=" "[:]).length()
+      let trimmed = value.trim_end(chars=" \t"[:])
       let removed = value.length() - trimmed.length()
       if removed > 0 {
         children[children.length() - 1] = MarkdownIR::text(
@@ -79,7 +79,7 @@ fn flush_pending_inline_newline(
 fn trim_inline_text_start_after_newline(child : MarkdownIR) -> MarkdownIR {
   match child.node {
     Text(value) => {
-      let trimmed = value.trim_start(chars=" \t".view())
+      let trimmed = value.trim_start(chars=" \t"[:])
       let removed = value.length() - trimmed.length()
       if removed > 0 {
         let origin = child.origin()
@@ -253,9 +253,9 @@ fn lower_inline_text_token(token : @seam.SyntaxToken) -> MarkdownIR {
 /// controls the semantic MarkdownIR projection.
 priv enum EscapedInlineRecoveryState {
   NoEscapedInlineRecovery
-  EscapedBracketRecovery(Int)
-  AfterEscapedBracketRecovery(Int)
-  EscapedParenthesisRecovery(Int)
+  EscapedBracketRecovery(Int32)
+  AfterEscapedBracketRecovery(Int32)
+  EscapedParenthesisRecovery(Int32)
 }
 
 ///|
@@ -595,8 +595,8 @@ fn span_token_origins(origins : Array[MarkdownIROrigin]) -> MarkdownIROrigin? {
 ///|
 fn contiguous_label_origin(
   children : Array[MarkdownIR],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> MarkdownIROrigin? {
   let mut cursor = start
   for child in children {
@@ -799,15 +799,15 @@ fn lower_link_node_atoms_with_diags(
   let display : Array[MarkdownIR] = []
   let destination_buf = StringBuilder::StringBuilder()
   let destination_origins : Array[MarkdownIROrigin] = []
-  let mut label_start : Int? = None
-  let mut label_end : Int? = None
+  let mut label_start : Int32? = None
+  let mut label_end : Int32? = None
   let mut url_depth = 0
   let mut past_bracket = false
-  let mut target_start : Int? = None
-  let mut target_end : Int? = None
+  let mut target_start : Int32? = None
+  let mut target_end : Int32? = None
   let mut in_angle_destination = false
-  let mut reference_label_start : Int? = None
-  let mut reference_label_end : Int? = None
+  let mut reference_label_start : Int32? = None
+  let mut reference_label_end : Int32? = None
   let mut preceding_text_ends_escaped = false
   let mut previous_was_escaped_backtick = false
   let mut previous_was_literal_emphasis_marker = false
@@ -1076,7 +1076,7 @@ fn lower_link_node_atoms_with_diags(
 ///|
 fn emphasis_content_origin_from_boundaries(
   node : @seam.SyntaxNode,
-  boundary_width : Int,
+  boundary_width : Int32,
 ) -> MarkdownIROrigin? {
   let boundaries : Array[MarkdownIROrigin] = []
   for element in node.direct_elements_iter() {
@@ -1190,7 +1190,7 @@ fn trim_setext_heading_children(
         let mut origin = child.origin()
         // Trim leading whitespace on first child
         if i == 0 {
-          let trimmed_view = value.trim_start(chars=" \t".view())
+          let trimmed_view = value.trim_start(chars=" \t"[:])
           let removed = value.length() - trimmed_view.length()
           if removed > 0 {
             trimmed = trimmed_view.to_owned()
@@ -1202,7 +1202,7 @@ fn trim_setext_heading_children(
         }
         // Trim trailing whitespace on last child
         if i == len - 1 {
-          let trimmed_view = trimmed.trim_end(chars=" \t".view())
+          let trimmed_view = trimmed.trim_end(chars=" \t"[:])
           let removed = trimmed.length() - trimmed_view.length()
           if removed > 0 {
             trimmed = trimmed_view.to_owned()
@@ -1224,7 +1224,7 @@ fn trim_setext_heading_children(
 }
 
 ///|
-fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
+fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int32? {
   match node.direct_token_of_kind(AtxHeadingMarkerToken.to_raw()) {
     Some(marker) => {
       let marker_start = skip_leading_spaces(marker.text(), 0)
@@ -1238,7 +1238,7 @@ fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
     }
     None =>
       match node.direct_token_of_kind(SetextHeadingUnderlineToken.to_raw()) {
-        Some(underline) => parse_setext_underline_depth(underline.text().view())
+        Some(underline) => parse_setext_underline_depth(underline.text()[:])
         None => None
       }
   }
@@ -1270,7 +1270,7 @@ fn lower_paragraph_with_newline_and_diags(
   node : @seam.SyntaxNode,
   newline_text : String,
   context : MarkdownIRLoweringContext,
-  trim_start? : Bool = false,
+  trim_start~ : Bool = false,
 ) -> MarkdownIR {
   let children = normalize_paragraph_boundary_spaces(
     collect_inline_children(
@@ -1296,7 +1296,7 @@ fn lower_container_child_with_diags(
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
   paragraph_newline_text : String,
   context : MarkdownIRLoweringContext,
-  trim_paragraph_start? : Bool = false,
+  trim_paragraph_start~ : Bool = false,
 ) -> MarkdownIR? {
   let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
   match child_kind {
@@ -1382,7 +1382,7 @@ fn task_from_list_item_node(
   }
   match marker {
     Some(marker) =>
-      match marker.text().trim_start(chars=" ".view()) {
+      match marker.text().trim_start(chars=" "[:]) {
         ['[', 'x' | 'X', ']'] =>
           Some(
             MarkdownIRTask(checked=true, marker_origin=origin_from_node(marker)),
@@ -1425,7 +1425,7 @@ fn trim_container_inline_start(
 ) -> Array[MarkdownIR] {
   match children {
     [{ node: Text(value), origin, }, ..] => {
-      let trimmed_value = value.trim_start(chars=" \t".view())
+      let trimmed_value = value.trim_start(chars=" \t"[:])
       let removed = value.length() - trimmed_value.length()
       if removed == 0 {
         children
@@ -1584,7 +1584,7 @@ fn code_block_info(node : @seam.SyntaxNode) -> String {
       if i < text.length() {
         commonmark_info_string_language(
           decode_markdown_info_string_entities(text[i:].to_owned()).trim(
-            chars=" \t".view(),
+            chars=" \t"[:],
           ),
         )
       } else {
@@ -1596,7 +1596,7 @@ fn code_block_info(node : @seam.SyntaxNode) -> String {
 }
 
 ///|
-fn count_leading_fence_characters(text : String) -> Int {
+fn count_leading_fence_characters(text : String) -> Int32 {
   match text.get_char(0) {
     None => 0
     Some(fence_character) => {
@@ -1613,7 +1613,7 @@ fn count_leading_fence_characters(text : String) -> Int {
 }
 
 ///|
-fn trim_commonmark_leading_indent_spaces(value : String) -> (String, Int) {
+fn trim_commonmark_leading_indent_spaces(value : String) -> (String, Int32) {
   // CommonMark permits up to three literal spaces of block indentation before
   // paragraph/setext heading content. Tabs and four-space indented-code
   // semantics are parser concerns and intentionally stay outside this Slice A
@@ -1634,7 +1634,7 @@ fn trim_commonmark_leading_indent_spaces(value : String) -> (String, Int) {
 }
 
 ///|
-fn trim_commonmark_trailing_spaces(value : String) -> (String, Int) {
+fn trim_commonmark_trailing_spaces(value : String) -> (String, Int32) {
   // Setext heading content excludes trailing literal spaces before the newline.
   // Keep this ASCII-space-only so tab handling remains with the later full
   // indentation semantics slice.
@@ -1709,9 +1709,9 @@ fn normalize_paragraph_boundary_spaces(
 fn trim_trailing_atx_closing_hashes(
   value : String,
   source_text : String,
-  source_offset : Int,
-  origin_end : Int,
-) -> (String, Int) {
+  source_offset : Int32,
+  origin_end : Int32,
+) -> (String, Int32) {
   let hash_count = for pos = value.length() - 1, count = 0 {
     guard pos >= 0 else { break count }
     match value.get_char(pos) {
@@ -1762,7 +1762,7 @@ fn normalize_heading_leading_whitespace(
   }
   match children {
     [{ node: Text(value), origin, }, ..] => {
-      let trimmed_view = value.trim_start(chars=" \t".view())
+      let trimmed_view = value.trim_start(chars=" \t"[:])
       let cut = value.length() - trimmed_view.length()
       if cut == 0 {
         children
@@ -1787,9 +1787,9 @@ fn normalize_heading_leading_whitespace(
 fn normalize_heading_whitespace(
   children : Array[MarkdownIR],
   source_text : String,
-  source_offset : Int,
+  source_offset : Int32,
   trim_all_leading~ : Bool,
-  skip_closing_hashes? : Bool = false,
+  skip_closing_hashes~ : Bool = false,
 ) -> Array[MarkdownIR] {
   let leading_normalized = normalize_heading_leading_whitespace(
     children,
@@ -1829,7 +1829,7 @@ fn normalize_heading_whitespace(
 
 ///|
 /// The offset is a structural prefix token, before any HTML content.
-fn html_quote_content_column_before(source : String, offset : Int) -> Int {
+fn html_quote_content_column_before(source : String, offset : Int32) -> Int32 {
   let line_start = line_start_offset_before(source, offset)
   match source[line_start:offset].rev_find(">") {
     Some(relative) => {
@@ -2348,7 +2348,7 @@ fn experimental_markdown_ir_from_syntax_core(
 /// Source-aware lowering from one coherent parser snapshot.
 pub fn experimental_markdown_ir_from_syntax_snapshot(
   snapshot : @loom.SyntaxSnapshot,
-  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
+  extensions~ : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> MarkdownIR {
   experimental_markdown_ir_from_syntax_core(
     snapshot.source_id,
@@ -2363,7 +2363,7 @@ pub fn experimental_markdown_ir_from_syntax_snapshot(
 pub fn experimental_markdown_ir_from_syntax(
   source_id : @core.SourceId,
   root : @seam.SyntaxNode,
-  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
+  extensions~ : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> MarkdownIR {
   experimental_markdown_ir_from_syntax_core(
     source_id,
@@ -2382,7 +2382,7 @@ pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
   source_id : @core.SourceId,
   root : @seam.SyntaxNode,
   diagnostics : @core.DiagnosticSet,
-  extensions? : MarkdownExtensions = MarkdownExtensions::none(),
+  extensions~ : MarkdownExtensions = MarkdownExtensions::none(),
 ) -> MarkdownIR {
   experimental_markdown_ir_from_syntax_core(
     source_id,

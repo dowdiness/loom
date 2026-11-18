@@ -1,5 +1,5 @@
 ///|
-fn test_offset(value : Int) -> TextOffset {
+fn test_offset(value : Int32) -> TextOffset {
   try TextOffset(value) catch {
     _ => abort("expected valid offset")
   } noraise {
@@ -8,7 +8,7 @@ fn test_offset(value : Int) -> TextOffset {
 }
 
 ///|
-fn test_range(start : Int, end : Int) -> TextRange {
+fn test_range(start : Int32, end : Int32) -> TextRange {
   try TextRange::from_offsets(start, end) catch {
     _ => abort("expected valid range")
   } noraise {
@@ -22,7 +22,7 @@ fn test_source(value : String) -> SourceId {
 }
 
 ///|
-fn test_span(source_id : SourceId, start : Int, end : Int) -> SourceSpan {
+fn test_span(source_id : SourceId, start : Int32, end : Int32) -> SourceSpan {
   SourceSpan(source_id, test_range(start, end))
 }
 
@@ -30,9 +30,9 @@ fn test_span(source_id : SourceId, start : Int, end : Int) -> SourceSpan {
 fn test_label(
   style : LabelStyle,
   source_id : SourceId,
-  start : Int,
-  end : Int,
-  message? : String? = None,
+  start : Int32,
+  end : Int32,
+  message~ : String? = None,
 ) -> DiagnosticLabel {
   DiagnosticLabel(style, test_span(source_id, start, end), message)
 }
@@ -41,8 +41,8 @@ fn test_label(
 fn source_diagnostic(
   message : String,
   source_id : SourceId,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Diagnostic {
   let span = test_span(source_id, start, end)
   Diagnostic(
@@ -57,7 +57,7 @@ fn source_diagnostic(
 ///|
 fn test_shift(
   set : DiagnosticSet,
-  delta : Int,
+  delta : Int32,
   after : TextOffset,
 ) -> DiagnosticSet {
   try set.offset_by(test_source("test"), delta, after) catch {
@@ -68,7 +68,7 @@ fn test_shift(
 }
 
 ///|
-fn test_diagnostic(message : String, start : Int, end : Int) -> Diagnostic {
+fn test_diagnostic(message : String, start : Int32, end : Int32) -> Diagnostic {
   let span = test_span(test_source("test"), start, end)
   Diagnostic(
     origin=DiagnosticOrigin("parser"),
@@ -632,7 +632,7 @@ test "diagnostics with only B and C labels remain exactly unchanged by an A edit
 
 ///|
 test "property: edits affect only the selected source among two to four sources" {
-  let seeds : Array[Int] = @quickcheck.samples(64)
+  let seeds : Array[Int32] = @quickcheck.samples(64)
   for seed in seeds {
     let magnitude = if seed < 0 { -(seed + 1) } else { seed }
     let source_count = 2 + magnitude % 3

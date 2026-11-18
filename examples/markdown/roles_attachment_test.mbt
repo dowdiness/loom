@@ -92,7 +92,7 @@ test "markdown role attachment leaves unmatched emphasis as ordinary text" {
     @markdown.markdown_grammar.to_syntax_grammar(),
   )
   let attachment = @markdown.attach_markdown_role_spans(parser)
-  let expected : Array[(@markdown.MarkdownRole, Int, Int)] = []
+  let expected : Array[(@markdown.MarkdownRole, Int32, Int32)] = []
   guard markdown_test_observations(attachment.spans()) == expected else {
     fail("expected no attached recovery role for literal unmatched emphasis")
   }

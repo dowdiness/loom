@@ -66,7 +66,7 @@ fn WordState::break_before(
   wb : WB,
   is_ep : Bool,
   text : String,
-  next_i : Int,
+  next_i : Int32,
 ) -> Bool {
   // WB3: CR x LF
   if self.prev == WbCR && wb == WbLF {
@@ -217,7 +217,7 @@ fn is_wordish_or_extendnumlet(wb : WB) -> Bool {
 }
 
 ///|
-fn next_effective_wb(text : String, start : Int) -> WB? {
+fn next_effective_wb(text : String, start : Int32) -> WB? {
   let len = text.length()
   let mut i = start
   while i < len {
@@ -232,7 +232,7 @@ fn next_effective_wb(text : String, start : Int) -> WB? {
 }
 
 ///|
-fn next_effective_is_ahletter(text : String, start : Int) -> Bool {
+fn next_effective_is_ahletter(text : String, start : Int32) -> Bool {
   match next_effective_wb(text, start) {
     Some(wb) => is_ahletter(wb)
     None => false
@@ -240,7 +240,7 @@ fn next_effective_is_ahletter(text : String, start : Int) -> Bool {
 }
 
 ///|
-fn next_effective_is_hebrew_letter(text : String, start : Int) -> Bool {
+fn next_effective_is_hebrew_letter(text : String, start : Int32) -> Bool {
   match next_effective_wb(text, start) {
     Some(wb) => wb == WbHebrewLetter
     None => false
@@ -248,7 +248,7 @@ fn next_effective_is_hebrew_letter(text : String, start : Int) -> Bool {
 }
 
 ///|
-fn next_effective_is_numeric(text : String, start : Int) -> Bool {
+fn next_effective_is_numeric(text : String, start : Int32) -> Bool {
   match next_effective_wb(text, start) {
     Some(wb) => wb == WbNumeric
     None => false
@@ -260,8 +260,8 @@ fn next_effective_is_numeric(text : String, start : Int) -> Bool {
 ///
 /// First element is always `0`; last is always `text.length()`. For empty
 /// text, returns `[0]` (single boundary).
-pub fn word_boundaries(text : String) -> Array[Int] {
-  let out : Array[Int] = []
+pub fn word_boundaries(text : String) -> Array[Int32] {
+  let out : Array[Int32] = []
   out.push(0)
   let len = text.length()
   if len == 0 {
@@ -290,7 +290,7 @@ pub fn word_boundaries(text : String) -> Array[Int] {
 /// Returns `0` if `pos <= 0`. Returns `text.length()` if
 /// `pos >= text.length()`. Accepts any `Int`, including positions inside
 /// surrogate pairs and inside multi-codepoint word segments; never aborts.
-pub fn next_word_boundary(text : String, pos : Int) -> Int {
+pub fn next_word_boundary(text : String, pos : Int32) -> Int32 {
   let len = text.length()
   if pos <= 0 {
     return 0
@@ -313,7 +313,7 @@ pub fn next_word_boundary(text : String, pos : Int) -> Int {
 /// Returns `0` if `pos <= 0`. Returns `text.length()` if
 /// `pos >= text.length()`. Same offset-tolerance contract as
 /// `next_word_boundary`.
-pub fn prev_word_boundary(text : String, pos : Int) -> Int {
+pub fn prev_word_boundary(text : String, pos : Int32) -> Int32 {
   let len = text.length()
   if pos <= 0 {
     return 0

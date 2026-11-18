@@ -58,7 +58,7 @@ test "json role spans export editor-neutral JSON shape" {
   inspect(exported[0].end(), content="1")
   inspect(exported[0].role(), content="punctuation")
   inspect(
-    exported.to_json().stringify(),
+    Json(exported).stringify(),
     content=(
       #|[{"start":0,"end":1,"role":"punctuation"},{"start":1,"end":4,"role":"property-key"},{"start":4,"end":5,"role":"punctuation"},{"start":6,"end":7,"role":"punctuation"},{"start":7,"end":10,"role":"string-value"},{"start":10,"end":11,"role":"punctuation"},{"start":12,"end":13,"role":"number-literal"},{"start":13,"end":14,"role":"punctuation"},{"start":15,"end":19,"role":"boolean-literal"},{"start":19,"end":20,"role":"punctuation"},{"start":21,"end":25,"role":"null-literal"},{"start":25,"end":26,"role":"punctuation"},{"start":26,"end":27,"role":"punctuation"}]
     ),

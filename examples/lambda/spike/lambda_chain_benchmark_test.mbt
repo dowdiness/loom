@@ -4,7 +4,7 @@ fn lambda_chain_source_id() -> @core.SourceId {
 }
 
 ///|
-fn make_lambda_let_chain(count : Int) -> String {
+fn make_lambda_let_chain(count : Int32) -> String {
   let init : Array[String] = [
     for i in 0..<count => "let x\{i} = ((f, x) => f (f x)) ((g) => g)"
   ]

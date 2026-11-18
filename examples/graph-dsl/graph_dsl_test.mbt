@@ -39,7 +39,9 @@ fn ok_lowered(
 }
 
 ///|
-fn triples(tokens : Array[@graph-dsl.GraphToken]) -> Array[(String, Int, Int)] {
+fn triples(
+  tokens : Array[@graph-dsl.GraphToken],
+) -> Array[(String, Int32, Int32)] {
   tokens.map(token => (token.text(), token.start(), token.end()))
 }
 

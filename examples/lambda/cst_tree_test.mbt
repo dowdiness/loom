@@ -125,7 +125,7 @@ test "cst: deeply nested parentheses (((1)))" {
   let root = test_parse_syntax("(((1)))")
   inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
   // Count the nesting depth of ParenExpr
-  fn count_paren_depth(node : @seam.SyntaxNode) -> Int {
+  fn count_paren_depth(node : @seam.SyntaxNode) -> Int32 {
     match @syntax.SyntaxKind::from_raw(node.kind()) {
       @syntax.ParenExpr => {
         for c in node.children() {

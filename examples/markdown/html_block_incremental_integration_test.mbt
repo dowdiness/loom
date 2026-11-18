@@ -6,7 +6,7 @@ fn assert_html_block_incremental_projection_parity(
   edit : @core.Edit,
   updated : String,
   expected_html : String,
-) -> Int raise {
+) -> Int32 raise {
   // Check CST and diagnostics before making any claim about reuse.
   let reuse_count = markdown_incremental_edit_reuse_count(
     source_id, label, source, edit, updated,

@@ -7,7 +7,7 @@
 /// `WordBreakTest.txt` (Unicode 15.1). Used by the opt-in
 /// conformance test to verify the segmentation algorithm against
 /// the full UAX #29 reference suite.
-let word_break_test_cases : Array[(String, Array[Int])] = [
+let word_break_test_cases : Array[(String, Array[Int32])] = [
   ("\u{1}\u{1}", [0, 1, 2]),
   ("\u{1}\u{308}\u{1}", [0, 2, 3]),
   ("\u{1}\u{D}", [0, 1, 2]),

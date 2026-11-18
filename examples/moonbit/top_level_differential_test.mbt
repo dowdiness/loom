@@ -6,52 +6,58 @@
 /// kinds against the skeleton CST item nodes. Header/body token boundaries and
 /// layout/comment placement are snapshot-tested on the skeleton side only until
 /// a full official-AST fold exists.
+#derive(Debug, Eq)
 struct TopLevelDifferentialFixture {
   name : String
   source_id : @core.SourceId
   source : String
   expected_official_accepts : Bool
   expected_skeleton_errors : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct OfficialTopLevelSummary {
   accepts : Bool
-  lex_error_count : Int
-  report_count : Int
+  lex_error_count : Int32
+  report_count : Int32
   item_kinds : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct TopLevelItemBoundarySnapshot {
   item_kind : String
   header_kind : String
   header_tokens : Array[String]
   body_tokens : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct SkeletonTopLevelSummary {
   item_kinds : Array[String]
-  diagnostic_count : Int
+  diagnostic_count : Int32
   contains_errors : Bool
   item_boundaries : Array[TopLevelItemBoundarySnapshot]
   root_tokens : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct TopLevelDifferentialSnapshot {
   name : String
   official : OfficialTopLevelSummary
   skeleton : SkeletonTopLevelSummary
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct TopLevelBoundarySnapshot {
   name : String
   item_boundaries : Array[TopLevelItemBoundarySnapshot]
   root_tokens : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
 fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
@@ -245,7 +251,7 @@ fn official_type_decl_item_kind(
       match token.kind() {
         TK_STRUCT => break "StructItemNode"
         TK_ENUM | TK_EXTENUM | TK_ENUMVIEW => break "EnumItemNode"
-        TK_TYPE | TK_TYPEALIAS => break "TypeItemNode"
+        TK_TYPE => break "TypeItemNode"
         _ => ()
       }
     }
@@ -310,7 +316,9 @@ fn official_parse_snapshot(source : String) -> OfficialTopLevelSummary {
 
 ///|
 fn differential_syntax_kind_name(node : @seam.SyntaxNode) -> String {
-  let kind : @moonbit-example.MoonbitSyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+  let kind : @moonbit-example.MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+    node.kind(),
+  )
   kind.to_string()
 }
 
@@ -319,7 +327,9 @@ fn differential_token_kind_names(
   tokens : Array[@seam.SyntaxToken],
 ) -> Array[String] {
   tokens.map(fn(token) {
-    let kind : @moonbit-example.MoonbitSyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+    let kind : @moonbit-example.MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+      token.kind(),
+    )
     kind.to_string()
   })
 }
@@ -350,7 +360,9 @@ fn skeleton_top_level_summary(
   source_id : @core.SourceId,
   source : String,
 ) -> SkeletonTopLevelSummary {
-  let parser = try! @loom.new_parser(source_id, source, @moonbit-example.moonbit_grammar)
+  let parser = try! @loom.new_parser(
+    source_id, source, @moonbit-example.moonbit_grammar,
+  )
   let root = parser.syntax_tree().read_or_abort()
   let ast = parser.ast().read_or_abort()
   let diagnostics = parser.diagnostics().read_or_abort()
