@@ -6,7 +6,7 @@ import {
   "dowdiness/diagnostic@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/seam@0.1.0",
-  "moonbitlang/parser@0.4.0",
+  "moonbitlang/parser@0.4.9",
   "moonbitlang/lexer@0.4.0",
 }
 

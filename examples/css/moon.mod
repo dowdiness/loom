@@ -6,7 +6,7 @@ import {
   "dowdiness/diagnostic@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/seam@0.1.0",
-  "dowdiness/incr@0.15.1",
+  "dowdiness/incr@0.16.0",
 }
 
 readme = "README.md"

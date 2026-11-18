@@ -7,9 +7,9 @@ import {
   "dowdiness/loom@0.1.0",
   "dowdiness/pretty@0.1.0",
   "dowdiness/seam@0.1.0",
-  "dowdiness/incr@0.15.1",
-  "dowdiness/event-graph-walker@0.8.0",
-  "moonbitlang/quickcheck@0.14.0",
+  "dowdiness/incr@0.16.0",
+  "dowdiness/event-graph-walker@0.10.0",
+  "moonbitlang/quickcheck@0.15.1",
 }
 
 readme = "README.md"
