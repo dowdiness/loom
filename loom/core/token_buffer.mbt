@@ -529,9 +529,9 @@ pub fn[T] TokenBuffer::get_end(self : TokenBuffer[T], i : Int32) -> Int32 {
 ///|
 /// Return a StringView of the source text for the token at index i.
 pub fn[T] TokenBuffer::get_view(self : TokenBuffer[T], i : Int32) -> StringView {
-  self.source.view(
-    start_offset=self.starts[i],
-    end_offset=self.starts[i] + self.tokens[i].len,
+  self.source.legacy_view(
+    start=self.starts[i],
+    end=self.starts[i] + self.tokens[i].len,
   )
 }
 

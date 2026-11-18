@@ -191,7 +191,7 @@ fn trim_code_boundary_newlines(value : String, fenced~ : Bool) -> String {
   } else {
     // Blank lines after an indented-code line terminate the block but are not
     // part of its value; fenced blocks preserve their final content newline.
-    without_leading.trim_end(chars="\n".view()).to_owned()
+    without_leading.trim_end(chars="\n"[:]).to_owned()
   }
 }
 

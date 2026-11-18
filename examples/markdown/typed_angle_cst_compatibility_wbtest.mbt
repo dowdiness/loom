@@ -21,7 +21,7 @@ fn typed_angle_fixture_node(
       @seam.CstElement::Token(
         @seam.CstToken::CstToken(
           TextToken.to_raw(),
-          source.view(start_offset=start, end_offset=end),
+          source.legacy_view(start~, end~),
         ),
       ),
     )
@@ -71,7 +71,7 @@ fn typed_angle_fixture_document(
         @seam.CstElement::Token(
           @seam.CstToken::CstToken(
             TextToken.to_raw(),
-            source.view(start_offset=previous_end, end_offset=start),
+            source.legacy_view(start=previous_end, end=start),
           ),
         ),
       )
@@ -85,7 +85,7 @@ fn typed_angle_fixture_document(
       @seam.CstElement::Token(
         @seam.CstToken::CstToken(
           TextToken.to_raw(),
-          source.view(start_offset=previous_end),
+          source.legacy_view(start=previous_end),
         ),
       ),
     )

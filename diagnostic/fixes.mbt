@@ -135,9 +135,9 @@ pub fn DiagnosticFix::apply(
   })
   self.edits.rev_fold(init=source, (current, edit) => {
     let range = edit.span.range
-    current.view(start_offset=0, end_offset=range.start.value).to_owned() +
+    current.legacy_view(start=0, end=range.start.value).to_owned() +
     edit.replacement +
-    current.view(start_offset=range.end.value).to_owned()
+    current.legacy_view(start=range.end.value).to_owned()
   })
 }
 

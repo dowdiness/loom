@@ -185,7 +185,7 @@ test "CstFold: compaction refreshes reachable CST source backing" {
     @seam.CstElement::Token(
       @seam.CstToken::CstToken(
         @seam.RawKind(1),
-        historical_source.view(start_offset=4, end_offset=10),
+        historical_source.legacy_view(start=4, end=10),
       ),
     ),
   ])
@@ -193,7 +193,7 @@ test "CstFold: compaction refreshes reachable CST source backing" {
     @seam.CstElement::Token(
       @seam.CstToken::CstToken(
         @seam.RawKind(1),
-        current_source.view(start_offset=4, end_offset=10),
+        current_source.legacy_view(start=4, end=10),
       ),
     ),
   ])

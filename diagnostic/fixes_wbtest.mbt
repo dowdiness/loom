@@ -69,12 +69,12 @@ fn fix_test_reference_apply(
   let cursor = edits.fold(init=0, (cursor, edit) => {
     let range = edit.span().range()
     builder.write_stringview(
-      source.view(start_offset=cursor, end_offset=range.start().value()),
+      source.legacy_view(start=cursor, end=range.start().value()),
     )
     builder.write_string(edit.replacement())
     range.end().value()
   })
-  builder.write_stringview(source.view(start_offset=cursor))
+  builder.write_stringview(source.legacy_view(start=cursor))
   builder.to_string()
 }
 

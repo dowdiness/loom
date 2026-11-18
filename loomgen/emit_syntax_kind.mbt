@@ -93,13 +93,13 @@ fn emit_syntax_kind(
   let b = StringBuilder()
 
   b.write_string("///|\n")
-  b.write_string("pub(all) enum SyntaxKind {\n")
+  b.write_string("#derive(Debug, Eq)\npub(all) enum SyntaxKind {\n")
   for i = 0; i < all.length(); i = i + 1 {
     let (name, _) = all[i]
     let sep = if i == all.length() - 1 { "" } else { "\n" }
     b.write_string("  " + name + sep)
   }
-  b.write_string("\n} derive(Debug, Eq)\n\n")
+  b.write_string("\n}\n\n")
 
   b.write_string("///|\n")
   b.write_string(
@@ -125,7 +125,7 @@ fn emit_syntax_kind(
   b.write_string(
     "pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {\n",
   )
-  b.write_string("  let n : Int = match self {\n")
+  b.write_string("  let n : Int32 = match self {\n")
   for pair in all {
     let (name, raw) = pair
     b.write_string("    " + name + " => " + raw.to_string() + "\n")

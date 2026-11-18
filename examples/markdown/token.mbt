@@ -35,7 +35,7 @@ fn unordered_list_marker_from_text(text : String) -> UnorderedListMarker? {
   guard marker_start_after_optional_indent(text, 0) is Some(marker_start) else {
     return None
   }
-  match text.view(start_offset=marker_start) {
+  match text.legacy_view(start=marker_start) {
     ['-', ..] => Some(Dash)
     ['*', ..] => Some(Star)
     ['+', ..] => Some(Plus)
@@ -237,16 +237,16 @@ test "backslash escapes strip only ASCII punctuation" {
 
 ///|
 test "setext underline markers reject internal whitespace" {
-  guard parse_setext_underline_depth("= =".view()) is None else {
+  guard parse_setext_underline_depth("= ="[:]) is None else {
     fail("setext underline must reject spaced equals markers")
   }
-  guard parse_setext_underline_depth("--- -".view()) is None else {
+  guard parse_setext_underline_depth("--- -"[:]) is None else {
     fail("setext underline must reject spaced dash markers")
   }
-  guard parse_setext_underline_depth("   ----      ".view()) is Some(2) else {
+  guard parse_setext_underline_depth("   ----      "[:]) is Some(2) else {
     fail("setext underline must accept trailing spaces")
   }
-  assert_true(is_valid_thematic_break_markers("--- -".view()))
+  assert_true(is_valid_thematic_break_markers("--- -"[:]))
 }
 
 ///|

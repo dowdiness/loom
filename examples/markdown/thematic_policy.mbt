@@ -8,7 +8,7 @@ fn line_at_offset_is_thematic_break(
     match ctx.peek_nth(i) {
       ThematicBreak => break true
       Newline | EOF =>
-        break is_valid_thematic_break_markers(line.to_string().view())
+        break is_valid_thematic_break_markers(line.to_string()[:])
       Text(text) => line.write_string(text)
       Star => line.write_string("*")
       StarStar => line.write_string("**")

@@ -496,7 +496,7 @@ fn contiguous_inline_analysis_source(
     guard token.start == expected_start else { return None }
     if token.kind == AnalysisLineBoundary {
       guard source_view_is_line_ending(
-        backing.view(start_offset=token.start, end_offset=token.end),
+        backing.legacy_view(start=token.start, end=token.end),
       ) else {
         return None
       }
@@ -510,10 +510,7 @@ fn contiguous_inline_analysis_source(
     expected_start = token.end
   }
   Some(
-    (
-      backing.view(start_offset=source_start, end_offset=expected_start),
-      source_start,
-    ),
+    (backing.legacy_view(start=source_start, end=expected_start), source_start),
   )
 }
 
@@ -546,7 +543,7 @@ fn index_inline_autolinks(
   }
   let source = match contiguous_source {
     Some((view, _)) => view
-    None => reconstructed_source.view()
+    None => reconstructed_source[:]
   }
   let delimiter_index = if has_exposed_angle {
     Some(build_inline_angle_delimiter_index(source))

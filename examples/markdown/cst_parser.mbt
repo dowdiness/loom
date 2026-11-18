@@ -1576,7 +1576,7 @@ fn parse_nested_list_item_flow(
 
 ///|
 fn text_leading_space_char_count(text : String) -> Int32 {
-  text.length() - text.trim_start(chars=" ".view()).length()
+  text.length() - text.trim_start(chars=" "[:]).length()
 }
 
 ///|
@@ -1995,7 +1995,7 @@ fn try_parse_gfm_task_list_marker(
 ) -> Bool {
   let marker_index = match ctx.peek() {
     LeftBracket => Some(0)
-    Text(prefix) if prefix.trim(chars=" ".view()).length() == 0 &&
+    Text(prefix) if prefix.trim(chars=" "[:]).length() == 0 &&
       ctx.peek_nth(1) is LeftBracket => Some(1)
     _ => None
   }
@@ -3080,7 +3080,7 @@ fn parse_html_block(
   }
   let open_kind = match open_token {
     HtmlBlockOpen(line) =>
-      match classify_html_block_opening(line.view()) {
+      match classify_html_block_opening(line[:]) {
         Some(kind) => kind
         None => abort("parse_html_block expected a classified HtmlBlockOpen")
       }

@@ -341,7 +341,7 @@ fn mixed_lex_step(
         Some(' ') => {
           ignore(cursor.take_while(fn(ch) { ch == ' ' }))
           let text = input
-            .view(start_offset=pos, end_offset=cursor.position())
+            .legacy_view(start=pos, end=cursor.position())
             .to_owned()
           (cursor.produced(Space(text)), Normal)
         }
@@ -395,7 +395,7 @@ fn mixed_lex_step(
             cursor.take_while(fn(ch) { ch != ' ' && ch != '"' && ch != ':' }),
           )
           let text = input
-            .view(start_offset=pos, end_offset=cursor.position())
+            .legacy_view(start=pos, end=cursor.position())
             .to_owned()
           (cursor.produced(NotationWord(text)), NotationString)
         }
@@ -410,7 +410,7 @@ fn mixed_lex_step(
         Some(_) => {
           ignore(cursor.take_while(fn(ch) { ch != '"' }))
           let text = input
-            .view(start_offset=pos, end_offset=cursor.position())
+            .legacy_view(start=pos, end=cursor.position())
             .to_owned()
           (cursor.produced(OpaqueRaw(text)), OpaqueString)
         }

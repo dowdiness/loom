@@ -42,9 +42,9 @@ fn test_reuse_cursor(
     i => new_toks[i].token,
     i => new_starts[i],
     fn(i) {
-      new_src.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      new_src.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     test_spec,
@@ -72,9 +72,7 @@ test "ReuseCursor::new: globally disabled when damage covers root" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   inspect(cursor.is_reuse_disabled(), content="true")
@@ -98,9 +96,7 @@ test "ReuseCursor::new: not globally disabled with partial damage" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   inspect(cursor.is_reuse_disabled(), content="false")
@@ -200,9 +196,7 @@ test "ReuseCursor::try_reuse: returns Some for undamaged node" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let result = cursor.try_reuse(test_kind_raw(KExpr), 0, 0)
@@ -227,9 +221,7 @@ test "ReuseCursor::try_reuse: returns None when globally disabled" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let result = cursor.try_reuse(test_kind_raw(KExpr), 0, 0)
@@ -254,9 +246,7 @@ test "ReuseCursor::try_reuse: returns None when node overlaps damage" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let result = cursor.try_reuse(test_kind_raw(KExpr), 0, 0)
@@ -291,9 +281,9 @@ test "ReuseCursor::try_reuse: keeps left-adjacent node conservative for insertio
     i => new_toks[i].token,
     i => new_starts[i],
     fn(i) {
-      edited.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      edited.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     test_spec,
@@ -333,9 +323,9 @@ test "ReuseCursor::try_reuse: can opt into left-adjacent reuse for safe deletion
     i => new_toks[i].token,
     i => new_starts[i],
     fn(i) {
-      new_src.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      new_src.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     test_spec,
@@ -348,9 +338,9 @@ test "ReuseCursor::try_reuse: can opt into left-adjacent reuse for safe deletion
     i => new_toks[i].token,
     i => new_starts[i],
     fn(i) {
-      new_src.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      new_src.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     test_spec,
@@ -395,9 +385,9 @@ test "ReuseCursor::try_reuse: rejects token merge with left-adjacent deletion op
     i => new_toks[i].token,
     i => new_starts[i],
     fn(i) {
-      new_src.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      new_src.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     test_spec,
@@ -438,9 +428,9 @@ test "ReuseCursor::try_reuse: allows right-adjacent node for insertion" {
     i => new_toks[i].token,
     i => new_starts[i],
     fn(i) {
-      edited.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      edited.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     test_spec,
@@ -482,9 +472,9 @@ test "ReuseCursor::new_with_edit: maps delete edit back to reusable shifted node
     i => new_toks[i].token,
     i => new_starts[i],
     fn(i) {
-      new_src.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      new_src.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     test_spec,
@@ -512,9 +502,7 @@ test "ReuseCursor::advance_past: updates current_offset" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   cursor.advance_past(old_tree)
@@ -539,9 +527,7 @@ test "new_follow_token_with_pos: finds first non-trivia token at or after offset
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let result = new_follow_token_with_pos(cursor, 2)
@@ -566,9 +552,7 @@ test "new_follow_token_with_pos: skips leading trivia" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let result = new_follow_token_with_pos(cursor, 1)
@@ -593,9 +577,7 @@ test "new_follow_token_with_pos: returns None past end of tokens" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let result = new_follow_token_with_pos(cursor, 5)
@@ -620,9 +602,7 @@ test "old_follow_token_lazy: finds first non-trivia token at or after offset" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let result = old_follow_token_lazy(cursor, 1)
@@ -650,9 +630,7 @@ test "old_follow_token_lazy: returns None past end of tree" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let result = old_follow_token_lazy(cursor, 99)
@@ -677,9 +655,7 @@ test "old_follow_token_lazy: cache is shared across snapshots" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   // Snapshot before materializing the cache
@@ -733,9 +709,9 @@ test "ReuseCursor::try_reuse: reuses unaffected nodes across middle deletion" {
     i => new_toks[i].token,
     i => new_starts[i],
     fn(i) {
-      new_src.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      new_src.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     item_spec,
@@ -789,9 +765,9 @@ test "parse_tokens_indexed: parse with middle deletion can still reuse shifted n
     i => new_toks[i].token,
     i => new_starts[i],
     fn(i) {
-      new_src.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      new_src.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     item_spec,
@@ -863,9 +839,9 @@ test "parse_tokens_indexed: parse with prefix deletion reuses shifted descendant
     i => new_toks[i].token,
     i => new_starts[i],
     fn(i) {
-      new_src.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      new_src.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     item_spec,
@@ -928,9 +904,9 @@ test "parse_tokens_indexed: parse with suffix deletion reuses unaffected prefix 
     i => new_toks[i].token,
     i => new_starts[i],
     fn(i) {
-      new_src.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      new_src.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     item_spec,

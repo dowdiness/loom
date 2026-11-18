@@ -67,7 +67,7 @@ fn convert_inline_children_skip(
       // Trim trailing spaces from line before soft break
       match inlines.last() {
         Some(Inline::Text(value)) => {
-          let trimmed = value.trim_end(chars=" ".view()).to_owned()
+          let trimmed = value.trim_end(chars=" "[:]).to_owned()
           if trimmed.length() != value.length() {
             inlines[inlines.length() - 1] = Inline::Text(trimmed)
           }
@@ -84,7 +84,7 @@ fn convert_inline_children_skip(
     let item = if was_pending {
       match item {
         Inline::Text(value) => {
-          let trimmed = value.trim_start(chars=" ".view()).to_owned()
+          let trimmed = value.trim_start(chars=" "[:]).to_owned()
           if trimmed.length() != value.length() {
             Inline::Text(trimmed)
           } else {
@@ -186,7 +186,7 @@ fn convert_inline_children_skip(
           // Trim trailing spaces from line before soft break
           match inlines.last() {
             Some(Inline::Text(value)) => {
-              let trimmed = value.trim_end(chars=" ".view()).to_owned()
+              let trimmed = value.trim_end(chars=" "[:]).to_owned()
               if trimmed.length() != value.length() {
                 inlines[inlines.length() - 1] = Inline::Text(trimmed)
               }
@@ -205,7 +205,7 @@ fn convert_inline_children_skip(
         if was_pending && inlines.length() > before {
           match inlines[before] {
             Inline::Text(value) => {
-              let trimmed = value.trim_start(chars=" ".view()).to_owned()
+              let trimmed = value.trim_start(chars=" "[:]).to_owned()
               if trimmed.length() != value.length() {
                 inlines[before] = Inline::Text(trimmed)
               }
@@ -259,7 +259,7 @@ fn convert_direct_inline_children_with_newline(
       // Trim trailing spaces from line before soft break
       match inlines.last() {
         Some(Inline::Text(value)) => {
-          let trimmed = value.trim_end(chars=" ".view()).to_owned()
+          let trimmed = value.trim_end(chars=" "[:]).to_owned()
           if trimmed.length() != value.length() {
             inlines[inlines.length() - 1] = Inline::Text(trimmed)
           }
@@ -288,7 +288,7 @@ fn convert_direct_inline_children_with_newline(
             flush_newline()
             let text = strip_backslash_escapes(tok_text)
             let text = if was_pending {
-              text.trim_start(chars=" ".view()).to_owned()
+              text.trim_start(chars=" "[:]).to_owned()
             } else {
               text
             }
@@ -325,7 +325,7 @@ fn convert_direct_inline_children_with_newline(
                 let was_pending = pending_newline
                 flush_newline()
                 let text = if was_pending {
-                  text.trim_start(chars=" ".view()).to_owned()
+                  text.trim_start(chars=" "[:]).to_owned()
                 } else {
                   text
                 }
@@ -354,7 +354,7 @@ fn convert_direct_inline_children_with_newline(
           if was_pending {
             match converted[0] {
               Inline::Text(value) => {
-                let trimmed = value.trim_start(chars=" ".view()).to_owned()
+                let trimmed = value.trim_start(chars=" "[:]).to_owned()
                 if trimmed.length() != value.length() {
                   converted[0] = Inline::Text(trimmed)
                 }

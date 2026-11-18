@@ -3,8 +3,8 @@ fn trim_inline_text_end_before_newline(children : Array[MarkdownIR]) -> Int32 {
   match children.last() {
     Some({ node: Text(value), origin, }) => {
       let hard_break_spaces = value.length() -
-        value.trim_end(chars=" ".view()).length()
-      let trimmed = value.trim_end(chars=" \t".view())
+        value.trim_end(chars=" "[:]).length()
+      let trimmed = value.trim_end(chars=" \t"[:])
       let removed = value.length() - trimmed.length()
       if removed > 0 {
         children[children.length() - 1] = MarkdownIR::text(
@@ -79,7 +79,7 @@ fn flush_pending_inline_newline(
 fn trim_inline_text_start_after_newline(child : MarkdownIR) -> MarkdownIR {
   match child.node {
     Text(value) => {
-      let trimmed = value.trim_start(chars=" \t".view())
+      let trimmed = value.trim_start(chars=" \t"[:])
       let removed = value.length() - trimmed.length()
       if removed > 0 {
         let origin = child.origin()
@@ -1190,7 +1190,7 @@ fn trim_setext_heading_children(
         let mut origin = child.origin()
         // Trim leading whitespace on first child
         if i == 0 {
-          let trimmed_view = value.trim_start(chars=" \t".view())
+          let trimmed_view = value.trim_start(chars=" \t"[:])
           let removed = value.length() - trimmed_view.length()
           if removed > 0 {
             trimmed = trimmed_view.to_owned()
@@ -1202,7 +1202,7 @@ fn trim_setext_heading_children(
         }
         // Trim trailing whitespace on last child
         if i == len - 1 {
-          let trimmed_view = trimmed.trim_end(chars=" \t".view())
+          let trimmed_view = trimmed.trim_end(chars=" \t"[:])
           let removed = trimmed.length() - trimmed_view.length()
           if removed > 0 {
             trimmed = trimmed_view.to_owned()
@@ -1238,7 +1238,7 @@ fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int32? {
     }
     None =>
       match node.direct_token_of_kind(SetextHeadingUnderlineToken.to_raw()) {
-        Some(underline) => parse_setext_underline_depth(underline.text().view())
+        Some(underline) => parse_setext_underline_depth(underline.text()[:])
         None => None
       }
   }
@@ -1382,7 +1382,7 @@ fn task_from_list_item_node(
   }
   match marker {
     Some(marker) =>
-      match marker.text().trim_start(chars=" ".view()) {
+      match marker.text().trim_start(chars=" "[:]) {
         ['[', 'x' | 'X', ']'] =>
           Some(
             MarkdownIRTask(checked=true, marker_origin=origin_from_node(marker)),
@@ -1425,7 +1425,7 @@ fn trim_container_inline_start(
 ) -> Array[MarkdownIR] {
   match children {
     [{ node: Text(value), origin, }, ..] => {
-      let trimmed_value = value.trim_start(chars=" \t".view())
+      let trimmed_value = value.trim_start(chars=" \t"[:])
       let removed = value.length() - trimmed_value.length()
       if removed == 0 {
         children
@@ -1584,7 +1584,7 @@ fn code_block_info(node : @seam.SyntaxNode) -> String {
       if i < text.length() {
         commonmark_info_string_language(
           decode_markdown_info_string_entities(text[i:].to_owned()).trim(
-            chars=" \t".view(),
+            chars=" \t"[:],
           ),
         )
       } else {
@@ -1762,7 +1762,7 @@ fn normalize_heading_leading_whitespace(
   }
   match children {
     [{ node: Text(value), origin, }, ..] => {
-      let trimmed_view = value.trim_start(chars=" \t".view())
+      let trimmed_view = value.trim_start(chars=" \t"[:])
       let cut = value.length() - trimmed_view.length()
       if cut == 0 {
         children

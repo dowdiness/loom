@@ -28,7 +28,7 @@ pub fn LineIndex::new(source : String) -> LineIndex {
   let len = source.length()
   let mut pos = 0
   while pos < len {
-    match source.view(start_offset=pos) {
+    match source.legacy_view(start=pos) {
       ['\r', '\n', .. rest] => {
         pos = rest.start_offset()
         line_starts.push(pos)

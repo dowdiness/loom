@@ -13,7 +13,7 @@ fn line_end_offset(source : String, start : Int32, limit : Int32) -> Int32 {
 ///|
 fn next_line_start(source : String, line_end : Int32, limit : Int32) -> Int32 {
   if line_end < limit {
-    match source.view(start_offset=line_end) {
+    match source.legacy_view(start=line_end) {
       ['\r', '\n', .. rest] => rest.start_offset()
       ['\r', .. rest] | ['\n', .. rest] => rest.start_offset()
       _ => limit

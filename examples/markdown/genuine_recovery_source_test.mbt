@@ -10,7 +10,7 @@ fn genuine_recovery_source_ir(
       @seam.CstElement::Token(
         @seam.CstToken::CstToken(
           @seam.ToRawKind::to_raw(@markdown.SyntaxKind::TextToken),
-          source.view(),
+          source[:],
         ),
       ),
     ],

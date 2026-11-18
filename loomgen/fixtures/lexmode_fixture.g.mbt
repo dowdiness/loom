@@ -1,9 +1,10 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum LexMode {
   Leaf
   Inline
   LineStart
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn lexmode_for_kind(kind : SyntaxKind) -> LexMode? {

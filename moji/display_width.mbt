@@ -107,7 +107,7 @@ fn reconcile_display_segment(
     column
   } else {
     let width = @unicodewidth.str_width(
-      text.view(start_offset=utf16_start, end_offset=utf16_end),
+      text.legacy_view(start=utf16_start, end=utf16_end),
       cjk=ambiguous_width.is_cjk(),
     )
     if width == column - cell_start {
@@ -146,7 +146,7 @@ pub fn display_units(
   let mut segment_cell_start = start_column
   for cluster in grapheme_clusters(text) {
     let (start, end) = cluster
-    let view = text.view(start_offset=start, end_offset=end)
+    let view = text.legacy_view(start~, end~)
     if view.equal_to_string("\t") {
       if has_pending {
         column = append_display_unit(
@@ -177,7 +177,7 @@ pub fn display_units(
         cjk=ambiguous_width.is_cjk(),
       )
       let combined_width = @unicodewidth.str_width(
-        text.view(start_offset=pending_start, end_offset=end),
+        text.legacy_view(start=pending_start, end~),
         cjk=ambiguous_width.is_cjk(),
       )
       if combined_width == pending_width + grapheme_width {

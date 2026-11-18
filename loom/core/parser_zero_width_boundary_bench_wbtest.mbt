@@ -53,9 +53,7 @@ fn zero_width_bench_warm_cache(
     tokens.length(),
     fn(i) { tokens[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      source.view(start_offset=starts[i], end_offset=starts[i] + tokens[i].len)
-    },
+    fn(i) { source.legacy_view(start=starts[i], end=starts[i] + tokens[i].len) },
     spec,
     old_token_cache=cache,
   )
@@ -164,9 +162,9 @@ fn zero_width_bench_cursor(
     fn(i) { fixture.tokens[i].token },
     fn(i) { fixture.starts[i] },
     fn(i) {
-      fixture.source.view(
-        start_offset=fixture.starts[i],
-        end_offset=fixture.starts[i] + fixture.tokens[i].len,
+      fixture.source.legacy_view(
+        start=fixture.starts[i],
+        end=fixture.starts[i] + fixture.tokens[i].len,
       )
     },
     spec,

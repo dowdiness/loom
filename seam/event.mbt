@@ -399,7 +399,7 @@ fn subtree_matches_source(
     match child {
       CstElement::Token(t) => {
         let end = offset + t.text_len()
-        if source.view(start_offset=offset, end_offset=end) != t.text() {
+        if source.legacy_view(start=offset, end~) != t.text() {
           return false
         }
         offset = end
@@ -432,10 +432,7 @@ fn rebase_subtree_to_source_unchecked(
       CstElement::Token(t) => {
         let end = offset + t.text_len()
         let token = if t.is_source_backed() {
-          CstToken::CstToken(
-            t.kind,
-            source.view(start_offset=offset, end_offset=end),
-          )
+          CstToken::CstToken(t.kind, source.legacy_view(start=offset, end~))
         } else {
           CstToken::synthetic_zero_width(t.kind)
         }

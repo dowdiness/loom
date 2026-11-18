@@ -216,7 +216,7 @@ fn emit_token_impls(
   b.write_string("/// Maps tokens to the same raw-kind space as SyntaxKind.\n")
   b.write_string("pub impl @seam.ToRawKind for " + token_enum.name)
   b.write_string(" with fn to_raw(self) {\n")
-  b.write_string("  let n : Int = match self {\n")
+  b.write_string("  let n : Int32 = match self {\n")
   for v in annotated {
     let pat = pattern_for(v, false)
     // #loom.line_pattern tokens may not have a role — synthesize kind name

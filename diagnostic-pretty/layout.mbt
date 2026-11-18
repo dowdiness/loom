@@ -112,7 +112,7 @@ fn source_lines(text : String) -> Array[SourceLine] {
   let mut line_start = 0
   let mut pos = 0
   while pos < len {
-    match text.view(start_offset=pos) {
+    match text.legacy_view(start=pos) {
       ['\r', '\n', .. rest] => {
         lines.push({ start: line_start, end: pos, })
         pos = rest.start_offset()
@@ -164,10 +164,7 @@ fn render_source_text(
 ) -> String {
   let builder = StringBuilder()
   units.each(unit => {
-    let view = text.view(
-      start_offset=unit.utf16_start(),
-      end_offset=unit.utf16_end(),
-    )
+    let view = text.legacy_view(start=unit.utf16_start(), end=unit.utf16_end())
     if view.equal_to_string("\t") {
       builder.write_string(" ".repeat(unit.cell_end() - unit.cell_start()))
     } else {

@@ -156,7 +156,7 @@ fn[T] push_located_gap(
   gap_error_code : String,
   diagnose_nonblank_gaps : Bool,
 ) -> Unit {
-  let gap_text = source.view(start_offset=start, end_offset=end)
+  let gap_text = source.legacy_view(start~, end~)
   if gap_text.is_blank() {
     match gap_token {
       Some(make_gap_token) => {

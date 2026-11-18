@@ -21,9 +21,7 @@ test "ParserContext reuse: zero-width error leaf does not over-advance position"
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -127,9 +125,7 @@ test "ParserContext reuse: zero-width lexer leaf at reused boundary advances pos
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -177,9 +173,7 @@ test "ParserContext reuse: interned zero-width lexer boundary advances position"
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -219,9 +213,7 @@ test "ParserContext reuse: custom synthetic zero-width leaf is not a lexer bound
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -263,9 +255,7 @@ test "ParserContext reuse: custom synthetic zero-width leaf does not consume lex
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -302,9 +292,7 @@ test "ParserContext reuse: EOF recovery token is synthetic lexer context" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -348,9 +336,7 @@ test "ParserContext reuse: extra zero-width token after empty owned boundary rej
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -393,9 +379,7 @@ test "ParserContext reuse: partial zero-width boundary match rejects reuse" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -437,9 +421,7 @@ test "ParserContext reuse: extra zero-width boundary token rejects reuse" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -485,9 +467,7 @@ test "ParserContext reuse: partial zero-width RepeatGroup boundary match rejects
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -527,9 +507,7 @@ test "ParserContext reuse: extra zero-width RepeatGroup boundary token rejects r
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -563,9 +541,7 @@ test "ParserContext reuse: zero-width lexer leaf owned by following subtree is n
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -604,9 +580,7 @@ test "ParserContext reuse: replays prior diagnostics for reused error subtree" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -652,9 +626,7 @@ test "ParserContext reuse: preserves available empty diagnostics for reused erro
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -694,9 +666,7 @@ test "ParserContext reuse: synthesizes diagnostics when prior list is unavailabl
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -740,9 +710,7 @@ test "ParserContext reuse: synthesizes diagnostics for incomplete-kind node" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -776,9 +744,7 @@ test "ParserContext reuse: excludes boundary diagnostics at reused node end" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let old_diags = DiagnosticSet::empty()
@@ -868,9 +834,7 @@ test "ParserContext reuse: preserves EOF ctx.error without placeholder" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -914,9 +878,7 @@ test "ParserContext reuse: does not duplicate EOF boundary diagnostics from late
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
 
@@ -963,9 +925,7 @@ test "ParserContext reuse: incomplete-kind sibling owns EOF boundary diagnostic"
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -1015,9 +975,7 @@ test "ParserContext reuse: later EOF emission deduplicates a replayed diagnostic
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   // Simulate a replayed diagnostic for the same logical error.
@@ -1112,9 +1070,9 @@ test "ReuseCursor::try_reuse: post-damage node is not reused when source shrinks
     fn(i) { new_toks[i].token },
     fn(i) { new_starts[i] },
     fn(i) {
-      new_src.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      new_src.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     test_spec,
@@ -1158,9 +1116,9 @@ test "ReuseCursor::try_reuse: post-damage node is not reused when source grows" 
     fn(i) { new_toks[i].token },
     fn(i) { new_starts[i] },
     fn(i) {
-      new_src.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      new_src.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     test_spec,
@@ -1216,9 +1174,9 @@ test "ReuseCursor::try_reuse: reuses multiple undamaged post-damage nodes" {
     fn(i) { new_toks[i].token },
     fn(i) { new_starts[i] },
     fn(i) {
-      new_src.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      new_src.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     test_spec,
@@ -1269,9 +1227,9 @@ test "ReuseCursor::try_reuse: rejects integer boundary merge by follow-token che
     fn(i) { new_toks[i].token },
     fn(i) { new_starts[i] },
     fn(i) {
-      new_src.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_toks[i].len,
+      new_src.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_toks[i].len,
       )
     },
     test_spec,
@@ -1308,9 +1266,7 @@ test "ParserContext reuse: replays diagnostics for incomplete subtree at EOF" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -1352,9 +1308,7 @@ test "ParserContext reuse: replays structured diagnostic code and range" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)
@@ -1401,9 +1355,7 @@ test "ParserContext reuse: incomplete node followed by reusable sibling" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
   let ctx = ParserContext::new(source_id, toks, src, test_spec)

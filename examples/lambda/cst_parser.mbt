@@ -827,9 +827,7 @@ pub fn make_reuse_cursor_with_edit(
     tokens.length(),
     i => tokens[i].token,
     i => starts[i],
-    fn(i) {
-      source.view(start_offset=starts[i], end_offset=starts[i] + tokens[i].len)
-    },
+    fn(i) { source.legacy_view(start=starts[i], end=starts[i] + tokens[i].len) },
     lambda_spec,
     old_token_cache~,
     allow_left_adjacent_reuse~,

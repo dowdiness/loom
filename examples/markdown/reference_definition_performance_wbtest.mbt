@@ -59,9 +59,9 @@ fn consecutive_reference_definition_lookahead_work(
           EOF | BlankLine => None
           _ =>
             Some(
-              source.view(
-                start_offset=starts[index],
-                end_offset=starts[index] + tokens[index].len,
+              source.legacy_view(
+                start=starts[index],
+                end=starts[index] + tokens[index].len,
               ),
             )
         }

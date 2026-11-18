@@ -160,7 +160,7 @@ fn markdown_ir_legacy_text_around_soft_break(
         let prefix = source[start:end].to_owned()
         result = prefix + result
         if trim_spaces {
-          result = result.trim_start(chars=" ".view()).to_owned()
+          result = result.trim_start(chars=" "[:]).to_owned()
         }
       }
     }
@@ -174,7 +174,7 @@ fn markdown_ir_legacy_text_around_soft_break(
         let suffix = source[start:end].to_owned()
         result = result + suffix
         if trim_spaces {
-          result = result.trim_end(chars=" ".view()).to_owned()
+          result = result.trim_end(chars=" "[:]).to_owned()
         }
       }
     }
@@ -880,7 +880,7 @@ fn mdast_json_with_optional_ordered_start(
   guard marker is Some(marker) && marker.start != 1 else { return json }
   match json {
     Object(fields) => {
-      fields.set("start", Json::number(Double::from_int(marker.start)))
+      fields.set("start", Json::number(marker.start.to_double()))
       Json::object(fields)
     }
     _ => json

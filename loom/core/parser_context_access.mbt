@@ -311,7 +311,7 @@ pub fn[T, K] ParserContext::token_text_at(
   if start < 0 || end < start || end > self.source.length() {
     return ""
   }
-  self.source.view(start_offset=start, end_offset=end)
+  self.source.legacy_view(start~, end~)
 }
 
 ///|
@@ -467,7 +467,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
     Some(pos) if !@seam.IsEof::is_eof((self.get_token)(pos)) => {
       let offset = (self.get_start)(pos)
       let (_goal_token, end_offset) = self.token_at(offset, goal)
-      let text = self.source.view(start_offset=offset, end_offset~)
+      let text = self.source.legacy_view(start=offset, end=end_offset)
       self.events.push(@seam.ParseEvent::Token(kind.to_raw(), text))
       let new_pos = self.lower_bound_offset(end_offset)
       // Zero-width goal tokens: force advance past current token.

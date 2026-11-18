@@ -295,7 +295,7 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
     [] => false
     [first, ..] => {
       guard first.token is HtmlBlockOpen(open_line) else { return false }
-      guard classify_html_block_opening(open_line.view()) is Some(open_kind) else {
+      guard classify_html_block_opening(open_line[:]) is Some(open_kind) else {
         return false
       }
       let mut i = 1
@@ -370,7 +370,7 @@ fn html_block_has_terminator_at_end(
     }
   }
   match kind {
-    Type1(_) => line_contains_type1_html_block_end(last_line.view())
+    Type1(_) => line_contains_type1_html_block_end(last_line[:])
     Until(delimiter) => last_line.to_lower().contains(delimiter)
     Type6 | Type7 => false
   }

@@ -83,7 +83,7 @@ pub fn CstToken::is_source_backed(self : CstToken) -> Bool {
 ///|
 /// Return this token's text as a zero-copy view into `source`.
 pub fn CstToken::text(self : CstToken) -> StringView {
-  self.source.view(start_offset=self.start, end_offset=self.end)
+  self.source.legacy_view(start=self.start, end=self.end)
 }
 
 ///|

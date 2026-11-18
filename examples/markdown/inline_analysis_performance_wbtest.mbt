@@ -14,7 +14,7 @@ fn inline_analysis_fixture_token(
   let text : StringView = if kind == AnalysisLineBoundary {
     "\n"
   } else {
-    source.view(start_offset=start, end_offset=end)
+    source.legacy_view(start~, end~)
   }
   {
     kind,
@@ -126,9 +126,9 @@ fn perf_inline_push_token(
     text,
     start,
     end,
-    first: first_char_in_inline_text(text.view()),
-    last: last_char_in_inline_text(text.view()),
-    ends_with_odd_backslashes: text_ends_with_odd_backslashes(text.view()),
+    first: first_char_in_inline_text(text[:]),
+    last: last_char_in_inline_text(text[:]),
+    ends_with_odd_backslashes: text_ends_with_odd_backslashes(text[:]),
   })
   end
 }

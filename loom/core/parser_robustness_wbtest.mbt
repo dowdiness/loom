@@ -410,9 +410,7 @@ test "checkpoint/restore: restores reuse cursor and reuse_count" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
 
@@ -459,9 +457,7 @@ test "lookahead: restores reuse cursor and reuse count" {
     toks.length(),
     i => toks[i].token,
     i => starts[i],
-    fn(i) {
-      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
-    },
+    fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
 

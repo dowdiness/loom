@@ -492,11 +492,11 @@ fn lex_line_start(
     return produced_until(
       ThematicBreak,
       pos,
-      input.view(start_offset=line_end),
+      input.legacy_view(start=line_end),
       LineStart,
     )
   }
-  match input.view(start_offset=pos) {
+  match input.legacy_view(start=pos) {
     ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
       // Empty line = BlankLine
       produced_until(BlankLine, pos, rest, LineStart)
@@ -673,7 +673,7 @@ fn lex_block_quote_line_start(
   line_end_hint : Int32?,
   same_line_cache : Ref[SameLineListItemPrefixFacts?]?,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
-  match input.view(start_offset=pos) {
+  match input.legacy_view(start=pos) {
     ['`', ..] => lex_code_fence(input, pos, '`', same_line_cache, quoted=true)
     ['~', ..] => lex_code_fence(input, pos, '~', same_line_cache, quoted=true)
     ['<', ..] => {
@@ -735,7 +735,7 @@ fn lex_inline(
     pos <= same_line_facts.prefix_end &&
     same_line_list_item_block_start_with_facts(input, pos, same_line_facts) &&
     !same_line_facts.line_is_thematic_break {
-    match input.view(start_offset=pos) {
+    match input.legacy_view(start=pos) {
       ['-' | '*' | '+', ' ' | '\t', .. rest] =>
         produced_until(ListMarker, pos, rest, Inline)
       [ch, ..] if is_decimal_digit(ch) =>
@@ -776,7 +776,7 @@ fn lex_inline(
       _ => lex_inline(input, pos, same_line_cache)
     }
   } else {
-    match input.view(start_offset=pos) {
+    match input.legacy_view(start=pos) {
       ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
         produced_until(Newline, pos, rest, LineStart)
       ['*', .. rest] => produced_until(Star, pos, rest, Inline)
@@ -876,7 +876,7 @@ fn lex_quoted_code_block_line_prefix(
 ) -> (@core.LexStep[Token], MarkdownLexMode)? {
   let line_start = line_start_offset(input, pos)
   guard input[line_start:pos].is_blank() else { return None }
-  match input.view(start_offset=pos) {
+  match input.legacy_view(start=pos) {
     [' ', ..] | ['\t', ..] => {
       let (end, _) = leading_indent_end_offset_and_column(input, line_start, 0)
       guard end > pos &&
@@ -956,7 +956,7 @@ fn code_fence_close_end(
     }
   }
   if after < input.length() {
-    match input.view(start_offset=after) {
+    match input.legacy_view(start=after) {
       ['\r', '\n', .. rest] => Some(rest.start_offset())
       ['\r', .. rest] | ['\n', .. rest] => Some(rest.start_offset())
       _ => Some(after)
@@ -1012,7 +1012,7 @@ fn lex_code_block_body(
         LineStart,
       )
     None =>
-      match input.view(start_offset=pos) {
+      match input.legacy_view(start=pos) {
         ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
           lex_code_block_newline(input, pos, rest, mode, quote_indents)
         _ => emit_code_text_line(input, pos, mode)
@@ -1058,7 +1058,7 @@ fn lex_html_block_end_line(
   input : String,
   pos : Int32,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
-  match input.view(start_offset=pos) {
+  match input.legacy_view(start=pos) {
     ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
       produced_until(Newline, pos, rest, LineStart)
     _ => (Done, LineStart)
@@ -1106,7 +1106,7 @@ fn lex_html_block_raw(
     return (Done, HtmlBlockRaw)
   }
   let line_end = find_line_end(input, pos)
-  match input.view(start_offset=pos) {
+  match input.legacy_view(start=pos) {
     ['\r', '\n', .. rest] =>
       produced_until(
         Newline,
@@ -1136,7 +1136,7 @@ fn lex_html_block_until(
   if pos >= input.length() {
     return (Done, HtmlBlockUntil(delimiter))
   }
-  match input.view(start_offset=pos) {
+  match input.legacy_view(start=pos) {
     ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
       produced_until(Newline, pos, rest, HtmlBlockUntil(delimiter))
     _ => {

@@ -17,10 +17,7 @@ fn diagnostic_display_units(
 fn render_display_line(text : String, start_column : Int32) -> String {
   let builder = StringBuilder()
   diagnostic_display_units(text, start_column).each(unit => {
-    let view = text.view(
-      start_offset=unit.utf16_start(),
-      end_offset=unit.utf16_end(),
-    )
+    let view = text.legacy_view(start=unit.utf16_start(), end=unit.utf16_end())
     if view.equal_to_string("\t") {
       builder.write_string(" ".repeat(unit.cell_end() - unit.cell_start()))
     } else {

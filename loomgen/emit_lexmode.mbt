@@ -3,7 +3,7 @@
 /// `#loom.lexmode("ModeName")` annotation modifiers on term variants.
 ///
 /// Generates:
-/// - `pub(all) enum LexMode { Mode1, Mode2, ... } derive(Eq, Debug)`
+/// - `#derive(Eq, Debug) pub(all) enum LexMode { Mode1, Mode2, ... }`
 /// - `pub fn lexmode_for_kind(kind : SyntaxKind) -> LexMode?`
 ///
 /// Returns `None` when no variants have `#loom.lexmode` annotations.
@@ -59,7 +59,7 @@ fn emit_lexmode(term_enum_decl : EnumDecl) -> String? {
   }
   let b = StringBuilder()
   b.write_string("///|\n")
-  b.write_string("pub(all) enum LexMode {\n")
+  b.write_string("#derive(Eq, Debug)\npub(all) enum LexMode {\n")
   for i = 0; i < modes.length(); i = i + 1 {
     b.write_string("  ")
     b.write_string(modes[i])
@@ -67,7 +67,7 @@ fn emit_lexmode(term_enum_decl : EnumDecl) -> String? {
       b.write_string("\n")
     }
   }
-  b.write_string("\n} derive(Eq, Debug)\n")
+  b.write_string("\n}\n")
   b.write_string("\n")
   b.write_string("///|\n")
   b.write_string("pub fn lexmode_for_kind(kind : SyntaxKind) -> LexMode? {\n")

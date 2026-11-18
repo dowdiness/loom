@@ -49,7 +49,7 @@ pub fn LexCursor::is_done(self : LexCursor) -> Bool {
 
 ///|
 pub fn LexCursor::view(self : LexCursor) -> StringView {
-  self.source.view(start_offset=self.position)
+  self.source.legacy_view(start=self.position)
 }
 
 ///|

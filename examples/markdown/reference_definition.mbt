@@ -173,7 +173,7 @@ fn consume_reference_title(input : String, start : Int32) -> Int32? {
 
 ///|
 fn reference_line_ending_end(input : String, start : Int32) -> Int32? {
-  match input.view(start_offset=start) {
+  match input.legacy_view(start~) {
     ['\r', '\n', ..] => Some(start + 2)
     ['\r', ..] | ['\n', ..] => Some(start + 1)
     _ => None
@@ -605,7 +605,7 @@ fn scan_reference_definition_cursor(
 fn scan_link_reference_definition(
   input : String,
 ) -> ReferenceDefinitionScanOutcome {
-  let source = input.view()
+  let source = input[:]
   scan_reference_definition_cursor(
     new_reference_definition_cursor(index => {
       if index == 0 {

@@ -219,12 +219,7 @@ test "PrattBinary reuses unchanged retroactive wrapper before later edit" {
     tokens.length(),
     i => tokens[i].token,
     i => starts[i],
-    i => {
-      new_source.view(
-        start_offset=starts[i],
-        end_offset=starts[i] + tokens[i].len,
-      )
-    },
+    i => new_source.legacy_view(start=starts[i], end=starts[i] + tokens[i].len),
     spec,
     reuse_size_threshold=0,
   )
@@ -283,9 +278,9 @@ test "PrattBinary growth matches fresh full parse after suffix append" {
     i => new_tokens[i].token,
     i => new_starts[i],
     i => {
-      new_source.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_tokens[i].len,
+      new_source.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_tokens[i].len,
       )
     },
     spec,
@@ -334,9 +329,9 @@ test "PrattApp growth matches fresh full parse after suffix append" {
     i => new_tokens[i].token,
     i => new_starts[i],
     i => {
-      new_source.view(
-        start_offset=new_starts[i],
-        end_offset=new_starts[i] + new_tokens[i].len,
+      new_source.legacy_view(
+        start=new_starts[i],
+        end=new_starts[i] + new_tokens[i].len,
       )
     },
     spec,

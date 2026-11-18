@@ -319,7 +319,7 @@ fn zero_width_new_cursor(
     fn(i) { tokens[i].token },
     fn(i) { starts[i] },
     fn(i) {
-      new_src.view(start_offset=starts[i], end_offset=starts[i] + tokens[i].len)
+      new_src.legacy_view(start=starts[i], end=starts[i] + tokens[i].len)
     },
     spec,
     old_token_cache=cache,
