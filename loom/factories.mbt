@@ -74,13 +74,6 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
   let last_parse_diags : Ref[@core.DiagnosticSet] = Ref(
     @core.DiagnosticSet::empty(),
   )
-  // Persistent old-token cache: survives across edits so collect_old_tokens
-  // only runs once (on first incremental parse). Subsequent edits reuse the
-  // cached flat token array via ensure_old_tokens → immediate cache hit.
-  // Reset to empty on full_parse (new tree, old cache invalid).
-  let old_token_cache : Ref[@core.OldTokenCache] = Ref(
-    @core.OldTokenCache::empty(),
-  )
   let reuse_dependencies : Ref[@core.ReuseDependencies?]? = if spec.track_reuse_dependencies {
     Some(Ref(None))
   } else {
@@ -118,7 +111,6 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       // A Failure above leaves the previously accepted incremental state intact.
       token_buf.val = Some(buffer)
       last_parse_diags.val = diagnostics
-      old_token_cache.val = @core.OldTokenCache::empty() // new tree — old cache invalid
       (syntax, all_diagnostics, 0)
     },
     atomic_parse=Some((source_id, source, old_syntax, changes) => {
@@ -178,7 +170,6 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       // Invalidate it atomically; the next single edit rebuilds on demand.
       token_buf.val = None
       last_parse_diags.val = candidate_diagnostics
-      old_token_cache.val = @core.OldTokenCache::empty()
       match reuse_dependencies {
         Some(slot) => slot.val = candidate_dependencies
         None => ()
@@ -309,9 +300,11 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       } else {
         edit
       }
-      // Patch the persistent old-token cache: remove tokens in the old damage
-      // range and accumulate offset delta for post-damage lookups.
-      old_token_cache.val.apply_source_edit(edit)
+      // The old-token table is rebuilt lazily per edit from the accepted old
+      // tree; carrying it across edits would miss tokens the previous edit
+      // introduced. The edit only records the offset shift for lookups.
+      let old_token_cache = @core.OldTokenCache::empty()
+      old_token_cache.apply_source_edit(edit)
       let cursor = Some(
         @core.ReuseCursor::new_with_edit(
           old_syntax.cst_node(),
@@ -322,7 +315,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
           i => buffer.get_view(i),
           spec,
           reuse_size_threshold=spec.reuse_size_threshold,
-          old_token_cache=old_token_cache.val,
+          old_token_cache~,
           allow_left_adjacent_reuse=edit.old_len > 0 && edit.new_len == 0,
           dependencies=reuse_dependencies.map_or(None, slot => slot.val),
         ),

@@ -20,6 +20,13 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Fixed
 
+- Incremental reuse no longer produces a tree that differs from a full parse
+  after a pure deletion at a node boundary or after a sequence of edits. The
+  follow-token lookup skipped the deleted token, a node whose last token merged
+  with the text after the deletion was reused, and the old-token cache kept
+  stale tokens across edits; the cache is now per edit. Known remaining case:
+  a node ending in error recovery can still be reused when an edit follows
+  several separator tokens.
 - Parser rollback restores children moved by speculative `start_at` wrapping,
   including nested same-kind/same-span dependency occurrences. It also undoes
   claims on earlier event marks, preventing unbalanced CSTs and allowing a

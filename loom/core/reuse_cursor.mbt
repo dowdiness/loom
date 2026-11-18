@@ -28,7 +28,7 @@ struct CursorFrame {
 #derive(Debug, Eq, Compare)
 struct OldToken {
   kind : @seam.RawKind
-  text : String
+  text : StringView
   start : Int32
 }
 
@@ -50,19 +50,15 @@ enum ReuseRejectionReason {
 }
 
 ///|
-/// Persistent cache for the flattened old-token table.
+/// Per-edit cache for the flattened old-token table.
 ///
-/// Survives across edits to avoid O(n) collect_old_tokens rebuild.
-/// Tokens are stored with offsets from the tree they were built from.
-/// After an edit with non-zero delta (insert/delete), `pending_delta`
-/// accumulates the offset shift for tokens after the damage zone.
-/// `damage_boundary` records where the shift begins — tokens before
-/// this offset use their stored offset; tokens at or after use
-/// stored offset + pending_delta.
-///
-/// On read, `old_follow_token_lazy` adjusts the binary search target
-/// by subtracting pending_delta for the post-damage region, so the
-/// cached offsets match the query without rewriting the array.
+/// Holds the tokens of the old tree, built lazily on the first follow-token
+/// query, together with the offset shift of the edit being parsed. It must not
+/// outlive that edit: the token table describes the old tree only, and a later
+/// edit's old tree contains tokens this table never saw.
+/// `damage_boundary` is the edit start; query offsets after it are mapped back
+/// by `pending_delta` on read (see `old_follow_token_lazy`), while an offset
+/// equal to it belongs to a node ending at the edit and keeps its coordinates.
 pub struct OldTokenCache {
   mut tokens : Array[OldToken]?
   mut pending_delta : Int32 // cumulative offset shift for post-damage tokens
@@ -183,7 +179,7 @@ fn collect_old_tokens(
           !trivia_kinds.contains(t.kind) &&
           t.kind != err_raw &&
           t.kind != incomplete_raw {
-          out.push({ kind: t.kind, text: t.text().to_owned(), start: offset, })
+          out.push({ kind: t.kind, text: t.text(), start: offset, })
         }
         offset = offset + t.text_len()
       }
@@ -452,7 +448,7 @@ fn[T, K] ReuseCursor::old_token_search_offset(
 ) -> Int32 {
   // Tokens in the cache have offsets from the tree they were built from.
   // Post-damage tokens shifted by pending_delta — reverse the shift to match.
-  if self.cache.pending_delta != 0 && offset >= self.cache.damage_boundary {
+  if self.cache.pending_delta != 0 && offset > self.cache.damage_boundary {
     offset - self.cache.pending_delta
   } else {
     offset
@@ -490,7 +486,7 @@ fn[T, K] ReuseCursor::old_zero_width_tokens_at_boundary(
   let result : Array[OldToken] = []
   let mut i = lower_bound(old_tokens, search_offset)
   while i < old_tokens.length() && old_tokens[i].start == search_offset {
-    if old_tokens[i].text == "" {
+    if old_tokens[i].text.length() == 0 {
       result.push(old_tokens[i])
     }
     i = i + 1
@@ -545,13 +541,21 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] trailing_context_match
   cursor : ReuseCursor[T, K],
   node_end : Int32,
 ) -> Bool {
+  // A relex may merge the node's last token with edited text, so the new
+  // stream must still have a token boundary at the node end.
+  let after = lower_bound(cursor, node_end)
+  if after > 0 &&
+    (cursor.get_start)(after - 1) + (cursor.get_text)(after - 1).length() >
+    node_end {
+    return false
+  }
   let old_follow = old_follow_token_lazy(cursor, node_end)
   let new_follow = new_follow_token_with_pos(cursor, node_end)
   match (old_follow, new_follow) {
     (None, None) => true
     (Some(old), Some((new_tok, new_pos))) =>
       old.kind == @seam.ToRawKind::to_raw(new_tok) &&
-      old.text[:] == (cursor.get_text)(new_pos)
+      old.text == (cursor.get_text)(new_pos)
     _ => false
   }
 }
