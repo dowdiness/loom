@@ -300,11 +300,6 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       } else {
         edit
       }
-      // The old-token table is rebuilt lazily per edit from the accepted old
-      // tree; carrying it across edits would miss tokens the previous edit
-      // introduced. The edit only records the offset shift for lookups.
-      let old_token_cache = @core.OldTokenCache::empty()
-      old_token_cache.apply_source_edit(edit)
       let cursor = Some(
         @core.ReuseCursor::new_with_edit(
           old_syntax.cst_node(),
@@ -315,7 +310,6 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
           i => buffer.get_view(i),
           spec,
           reuse_size_threshold=spec.reuse_size_threshold,
-          old_token_cache~,
           allow_left_adjacent_reuse=edit.old_len > 0 && edit.new_len == 0,
           dependencies=reuse_dependencies.map_or(None, slot => slot.val),
         ),

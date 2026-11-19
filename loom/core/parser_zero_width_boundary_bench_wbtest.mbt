@@ -18,7 +18,6 @@ struct ZeroWidthBoundaryBenchmarkFixture {
   edit : Edit
   tokens : Array[TokenInfo[TestTok]]
   starts : Array[Int32]
-  cache : OldTokenCache
   use_repeat_groups : Bool
 }
 
@@ -34,31 +33,6 @@ fn zero_width_bench_summary(
   fixture.item_count.to_string() +
   " boundary_count=" +
   fixture.boundary_count.to_string()
-}
-
-///|
-fn zero_width_bench_warm_cache(
-  old_tree : @seam.CstNode,
-  edit : Edit,
-  tokens : Array[TokenInfo[TestTok]],
-  starts : Array[Int32],
-  source : String,
-  spec : LanguageSpec[TestTok, TestKind],
-) -> OldTokenCache {
-  let cache = OldTokenCache::empty()
-  cache.apply_source_edit(edit)
-  let cursor = ReuseCursor::new_with_edit(
-    old_tree,
-    edit,
-    tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { starts[i] },
-    fn(i) { source.legacy_view(start=starts[i], end=starts[i] + tokens[i].len) },
-    spec,
-    old_token_cache=cache,
-  )
-  let _ = cursor.old_zero_width_tokens_at_boundary(source.length())
-  cache
 }
 
 ///|
@@ -132,9 +106,6 @@ fn zero_width_bench_fixture(
     case.new_boundary_counts,
   )
   let starts = build_starts(tokens)
-  let cache = zero_width_bench_warm_cache(
-    old_tree, edit, tokens, starts, new_src, old_spec,
-  )
   {
     shape,
     mode,
@@ -145,7 +116,6 @@ fn zero_width_bench_fixture(
     edit,
     tokens,
     starts,
-    cache,
     use_repeat_groups,
   }
 }
@@ -168,7 +138,6 @@ fn zero_width_bench_cursor(
       )
     },
     spec,
-    old_token_cache=fixture.cache,
   )
 }
 

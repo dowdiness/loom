@@ -244,7 +244,6 @@ pub fn make_reuse_cursor(
   damage_end : Int32,
   tokens : Array[@core.TokenInfo[Token]],
   source : String,
-  old_token_cache~ : @core.OldTokenCache = @core.OldTokenCache::empty(),
   allow_left_adjacent_reuse~ : Bool = false,
   new_damage_end~ : Int32 = damage_end,
 ) -> @core.ReuseCursor[Token, SyntaxKind] {
@@ -258,7 +257,6 @@ pub fn make_reuse_cursor(
     edit,
     tokens,
     source,
-    old_token_cache~,
     allow_left_adjacent_reuse~,
   )
 }
@@ -272,7 +270,6 @@ pub fn make_reuse_cursor_with_edit(
   edit : @core.Edit,
   tokens : Array[@core.TokenInfo[Token]],
   source : String,
-  old_token_cache~ : @core.OldTokenCache = @core.OldTokenCache::empty(),
   allow_left_adjacent_reuse~ : Bool = false,
 ) -> @core.ReuseCursor[Token, SyntaxKind] {
   let starts = @core.build_starts(tokens)
@@ -284,7 +281,6 @@ pub fn make_reuse_cursor_with_edit(
     i => starts[i],
     i => source.legacy_view(start=starts[i], end=starts[i] + tokens[i].len),
     json_spec,
-    old_token_cache~,
     allow_left_adjacent_reuse~,
   )
 }

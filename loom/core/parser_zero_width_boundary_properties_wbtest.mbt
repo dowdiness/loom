@@ -310,8 +310,6 @@ fn zero_width_new_cursor(
 ) -> ReuseCursor[TestTok, TestKind] {
   let tokens = zero_width_tokenize_with_boundaries(new_src, new_boundary_counts)
   let starts = build_starts(tokens)
-  let cache = OldTokenCache::empty()
-  cache.apply_source_edit(edit)
   ReuseCursor::new_with_edit(
     old_tree,
     edit,
@@ -322,7 +320,6 @@ fn zero_width_new_cursor(
       new_src.legacy_view(start=starts[i], end=starts[i] + tokens[i].len)
     },
     spec,
-    old_token_cache=cache,
   )
 }
 

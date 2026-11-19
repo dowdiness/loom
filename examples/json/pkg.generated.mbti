@@ -32,9 +32,9 @@ pub fn lex(@diagnostic.SourceId, String) -> @core.LexResult[Token]
 
 pub fn make_json_spec((@core.ParserContext[Token, SyntaxKind]) -> Unit, reuse_size_threshold? : Int32, incomplete_kind? : SyntaxKind) -> @core.LanguageSpec[Token, SyntaxKind]
 
-pub fn make_reuse_cursor(@seam.CstNode, Int32, Int32, Array[@core.TokenInfo[Token]], String, old_token_cache? : @core.OldTokenCache, allow_left_adjacent_reuse? : Bool, new_damage_end? : Int32) -> @core.ReuseCursor[Token, SyntaxKind]
+pub fn make_reuse_cursor(@seam.CstNode, Int32, Int32, Array[@core.TokenInfo[Token]], String, allow_left_adjacent_reuse? : Bool, new_damage_end? : Int32) -> @core.ReuseCursor[Token, SyntaxKind]
 
-pub fn make_reuse_cursor_with_edit(@seam.CstNode, @core.Edit, Array[@core.TokenInfo[Token]], String, old_token_cache? : @core.OldTokenCache, allow_left_adjacent_reuse? : Bool) -> @core.ReuseCursor[Token, SyntaxKind]
+pub fn make_reuse_cursor_with_edit(@seam.CstNode, @core.Edit, Array[@core.TokenInfo[Token]], String, allow_left_adjacent_reuse? : Bool) -> @core.ReuseCursor[Token, SyntaxKind]
 
 pub fn parse(@diagnostic.SourceId, String) -> JsonValue raise
 
