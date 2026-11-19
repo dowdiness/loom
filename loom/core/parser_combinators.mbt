@@ -180,7 +180,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
           let old_node_end = cursor.current_offset + node.text_len()
           let new_node_end = byte_offset + node.text_len()
           let old_boundary_tokens = cursor.old_zero_width_tokens_at_boundary(
-            new_node_end,
+            old_node_end,
           )
           if self.reused_boundary_zero_width_tokens_match(
               node, old_node_end, new_node_end, old_boundary_tokens,

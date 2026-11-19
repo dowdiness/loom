@@ -266,15 +266,6 @@ pub fn OldToken::op_le(Self, Self) -> Bool
 pub fn OldToken::op_lt(Self, Self) -> Bool
 pub fn OldToken::to_repr(Self) -> @debug.Repr
 
-pub struct OldTokenCache {
-  mut tokens : Array[OldToken]?
-  mut pending_delta : Int32
-  mut damage_boundary : Int32
-}
-pub fn OldTokenCache::apply_edit(Self, Int32, Int32, Int32) -> Unit
-pub fn OldTokenCache::apply_source_edit(Self, Edit) -> Unit
-pub fn OldTokenCache::empty() -> Self
-
 pub struct OldTokenStarts(Array[Int32])
 pub fn OldTokenStarts::length(Self) -> Int32
 pub fn OldTokenStarts::new(Array[Int32]) -> Self
@@ -396,7 +387,6 @@ pub struct ReuseCursor[T, K] {
   trivia_kinds : Array[@seam.RawKind]
   err_raw : @seam.RawKind
   incomplete_raw : @seam.RawKind
-  cache : OldTokenCache
   reuse_globally_disabled : Bool
   reuse_size_threshold : Int32
   allow_left_adjacent_reuse : Bool
@@ -409,10 +399,9 @@ pub struct ReuseCursor[T, K] {
 }
 pub fn[T, K] ReuseCursor::advance_past(Self[T, K], @seam.CstNode) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::explain_reuse_rejection(Self[T, K], @seam.RawKind, Int32, Int32) -> ReuseRejectionReason?
-pub fn[T, K] ReuseCursor::get_old_token_cache(Self[T, K]) -> OldTokenCache
 pub fn[T, K] ReuseCursor::is_reuse_disabled(Self[T, K]) -> Bool
-pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int32, Int32, Int32, (Int32) -> T, (Int32) -> Int32, (Int32) -> StringView, LanguageSpec[T, K], reuse_size_threshold? : Int32, old_token_cache? : OldTokenCache, allow_left_adjacent_reuse? : Bool, new_damage_end? : Int32, dependencies? : ReuseDependencies?) -> Self[T, K]
-pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(@seam.CstNode, Edit, Int32, (Int32) -> T, (Int32) -> Int32, (Int32) -> StringView, LanguageSpec[T, K], reuse_size_threshold? : Int32, old_token_cache? : OldTokenCache, allow_left_adjacent_reuse? : Bool, dependencies? : ReuseDependencies?) -> Self[T, K]
+pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int32, Int32, Int32, (Int32) -> T, (Int32) -> Int32, (Int32) -> StringView, LanguageSpec[T, K], reuse_size_threshold? : Int32, allow_left_adjacent_reuse? : Bool, new_damage_end? : Int32, dependencies? : ReuseDependencies?) -> Self[T, K]
+pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(@seam.CstNode, Edit, Int32, (Int32) -> T, (Int32) -> Int32, (Int32) -> StringView, LanguageSpec[T, K], reuse_size_threshold? : Int32, allow_left_adjacent_reuse? : Bool, dependencies? : ReuseDependencies?) -> Self[T, K]
 pub fn[T, K] ReuseCursor::next_sibling_has_error(Self[T, K]) -> Bool
 pub fn[T, K] ReuseCursor::snapshot(Self[T, K]) -> Self[T, K]
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse(Self[T, K], @seam.RawKind, Int32, Int32) -> @seam.CstNode?

@@ -20,6 +20,14 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Fixed
 
+- Incremental reuse no longer produces a tree that differs from a full parse
+  after a pure deletion at a node boundary or after a sequence of edits. The
+  follow-token lookup skipped the deleted token, a node whose last token merged
+  with the text after the deletion was reused, and the old-token cache kept
+  stale tokens across edits. Old follow tokens are now looked up directly in
+  the immutable old CST, in old-tree coordinates, so no cache or offset
+  mapping is involved. Known remaining case: a node ending in error recovery
+  can still be reused when an edit follows several separator tokens.
 - Parser rollback restores children moved by speculative `start_at` wrapping,
   including nested same-kind/same-span dependency occurrences. It also undoes
   claims on earlier event marks, preventing unbalanced CSTs and allowing a
@@ -58,6 +66,11 @@ Notable user-facing changes to Loom and its sibling modules.
   preserve the original source on failure as well.
 
 ### Removed
+
+- `OldTokenCache`, `ReuseCursor::get_old_token_cache` and the
+  `old_token_cache` argument of `ReuseCursor::new`/`new_with_edit` and the
+  example `make_reuse_cursor*` helpers. Reuse checks no longer keep a token
+  table between edits.
 
 - **Breaking diagnostic API cleanup:** removed `DiagnosticSource`,
   `DiagnosticSourceFile`, the callback-holder `SourceProvider`, and the

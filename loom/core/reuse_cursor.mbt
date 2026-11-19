@@ -28,7 +28,7 @@ struct CursorFrame {
 #derive(Debug, Eq, Compare)
 struct OldToken {
   kind : @seam.RawKind
-  text : String
+  text : StringView
   start : Int32
 }
 
@@ -50,82 +50,6 @@ enum ReuseRejectionReason {
 }
 
 ///|
-/// Persistent cache for the flattened old-token table.
-///
-/// Survives across edits to avoid O(n) collect_old_tokens rebuild.
-/// Tokens are stored with offsets from the tree they were built from.
-/// After an edit with non-zero delta (insert/delete), `pending_delta`
-/// accumulates the offset shift for tokens after the damage zone.
-/// `damage_boundary` records where the shift begins — tokens before
-/// this offset use their stored offset; tokens at or after use
-/// stored offset + pending_delta.
-///
-/// On read, `old_follow_token_lazy` adjusts the binary search target
-/// by subtracting pending_delta for the post-damage region, so the
-/// cached offsets match the query without rewriting the array.
-pub struct OldTokenCache {
-  mut tokens : Array[OldToken]?
-  mut pending_delta : Int32 // cumulative offset shift for post-damage tokens
-  mut damage_boundary : Int32 // offsets >= this need pending_delta adjustment
-}
-
-///|
-/// Create an empty old-token cache.
-pub fn OldTokenCache::empty() -> OldTokenCache {
-  { tokens: None, pending_delta: 0, damage_boundary: 2147483647, }
-}
-
-///|
-/// Update the cache after an edit. Call BEFORE creating the next ReuseCursor.
-/// - Removes cached tokens in the old damage range [damage_start, damage_end)
-/// - Accumulates delta for post-damage offset adjustment
-pub fn OldTokenCache::apply_edit(
-  self : OldTokenCache,
-  damage_start : Int32,
-  damage_end : Int32,
-  new_damage_end : Int32,
-) -> Unit {
-  let delta = new_damage_end - damage_end
-  match self.tokens {
-    None => ()
-    Some(tokens) => {
-      // Remove tokens in the old damage range
-      let mut remove_start = -1
-      let mut remove_end = -1
-      for i = 0; i < tokens.length(); i = i + 1 {
-        let tok_offset = tokens[i].start
-        if tok_offset >= damage_start && tok_offset < damage_end {
-          if remove_start == -1 {
-            remove_start = i
-          }
-          remove_end = i + 1
-        } else if tok_offset >= damage_end {
-          break
-        }
-      }
-      if remove_start >= 0 {
-        let _ = tokens.drain(remove_start, remove_end)
-      }
-    }
-  }
-  // Update the damage boundary and delta for reads even when token materialization
-  // is still deferred. `ensure_old_tokens` will apply this boundary mapping.
-  self.damage_boundary = damage_start
-  self.pending_delta = self.pending_delta + delta
-}
-
-///|
-/// Update the cache after a compact edit operation.
-/// This is the same boundary update as `apply_edit`, but avoids manual
-/// start/end math at call sites that already operate on `Edit`.
-pub fn OldTokenCache::apply_source_edit(
-  self : OldTokenCache,
-  edit : Edit,
-) -> Unit {
-  self.apply_edit(edit.start, edit.old_end(), edit.new_end())
-}
-
-///|
 /// Generic cursor for walking an old CST to find reusable subtrees.
 /// Maintains traversal state for O(depth) lookups.
 pub struct ReuseCursor[T, K] {
@@ -138,7 +62,6 @@ pub struct ReuseCursor[T, K] {
   trivia_kinds : Array[@seam.RawKind]
   err_raw : @seam.RawKind
   incomplete_raw : @seam.RawKind
-  cache : OldTokenCache
   reuse_globally_disabled : Bool
   reuse_size_threshold : Int32
   allow_left_adjacent_reuse : Bool
@@ -151,50 +74,6 @@ pub struct ReuseCursor[T, K] {
   priv dependencies : ReuseDependencies?
   priv dependency_damage : Edit?
   priv mut last_dependency : NodeDependency?
-}
-
-///|
-// OffsetIndexed for Array[OldToken]: lets lower_bound search the flattened
-// old-tree token list by code-unit offset. Sorted by construction — collect_old_tokens
-// walks the tree left-to-right so .start values are strictly increasing.
-impl OffsetIndexed for Array[OldToken] with fn length(self) {
-  self.length()
-}
-
-///|
-impl OffsetIndexed for Array[OldToken] with fn offset_at(self, i) {
-  self[i].start
-}
-
-///|
-fn collect_old_tokens(
-  node : @seam.CstNode,
-  node_start : Int32,
-  out : Array[OldToken],
-  trivia_kinds : Array[@seam.RawKind],
-  err_raw : @seam.RawKind,
-  incomplete_raw : @seam.RawKind,
-) -> Unit {
-  let mut offset = node_start
-  for child in node.children() {
-    match child {
-      @seam.CstElement::Token(t) => {
-        if t.is_source_backed() &&
-          !trivia_kinds.contains(t.kind) &&
-          t.kind != err_raw &&
-          t.kind != incomplete_raw {
-          out.push({ kind: t.kind, text: t.text().to_owned(), start: offset, })
-        }
-        offset = offset + t.text_len()
-      }
-      @seam.CstElement::Node(n) => {
-        collect_old_tokens(
-          n, offset, out, trivia_kinds, err_raw, incomplete_raw,
-        )
-        offset = offset + n.text_len()
-      }
-    }
-  }
 }
 
 ///|
@@ -217,7 +96,6 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   get_text : (Int32) -> StringView,
   spec : LanguageSpec[T, K],
   reuse_size_threshold~ : Int32 = 0,
-  old_token_cache~ : OldTokenCache = OldTokenCache::empty(),
   allow_left_adjacent_reuse~ : Bool = false,
   new_damage_end~ : Int32 = damage_end,
   dependencies~ : ReuseDependencies? = None,
@@ -245,7 +123,6 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     trivia_kinds,
     err_raw,
     incomplete_raw,
-    cache: old_token_cache,
     reuse_globally_disabled,
     reuse_size_threshold,
     allow_left_adjacent_reuse,
@@ -285,7 +162,6 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(
   get_text : (Int32) -> StringView,
   spec : LanguageSpec[T, K],
   reuse_size_threshold~ : Int32 = 0,
-  old_token_cache~ : OldTokenCache = OldTokenCache::empty(),
   allow_left_adjacent_reuse~ : Bool = false,
   dependencies~ : ReuseDependencies? = None,
 ) -> ReuseCursor[T, K] {
@@ -298,7 +174,6 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(
     get_start,
     get_text,
     spec,
-    old_token_cache~,
     allow_left_adjacent_reuse~,
     reuse_size_threshold~,
     new_damage_end=edit.new_end(),
@@ -310,17 +185,6 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(
 /// True if damage covers the entire tree — no reuse is possible.
 pub fn[T, K] ReuseCursor::is_reuse_disabled(self : ReuseCursor[T, K]) -> Bool {
   self.reuse_globally_disabled
-}
-
-///|
-/// Get the old-token cache for persistence across edits.
-/// Call after parsing completes and pass to the next ReuseCursor::new_with_edit
-/// or low-level ReuseCursor::new
-/// to avoid rebuilding the flat token array from scratch.
-pub fn[T, K] ReuseCursor::get_old_token_cache(
-  self : ReuseCursor[T, K],
-) -> OldTokenCache {
-  self.cache
 }
 
 ///|
@@ -419,83 +283,133 @@ fn[T : @seam.ToRawKind, K] leading_token_matches(
 }
 
 ///|
-/// Materialize the flattened old-token table on first use.
-/// Once built, the table is cached in the shared OldTokenCache cell
-/// so all snapshot branches reuse the same array.
-fn[T, K] ReuseCursor::ensure_old_tokens(
+/// Whether an old CST leaf counts as lexer context: source-backed, not trivia,
+/// not an error or incomplete placeholder.
+fn is_old_context_token(
+  token : @seam.CstToken,
+  trivia_kinds : Array[@seam.RawKind],
+  err_raw : @seam.RawKind,
+  incomplete_raw : @seam.RawKind,
+) -> Bool {
+  token.is_source_backed() &&
+  !trivia_kinds.contains(token.kind) &&
+  token.kind != err_raw &&
+  token.kind != incomplete_raw
+}
+
+///|
+fn[T, K] ReuseCursor::is_old_context_token(
   self : ReuseCursor[T, K],
-) -> Array[OldToken] {
-  match self.cache.tokens {
-    Some(tokens) => tokens
-    None => {
-      let tokens : Array[OldToken] = []
-      collect_old_tokens(
-        self.old_root,
-        0,
-        tokens,
-        self.trivia_kinds,
-        self.err_raw,
-        self.incomplete_raw,
-      )
-      self.cache.tokens = Some(tokens)
-      tokens
+  token : @seam.CstToken,
+) -> Bool {
+  is_old_context_token(
+    token,
+    self.trivia_kinds,
+    self.err_raw,
+    self.incomplete_raw,
+  )
+}
+
+///|
+/// Collect old context tokens whose start is `>= from` in document order,
+/// stopping once `out` holds `limit` tokens. Returns true when finished.
+/// Children that end before `from` are skipped without descending, so the
+/// cost is the path to `from` plus the tokens returned. A node ending exactly
+/// at `from` is still visited: its right-edge zero-width tokens start there.
+fn[T, K] ReuseCursor::collect_old_tokens_from(
+  self : ReuseCursor[T, K],
+  node : @seam.CstNode,
+  node_start : Int32,
+  from : Int32,
+  limit : Int32,
+  out : Array[OldToken],
+) -> Bool {
+  let mut offset = node_start
+  for child in node.children() {
+    let end = offset + child.text_len()
+    match child {
+      @seam.CstElement::Token(token) =>
+        if offset >= from && self.is_old_context_token(token) {
+          out.push({ kind: token.kind, text: token.text(), start: offset, })
+          if out.length() >= limit {
+            return true
+          }
+        }
+      @seam.CstElement::Node(child_node) =>
+        if end >= from &&
+          self.collect_old_tokens_from(child_node, offset, from, limit, out) {
+          return true
+        }
     }
+    offset = end
   }
+  false
 }
 
 ///|
-/// Adjust a new/source-query offset back into the coordinate space used by the
-/// persistent old-token cache.
-fn[T, K] ReuseCursor::old_token_search_offset(
-  self : ReuseCursor[T, K],
-  offset : Int32,
-) -> Int32 {
-  // Tokens in the cache have offsets from the tree they were built from.
-  // Post-damage tokens shifted by pending_delta — reverse the shift to match.
-  if self.cache.pending_delta != 0 && offset >= self.cache.damage_boundary {
-    offset - self.cache.pending_delta
-  } else {
-    offset
-  }
-}
-
-///|
-/// Binary search: first old non-trivia token with start >= offset.
-/// Lazily materializes the old-token table on first call.
-/// Adjusts search offset for persistent-cache delta when the query
-/// falls in the post-damage region.
-fn[T, K] old_follow_token_lazy(
+/// First old context token starting at or after `offset`, in old-tree
+/// coordinates. The old tree is immutable, so the answer does not depend on
+/// the edit being parsed.
+fn[T, K] old_follow_token(
   cursor : ReuseCursor[T, K],
   offset : Int32,
 ) -> OldToken? {
-  let old_tokens = cursor.ensure_old_tokens()
-  let search_offset = cursor.old_token_search_offset(offset)
-  let lo = lower_bound(old_tokens, search_offset)
-  if lo < old_tokens.length() {
-    Some(old_tokens[lo])
+  let out : Array[OldToken] = []
+  let _ = cursor.collect_old_tokens_from(cursor.old_root, 0, offset, 1, out)
+  if out.length() > 0 {
+    Some(out[0])
   } else {
     None
   }
 }
 
 ///|
-/// Return source-backed zero-width old lexer tokens at a boundary offset.
-/// The query offset uses the same coordinate convention as old_follow_token_lazy.
+/// Zero-width old lexer tokens that start exactly at `offset` (old-tree
+/// coordinates), in document order.
 fn[T, K] ReuseCursor::old_zero_width_tokens_at_boundary(
   self : ReuseCursor[T, K],
   offset : Int32,
 ) -> Array[OldToken] {
-  let old_tokens = self.ensure_old_tokens()
-  let search_offset = self.old_token_search_offset(offset)
-  let result : Array[OldToken] = []
-  let mut i = lower_bound(old_tokens, search_offset)
-  while i < old_tokens.length() && old_tokens[i].start == search_offset {
-    if old_tokens[i].text == "" {
-      result.push(old_tokens[i])
+  let candidates : Array[OldToken] = []
+  let _ = self.collect_old_tokens_at(self.old_root, 0, offset, candidates)
+  candidates
+}
+
+///|
+fn[T, K] ReuseCursor::collect_old_tokens_at(
+  self : ReuseCursor[T, K],
+  node : @seam.CstNode,
+  node_start : Int32,
+  boundary : Int32,
+  out : Array[OldToken],
+) -> Bool {
+  let mut offset = node_start
+  for child in node.children() {
+    let end = offset + child.text_len()
+    match child {
+      @seam.CstElement::Token(token) => {
+        if offset > boundary {
+          return true
+        }
+        if offset == boundary &&
+          token.text_len() == 0 &&
+          self.is_old_context_token(token) {
+          out.push({ kind: token.kind, text: token.text(), start: offset, })
+        }
+      }
+      @seam.CstElement::Node(child_node) => {
+        if offset > boundary {
+          return true
+        }
+        if end >= boundary &&
+          self.collect_old_tokens_at(child_node, offset, boundary, out) {
+          return true
+        }
+      }
     }
-    i = i + 1
+    offset = end
   }
-  result
+  false
 }
 
 ///|
@@ -543,15 +457,24 @@ fn[T : @seam.IsTrivia + @seam.IsEof, K] new_follow_token_with_pos(
 /// additionally require unchanged dependency extents and entry context.
 fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] trailing_context_matches(
   cursor : ReuseCursor[T, K],
+  old_node_end : Int32,
   node_end : Int32,
 ) -> Bool {
-  let old_follow = old_follow_token_lazy(cursor, node_end)
+  // A relex may merge the node's last token with edited text, so the new
+  // stream must still have a token boundary at the node end.
+  let after = lower_bound(cursor, node_end)
+  if after > 0 &&
+    (cursor.get_start)(after - 1) + (cursor.get_text)(after - 1).length() >
+    node_end {
+    return false
+  }
+  let old_follow = old_follow_token(cursor, old_node_end)
   let new_follow = new_follow_token_with_pos(cursor, node_end)
   match (old_follow, new_follow) {
     (None, None) => true
     (Some(old), Some((new_tok, new_pos))) =>
       old.kind == @seam.ToRawKind::to_raw(new_tok) &&
-      old.text[:] == (cursor.get_text)(new_pos)
+      old.text == (cursor.get_text)(new_pos)
     _ => false
   }
 }
@@ -706,7 +629,7 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse
         Err(ReuseRejectDependencyMismatch)
       } else if !leading_token_matches(node, self, token_pos) {
         Err(ReuseRejectLeadingTokenMismatch)
-      } else if !trailing_context_matches(self, node_end_in_new) {
+      } else if !trailing_context_matches(self, node_end, node_end_in_new) {
         Err(ReuseRejectFollowTokenMismatch)
       } else {
         Ok(node)
@@ -822,7 +745,7 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse
               // Found undamaged RepeatGroup — validate context
               let child_end_in_new = self.to_new_offset(child_end)
               if leading_token_matches(child_node, self, token_pos) &&
-                trailing_context_matches(self, child_end_in_new) &&
+                trailing_context_matches(self, child_end, child_end_in_new) &&
                 self.dependencies_match(child_node, child_offset, context) {
                 self.current_offset = child_offset
                 return Some(child_node)
@@ -931,7 +854,6 @@ pub fn[T, K] ReuseCursor::snapshot(
     trivia_kinds: self.trivia_kinds,
     err_raw: self.err_raw,
     incomplete_raw: self.incomplete_raw,
-    cache: self.cache, // shared mutable cell — all snapshots see same materialized table
     reuse_globally_disabled: self.reuse_globally_disabled,
     reuse_size_threshold: self.reuse_size_threshold,
     allow_left_adjacent_reuse: self.allow_left_adjacent_reuse,

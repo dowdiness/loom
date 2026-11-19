@@ -462,9 +462,7 @@ test "ReuseCursor::new_with_edit: maps delete edit back to reusable shifted node
     grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
-  let cache = OldTokenCache::empty()
   let edit = Edit::replace(2, 4, 2)
-  cache.apply_source_edit(edit)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new_with_edit(
     old_tree,
     edit,
@@ -478,7 +476,6 @@ test "ReuseCursor::new_with_edit: maps delete edit back to reusable shifted node
       )
     },
     test_spec,
-    old_token_cache=cache,
   )
   let second = cursor.try_reuse(test_kind_raw(KExpr), 2, 2)
   inspect(second is Some(_), content="true")
@@ -585,7 +582,7 @@ test "new_follow_token_with_pos: returns None past end of tokens" {
 }
 
 ///|
-test "old_follow_token_lazy: finds first non-trivia token at or after offset" {
+test "old_follow_token: finds first non-trivia token at or after offset" {
   let src = "1 + 2"
   let (tree, _) = parse_with(
     SourceId("parser-reuse-source"),
@@ -605,7 +602,7 @@ test "old_follow_token_lazy: finds first non-trivia token at or after offset" {
     fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
-  let result = old_follow_token_lazy(cursor, 1)
+  let result = old_follow_token(cursor, 1)
   inspect(result is Some(_), content="true")
   let tok = result.unwrap()
   inspect(tok.start, content="2")
@@ -613,7 +610,7 @@ test "old_follow_token_lazy: finds first non-trivia token at or after offset" {
 }
 
 ///|
-test "old_follow_token_lazy: returns None past end of tree" {
+test "old_follow_token: returns None past end of tree" {
   let src = "42"
   let (tree, _) = parse_with(
     SourceId("parser-reuse-source"),
@@ -633,12 +630,12 @@ test "old_follow_token_lazy: returns None past end of tree" {
     fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
-  let result = old_follow_token_lazy(cursor, 99)
+  let result = old_follow_token(cursor, 99)
   inspect(result is Some(_), content="false")
 }
 
 ///|
-test "old_follow_token_lazy: cache is shared across snapshots" {
+test "old_follow_token: a snapshot answers the same lookups" {
   let src = "1 + 2"
   let (tree, _) = parse_with(
     SourceId("parser-reuse-source"),
@@ -658,12 +655,9 @@ test "old_follow_token_lazy: cache is shared across snapshots" {
     fn(i) { src.legacy_view(start=starts[i], end=starts[i] + toks[i].len) },
     test_spec,
   )
-  // Snapshot before materializing the cache
   let snap = cursor.snapshot()
-  // Materialize via the original cursor
-  let _ = old_follow_token_lazy(cursor, 0)
-  // The snapshot should see the same materialized cache
-  let result = old_follow_token_lazy(snap, 2)
+  let _ = old_follow_token(cursor, 0)
+  let result = old_follow_token(snap, 2)
   inspect(result is Some(_), content="true")
   let tok = result.unwrap()
   inspect(tok.text, content="+")
@@ -699,8 +693,6 @@ test "ReuseCursor::try_reuse: reuses unaffected nodes across middle deletion" {
     grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
-  let cache = OldTokenCache::empty()
-  cache.apply_edit(2, 4, 2)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
     2,
@@ -715,7 +707,6 @@ test "ReuseCursor::try_reuse: reuses unaffected nodes across middle deletion" {
       )
     },
     item_spec,
-    old_token_cache=cache,
     new_damage_end=2,
   )
   // Node for "3" shifts left after deletion and should be reusable.
@@ -754,9 +745,7 @@ test "parse_tokens_indexed: parse with middle deletion can still reuse shifted n
     grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
-  let cache = OldTokenCache::empty()
   // Delete old range [0,4) ("1 + "), which shifts trailing nodes left by 4.
-  cache.apply_edit(0, 4, 0)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
     0,
@@ -771,7 +760,6 @@ test "parse_tokens_indexed: parse with middle deletion can still reuse shifted n
       )
     },
     item_spec,
-    old_token_cache=cache,
     new_damage_end=0,
   )
   let (tree, _, reuse_count) = parse_tokens_indexed(
@@ -828,9 +816,7 @@ test "parse_tokens_indexed: parse with prefix deletion reuses shifted descendant
     grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
-  let cache = OldTokenCache::empty()
   // Delete first two bytes [0,2) to shift remaining nodes left.
-  cache.apply_edit(0, 2, 0)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
     0,
@@ -845,7 +831,6 @@ test "parse_tokens_indexed: parse with prefix deletion reuses shifted descendant
       )
     },
     item_spec,
-    old_token_cache=cache,
     new_damage_end=0,
   )
   let (_, _, reuse_count) = parse_tokens_indexed(
@@ -893,9 +878,7 @@ test "parse_tokens_indexed: parse with suffix deletion reuses unaffected prefix 
     grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
-  let cache = OldTokenCache::empty()
   // Delete tail [3,5) (\"+3\") to keep prefix structure intact.
-  cache.apply_edit(3, 5, 3)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
     3,
@@ -910,7 +893,6 @@ test "parse_tokens_indexed: parse with suffix deletion reuses unaffected prefix 
       )
     },
     item_spec,
-    old_token_cache=cache,
     new_damage_end=3,
   )
   let (_, _, reuse_count) = parse_tokens_indexed(
@@ -930,11 +912,11 @@ test "parse_tokens_indexed: parse with suffix deletion reuses unaffected prefix 
 }
 
 ///|
-/// Regression: collect_old_tokens and first_source_backed_token skip ALL trivia
+/// Regression: old context token filtering and first_source_backed_token skip ALL trivia
 /// kinds, not just the primary whitespace_kind.
 /// Constructs a node with tokens of kinds: Whitespace (raw=4), Comment (raw=8),
 /// Plus (raw=1), and asserts both trivia kinds are filtered out.
-test "multi-trivia: collect_old_tokens excludes all trivia kinds" {
+test "multi-trivia: old context tokens exclude all trivia kinds" {
   let ws_kind = @seam.RawKind(4) // primary trivia (like KWs)
   let cmt_kind = @seam.RawKind(8) // secondary trivia (e.g., CommentToken)
   let plus_kind = @seam.RawKind(1) // non-trivia (like KPlus)
@@ -967,13 +949,20 @@ test "multi-trivia: collect_old_tokens excludes all trivia kinds" {
   // Verify token_count excludes both trivia kinds (2 tokens out of 4)
   inspect(node.token_count(), content="2")
 
-  // Verify collect_old_tokens returns only non-trivia tokens
-  let flat : Array[OldToken] = []
-  collect_old_tokens(node, 0, flat, trivia_kinds, err_kind, inc_kind)
-  inspect(flat.length(), content="2")
-  // Use @debug.to_string for RawKind comparison (no Show instance)
-  inspect(@debug.to_string(flat[0].kind), content="RawKind(1)")
-  inspect(@debug.to_string(flat[1].kind), content="RawKind(1)")
+  // Verify only the non-trivia tokens count as old lexer context
+  let mut context_tokens = 0
+  for child in node.children() {
+    match child {
+      @seam.CstElement::Token(token) =>
+        if is_old_context_token(token, trivia_kinds, err_kind, inc_kind) {
+          context_tokens = context_tokens + 1
+          // Use @debug.to_string for RawKind comparison (no Show instance)
+          inspect(@debug.to_string(token.kind), content="RawKind(1)")
+        }
+      @seam.CstElement::Node(_) => ()
+    }
+  }
+  inspect(context_tokens, content="2")
 
   // Verify first_source_backed_token skips both trivia kinds
   let first = first_source_backed_token(node, trivia_kinds)
