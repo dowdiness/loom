@@ -78,8 +78,6 @@ layer2: scope create and dispose (empty)	27.89
 layer2: scope create 10 inputs and dispose	13060.00
 layer2: scope bulk dispose 100 mixed cells	138260.00
 layer2: nested scope (3 levels) create and dispose	3580.00
-observer: get warm (memo)	38.42
-observer: observe + dispose cycle	139.68
 gc: sweep 1k all-live	162900.00
 gc: sweep 1k all-dead	2780.00
 gc: sweep 1k 50pct dead	74450.00
