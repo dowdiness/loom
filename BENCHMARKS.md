@@ -8,13 +8,17 @@ Performance benchmarks for the incremental parser implementation.
 
 ```bash
 # Run all parser benchmarks (recommended, from repo root)
-(cd examples/lambda && moon bench --release)
+(cd examples/lambda && moon bench --release --target wasm-gc)
 
 # Run all tests (non-benchmark tests only, from repo root)
 moon test --package parser
 ```
 
 **Note:** Use `moon bench` to run performance benchmarks. The `moon test` command runs functional tests only.
+
+The baseline and `bench-check.sh` use the `wasm-gc` backend. Pass `--target wasm-gc`
+explicitly: since MoonBit 0.10.5, `moon` defaults to the linear-memory `wasm`
+backend, which runs these benchmarks about 3-5x slower.
 
 
 The checked-in baseline covers the active benchmark packages discovered by

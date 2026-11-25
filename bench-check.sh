@@ -14,6 +14,10 @@ BASELINE="${BENCH_BASELINE:-docs/performance/bench-baseline.tsv}"
 POLICY_FILE="${BENCH_POLICY:-docs/performance/bench-detector-policy.tsv}"
 THRESHOLD=15   # % regression that triggers failure for gated rows
 MODULE_DIR="${BENCH_MODULE_DIR:-examples/lambda}"
+# The baseline is measured on wasm-gc. Name the target explicitly: since 0.10.5,
+# moon defaults to the linear-memory wasm backend, which runs these rows 3-5x
+# slower and silently shifted every comparison when CI moved past 0.10.4.
+TARGET=wasm-gc
 staged_baseline=""
 
 # --- colour helpers (same style as check-docs.sh) ---
@@ -180,7 +184,7 @@ validate_policy() {
 # --- run benchmarks once and parse output ---
 run_benchmarks() {
   local raw
-  if ! raw=$(cd "$MODULE_DIR" && moon bench --release 2>&1); then
+  if ! raw=$(cd "$MODULE_DIR" && moon bench --release --target "$TARGET" 2>&1); then
     return 1
   fi
   if ! printf '%s\n' "$raw" | parse_bench_output; then
@@ -210,7 +214,7 @@ fi
 if [[ "${1:-}" == "--update" ]]; then
   echo "Benchmark baseline update"
   echo "-------------------------"
-  info "Running: cd $MODULE_DIR && moon bench --release"
+  info "Running: cd $MODULE_DIR && moon bench --release --target $TARGET"
 
   if ! parsed=$(run_benchmarks); then
     fail "Benchmark output parsing failed — verifier infrastructure error"
@@ -279,7 +283,7 @@ fi
 
 echo "Benchmark regression check (threshold: ${THRESHOLD}%, gated rows)"
 echo "------------------------------------------------------"
-info "Running: cd $MODULE_DIR && moon bench --release"
+info "Running: cd $MODULE_DIR && moon bench --release --target $TARGET"
 if ! current_tsv=$(run_benchmarks); then
   fail "Benchmark output parsing failed — verifier infrastructure error"
   exit 1
