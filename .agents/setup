@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
-moon_version='0.10.14+7d59c7ec9'
+moon_version='0.10.21+06da1ed44'
 moon_bin="$HOME/.moon/bin"
 
 echo '[orb setup] MoonBit toolchain'
