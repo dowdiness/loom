@@ -2,7 +2,7 @@
 
 **Status:** Implemented; benchmarked on flat-grammar parser benchmarks.
 
-**Update:** the shared `OldTokenCache` described below was later removed; old follow tokens are looked up directly in the immutable old CST (see CHANGELOG).
+**Update:** the cross-edit `OldTokenCache` described below was later removed. Each reuse cursor now builds its old-token table lazily from its own immutable old CST and shares it with its snapshots, with no offset mapping between edits (see CHANGELOG and the 2026-11-25 entry in `benchmark_history.md`).
 
 **Context:** Incremental parsing is slower than full reparse on right-recursive let chains (320-deep). This document records actionable waste elimination opportunities found during investigation.
 

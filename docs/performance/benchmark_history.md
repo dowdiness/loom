@@ -2,6 +2,46 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-11-25 (Old-token lookups after #969: per-cursor table)
+
+- Base revisions: `598bbe9c` (before #969) and `793e26fd` (#969).
+- Environment: Amp orb, Linux 6.1, x86_64; Moon `0.1.20261117`, moonc
+  `v0.10.21+06da1ed44`, release wasm-gc.
+- Command: `moon bench --release -p dowdiness/lambda/benchmarks -f
+  heavy_benchmark.mbt`, run in `examples/lambda` at each revision.
+
+#969 replaced the cross-edit old-token cache with a walk from the old root
+for every follow-token and zero-width-boundary lookup. Each walk visits every
+earlier sibling, so on a wide node (`make_wide_arithmetic`, one flat
+expression) every reuse check cost O(n) and an edit cost O(n²). In the
+table below, #969 makes these rows 1.5–5.6x slower than before #969. The
+scheduled CI runs show a larger gap: on `793e26fd` these rows were 4–8x
+slower than on `3fd9f10b`, while the median row moved 1.15x.
+
+The fix keeps #969's coordinates and boundary checks. It builds the old-token
+table once per reuse cursor, on first use, from that cursor's immutable old
+tree. Snapshots share it, and lookups binary-search it. Nothing carries over
+between edits, so the stale-cache and offset-mapping defects #969 fixed
+cannot recur.
+
+| Row | Before #969 | #969 | Fix |
+|---|---:|---:|---:|
+| scale: 100 terms - 50-edit session incremental | 19.94 ms | 30.78 ms | 22.17 ms |
+| scale: 500 terms - incremental single edit | 5.11 ms | 8.27 ms | 4.64 ms |
+| scale: 500 terms - 50-edit session incremental | 93.60 ms | 249.05 ms | 96.34 ms |
+| scale: 1000 terms - incremental single edit | 10.17 ms | 29.21 ms | 9.40 ms |
+| scale: 1000 terms - 50-edit session incremental | 197.34 ms | 1.11 s | 194.77 ms |
+| scale: 1000 terms - full reparse (control) | 3.63 ms | 3.37 ms | 3.12 ms |
+
+A paired comparison of `benchmarks/benchmark.mbt` between #969 and the fix
+(three alternating trials, medians) put every incremental row within the
+noise of rows that never use the cursor (`damage tracking` +12.4%,
+`full parse - nested lambdas` +8.8%). For example, `incremental - small edit`
+was +5.2% and `incremental - let init edit` was −2.8%.
+
+No ADR needed: a local lookup-structure fix within `ReuseCursor`, with no
+public API or detector-policy change.
+
 ## 2026-09-15 (Bounded sharing for repeated single-token CST nodes)
 
 - Pull request: [#958](https://github.com/dowdiness/loom/pull/958)

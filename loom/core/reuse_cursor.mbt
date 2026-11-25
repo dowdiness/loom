@@ -74,6 +74,7 @@ pub struct ReuseCursor[T, K] {
   priv dependencies : ReuseDependencies?
   priv dependency_damage : Edit?
   priv mut last_dependency : NodeDependency?
+  priv old_tokens : Ref[Array[OldToken]?]
 }
 
 ///|
@@ -124,6 +125,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     err_raw,
     incomplete_raw,
     reuse_globally_disabled,
+    old_tokens: { val: None, },
     reuse_size_threshold,
     allow_left_adjacent_reuse,
     token_count,
@@ -311,39 +313,56 @@ fn[T, K] ReuseCursor::is_old_context_token(
 }
 
 ///|
-/// Collect old context tokens whose start is `>= from` in document order,
-/// stopping once `out` holds `limit` tokens. Returns true when finished.
-/// Children that end before `from` are skipped without descending, so the
-/// cost is the path to `from` plus the tokens returned. A node ending exactly
-/// at `from` is still visited: its right-edge zero-width tokens start there.
-fn[T, K] ReuseCursor::collect_old_tokens_from(
+// OffsetIndexed for Array[OldToken]: lets lower_bound search the old-tree
+// context-token table by code-unit offset. collect_old_tokens walks the tree
+// left-to-right, so .start values are non-decreasing.
+impl OffsetIndexed for Array[OldToken] with fn length(self) {
+  self.length()
+}
+
+///|
+impl OffsetIndexed for Array[OldToken] with fn offset_at(self, i) {
+  self[i].start
+}
+
+///|
+fn[T, K] ReuseCursor::collect_old_tokens(
   self : ReuseCursor[T, K],
   node : @seam.CstNode,
   node_start : Int32,
-  from : Int32,
-  limit : Int32,
   out : Array[OldToken],
-) -> Bool {
+) -> Unit {
   let mut offset = node_start
   for child in node.children() {
-    let end = offset + child.text_len()
     match child {
       @seam.CstElement::Token(token) =>
-        if offset >= from && self.is_old_context_token(token) {
+        if self.is_old_context_token(token) {
           out.push({ kind: token.kind, text: token.text(), start: offset, })
-          if out.length() >= limit {
-            return true
-          }
         }
       @seam.CstElement::Node(child_node) =>
-        if end >= from &&
-          self.collect_old_tokens_from(child_node, offset, from, limit, out) {
-          return true
-        }
+        self.collect_old_tokens(child_node, offset, out)
     }
-    offset = end
+    offset = offset + child.text_len()
   }
-  false
+}
+
+///|
+/// Old context tokens in document order, in old-tree coordinates.
+///
+/// Built on first use and shared with snapshots. It belongs to this cursor's
+/// immutable old tree, so it never needs offset mapping or invalidation; one
+/// O(n) walk per cursor replaces a root-to-offset walk per reuse check, which
+/// was O(n) per check on wide nodes.
+fn[T, K] ReuseCursor::old_tokens(self : ReuseCursor[T, K]) -> Array[OldToken] {
+  match self.old_tokens.val {
+    Some(tokens) => tokens
+    None => {
+      let tokens : Array[OldToken] = []
+      self.collect_old_tokens(self.old_root, 0, tokens)
+      self.old_tokens.val = Some(tokens)
+      tokens
+    }
+  }
 }
 
 ///|
@@ -354,10 +373,10 @@ fn[T, K] old_follow_token(
   cursor : ReuseCursor[T, K],
   offset : Int32,
 ) -> OldToken? {
-  let out : Array[OldToken] = []
-  let _ = cursor.collect_old_tokens_from(cursor.old_root, 0, offset, 1, out)
-  if out.length() > 0 {
-    Some(out[0])
+  let tokens = cursor.old_tokens()
+  let i = lower_bound(tokens, offset)
+  if i < tokens.length() {
+    Some(tokens[i])
   } else {
     None
   }
@@ -370,46 +389,16 @@ fn[T, K] ReuseCursor::old_zero_width_tokens_at_boundary(
   self : ReuseCursor[T, K],
   offset : Int32,
 ) -> Array[OldToken] {
-  let candidates : Array[OldToken] = []
-  let _ = self.collect_old_tokens_at(self.old_root, 0, offset, candidates)
-  candidates
-}
-
-///|
-fn[T, K] ReuseCursor::collect_old_tokens_at(
-  self : ReuseCursor[T, K],
-  node : @seam.CstNode,
-  node_start : Int32,
-  boundary : Int32,
-  out : Array[OldToken],
-) -> Bool {
-  let mut offset = node_start
-  for child in node.children() {
-    let end = offset + child.text_len()
-    match child {
-      @seam.CstElement::Token(token) => {
-        if offset > boundary {
-          return true
-        }
-        if offset == boundary &&
-          token.text_len() == 0 &&
-          self.is_old_context_token(token) {
-          out.push({ kind: token.kind, text: token.text(), start: offset, })
-        }
-      }
-      @seam.CstElement::Node(child_node) => {
-        if offset > boundary {
-          return true
-        }
-        if end >= boundary &&
-          self.collect_old_tokens_at(child_node, offset, boundary, out) {
-          return true
-        }
-      }
+  let tokens = self.old_tokens()
+  let result : Array[OldToken] = []
+  for i = lower_bound(tokens, offset)
+      i < tokens.length() && tokens[i].start == offset
+      i = i + 1 {
+    if tokens[i].text.length() == 0 {
+      result.push(tokens[i])
     }
-    offset = end
   }
-  false
+  result
 }
 
 ///|
@@ -865,6 +854,7 @@ pub fn[T, K] ReuseCursor::snapshot(
     dependencies: self.dependencies,
     dependency_damage: self.dependency_damage,
     last_dependency: self.last_dependency,
+    old_tokens: self.old_tokens,
   }
 }
 
