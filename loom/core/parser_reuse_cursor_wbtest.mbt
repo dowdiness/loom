@@ -664,6 +664,116 @@ test "old_follow_token: a snapshot answers the same lookups" {
 }
 
 ///|
+test "old-token lookups: the walk and the table agree at every offset" {
+  for case in [(RegularNodes, 4), (RepeatGroups, 12)] {
+    let (shape, items) = case
+    let fixture = zero_width_bench_fixture(shape, PlainOldTree, items, 2)
+    let spec = zero_width_boundary_spec(fixture.use_repeat_groups, 0)
+    let walk = zero_width_bench_cursor(fixture, spec)
+    let table = zero_width_bench_cursor(fixture, spec)
+    walk.old_token_walks_left.val = 2147483647
+    table.old_token_walks_left.val = 0
+    for offset = -1
+        offset <= fixture.old_tree.text_len() + 1
+        offset = offset + 1 {
+      assert_eq(old_follow_token(walk, offset), old_follow_token(table, offset))
+      assert_eq(
+        walk.old_zero_width_tokens_at_boundary(offset),
+        table.old_zero_width_tokens_at_boundary(offset),
+      )
+    }
+    assert_true(walk.old_tokens.val is None)
+    assert_true(table.old_tokens.val is Some(_))
+  }
+}
+
+///|
+fn old_token_lookup_grammar(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+  while !ctx.at_eof() {
+    match ctx.peek() {
+      Num(_) =>
+        ctx.node(KExpr, fn() {
+          ctx.node(KComment, fn() {  })
+          ctx.emit_token(KNum)
+          ctx.emit_zero_width(KPlus)
+          while ctx.at(TestTok::Plus) {
+            ctx.node(KExpr, fn() { ctx.emit_token(KPlus) })
+          }
+          ctx.node(KComment, fn() { ctx.emit_zero_width(KPlus) })
+        })
+      _ => ctx.bump_error()
+    }
+  }
+}
+
+///|
+fn old_token_lookup_spec() -> LanguageSpec[TestTok, TestKind] {
+  LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    TestTok::TokEof,
+    incomplete_kind=KIncomplete,
+    parse_root=old_token_lookup_grammar,
+    reuse_size_threshold=0,
+  )
+}
+
+///|
+/// Each item wraps its zero-width tokens in nodes of their own, opens and
+/// closes with empty or zero-width-only nodes, and leaves trivia as the first
+/// token at some offsets, so the walk's node-skipping and trivia filtering
+/// must match the table exactly.
+test "old-token lookups: the walk and the table agree on nested zero-width nodes" {
+  let spec = old_token_lookup_spec()
+  for mode in [PlainOldTree, TokenInternedOldTree, FullyInternedOldTree] {
+    for zw in [0, 1, 3] {
+      let src = zero_width_source([1, 2, 3, 4], [1, 3, 2])
+      let counts = [zw, 0, zw, 2]
+      let tokens = zero_width_tokenize_with_boundaries(src, counts)
+      let ctx = ParserContext::new(
+        SourceId("old-token-lookup"),
+        tokens,
+        src,
+        spec,
+      )
+      (spec.parse_root)(ctx)
+      let tree = zero_width_build_tree_from_events(ctx, spec, mode)
+      let starts = build_starts(tokens)
+      let mk = fn() {
+        ReuseCursor::new(
+          tree,
+          99,
+          99,
+          tokens.length(),
+          i => tokens[i].token,
+          i => starts[i],
+          fn(i) {
+            src.legacy_view(start=starts[i], end=starts[i] + tokens[i].len)
+          },
+          spec,
+        )
+      }
+      let walk = mk()
+      let table = mk()
+      walk.old_token_walks_left.val = 2147483647
+      table.old_token_walks_left.val = 0
+      let mut zw_hits = 0
+      for offset = -2; offset <= tree.text_len() + 2; offset = offset + 1 {
+        assert_eq(
+          old_follow_token(walk, offset),
+          old_follow_token(table, offset),
+        )
+        let a = walk.old_zero_width_tokens_at_boundary(offset)
+        assert_eq(a, table.old_zero_width_tokens_at_boundary(offset))
+        zw_hits = zw_hits + a.length()
+      }
+      assert_eq(zw_hits, 2 * zw + 2)
+    }
+  }
+}
+
+///|
 test "ReuseCursor::try_reuse: reuses unaffected nodes across middle deletion" {
   fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     while !ctx.at_eof() {

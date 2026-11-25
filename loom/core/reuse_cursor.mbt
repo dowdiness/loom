@@ -75,6 +75,7 @@ pub struct ReuseCursor[T, K] {
   priv dependency_damage : Edit?
   priv mut last_dependency : NodeDependency?
   priv old_tokens : Ref[Array[OldToken]?]
+  priv old_token_walks_left : Ref[Int32]
 }
 
 ///|
@@ -126,6 +127,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     incomplete_raw,
     reuse_globally_disabled,
     old_tokens: { val: None, },
+    old_token_walks_left: { val: old_token_walk_limit, },
     reuse_size_threshold,
     allow_left_adjacent_reuse,
     token_count,
@@ -347,22 +349,110 @@ fn[T, K] ReuseCursor::collect_old_tokens(
 }
 
 ///|
-/// Old context tokens in document order, in old-tree coordinates.
+/// Lookups a cursor answers by walking before it builds the old-token table.
+let old_token_walk_limit : Int32 = 4
+
+///|
+/// Old context tokens in document order, in old-tree coordinates, once
+/// building them pays off; `None` while the cursor still walks.
 ///
-/// Built on first use and shared with snapshots. It belongs to this cursor's
-/// immutable old tree, so it never needs offset mapping or invalidation; one
-/// O(n) walk per cursor replaces a root-to-offset walk per reuse check, which
-/// was O(n) per check on wide nodes.
-fn[T, K] ReuseCursor::old_tokens(self : ReuseCursor[T, K]) -> Array[OldToken] {
+/// Few lookups per cursor are cheapest as early-exit walks from the old root,
+/// which skip subtrees ending before the offset. Many lookups on a wide node
+/// make each walk O(width), so an edit would cost O(n²). A cursor therefore
+/// walks for its first `old_token_walk_limit` lookups; after that, one O(n)
+/// walk builds this table and later lookups binary-search it. The total stays
+/// O(n) per cursor either way. The table and walk count belong to the immutable
+/// old tree and are shared with snapshots, so nothing needs offset mapping or
+/// invalidation.
+fn[T, K] ReuseCursor::old_token_table(
+  self : ReuseCursor[T, K],
+) -> Array[OldToken]? {
   match self.old_tokens.val {
-    Some(tokens) => tokens
+    Some(tokens) => Some(tokens)
+    None if self.old_token_walks_left.val > 0 => {
+      self.old_token_walks_left.val = self.old_token_walks_left.val - 1
+      None
+    }
     None => {
       let tokens : Array[OldToken] = []
       self.collect_old_tokens(self.old_root, 0, tokens)
       self.old_tokens.val = Some(tokens)
-      tokens
+      Some(tokens)
     }
   }
+}
+
+///|
+/// Collect old context tokens whose start is `>= from` in document order,
+/// stopping once `out` holds `limit` tokens. Returns true when finished.
+/// Children that end before `from` are skipped without descending, so the
+/// cost is the path to `from` plus the tokens returned. A node ending exactly
+/// at `from` is still visited: its right-edge zero-width tokens start there.
+fn[T, K] ReuseCursor::collect_old_tokens_from(
+  self : ReuseCursor[T, K],
+  node : @seam.CstNode,
+  node_start : Int32,
+  from : Int32,
+  limit : Int32,
+  out : Array[OldToken],
+) -> Bool {
+  let mut offset = node_start
+  for child in node.children() {
+    let end = offset + child.text_len()
+    match child {
+      @seam.CstElement::Token(token) =>
+        if offset >= from && self.is_old_context_token(token) {
+          out.push({ kind: token.kind, text: token.text(), start: offset, })
+          if out.length() >= limit {
+            return true
+          }
+        }
+      @seam.CstElement::Node(child_node) =>
+        if end >= from &&
+          self.collect_old_tokens_from(child_node, offset, from, limit, out) {
+          return true
+        }
+    }
+    offset = end
+  }
+  false
+}
+
+///|
+fn[T, K] ReuseCursor::collect_old_tokens_at(
+  self : ReuseCursor[T, K],
+  node : @seam.CstNode,
+  node_start : Int32,
+  boundary : Int32,
+  out : Array[OldToken],
+) -> Bool {
+  let mut offset = node_start
+  for child in node.children() {
+    let end = offset + child.text_len()
+    match child {
+      @seam.CstElement::Token(token) => {
+        if offset > boundary {
+          return true
+        }
+        if offset == boundary &&
+          token.text_len() == 0 &&
+          self.is_old_context_token(token) {
+          out.push({ kind: token.kind, text: token.text(), start: offset, })
+        }
+      }
+      @seam.CstElement::Node(child_node) => {
+        if offset > boundary {
+          return true
+        }
+        if end >= boundary &&
+          self.collect_old_tokens_at(child_node, offset, boundary, out) {
+          return true
+        }
+      }
+    }
+    offset = end
+  }
+  false
 }
 
 ///|
@@ -373,12 +463,24 @@ fn[T, K] old_follow_token(
   cursor : ReuseCursor[T, K],
   offset : Int32,
 ) -> OldToken? {
-  let tokens = cursor.old_tokens()
-  let i = lower_bound(tokens, offset)
-  if i < tokens.length() {
-    Some(tokens[i])
-  } else {
-    None
+  match cursor.old_token_table() {
+    Some(tokens) => {
+      let i = lower_bound(tokens, offset)
+      if i < tokens.length() {
+        Some(tokens[i])
+      } else {
+        None
+      }
+    }
+    None => {
+      let out : Array[OldToken] = []
+      let _ = cursor.collect_old_tokens_from(cursor.old_root, 0, offset, 1, out)
+      if out.length() > 0 {
+        Some(out[0])
+      } else {
+        None
+      }
+    }
   }
 }
 
@@ -389,13 +491,18 @@ fn[T, K] ReuseCursor::old_zero_width_tokens_at_boundary(
   self : ReuseCursor[T, K],
   offset : Int32,
 ) -> Array[OldToken] {
-  let tokens = self.old_tokens()
   let result : Array[OldToken] = []
-  for i = lower_bound(tokens, offset)
-      i < tokens.length() && tokens[i].start == offset
-      i = i + 1 {
-    if tokens[i].text.length() == 0 {
-      result.push(tokens[i])
+  match self.old_token_table() {
+    Some(tokens) =>
+      for i = lower_bound(tokens, offset)
+          i < tokens.length() && tokens[i].start == offset
+          i = i + 1 {
+        if tokens[i].text.length() == 0 {
+          result.push(tokens[i])
+        }
+      }
+    None => {
+      let _ = self.collect_old_tokens_at(self.old_root, 0, offset, result)
     }
   }
   result
@@ -855,6 +962,7 @@ pub fn[T, K] ReuseCursor::snapshot(
     dependency_damage: self.dependency_damage,
     last_dependency: self.last_dependency,
     old_tokens: self.old_tokens,
+    old_token_walks_left: self.old_token_walks_left,
   }
 }
 

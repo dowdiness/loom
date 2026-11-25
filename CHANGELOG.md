@@ -24,9 +24,10 @@ Notable user-facing changes to Loom and its sibling modules.
   after a pure deletion at a node boundary or after a sequence of edits. The
   follow-token lookup skipped the deleted token, a node whose last token merged
   with the text after the deletion was reused, and the old-token cache kept
-  stale tokens across edits. Old follow tokens are now looked up in a table
-  built from the immutable old CST for each edit, in old-tree coordinates, so
-  nothing is carried between edits or offset-mapped. Known remaining case: a
+  stale tokens across edits. Old follow tokens are now looked up in the
+  immutable old CST for each edit, in old-tree coordinates, so nothing is
+  carried between edits or offset-mapped: the first few lookups walk the tree
+  and later ones use a table built from it. Known remaining case: a
   node ending in error recovery can still be reused when an edit follows
   several separator tokens.
 - Parser rollback restores children moved by speculative `start_at` wrapping,

@@ -2,6 +2,37 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-11-25 (Old-token lookups: walk first, then the table)
+
+- Base revision: `c1afb523` (per-cursor table from `5561e49f`).
+- Environment: Amp orb, Linux 6.1, x86_64; Moon `0.1.20261117`, moonc
+  `v0.10.21+06da1ed44`, release wasm-gc.
+- Commands, in `examples/lambda` at each revision:
+  `moon bench --release --target wasm-gc -p dowdiness/loom/core -f
+  parser_zero_width_boundary_bench_wbtest.mbt` and `-p
+  dowdiness/lambda/benchmarks -f heavy_benchmark.mbt`.
+
+The per-cursor table made the `zero-width boundary reuse repeat items=64`
+rows 2.5–4.4x slower than before `5561e49f`. Those cursors answer only two
+lookups, but building the table visits the whole old tree (1088 tokens at
+`zw=16`). A cursor now walks for its first four lookups, which skip subtrees
+ending before the offset, and builds the table on the fifth. Four walks cost
+at most O(n), so the O(n²) wide-node case stays fixed.
+
+| Row | Table | Walk first |
+|---|---:|---:|
+| zero-width boundary reuse repeat items=64 old=plain zw=0 | 3.70 µs | 1.50 µs |
+| zero-width boundary reuse repeat items=64 old=plain zw=16 | 46.16 µs | 9.02 µs |
+| zero-width boundary reuse repeat items=16 old=plain zw=8 | 5.52 µs | 3.31 µs |
+| zero-width boundary reuse regular items=8 old=plain zw=16 | 19.52 µs | 18.45 µs |
+
+The `heavy_benchmark.mbt` rows, including `scale: 1000 terms - 50-edit
+session incremental`, stayed within ±13% across three paired runs, with no
+consistent direction.
+
+No ADR needed: a local lookup-structure fix within `ReuseCursor`, with no
+public API or detector-policy change.
+
 ## 2026-11-25 (Old-token lookups after #969: per-cursor table)
 
 - Base revisions: `598bbe9c` (before #969) and `793e26fd` (#969).
