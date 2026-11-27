@@ -15,9 +15,9 @@ pub let core_interner : @seam.Interner
 
 pub fn[T : Canonical + @pretty.Pretty] default_placeholder_via_canonical(T) -> String
 
-pub fn[T, M : Eq] erase_mode_lexer(ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> ModeRelexFactory[T]
+pub fn[T, M : Eq] erase_mode_lexer(ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?, resumable_mode? : (M) -> Bool) -> ModeRelexFactory[T]
 
-pub fn[T, M : Eq] erase_mode_lexer_factory(() -> ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> ModeRelexFactory[T]
+pub fn[T, M : Eq] erase_mode_lexer_factory(() -> ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?, resumable_mode? : (M) -> Bool) -> ModeRelexFactory[T]
 
 pub fn find_reparseable_ancestor(@seam.SyntaxNode, Edit, (@seam.RawKind) -> Bool) -> (@seam.SyntaxNode, Array[Int32])?
 
@@ -251,8 +251,9 @@ pub fn[T] ModeRelexResult::tokens(Self[T]) -> Array[TokenInfo[T]]
 pub struct ModeRelexState[T] {
   // private fields
 }
-pub fn[T] ModeRelexState::new(tokenize~ : (String) -> LexResult[T], relex_from~ : (String, Int32, Int32, Int32, OldTokenStarts, Int32, Int32) -> ModeRelexResult[T] raise LexResultError) -> Self[T]
+pub fn[T] ModeRelexState::new(tokenize~ : (String) -> LexResult[T], relex_from~ : (String, Int32, Int32, Int32, OldTokenStarts, Int32, Int32) -> ModeRelexResult[T] raise LexResultError, resume_index? : (Int32) -> Int32) -> Self[T]
 pub fn[T] ModeRelexState::relex_from(Self[T], String, Int32, Int32, Int32, OldTokenStarts, Int32, Int32) -> ModeRelexResult[T] raise LexResultError
+pub fn[T] ModeRelexState::resume_index(Self[T], Int32) -> Int32
 pub fn[T] ModeRelexState::tokenize(Self[T], String) -> LexResult[T]
 
 #derive(Compare, Eq, @debug.Debug)

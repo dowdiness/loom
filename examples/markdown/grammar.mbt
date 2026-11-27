@@ -4,6 +4,7 @@ let mode_factory : @core.ModeRelexFactory[Token] = @core.erase_mode_lexer_factor
   EOF,
   error_token=Error("lex error"),
   error_token_from_message=Some(msg => Error(msg)),
+  resumable_mode=markdown_lex_mode_is_resumable,
 )
 
 ///|

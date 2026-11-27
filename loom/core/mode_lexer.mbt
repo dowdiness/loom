@@ -102,16 +102,35 @@ pub struct ModeRelexState[T] {
     Int32,
     Int32,
   ) -> ModeRelexResult[T] raise LexResultError
+  priv resume_index_fn : (Int32) -> Int32
 }
 
 ///|
+/// `resume_index` maps the token index where re-lexing would start to the
+/// nearest index at or before it whose token may start a re-lex. The default
+/// accepts every index.
 pub fn[T] ModeRelexState::new(
   tokenize~ : (String) -> LexResult[T],
   relex_from~ : (String, Int32, Int32, Int32, OldTokenStarts, Int32, Int32) -> ModeRelexResult[
     T,
   ] raise LexResultError,
+  resume_index~ : (Int32) -> Int32 = index => index,
 ) -> ModeRelexState[T] {
-  { tokenize_fn: tokenize, relex_from_fn: relex_from, }
+  {
+    tokenize_fn: tokenize,
+    relex_from_fn: relex_from,
+    resume_index_fn: resume_index,
+  }
+}
+
+///|
+/// The nearest old token index at or before `index` where re-lexing may start.
+#inline
+pub fn[T] ModeRelexState::resume_index(
+  self : ModeRelexState[T],
+  index : Int32,
+) -> Int32 {
+  (self.resume_index_fn)(index)
 }
 
 ///|
@@ -442,7 +461,9 @@ fn[M : Eq] mode_relex_converged(
   edit_delta : Int32,
   mode : M,
   pos : Int32,
+  resumable_mode : (M) -> Bool,
 ) -> Bool {
+  resumable_mode(mode) &&
   old_idx < old_modes.length() &&
   old_idx < old_starts.length() &&
   mode == old_modes[old_idx] &&
@@ -463,6 +484,7 @@ fn[T, M : Eq] mode_relex_recovering(
   old_modes : Array[M],
   error_token : T,
   error_token_from_message : ((String) -> T)?,
+  resumable_mode : (M) -> Bool,
 ) -> ModeRelexInternal[T, M] {
   let mut mode = if start_tok_idx < old_modes.length() {
     old_modes[start_tok_idx]
@@ -493,7 +515,7 @@ fn[T, M : Eq] mode_relex_recovering(
     }
     if pos > new_damage_end &&
       mode_relex_converged(
-        old_idx, old_modes, old_starts, edit_delta, mode, pos,
+        old_idx, old_modes, old_starts, edit_delta, mode, pos, resumable_mode,
       ) {
       break
     }
@@ -511,6 +533,7 @@ fn[T, M : Eq] new_mode_relex_session(
   eof_token : T,
   error_token : T,
   error_token_from_message : ((String) -> T)?,
+  resumable_mode : (M) -> Bool,
 ) -> ModeRelexState[T] {
   // Internal modes array — tracks the mode BEFORE each token.
   // Parallel to the token array in one TokenBuffer.
@@ -542,6 +565,7 @@ fn[T, M : Eq] new_mode_relex_session(
     let internal = mode_relex_recovering(
       source_id, lexer, source, start_offset, start_tok_idx, old_token_count, old_starts,
       edit_delta, new_damage_end, old_modes, error_token, error_token_from_message,
+      resumable_mode,
     )
     let chunk = internal.chunk
     let old_idx = chunk.converged_at_old_token
@@ -569,7 +593,15 @@ fn[T, M : Eq] new_mode_relex_session(
     }
     chunk
   }
-  ModeRelexState::new(tokenize~, relex_from~)
+  let resume_index = fn(index : Int32) -> Int32 {
+    let modes = modes_ref.val
+    let mut index = index
+    while index > 0 && index < modes.length() && !resumable_mode(modes[index]) {
+      index = index - 1
+    }
+    index
+  }
+  ModeRelexState::new(tokenize~, relex_from~, resume_index~)
 }
 
 ///|
@@ -583,16 +615,24 @@ fn[T, M : Eq] new_mode_relex_session(
 /// When installed on a Grammar, its full lexer must be semantically identical
 /// to this factory's `tokenize`; parser initialization uses the session result
 /// directly so it does not build the same derived state twice.
+///
+/// `resumable_mode` returns true when the tokens lexed from a mode depend only
+/// on that mode and the source from the token start onward. Incremental
+/// re-lexing starts and converges only at tokens whose mode is resumable, so a
+/// lexer whose mode reads context behind the token, such as the rest of its
+/// line, must return false for that mode. The default treats every mode as
+/// resumable.
 pub fn[T, M : Eq] erase_mode_lexer_factory(
   new_lexer : () -> ModeLexer[T, M],
   eof_token : T,
   error_token~ : T,
   error_token_from_message~ : ((String) -> T)? = None,
+  resumable_mode~ : (M) -> Bool = _ => true,
 ) -> ModeRelexFactory[T] {
   let new_session = fn(source_id : SourceId) {
     let lexer = new_lexer()
     new_mode_relex_session(
-      source_id, lexer, eof_token, error_token, error_token_from_message,
+      source_id, lexer, eof_token, error_token, error_token_from_message, resumable_mode,
     )
   }
   let initialize_session = fn(source_id : SourceId, source : String) {
@@ -615,11 +655,13 @@ pub fn[T, M : Eq] erase_mode_lexer(
   eof_token : T,
   error_token~ : T,
   error_token_from_message~ : ((String) -> T)? = None,
+  resumable_mode~ : (M) -> Bool = _ => true,
 ) -> ModeRelexFactory[T] {
   erase_mode_lexer_factory(
     () => lexer,
     eof_token,
     error_token~,
     error_token_from_message~,
+    resumable_mode~,
   )
 }

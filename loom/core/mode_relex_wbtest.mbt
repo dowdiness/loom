@@ -509,3 +509,79 @@ test "mode relex: relex that reaches the end keeps EOF" {
     content="[Text(\"a\"), Quote, EOF]",
   )
 }
+
+///|
+/// Line-context mock: the first character of a line lexes as `Head`; every
+/// later character lexes as `Marked` when its line contains `!` anywhere and
+/// as `Plain` otherwise. `Rest` tokens therefore read their whole line.
+#derive(Eq, Debug)
+priv enum LineMode {
+  Start
+  Rest
+}
+
+///|
+fn line_context_lex_step(
+  input : String,
+  pos : Int32,
+  mode : LineMode,
+) -> (LexStep[String], LineMode) {
+  guard input.get_char(pos) is Some(ch) else { return (Done, mode) }
+  if ch == '\n' {
+    return (Produced(TokenInfo::new("nl", 1), next_offset=pos + 1), Start)
+  }
+  let token = match mode {
+    Start => "head"
+    Rest => {
+      let line_start = for i = pos {
+        if i == 0 || input.get_char(i - 1) == Some('\n') {
+          break i
+        }
+        continue i - 1
+      }
+      let line_end = for i = pos {
+        if i >= input.length() || input.get_char(i) == Some('\n') {
+          break i
+        }
+        continue i + 1
+      }
+      if input[line_start:line_end].contains("!") {
+        "marked"
+      } else {
+        "plain"
+      }
+    }
+  }
+  (Produced(TokenInfo::new(token, 1), next_offset=pos + 1), Rest)
+}
+
+///|
+test "mode relex: non-resumable modes restart and converge at line starts" {
+  let lexer : ModeLexer[String, LineMode] = {
+    lex_step: line_context_lex_step,
+    initial_mode: Start,
+  }
+  let factory = erase_mode_lexer(lexer, "eof", error_token="error", resumable_mode=mode => {
+    mode is Start
+  })
+  let source_id = SourceId("mode-relex-line-context")
+  let cases : Array[(String, Edit, String)] = [
+    // The edit changes tokens to its right on the same line.
+    ("ab cd\nxy", Edit::new(1, 1, 1), "a! cd\nxy"),
+    // The edit changes tokens to its left on the same line.
+    ("ab cd\nxy", Edit::new(4, 1, 1), "ab c!\nxy"),
+  ]
+  for case in cases {
+    let (old_source, edit, new_source) = case
+    let buffer = TokenBuffer::new_from_mode_relex(
+      source_id,
+      old_source,
+      factory~,
+      eof_token="eof",
+    )
+    buffer.update(edit, new_source)
+    let full = factory.tokenize(source_id, new_source)
+    assert_eq(buffer.get_tokens(), full.tokens())
+    assert_eq(buffer.get_starts(), full.starts())
+  }
+}

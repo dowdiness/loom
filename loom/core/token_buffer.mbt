@@ -904,6 +904,7 @@ pub fn[T : Eq] TokenBuffer::update(
   }
   match decide_mode_start(self.mode_relex) {
     TryPartial(control, state) => {
+      left_tok_idx = state.resume_index(left_tok_idx)
       let left_clamped = clamp_offset(
         map_start_pos(old_starts[left_tok_idx], edit),
         new_source.length(),

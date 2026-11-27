@@ -111,6 +111,14 @@ with a distinct fresh session.
 In both forms, edits re-lex from the damage frontier until both source position
 and lexical mode converge, then reuse the unchanged suffix.
 
+Convergence assumes a token depends only on its mode and the source from its
+start onward. When a mode also reads context around the token, such as the
+rest of its line, pass `resumable_mode` to `erase_mode_lexer` or
+`erase_mode_lexer_factory` and return false for that mode. Re-lexing then
+starts at the nearest earlier token whose mode is resumable and converges only
+at resumable modes. Markdown marks `Inline` and `BlockQuoteLineStart`
+non-resumable because same-line list prefixes decide how their tokens lex.
+
 There is no parser-local mode setter. Use the `ModeLexer`/`ModeRelexFactory`
 boundary for persistent lexical modes. The rationale is recorded in the
 [accepted lex-mode lifecycle decision](../decisions/2026-07-26-parser-context-lex-mode-lifecycle.md).

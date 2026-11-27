@@ -870,3 +870,40 @@ test "incremental: typing a setext underline under a paragraph matches full pars
     )
   }
 }
+
+///|
+test "incremental: same-line list prefix edits relex the whole line" {
+  let source_id = @core.SourceId("markdown-incremental-test-document")
+  // A bullet becomes text, so the later `*` is no longer a nested marker.
+  assert_markdown_incremental_edit_matches_full_parse(
+    source_id,
+    "markdown nested marker loses its outer bullet",
+    "- *",
+    @core.Edit::new(0, 1, 1),
+    "| *",
+  )
+  // The line stops being a thematic break, so the earlier `*` becomes a marker.
+  assert_markdown_incremental_edit_matches_full_parse(
+    source_id,
+    "markdown item thematic break ends in text",
+    "- * * *\n",
+    @core.Edit::new("- * * ".length(), 1, 1),
+    "- * * a\n",
+  )
+  // A new outer bullet turns the later `>` into a nested quote.
+  assert_markdown_incremental_edit_matches_full_parse(
+    source_id,
+    "markdown text gains an outer bullet before a quote",
+    "x > a\n",
+    @core.Edit::new(0, 1, 1),
+    "- > a\n",
+  )
+  // A nested fence becomes inline code, so relexing runs to the end.
+  assert_markdown_incremental_edit_matches_full_parse(
+    source_id,
+    "markdown nested fence loses its outer bullet",
+    "- ``` a\n",
+    @core.Edit::new(0, 1, 1),
+    "x ``` a\n",
+  )
+}
