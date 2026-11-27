@@ -731,10 +731,7 @@ fn lex_inline(
       same_line_list_item_prefix_facts_with_cache(cache, input, pos)
     None => same_line_list_item_prefix_facts(input, pos)
   }
-  if same_line_facts.list_marker_count > 0 &&
-    pos <= same_line_facts.prefix_end &&
-    same_line_list_item_block_start_with_facts(input, pos, same_line_facts) &&
-    !same_line_facts.line_is_thematic_break {
+  if same_line_list_item_block_start_with_facts(input, pos, same_line_facts) {
     match input.legacy_view(start=pos) {
       ['-' | '*' | '+', ' ' | '\t', .. rest] =>
         produced_until(ListMarker, pos, rest, Inline)
@@ -809,6 +806,11 @@ fn lex_inline(
         let mut end = @core.next_char_offset(input, pos)
         while end < input.length() {
           match char_at(input, end) {
+            // Keep padding separate from a nested bullet. Unlike `*`, `-`
+            // and `+` do not otherwise end an inline text run.
+            Some('-' | '+') if same_line_list_item_block_start_with_facts(
+                input, end, same_line_facts,
+              ) => break
             Some(ch) if is_inline_special(ch) =>
               if ch != '`' &&
                 ch != '>' &&

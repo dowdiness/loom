@@ -136,7 +136,6 @@ test "CommonMark list regressions: structural first children keep continuation" 
 
 ///|
 test "CommonMark list regressions: lone bullet after a marker is an empty nested item" {
-  // Each source used to loop forever in the lexer.
   let nested_empty = "<ul>\n<li>\n<ul>\n<li></li>\n</ul>\n</li>\n</ul>\n"
   let cases : Array[(Int32, String, String)] = [
     (39501, "- *\n", nested_empty),
@@ -146,6 +145,19 @@ test "CommonMark list regressions: lone bullet after a marker is an empty nested
     (39505, "1. *\n", "<ol>\n<li>\n<ul>\n<li></li>\n</ul>\n</li>\n</ol>\n"),
     (
       39506, "- - *\n", "<ul>\n<li>\n<ul>\n<li>\n<ul>\n<li></li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n",
+    ),
+    (39507, "-  *\n", nested_empty),
+    (39508, "-\t *\n", nested_empty),
+    (39509, "-    *\n", nested_empty),
+    (
+      39510, "-     *\n", "<ul>\n<li>\n<pre><code>*\n</code></pre>\n</li>\n</ul>\n",
+    ),
+    (39511, "1.  *\n", "<ol>\n<li>\n<ul>\n<li></li>\n</ul>\n</li>\n</ol>\n"),
+    (39512, "-  -\n", nested_empty),
+    (39513, "-  +", nested_empty),
+    (39514, "-  +1\n", "<ul>\n<li>+1</li>\n</ul>\n"),
+    (
+      39515, "-     -\n", "<ul>\n<li>\n<pre><code>-\n</code></pre>\n</li>\n</ul>\n",
     ),
   ]
   for case in cases {
@@ -159,5 +171,19 @@ test "CommonMark list regressions: lone bullet after a marker is an empty nested
     "- \n",
     @core.Edit::new(2, 0, 1),
     "- *\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    @core.SourceId("markdown-padded-nested-bullet"),
+    "extra padding turns a nested list into indented code",
+    "-    *\n",
+    @core.Edit::new(4, 0, 1),
+    "-     *\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    @core.SourceId("markdown-padded-plus-bullet"),
+    "deleting text turns a literal plus into a nested marker",
+    "-  +1\n",
+    @core.Edit::new(4, 1, 0),
+    "-  +\n",
   )
 }

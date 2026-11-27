@@ -147,6 +147,11 @@ fn same_line_list_item_block_start_with_facts(
   pos : Int32,
   facts : SameLineListItemPrefixFacts,
 ) -> Bool {
+  guard facts.list_marker_count > 0 &&
+    pos <= facts.prefix_end &&
+    !facts.line_is_thematic_break else {
+    return false
+  }
   match input.get_char(pos) {
     Some('-') | Some('*') | Some('+') =>
       match input.get_char(pos + 1) {
