@@ -690,6 +690,49 @@ fn unordered_list_ownership_changes(
 }
 
 ///|
+/// True when a paragraph ends exactly where this list or its first item
+/// starts, so the list's first marker line interrupted that paragraph.
+fn list_interrupts_paragraph(node : @seam.SyntaxNode) -> Bool {
+  let list = if node.kind() == ListItemNode.to_raw() {
+    match node.parent() {
+      Some(list) if list.start() == node.start() => list
+      _ => return false
+    }
+  } else {
+    node
+  }
+  guard list.parent() is Some(parent) else { return false }
+  parent
+  .children()
+  .iter()
+  .any(sibling => {
+    sibling.kind() == ParagraphNode.to_raw() && sibling.end() == list.start()
+  })
+}
+
+///|
+/// True when the first line holds only a list marker. After a paragraph such
+/// a line continues it: `-` becomes a setext underline and `*` becomes text.
+fn first_line_is_lone_list_marker(
+  tokens : Array[@core.TokenInfo[Token]],
+) -> Bool {
+  let mut i = 0
+  if tokens.get(i) is Some({ token: Indentation(_), .. }) {
+    i += 1
+  }
+  guard tokens.get(i) is Some({ token: ListMarker, .. }) else { return false }
+  i += 1
+  if tokens.get(i) is Some({ token: Text(text), .. }) &&
+    !direct_list_item_text_has_non_blank_content(text) {
+    i += 1
+  }
+  match tokens.get(i) {
+    None | Some({ token: Newline | BlankLine | EOF, .. }) => true
+    _ => false
+  }
+}
+
+///|
 /// Container-owned HTML must reparse with its parent so structural prefixes
 /// cannot be consumed as root HTML text.
 fn html_block_has_container_parent(node : @seam.SyntaxNode) -> Bool {
@@ -709,6 +752,12 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = @c
     let kind = node.kind()
     if kind == ListItemNode.to_raw() &&
       unordered_list_ownership_changes(node, tokens) {
+      None
+    } else if (
+        kind == ListItemNode.to_raw() || kind == UnorderedListNode.to_raw()
+      ) &&
+      first_line_is_lone_list_marker(tokens) &&
+      list_interrupts_paragraph(node) {
       None
     } else if kind == CodeBlockNode.to_raw() {
       Some(ctx => parse_code_block_if_still_code_block(ctx, node))

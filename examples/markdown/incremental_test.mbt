@@ -907,3 +907,31 @@ test "incremental: same-line list prefix edits relex the whole line" {
     "x ``` a\n",
   )
 }
+
+///|
+test "incremental: emptied first item after a paragraph rejoins the paragraph" {
+  let source_id = @core.SourceId("markdown-incremental-test-document")
+  // A lone `-` after a paragraph is a setext underline.
+  assert_markdown_incremental_edit_matches_full_parse(
+    source_id,
+    "markdown emptied dash item becomes setext underline",
+    "x\n- i\n",
+    @core.Edit::new("x\n- ".length(), 1, 0),
+    "x\n- \n",
+  )
+  // A lone `*` cannot interrupt a paragraph, so it continues it as text.
+  assert_markdown_incremental_edit_matches_full_parse(
+    source_id,
+    "markdown emptied star item becomes paragraph text",
+    "x\n* i\n",
+    @core.Edit::new("x\n* ".length(), 1, 0),
+    "x\n* \n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    source_id,
+    "markdown emptied first of two items after paragraph",
+    "x\n- i\n- j\n",
+    @core.Edit::new("x\n- ".length(), 1, 0),
+    "x\n- \n- j\n",
+  )
+}
