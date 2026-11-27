@@ -736,7 +736,10 @@ fn[T : Eq] TokenBuffer::prepare_mode_commit(
   )
   shifted_diagnostics.add_all(relexed.diagnostics)
   let replacement_count = replacement_tokens.length()
+  // A relex that ran to the end consumed the old EOF slot, which a patch
+  // would overwrite with a real token.
   let can_patch_in_place = delta == 0 &&
+    converged_right < old_len &&
     new_len == self.source.length() &&
     replacement_count == converged_right - left_tok_idx
   if can_patch_in_place {

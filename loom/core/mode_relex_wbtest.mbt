@@ -497,3 +497,15 @@ test "backward compat: TokenBuffer::new still works without mode_relex" {
   inspect(buffer.token_count(), content="2")
   inspect(buffer.get_token(0), content="Text(\"hello\")")
 }
+
+///|
+test "mode relex: relex that reaches the end keeps EOF" {
+  // `"` opens a string at the end, so the relex runs to the end of input and
+  // yields as many tokens as it replaced, EOF included.
+  let buffer = create_mock_buffer("ab")
+  buffer.update(Edit::new(1, 1, 1), "a\"")
+  debug_inspect(
+    buffer.get_tokens().map(t => t.token),
+    content="[Text(\"a\"), Quote, EOF]",
+  )
+}
