@@ -65,3 +65,49 @@ test "marked continuation keeps one blockquote indented code block" {
     "indented-code-boundary", "marked-continuation", ">     foo\n>     bar\n", "<blockquote>\n<pre><code>foo\nbar\n</code></pre>\n</blockquote>\n",
   )
 }
+
+///|
+/// A tab between nested quote markers expands from the outer marker's
+/// column. These lines used to abort the parser before a list marker and
+/// must nest like their space-only spellings.
+test "tab-indented nested quote markers stay nested" {
+  let cases : Array[(String, String)] = [
+    // No space after the inner marker still lets `+` open a list.
+    (
+      "> >+ >\n", "<blockquote>\n<blockquote>\n<ul>\n<li>\n<blockquote>\n</blockquote>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n",
+    ),
+    (
+      ">  \t>+\n", "<blockquote>\n<blockquote>\n<ul>\n<li></li>\n</ul>\n</blockquote>\n</blockquote>\n",
+    ),
+    (
+      "> \t>+ >\n", "<blockquote>\n<blockquote>\n<ul>\n<li>\n<blockquote>\n</blockquote>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n",
+    ),
+    (
+      ">  \t>+ a\n", "<blockquote>\n<blockquote>\n<ul>\n<li>a</li>\n</ul>\n</blockquote>\n</blockquote>\n",
+    ),
+    (
+      "> \t> a\n", "<blockquote>\n<blockquote>\n<p>a</p>\n</blockquote>\n</blockquote>\n",
+    ),
+    (
+      ">  \t> a\n> \t> b\n", "<blockquote>\n<blockquote>\n<p>a\nb</p>\n</blockquote>\n</blockquote>\n",
+    ),
+    (
+      "> \t>\t> a\n", "<blockquote>\n<blockquote>\n<blockquote>\n<p>a</p>\n</blockquote>\n</blockquote>\n</blockquote>\n",
+    ),
+    (
+      ">\t\t> a\n", "<blockquote>\n<pre><code>  &gt; a\n</code></pre>\n</blockquote>\n",
+    ),
+    (
+      ">   \t> a\n", "<blockquote>\n<pre><code>  &gt; a\n</code></pre>\n</blockquote>\n",
+    ),
+  ]
+  for i, case in cases {
+    let (source, expected_html) = case
+    assert_commonmark_blockquote_html_regression(
+      "tab-nested-marker",
+      i.to_string(),
+      source,
+      expected_html,
+    )
+  }
+}

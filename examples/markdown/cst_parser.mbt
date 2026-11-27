@@ -1232,27 +1232,33 @@ fn parse_block_quote_after_marker(
 }
 
 ///|
-fn peek_nth_is_indented_blockquote_marker(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  offset : Int32,
-  ownership : BlockQuotePrefixOwnership,
-) -> Bool {
-  match ctx.peek_nth(offset) {
-    Indentation(text) => {
-      let columns = count_indent_columns(text, 0, text.length())
-      ownership.accepts_marker_indent(columns) &&
-      ctx.peek_nth(offset + 1) is BlockQuoteMarker
-    }
-    _ => false
-  }
-}
-
-///|
+/// The indentation's width depends on its physical start column once it
+/// holds a tab, as after `> ` in `> \t> a`, so measure it from there.
 fn prefixed_block_quote_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
   ownership : BlockQuotePrefixOwnership,
 ) -> Bool {
-  peek_nth_is_indented_blockquote_marker(ctx, 0, ownership)
+  guard ctx.peek() is Indentation(_) && ctx.peek_nth(1) is BlockQuoteMarker else {
+    return false
+  }
+  let text = ctx.current_token_text()
+  let token_start = text.start_offset()
+  let source = text.data()
+  let source_line_start = line_start_offset_before(source, token_start)
+  ctx.observe_source_range(
+    if source_line_start > 0 {
+      source_line_start - 1
+    } else {
+      0
+    },
+    token_start,
+  )
+  let start_column = count_indent_columns(
+    source, source_line_start, token_start,
+  )
+  ownership.accepts_marker_indent(
+    columns_after(text, start_column) - start_column,
+  )
 }
 
 ///|

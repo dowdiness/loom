@@ -40,15 +40,8 @@ fn scan_same_line_list_item_prefix(
       break
     }
     match char_at(input, cursor) {
-      Some('>') => {
-        cursor += 1
-        if cursor < line_end {
-          match char_at(input, cursor) {
-            Some(' ') | Some('\t') => cursor += 1
-            _ => break
-          }
-        }
-      }
+      // The space after `>` is optional, so `>+` still opens a list.
+      Some('>') => cursor += 1
       Some('-') | Some('*') | Some('+') =>
         match char_at(input, cursor + 1) {
           Some(' ') | Some('\t') => {
