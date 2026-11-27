@@ -133,3 +133,31 @@ test "CommonMark list regressions: structural first children keep continuation" 
     assert_commonmark_list_regression(example, source, expected_html)
   }
 }
+
+///|
+test "CommonMark list regressions: lone bullet after a marker is an empty nested item" {
+  // Each source used to loop forever in the lexer.
+  let nested_empty = "<ul>\n<li>\n<ul>\n<li></li>\n</ul>\n</li>\n</ul>\n"
+  let cases : Array[(Int32, String, String)] = [
+    (39501, "- *\n", nested_empty),
+    (39502, "* -\n", nested_empty),
+    (39503, "- +", nested_empty),
+    (39504, "> - *\n", "<blockquote>\n" + nested_empty + "</blockquote>\n"),
+    (39505, "1. *\n", "<ol>\n<li>\n<ul>\n<li></li>\n</ul>\n</li>\n</ol>\n"),
+    (
+      39506, "- - *\n", "<ul>\n<li>\n<ul>\n<li>\n<ul>\n<li></li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n",
+    ),
+  ]
+  for case in cases {
+    let (example, source, expected_html) = case
+    assert_commonmark_list_regression(example, source, expected_html)
+  }
+  // Typing the second marker is the editor path that reached the loop.
+  assert_markdown_incremental_edit_matches_full_parse(
+    @core.SourceId("markdown-lone-nested-bullet"),
+    "lone bullet typed after list marker",
+    "- \n",
+    @core.Edit::new(2, 0, 1),
+    "- *\n",
+  )
+}

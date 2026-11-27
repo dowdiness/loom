@@ -738,6 +738,9 @@ fn lex_inline(
     match input.legacy_view(start=pos) {
       ['-' | '*' | '+', ' ' | '\t', .. rest] =>
         produced_until(ListMarker, pos, rest, Inline)
+      // The block-start check above also admits a bullet at the line end: a
+      // lone marker is an empty nested item, as in `lex_line_start`.
+      ['-' | '*' | '+', ..] => produce_token_from(ListMarker, pos, 1, Inline)
       [ch, ..] if is_decimal_digit(ch) =>
         match ordered_list_marker_at(input, pos) {
           Some(marker) => {
