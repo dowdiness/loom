@@ -711,6 +711,38 @@ fn list_interrupts_paragraph(node : @seam.SyntaxNode) -> Bool {
 }
 
 ///|
+/// True when a paragraph or setext heading starts exactly where this list,
+/// or the list of this last item, ends. Those lines follow the list only
+/// because its last item had no open paragraph; once an edit gives it one,
+/// they become the item's lazy continuation lines.
+fn list_precedes_lazy_continuation_candidate(node : @seam.SyntaxNode) -> Bool {
+  let list = if node.kind() == ListItemNode.to_raw() {
+    match node.parent() {
+      Some(list) if list.direct_children_of_kind(ListItemNode.to_raw()).last()
+        is Some(last) &&
+        last.start() == node.start() => list
+      _ => return false
+    }
+  } else {
+    node
+  }
+  guard list.parent() is Some(parent) else { return false }
+  parent
+  .children()
+  .iter()
+  .any(sibling => {
+    sibling.start() == list.end() &&
+    (
+      sibling.kind() == ParagraphNode.to_raw() ||
+      (
+        sibling.kind() == HeadingNode.to_raw() &&
+        sibling.has_direct_token_of_kind(SetextHeadingUnderlineToken.to_raw())
+      )
+    )
+  })
+}
+
+///|
 /// True when the first line holds only a list marker. After a paragraph such
 /// a line continues it: `-` becomes a setext underline and `*` becomes text.
 fn first_line_is_lone_list_marker(
@@ -756,8 +788,13 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = @c
     } else if (
         kind == ListItemNode.to_raw() || kind == UnorderedListNode.to_raw()
       ) &&
-      first_line_is_lone_list_marker(tokens) &&
-      list_interrupts_paragraph(node) {
+      (
+        (
+          first_line_is_lone_list_marker(tokens) &&
+          list_interrupts_paragraph(node)
+        ) ||
+        list_precedes_lazy_continuation_candidate(node)
+      ) {
       None
     } else if kind == CodeBlockNode.to_raw() {
       Some(ctx => parse_code_block_if_still_code_block(ctx, node))

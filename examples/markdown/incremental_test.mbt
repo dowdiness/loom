@@ -935,3 +935,30 @@ test "incremental: emptied first item after a paragraph rejoins the paragraph" {
     "x\n- \n- j\n",
   )
 }
+
+///|
+test "incremental: last item gaining content absorbs following lazy lines" {
+  let source_id = @core.SourceId("markdown-incremental-test-document")
+  assert_markdown_incremental_edit_matches_full_parse(
+    source_id,
+    "markdown empty item gains text before a paragraph",
+    "+ \na\n",
+    @core.Edit::insert("+ ".length(), 1),
+    "+ x\na\n",
+  )
+  // The setext underline also becomes lazy paragraph text.
+  assert_markdown_incremental_edit_matches_full_parse(
+    source_id,
+    "markdown empty item gains text before a setext heading",
+    "+ \na\n===\n",
+    @core.Edit::insert("+ ".length(), 1),
+    "+ x\na\n===\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    source_id,
+    "markdown empty last item gains text before a paragraph",
+    "- a\n- \nb\n",
+    @core.Edit::insert("- a\n- ".length(), 1),
+    "- a\n- x\nb\n",
+  )
+}
