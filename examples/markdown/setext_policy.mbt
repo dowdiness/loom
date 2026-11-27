@@ -34,14 +34,30 @@ fn setext_list_marker_line_ends_after_marker(
 }
 
 ///|
+fn setext_text_run_ends_line(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  for i = 1 {
+    match ctx.peek_nth(i) {
+      Newline | BlankLine | EOF => break true
+      Text(text) if text.iter().all(ch => ch == ' ' || ch == '\t') =>
+        continue i + 1
+      _ => break false
+    }
+  }
+}
+
+///|
 fn setext_underline_depth_at_current_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
   allow_list_marker~ : Bool,
   min_indent~ : Int32,
 ) -> Int32? {
   match ctx.peek() {
-    Text(text) if text_has_min_leading_spaces(text[:], min_indent) =>
-      parse_setext_underline_depth(text[:])
+    // An underline run can end at an inline token boundary (`-` before a
+    // backtick or `*`); only trailing blank text may follow it on the line.
+    Text(text) if text_has_min_leading_spaces(text[:], min_indent) &&
+      setext_text_run_ends_line(ctx) => parse_setext_underline_depth(text[:])
     ThematicBreak if current_token_text_has_min_leading_spaces(ctx, min_indent) =>
       parse_setext_underline_depth(ctx.current_token_text())
     ListMarker if allow_list_marker &&

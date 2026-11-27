@@ -319,6 +319,34 @@ test "experimental MarkdownIR: CommonMark HTML renderer supports setext headings
 }
 
 ///|
+test "experimental MarkdownIR: setext underline must fill its whole line" {
+  // The underline run is cut by a token boundary (backtick, star, bracket);
+  // the rest of the line still makes it paragraph text.
+  let cases : Array[(String, String)] = [
+    ("a\n-`b\n", "<p>a\n-`b</p>\n"),
+    ("a\n-*\n", "<p>a\n-*</p>\n"),
+    ("a\n==[\n", "<p>a\n==[</p>\n"),
+    ("a\n-- `\n", "<p>a\n-- `</p>\n"),
+    ("- a\n  -`b\n", "<ul>\n<li>a\n-`b</li>\n</ul>\n"),
+    ("a\n---  \n", "<h2>a</h2>\n"),
+  ]
+  for case in cases {
+    let (source, expected) = case
+    let source_id = @core.SourceId("markdown-commonmark-html-setext-whole-line")
+    let (cst, diagnostics) = try! @markdown.parse_cst(source_id, source)
+    let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
+      source_id,
+      @seam.SyntaxNode::from_cst(cst),
+      diagnostics,
+    )
+    assert_eq(
+      @markdown.experimental_markdown_ir_to_commonmark_html(ir),
+      expected,
+    )
+  }
+}
+
+///|
 test "experimental MarkdownIR: CommonMark HTML renderer escapes text code and link attributes" {
   let source_id = @core.SourceId("markdown-commonmark-html-escaping")
   let source = "<>&\"\n\n```\n<>&\"\n```\n\n[<>&\"](https://example.com/?a=1&b=\"q\")\n"
