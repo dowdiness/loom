@@ -466,10 +466,13 @@ fn parse_paragraph_if_still_paragraph(
   // Boundary tokens can change the block extent, so decline by emitting no node.
   // Reference definitions are parser-classified from an otherwise-inline token
   // stream, so they must be checked explicitly at this reparse boundary.
+  // A setext underline such as `===` also lexes as paragraph text, but turns
+  // the paragraph into a heading.
   if current_line_has_invalid_reference_definition_angle_destination(ctx) {
     parse_invalid_reference_definition_angle_destination_paragraph(ctx)
   } else if !is_block_boundary(ctx.peek()) &&
-    !current_line_is_link_reference_definition(ctx) {
+    !current_line_is_link_reference_definition(ctx) &&
+    !root_paragraph_has_setext_candidate(ctx, None) {
     parse_paragraph(ctx)
   }
 }

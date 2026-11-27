@@ -815,3 +815,36 @@ test "incremental: fence length and info edits match full parse" {
   )
   inspect(reuse_count != 1, content="true")
 }
+
+///|
+test "incremental: typing a setext underline under a paragraph matches full parse" {
+  let cases : Array[(String, String, String, String)] = [
+    ("second line", "foo\nbar\n\nbaz\n", "bar", "==="),
+    ("third line", "foo\nbar\nqux\n\nbaz\n", "qux", "="),
+    ("indented underline", "foo\nbar\n\nbaz\n", "bar", "  =="),
+    ("quoted paragraph", "> foo\n> bar\n\nbaz\n", "bar", "==="),
+    ("list item paragraph", "- foo\n  bar\n\nbaz\n", "bar", "==="),
+  ]
+  for case in cases {
+    let (label, source, old_line, new_line) = case
+    let start = source.find(old_line).unwrap()
+    let new_source = source[:start].to_owned() +
+      new_line +
+      source[start + old_line.length():].to_owned()
+    assert_markdown_incremental_edit_matches_full_parse(
+      @core.SourceId("markdown-incremental-setext-underline"),
+      "setext underline typed: " + label,
+      source,
+      @core.Edit::new(start, old_line.length(), new_line.length()),
+      new_source,
+    )
+    // Removing the underline turns the heading back into a paragraph.
+    assert_markdown_incremental_edit_matches_full_parse(
+      @core.SourceId("markdown-incremental-setext-underline"),
+      "setext underline removed: " + label,
+      new_source,
+      @core.Edit::new(start, new_line.length(), old_line.length()),
+      source,
+    )
+  }
+}
