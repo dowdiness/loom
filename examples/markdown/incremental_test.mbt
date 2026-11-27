@@ -817,6 +817,28 @@ test "incremental: fence length and info edits match full parse" {
 }
 
 ///|
+test "incremental: text edit in a same-line nested list preserves its sibling" {
+  assert_markdown_incremental_edit_matches_full_parse(
+    @core.SourceId("markdown-same-line-nested-list"),
+    "append text to the first of two nested items",
+    "-  + a\n   + b\n",
+    @core.Edit::insert(6, 1),
+    "-  + ax\n   + b\n",
+  )
+}
+
+///|
+test "incremental: text edit in same-line indented code preserves its tokens" {
+  assert_markdown_incremental_edit_matches_full_parse(
+    @core.SourceId("markdown-same-line-indented-code"),
+    "insert text before a marker inside list-owned indented code",
+    "-     * a\n",
+    @core.Edit::insert(6, 1),
+    "-     x* a\n",
+  )
+}
+
+///|
 test "incremental: typing a setext underline under a paragraph matches full parse" {
   let cases : Array[(String, String, String, String)] = [
     ("second line", "foo\nbar\n\nbaz\n", "bar", "==="),

@@ -419,6 +419,25 @@ fn first_token_text(node : @seam.SyntaxNode) -> String? {
 }
 
 ///|
+/// The item's marker and optional padding are outside this block's splice.
+/// Later-line children have a line break or another block before them.
+fn starts_on_list_marker_line(node : @seam.SyntaxNode) -> Bool {
+  guard node.parent() is Some(item) && item.kind() == ListItemNode.to_raw() else {
+    return false
+  }
+  for element in item.direct_elements_iter() {
+    match element {
+      Token(t) if t.kind() == ListMarkerToken.to_raw() ||
+        t.kind() == OrderedListMarkerToken.to_raw() ||
+        t.kind() == IndentationToken.to_raw() => continue
+      Node(first) => return first.start() == node.start()
+      _ => return false
+    }
+  }
+  false
+}
+
+///|
 fn parse_code_block_if_still_code_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
   node : @seam.SyntaxNode,
@@ -427,6 +446,9 @@ fn parse_code_block_if_still_code_block(
   // the splice is prefixed by four document columns. Root four-space
   // fence-looking openers stay indented.
   if code_block_is_indented_form(node) {
+    // Detached line-start lexing would tokenize the first code line
+    // differently from the inline lexer following a list marker.
+    guard !starts_on_list_marker_line(node) else { return }
     match ctx.peek() {
       Indentation(_) if current_token_leading_indent(ctx) >= 4 =>
         parse_indented_code_block(ctx)
@@ -611,6 +633,8 @@ fn parse_unordered_list_if_unchanged(
 fn unordered_list_reparser(
   node : @seam.SyntaxNode,
 ) -> ((@core.ParserContext[Token, SyntaxKind]) -> Unit)? {
+  // The detached first marker does not carry its parent's content column.
+  guard !starts_on_list_marker_line(node) else { return None }
   guard first_token_text(node) is Some(marker_text) else { return None }
   guard unordered_list_marker_from_text(marker_text) is Some(marker) else {
     return None
