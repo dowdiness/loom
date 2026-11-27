@@ -187,3 +187,67 @@ test "CommonMark list regressions: lone bullet after a marker is an empty nested
     "-  +\n",
   )
 }
+
+///|
+test "CommonMark list regressions: padded first child blocks stay in the item" {
+  let cases : Array[(Int32, String, String)] = [
+    (
+      39601, "-  > a\n", "<ul>\n<li>\n<blockquote>\n<p>a</p>\n</blockquote>\n</li>\n</ul>\n",
+    ),
+    (
+      39602, "-\t> a\n", "<ul>\n<li>\n<blockquote>\n<p>a</p>\n</blockquote>\n</li>\n</ul>\n",
+    ),
+    (
+      39603, "1.  > a\n", "<ol>\n<li>\n<blockquote>\n<p>a</p>\n</blockquote>\n</li>\n</ol>\n",
+    ),
+    (
+      39604, "- *  > a\n", "<ul>\n<li>\n<ul>\n<li>\n<blockquote>\n<p>a</p>\n</blockquote>\n</li>\n</ul>\n</li>\n</ul>\n",
+    ),
+    (
+      39605, "+ *  > \n", "<ul>\n<li>\n<ul>\n<li>\n<blockquote>\n</blockquote>\n</li>\n</ul>\n</li>\n</ul>\n",
+    ),
+    (
+      39606, "-   > \n", "<ul>\n<li>\n<blockquote>\n</blockquote>\n</li>\n</ul>\n",
+    ),
+    (39607, "-  # a\n", "<ul>\n<li>\n<h1>a</h1>\n</li>\n</ul>\n"),
+    (39608, "-  #a\n", "<ul>\n<li>#a</li>\n</ul>\n"),
+    (39609, "-  ######## a\n", "<ul>\n<li>######## a</li>\n</ul>\n"),
+    (39610, "-  1. a\n", "<ul>\n<li>\n<ol>\n<li>a</li>\n</ol>\n</li>\n</ul>\n"),
+    (
+      39611, "-  10) a\n", "<ul>\n<li>\n<ol start=\"10\">\n<li>a</li>\n</ol>\n</li>\n</ul>\n",
+    ),
+    (39612, "-  1.a\n", "<ul>\n<li>1.a</li>\n</ul>\n"),
+    (
+      39613, "-  ```\n   x\n   ```\n", "<ul>\n<li>\n<pre><code>x\n</code></pre>\n</li>\n</ul>\n",
+    ),
+    (
+      39614, "-  ~~~\n   x\n", "<ul>\n<li>\n<pre><code>x\n</code></pre>\n</li>\n</ul>\n",
+    ),
+    (
+      39615, "-  <div>\nx\n", "<ul>\n<li>\n&lt;div&gt;\n</li>\n</ul>\n<p>x</p>\n",
+    ),
+    (39616, "-  <span>x\n", "<ul>\n<li>&lt;span&gt;x</li>\n</ul>\n"),
+    (
+      39617, "-     > a\n", "<ul>\n<li>\n<pre><code>&gt; a\n</code></pre>\n</li>\n</ul>\n",
+    ),
+    (
+      39618, "-  >\n  b\n", "<ul>\n<li>\n<blockquote>\n</blockquote>\n</li>\n</ul>\n<p>b</p>\n",
+    ),
+    (39619, "- a  > b\n", "<ul>\n<li>a  &gt; b</li>\n</ul>\n"),
+    (
+      39620, "-  > a\n   b\n", "<ul>\n<li>\n<blockquote>\n<p>a\nb</p>\n</blockquote>\n</li>\n</ul>\n",
+    ),
+  ]
+  for case in cases {
+    let (example, source, expected_html) = case
+    assert_commonmark_list_regression(example, source, expected_html)
+  }
+  // Editing the nested bullet into text used to keep a root-level quote.
+  assert_markdown_incremental_edit_matches_full_parse(
+    @core.SourceId("markdown-padded-quote-after-nested-bullet"),
+    "nested bullet before a padded quote becomes text",
+    "+ *  > ",
+    @core.Edit::new(2, 1, 1),
+    "+ i  > ",
+  )
+}

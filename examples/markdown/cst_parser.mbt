@@ -2195,13 +2195,19 @@ fn current_list_marker_body_end_offset(
 }
 
 ///|
-fn list_padding_before_nested_marker(
+fn list_padding_before_nested_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
   offset : Int32,
 ) -> Bool {
   ctx.peek_nth(offset) is Text(text) &&
   !direct_list_item_text_has_non_blank_content(text) &&
-  ctx.peek_nth(offset + 1) is (ListMarker | OrderedListMarker(_))
+  ctx.peek_nth(offset + 1)
+  is (ListMarker
+  | OrderedListMarker(_)
+  | BlockQuoteMarker
+  | HeadingMarker(_)
+  | CodeFenceOpen(_, _)
+  | HtmlBlockOpen(_))
 }
 
 ///|
@@ -2246,7 +2252,7 @@ fn current_list_item_content_indent(
   let marker_padding = marker_end_column - body_end_column
   let following_padding = match ctx.peek_nth(1) {
     Text(text) if direct_list_item_text_has_non_blank_content(text) ||
-      list_padding_before_nested_marker(ctx, 1) =>
+      list_padding_before_nested_block(ctx, 1) =>
       leading_indent_columns_from(text, marker_end_column)
     _ => 0
   }
@@ -2649,9 +2655,9 @@ fn parse_list_item_body(
         allow_ordered_marker,
         quote_context,
       }
-      if list_padding_before_nested_marker(ctx, 0) {
+      if list_padding_before_nested_block(ctx, 0) {
         // Padding belongs to the outer item, not to its first child. With
-        // five or more columns the child is indented code, not a list.
+        // five or more columns the child is indented code, not a block.
         if columns_after(ctx.current_token_text(), marker_end_column) >=
           content_indent + 4 {
           parse_indented_code_block_from_current_line(
