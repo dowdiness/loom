@@ -46,7 +46,7 @@ jobs:
 
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.21+06da1ed44
+          MOONBIT_INSTALL_VERSION: 1.0.0-rc1+3c0520448
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH

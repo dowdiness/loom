@@ -22,7 +22,7 @@ fn resolve_innermost_from(
   if visited.contains(current) {
     return None
   }
-  visited.add(current)
+  visited.insert(current)
   let mut scope_binding : @callers.Def? = None
   for d in defs {
     if d.scope == current && d.name == name {

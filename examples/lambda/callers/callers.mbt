@@ -403,7 +403,7 @@ fn visible_names_at(
       match own.get(s) {
         Some(arr) =>
           for n in arr {
-            result.add(n)
+            result.insert(n)
           }
         None => ()
       }
@@ -411,7 +411,7 @@ fn visible_names_at(
         Some(p) => {
           let inherited = visible_names_at(p, parent, own, memo)
           for n in inherited {
-            result.add(n)
+            result.insert(n)
           }
         }
         None => () // root or unparented
@@ -438,13 +438,13 @@ pub fn build_visibility(
 ) -> @hashmap.HashMap[(ScopeId, String), Unit] {
   // 1. Collect every scope mentioned in defs OR enclosing, plus TopScope.
   let scopes : @hashset.HashSet[ScopeId] = @hashset.HashSet([])
-  scopes.add(TopScope)
+  scopes.insert(TopScope)
   for d in defs {
-    scopes.add(d.scope)
+    scopes.insert(d.scope)
   }
   for edge in enclosing {
-    scopes.add(edge.0)
-    scopes.add(edge.1)
+    scopes.insert(edge.0)
+    scopes.insert(edge.1)
   }
   // 2. parent[child] = parent_scope. First edge wins (defensive against
   //    malformed input that emits duplicate parents).

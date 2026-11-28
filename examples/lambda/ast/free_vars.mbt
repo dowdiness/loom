@@ -17,12 +17,12 @@ priv struct FreeVars {
 
 ///|
 fn FreeVars::empty() -> FreeVars {
-  { set: @immut_hashset.HashSet::new(), }
+  { set: @immut_hashset.HashSet::empty(), }
 }
 
 ///|
 fn FreeVars::single(name : VarName) -> FreeVars {
-  { set: @immut_hashset.HashSet::new().add(name), }
+  { set: @immut_hashset.HashSet::empty().insert(name), }
 }
 
 ///|

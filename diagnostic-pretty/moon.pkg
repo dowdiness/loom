@@ -4,7 +4,3 @@ import {
   "dowdiness/moji",
   "moonbitlang/core/debug",
 }
-
-options(
-  is_main: false,
-)

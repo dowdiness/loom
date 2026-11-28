@@ -1,4 +1,6 @@
 ///|
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn eval_to_result(env : Env, term : @ast.Term) -> Result[Value, StuckReason] {
   try eval(env, term) catch {
     reason => Err(reason)
@@ -8,6 +10,8 @@ fn eval_to_result(env : Env, term : @ast.Term) -> Result[Value, StuckReason] {
 }
 
 ///|
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn eval_to_result_with_fuel(
   env : Env,
   term : @ast.Term,

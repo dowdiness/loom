@@ -4,8 +4,22 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ## Unreleased
 
+### Changed
+
+- Target MoonBit compiler/core `1.0.0-rc1+3c0520448` in CI and agent setup,
+  with current iterator/set APIs and warning-clean lexer tests.
+- Correct Markdown list-item padding: padded headings, quotes, ordered lists,
+  fences and HTML become nested blocks; five or more padding columns produce
+  indented code. Also fix tab-indented nested quotes, dash/backtick paragraph
+  continuations and empty nested list items.
+- Keep incremental parsing consistent with a full parse when emptying the first
+  list item or absorbing lazy continuation lines into the last item.
+
 ### Added
 
+- Mode-lexer factories accept `resumable_mode`; `ModeRelexState` accepts
+  `resume_index` and exposes `resume_index()` so edits can restart at a
+  language's safe lexical boundary.
 - `Parser::attach_semantic` and the `SemanticAnalysis`, `SemanticDecision`,
   `SemanticStatus`, `SemanticSnapshot`, `SemanticAccepted`, `SemanticObservation`
   and `SemanticChange` APIs. Core publishes a semantic value and matching source

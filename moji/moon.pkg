@@ -2,7 +2,3 @@ import {
   "moonbit-community/unicodewidth",
   "moonbitlang/core/debug",
 }
-
-options(
-  is_main: false,
-)

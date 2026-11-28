@@ -180,7 +180,7 @@ pub fn grapheme_boundaries(text : String) -> Array[Int32] {
 pub fn grapheme_clusters(text : String) -> Iter[(Int32, Int32)] {
   let bs = grapheme_boundaries(text)
   let mut idx = 0
-  Iter::new(fn() {
+  Iter(fn() {
     if idx + 1 >= bs.length() {
       None
     } else {

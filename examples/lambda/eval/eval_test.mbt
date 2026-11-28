@@ -1,4 +1,6 @@
 ///|
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn eval_to_result(
   env : @eval.Env,
   term : @ast.Term,
