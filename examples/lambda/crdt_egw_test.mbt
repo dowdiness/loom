@@ -50,24 +50,31 @@ fn EgwPeer::new(
 
 ///|
 /// Insert text into the local doc and drive the incremental parser.
-fn EgwPeer::local_insert(self : EgwPeer, pos : @egw.Pos, text : String) -> Unit {
+fn EgwPeer::local_insert(
+  self : EgwPeer,
+  pos : @egw.Pos,
+  text : String,
+) -> Unit raise @egw.TextError {
   let old_text = self.doc.text()
-  try {
-    let _ = self.doc.insert(pos, text)
-  } catch {
-    _ => return
-  }
+  self.doc.insert(pos, text)
   drive_parser_update(self.parser, old_text, self.doc.text())
 }
 
 ///|
 /// Apply a SyncMessage to the local doc, compute the resulting TextDelta,
 /// and drive the incremental parser with those edits.
-fn EgwPeer::bridge_sync(self : EgwPeer, message : @egw.SyncMessage) -> Unit {
+fn EgwPeer::bridge_sync(
+  self : EgwPeer,
+  message : @egw.SyncMessage,
+) -> Unit raise @egw.TextError {
   let old_text = self.doc.text()
-  let session = self.doc.sync()
-  let _ = session.apply(message) catch { _ => return }
-  drive_parser_update(self.parser, old_text, self.doc.text())
+  let transition = self.doc.sync().apply_transition(message)
+  match transition.publication() {
+    @egw.TextPublication::Exact(_) | @egw.TextPublication::SnapshotRequired =>
+      drive_parser_update(self.parser, old_text, self.doc.text())
+    @egw.TextPublication::Unavailable(error) => raise error
+  }
+  ignore(transition.report())
 }
 
 ///|

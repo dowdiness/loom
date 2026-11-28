@@ -514,7 +514,7 @@ test "mode relex: relex that reaches the end keeps EOF" {
 /// Line-context mock: the first character of a line lexes as `Head`; every
 /// later character lexes as `Marked` when its line contains `!` anywhere and
 /// as `Plain` otherwise. `Rest` tokens therefore read their whole line.
-#derive(Eq, Debug)
+#derive(Eq)
 priv enum LineMode {
   Start
   Rest

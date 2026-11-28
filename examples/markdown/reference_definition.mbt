@@ -30,7 +30,7 @@ priv struct LinkReferenceDefinitionTable {
 
 ///|
 fn LinkReferenceDefinitionTable::empty() -> LinkReferenceDefinitionTable {
-  { entries: @hashmap.HashMap::new(), }
+  { entries: @hashmap.HashMap::empty(), }
 }
 
 ///|
@@ -57,7 +57,7 @@ fn LinkReferenceDefinitionTable::insert_first(
   if self.lookup(definition.normalized_label) is Some(_) {
     self
   } else {
-    { entries: self.entries.add(definition.normalized_label, definition), }
+    { entries: self.entries.insert(definition.normalized_label, definition), }
   }
 }
 

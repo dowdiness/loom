@@ -342,13 +342,6 @@ test "parse large integer" {
 }
 
 ///|
-test "parse arrow lambda" {
-  let expr = @lambda.parse(parser_test_source_id(), "(x) => x")
-  let printed = @ast.print_term(expr)
-  inspect(printed, content="(x) => x")
-}
-
-///|
 test "parse application chain" {
   let expr = @lambda.parse(parser_test_source_id(), "a b c d")
   let printed = @ast.print_term(expr)

@@ -8,7 +8,7 @@ import {
   "dowdiness/pretty@0.1.0",
   "dowdiness/seam@0.1.0",
   "dowdiness/incr@0.16.0",
-  "dowdiness/event-graph-walker@0.10.0",
+  "dowdiness/event-graph-walker@0.11.0",
   "moonbitlang/quickcheck@0.15.1",
 }
 

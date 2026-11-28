@@ -172,7 +172,7 @@ fn resolve_binding_from(
   if visited.contains(scope) {
     return None
   }
-  visited.add(scope)
+  visited.insert(scope)
   match nearest_completed_let(scope, name, defs, syntax, call_start) {
     Some(d) => return Some(d)
     None => ()

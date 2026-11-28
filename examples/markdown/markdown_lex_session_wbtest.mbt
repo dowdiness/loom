@@ -323,3 +323,33 @@ test "integrated stateless replay control: 1024 lines" (b : @bench.T) {
   let positions = session_test_line_starts(source)
   b.bench(() => b.keep(stateless_replay_workload(source, positions)))
 }
+
+///|
+test "incremental: production marker delimiter relex matches detached tokenize" {
+  let source_id = @core.SourceId("markdown-incremental-marker-relex")
+  let source = "1. one\n2. two\n"
+  let new_source = "1. one\n2) two\n"
+  let edit : @core.Edit = {
+    start: "1. one\n2".length(),
+    old_len: ".".length(),
+    new_len: ")".length(),
+  }
+  let buffer = @core.TokenBuffer::new_from_mode_relex(
+    source_id,
+    source,
+    factory=mode_factory,
+    eof_token=EOF,
+  )
+  buffer.update(edit, new_source)
+  let full = mode_factory.tokenize(source_id, new_source)
+  inspect(buffer.get_tokens() == full.tokens(), content="true")
+  inspect(buffer.get_starts() == full.starts(), content="true")
+  for i in 0..<buffer.token_count() {
+    let start = full.starts()[i]
+    let end = start + full.tokens()[i].len
+    inspect(
+      buffer.get_view(i) == new_source.legacy_view(start~, end~),
+      content="true",
+    )
+  }
+}

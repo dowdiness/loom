@@ -5,6 +5,3 @@ import {
   "moonbitlang/core/debug",
 }
 
-options(
-  is_main: false,
-)

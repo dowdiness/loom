@@ -112,7 +112,7 @@ fn push_children_reversed(
 fn direct_elements_iter_flat(children : Array[CstElement]) -> Iter[CstElement] {
   let stack : Array[CstElement] = []
   push_children_reversed(stack, children)
-  Iter::new(() => {
+  Iter(() => {
     while !stack.is_empty() {
       // Safety: is_empty() check above guarantees stack is non-empty.
       let current = stack.unsafe_pop()
@@ -166,7 +166,7 @@ pub fn CstNode::each(self : CstNode, f : (CstElement) -> Bool) -> Bool {
 /// (`.filter`, `.find_first`, `.take`, etc.).
 pub fn CstElement::iter(self : CstElement) -> Iter[CstElement] {
   let stack : Array[CstElement] = [self]
-  Iter::new(() => {
+  Iter(() => {
     if stack.is_empty() {
       return None
     }

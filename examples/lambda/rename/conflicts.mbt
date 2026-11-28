@@ -153,7 +153,7 @@ fn resolve_binding_after_target_rename_from(
   if visited.contains(scope) {
     return None
   }
-  visited.add(scope)
+  visited.insert(scope)
   match
     nearest_completed_let_after_target_rename(
       scope, target, new_name, defs, syntax, call_start,

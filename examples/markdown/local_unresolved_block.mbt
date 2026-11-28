@@ -464,9 +464,9 @@ fn resolve_local_block(
   plan : LocalBlockPlan,
   lookup : (String) -> LinkReferenceDefinition?,
 ) -> ResolvedLocalBlock {
-  let mut reference_candidate_indices : @hashmap.HashMap[String, Int32] = @hashmap.HashMap::new()
+  let mut reference_candidate_indices : @hashmap.HashMap[String, Int32] = @hashmap.HashMap::empty()
   for index, candidate in plan.reference_candidates {
-    reference_candidate_indices = reference_candidate_indices.add(
+    reference_candidate_indices = reference_candidate_indices.insert(
       candidate.placeholder,
       index,
     )

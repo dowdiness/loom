@@ -86,7 +86,7 @@ const PROPERTY_TRIALS : Int32 = 200
 
 ///|
 test "property: Canonical preserves kind" {
-  let rs = @splitmix.new(seed=0x1234_5678_9ABC_DEF0UL)
+  let rs = @splitmix.RandomState(seed=0x1234_5678_9ABC_DEF0UL)
   for _ in 0..<PROPERTY_TRIALS {
     let v = gen_json(rs.split(), 3)
     if !@core.TreeNode::same_kind(v, @core.Canonical::canonical(v)) {
@@ -97,7 +97,7 @@ test "property: Canonical preserves kind" {
 
 ///|
 test "property: Canonical is idempotent" {
-  let rs = @splitmix.new(seed=0x1234_5678_9ABC_DEF0UL)
+  let rs = @splitmix.RandomState(seed=0x1234_5678_9ABC_DEF0UL)
   for _ in 0..<PROPERTY_TRIALS {
     let v = gen_json(rs.split(), 3)
     let c = @core.Canonical::canonical(v)
@@ -109,7 +109,7 @@ test "property: Canonical is idempotent" {
 
 ///|
 test "property: default_placeholder_via_canonical matches frozen reference" {
-  let rs = @splitmix.new(seed=0x1234_5678_9ABC_DEF0UL)
+  let rs = @splitmix.RandomState(seed=0x1234_5678_9ABC_DEF0UL)
   for _ in 0..<PROPERTY_TRIALS {
     let v = gen_json(rs.split(), 3)
     match hand_written_placeholder_reference(v) {

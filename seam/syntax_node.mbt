@@ -246,7 +246,7 @@ pub fn SyntaxNode::direct_elements_iter(
 ) -> Iter[SyntaxElement] {
   let iter = self.cst.direct_elements_iter()
   let mut pos = self.offset
-  Iter::new(() => {
+  Iter(() => {
     match iter.next() {
       Some(CstElement::Node(child)) => {
         let elem = SyntaxElement::Node(SyntaxNode::new(child, Some(self), pos))
@@ -699,7 +699,7 @@ fn push_positioned_reversed(
 pub fn SyntaxNode::deep_tokens_iter(self : SyntaxNode) -> Iter[SyntaxToken] {
   let stack : Array[(CstElement, Int32)] = []
   push_positioned_reversed(stack, self.cst.children, self.end())
-  Iter::new(() => {
+  Iter(() => {
     for ;; {
       match stack.pop() {
         None => return None

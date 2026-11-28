@@ -381,38 +381,6 @@ test "incremental: ordered list marker boundary edits match full parse" {
 }
 
 ///|
-test "incremental: ordered marker delimiter relex matches detached tokenize" {
-  let source_id = @core.SourceId("markdown-incremental-marker-relex")
-  let source = "1. one\n2. two\n"
-  let new_source = "1. one\n2) two\n"
-  let edit = @core.Edit::new("1. one\n2".length(), ".".length(), ")".length())
-  let factory = @core.erase_mode_lexer(
-    @markdown.markdown_mode_lexer,
-    @markdown.Token::EOF,
-    error_token=@markdown.Token::Error("lex error"),
-    error_token_from_message=Some(msg => @markdown.Token::Error(msg)),
-  )
-  let buffer = @core.TokenBuffer::new_from_mode_relex(
-    source_id,
-    source,
-    factory~,
-    eof_token=@markdown.Token::EOF,
-  )
-  buffer.update(edit, new_source)
-  let full = factory.tokenize(source_id, new_source)
-  inspect(buffer.get_tokens() == full.tokens(), content="true")
-  inspect(buffer.get_starts() == full.starts(), content="true")
-  for i in 0..<buffer.token_count() {
-    let start = full.starts()[i]
-    let end = start + full.tokens()[i].len
-    inspect(
-      buffer.get_view(i) == new_source.legacy_view(start~, end~),
-      content="true",
-    )
-  }
-}
-
-///|
 test "incremental: list marker indentation edits match full parse" {
   assert_markdown_incremental_edit_matches_full_parse(
     @core.SourceId("markdown-incremental-test-document"),
